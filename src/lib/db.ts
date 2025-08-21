@@ -1,16 +1,13 @@
 // src/lib/db.ts
-import pkg from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
 
-// Works even if TS can't find named exports
-const { PrismaClient } = pkg;
-type PrismaClient = pkg.PrismaClient;
-
-const globalForPrisma = globalThis as unknown as {
-  prisma?: PrismaClient;
-};
+declare global {
+  // eslint-disable-next-line no-var
+  var __prisma: PrismaClient | undefined;
+}
 
 export const prisma =
-  globalForPrisma.prisma ??
+  global.__prisma ??
   new PrismaClient({
     log:
       process.env.NODE_ENV === "development"
@@ -19,5 +16,5 @@ export const prisma =
   });
 
 if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
+  global.__prisma = prisma;
 }
