@@ -1,5 +1,9 @@
 // src/lib/db.ts
-import { PrismaClient } from "@prisma/client";
+import pkg from "@prisma/client";
+
+// Works even if TS can't find named exports
+const { PrismaClient } = pkg;
+type PrismaClient = pkg.PrismaClient;
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
@@ -14,7 +18,6 @@ export const prisma =
         : ["error"],
   });
 
-// Prevent multiple instances of Prisma Client in development (hot-reload safe)
 if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;
 }

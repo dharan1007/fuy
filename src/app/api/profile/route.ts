@@ -4,6 +4,8 @@ import { prisma } from "../../../lib/db";
 import { requireUserId } from "../../../lib/session";
 import { z } from "zod";
 
+export const runtime = "nodejs";
+
 /** Helpers to normalize empty values */
 const toUndef = (v: unknown) =>
   typeof v === "string" && v.trim() === "" ? undefined : v;
@@ -14,8 +16,8 @@ const toNullIfEmpty = (v: unknown) =>
 
 /** Allow absolute URL, relative "/path", or data URL */
 const RelativeOrAbsUrl = z.union([
-  z.string().url().max(500),                 // https://...
-  z.string().regex(/^\/[^\s]*$/).max(500),   // /uploads/abc.jpg
+  z.string().url().max(500), // https://...
+  z.string().regex(/^\/[^\s]*$/).max(500), // /uploads/abc.jpg
   z.string().regex(/^data:/).max(2_000_000), // data:image/png;base64,...
 ]);
 
@@ -28,12 +30,12 @@ const ProfileInput = z.object({
   // accept array of strings or comma-separated string
   tags: z
     .preprocess(
-      (v) => {
-        if (Array.isArray(v)) return v.map((s) => String(s));
+      (v: unknown) => {
+        if (Array.isArray(v)) return v.map((s: unknown) => String(s));
         if (typeof v === "string") {
           return v
             .split(",")
-            .map((s) => s.trim())
+            .map((s: string) => s.trim())
             .filter(Boolean);
         }
         return undefined;
@@ -44,8 +46,8 @@ const ProfileInput = z.object({
 });
 
 /** Keep only defined keys (null is allowed) */
-function compact<T extends Record<string, any>>(obj: T): Partial<T> {
-  const out: Record<string, any> = {};
+function compact<T extends Record<string, unknown>>(obj: T): Partial<T> {
+  const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(obj)) {
     if (v !== undefined) out[k] = v;
   }
@@ -55,13 +57,22 @@ function compact<T extends Record<string, any>>(obj: T): Partial<T> {
 /** GET profile */
 export async function GET() {
   const userId = await requireUserId().catch(() => null);
-  if (!userId) return NextResponse.json({ ok: false, error: "UNAUTHENTICATED" }, { status: 401 });
+  if (!userId) {
+    return NextResponse.json({ ok: false, error: "UNAUTHENTICATED" }, { status: 401 });
+  }
 
   const profile = await prisma.profile.findUnique({ where: { userId } });
+
   // For convenience, expand tags string -> array in response
   const result =
     profile && typeof profile.tags === "string"
-      ? { ...profile, tags: profile.tags.split(",").map((s) => s.trim()).filter(Boolean) }
+      ? {
+          ...profile,
+          tags: profile.tags
+            .split(",")
+            .map((s: string) => s.trim())
+            .filter(Boolean),
+        }
       : profile;
 
   return NextResponse.json({ ok: true, profile: result });
@@ -70,7 +81,9 @@ export async function GET() {
 /** POST upsert profile */
 export async function POST(req: Request) {
   const userId = await requireUserId().catch(() => null);
-  if (!userId) return NextResponse.json({ ok: false, error: "UNAUTHENTICATED" }, { status: 401 });
+  if (!userId) {
+    return NextResponse.json({ ok: false, error: "UNAUTHENTICATED" }, { status: 401 });
+  }
 
   let parsed: z.infer<typeof ProfileInput>;
   try {
@@ -97,7 +110,13 @@ export async function POST(req: Request) {
     // expand tags back to array for client convenience
     const result =
       profile && typeof profile.tags === "string"
-        ? { ...profile, tags: profile.tags.split(",").map((s) => s.trim()).filter(Boolean) }
+        ? {
+            ...profile,
+            tags: profile.tags
+              .split(",")
+              .map((s: string) => s.trim())
+              .filter(Boolean),
+          }
         : profile;
 
     return NextResponse.json({ ok: true, profile: result });

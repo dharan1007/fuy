@@ -30,16 +30,16 @@ const FEAT = new Set<FeatureKeyStr>([
 const VIS = new Set<VisibilityStr>(["PUBLIC", "FRIENDS", "PRIVATE"]);
 const MT = new Set<MediaTypeStr>(["IMAGE", "VIDEO", "AUDIO"]);
 
-const asFeat = (v: any): FeatureKeyStr => {
-  const s = String(v || "").toUpperCase();
+const asFeat = (v: unknown): FeatureKeyStr => {
+  const s = String(v ?? "").toUpperCase();
   return (FEAT.has(s as FeatureKeyStr) ? s : "OTHER") as FeatureKeyStr;
 };
-const asVis = (v: any): VisibilityStr => {
-  const s = String(v || "").toUpperCase();
+const asVis = (v: unknown): VisibilityStr => {
+  const s = String(v ?? "").toUpperCase();
   return (VIS.has(s as VisibilityStr) ? s : "PUBLIC") as VisibilityStr;
 };
-const asMT = (v: any): MediaTypeStr => {
-  const s = String(v || "").toUpperCase();
+const asMT = (v: unknown): MediaTypeStr => {
+  const s = String(v ?? "").toUpperCase();
   return (MT.has(s as MediaTypeStr) ? s : "IMAGE") as MediaTypeStr;
 };
 
@@ -78,17 +78,21 @@ export async function POST(req: NextRequest) {
     },
     include: {
       media: true,
-      user: { select: { id: true, email: true, profile: { select: { displayName: true, avatarUrl: true } } } },
+      user: {
+        select: {
+          id: true,
+          email: true,
+          profile: { select: { displayName: true, avatarUrl: true } },
+        },
+      },
       group: { select: { id: true, name: true } },
     },
   });
 
   const contribs: { category: "JOY" | "CONNECTION" | "CREATIVITY"; value: number }[] = [];
   if (joyScore) contribs.push({ category: "JOY", value: Math.max(-10, Math.min(10, joyScore)) });
-  if (connectionScore)
-    contribs.push({ category: "CONNECTION", value: Math.max(-10, Math.min(10, connectionScore)) });
-  if (creativityScore)
-    contribs.push({ category: "CREATIVITY", value: Math.max(-10, Math.min(10, creativityScore)) });
+  if (connectionScore) contribs.push({ category: "CONNECTION", value: Math.max(-10, Math.min(10, connectionScore)) });
+  if (creativityScore) contribs.push({ category: "CREATIVITY", value: Math.max(-10, Math.min(10, creativityScore)) });
 
   if (contribs.length) {
     await prisma.happinessScore.createMany({
@@ -110,7 +114,8 @@ export async function GET(req: NextRequest) {
   const scope = (searchParams.get("scope") ?? "public").toLowerCase();
   const groupId = searchParams.get("groupId");
 
-  const where: any = {};
+  // use a safe, non-any accumulator for where conditions
+  const where: Record<string, unknown> = {};
   if (groupId) where.groupId = groupId;
 
   if (scope === "me") {
@@ -126,11 +131,16 @@ export async function GET(req: NextRequest) {
       select: { userId: true, friendId: true },
     });
 
+    // infer element type from the actual query result
+    type FriendRow = typeof friends[number];
+
     const ids = new Set<string>([userId]);
-    friends.forEach((f) => ids.add(f.userId === userId ? f.friendId : f.userId));
+    friends.forEach((f: FriendRow) => {
+      ids.add(f.userId === userId ? f.friendId : f.userId);
+    });
 
     where.userId = { in: [...ids] };
-    where.visibility = { in: ["FRIENDS", "PUBLIC"] };
+    where.visibility = { in: ["FRIENDS", "PUBLIC"] as VisibilityStr[] };
   } else {
     where.visibility = "PUBLIC";
   }
@@ -140,7 +150,13 @@ export async function GET(req: NextRequest) {
     orderBy: { createdAt: "desc" },
     include: {
       media: true,
-      user: { select: { id: true, email: true, profile: { select: { displayName: true, avatarUrl: true } } } },
+      user: {
+        select: {
+          id: true,
+          email: true,
+          profile: { select: { displayName: true, avatarUrl: true } },
+        },
+      },
       group: { select: { id: true, name: true } },
     },
     take: 50,

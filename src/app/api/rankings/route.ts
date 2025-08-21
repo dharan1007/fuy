@@ -2,6 +2,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "../../../lib/db";
 
+export const runtime = "nodejs";
+
 export async function GET() {
   // Sum scores per user across categories (toy example)
   const rows = await prisma.happinessScore.groupBy({
@@ -11,13 +13,32 @@ export async function GET() {
     take: 50,
   });
 
-  const users = await prisma.user.findMany({
-    where: { id: { in: rows.map((r) => r.userId) } },
-    select: { id: true, name: true, profile: { select: { displayName: true } } },
-  });
-  const lookup = new Map(users.map((u) => [u.id, u]));
+  // Inferred type for one grouped row
+  type Row = typeof rows[number];
 
-  const items = rows.map((r) => {
+  // Collect userIds with typed callback
+  const userIds = rows.map((r: Row) => r.userId);
+
+  // Fetch minimal user info
+  const users = await prisma.user.findMany({
+    where: { id: { in: userIds } },
+    select: {
+      id: true,
+      name: true,
+      profile: { select: { displayName: true } },
+    },
+  });
+
+  // Inferred type for one user row
+  type UserRow = typeof users[number];
+
+  // Explicitly type the Map so lookup.get(...) returns UserRow | undefined
+  const lookup: Map<string, UserRow> = new Map(
+    users.map((u: UserRow) => [u.id, u] as [string, UserRow])
+  );
+
+  // Compose response items (fully typed)
+  const items = rows.map((r: Row) => {
     const u = lookup.get(r.userId);
     return {
       userId: r.userId,
@@ -27,5 +48,8 @@ export async function GET() {
     };
   });
 
-  return NextResponse.json(items);
+  return NextResponse.json(items, {
+    status: 200,
+    headers: { "Cache-Control": "no-store, max-age=0" },
+  });
 }
