@@ -3,19 +3,18 @@ import { NextResponse } from "next/server";
 import { prisma } from "../../../lib/db";
 import { requireUserId } from "../../../lib/session";
 
-export const runtime = "nodejs"; // or "edge" if your prisma setup supports it
+export const runtime = "nodejs"; // Prisma works on the Node.js runtime
 
 export async function GET() {
   try {
     const userId = await requireUserId().catch(() => null);
+
     if (!userId) {
       return NextResponse.json(
         { friends: [] },
         {
           status: 200,
-          headers: {
-            "Cache-Control": "no-store, max-age=0",
-          },
+          headers: { "Cache-Control": "no-store, max-age=0" },
         }
       );
     }
@@ -32,8 +31,8 @@ export async function GET() {
       orderBy: { createdAt: "desc" },
     });
 
-    // Normalize to "the other person" for the caller.
-    const list = rows.map((r) => {
+    // Explicitly type r using the inferred element type of rows
+    const list = rows.map((r: typeof rows[number]) => {
       const other = r.userId === userId ? r.friend : r.user;
       return {
         id: r.id,
@@ -44,7 +43,7 @@ export async function GET() {
         friend: {
           id: other.id,
           name: other.name,
-          // Keep nullable shape for the UI (displayName / avatarUrl optional)
+          // Keep nullable shape for UI
           profile: other.profile
             ? {
                 displayName: other.profile.displayName ?? null,
@@ -59,13 +58,10 @@ export async function GET() {
       { friends: list },
       {
         status: 200,
-        headers: {
-          "Cache-Control": "no-store, max-age=0",
-        },
+        headers: { "Cache-Control": "no-store, max-age=0" },
       }
     );
-  } catch (err) {
-    // Minimal, JSON-only error (prevents big HTML error bodies)
+  } catch {
     return NextResponse.json(
       { error: "Failed to load friends." },
       { status: 500 }
