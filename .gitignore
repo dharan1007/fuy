@@ -1,11 +1,11 @@
-# dependencies & caches
+# deps & caches
 node_modules/
 .ignored_node_modules/
 .pnpm-store/
 .pnp.*
 .bazel-cache/
 
-# next.js
+# Next.js / builds
 .next/
 out/
 dist/
@@ -17,7 +17,7 @@ yarn-debug.log*
 pnpm-debug.log*
 *.log
 
-# coverage & misc
+# test/coverage & misc
 coverage/
 .DS_Store
 Thumbs.db
