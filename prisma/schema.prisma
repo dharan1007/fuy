@@ -1,0 +1,313 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// NOTE: SQLite has no native enums in Prisma.
+// We model "enums" as STRING columns with defaults
+// and validate allowed values in application code.
+// For structured data (blocks, tags, sensations, meta) we store JSON strings
+// in TEXT columns (use plain String fields; SQLite maps them to TEXT).
+
+// ------------------------
+// Core User & Social Graph
+// ------------------------
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+
+  // Relations
+  profile         Profile?
+  posts           Post[]
+  media           Media[]
+  groupsOwned     Group[]             @relation("GroupsOwned")
+  groupMembers    GroupMember[]
+  friendshipsA    Friendship[]        @relation("A")
+  friendshipsB    Friendship[]        @relation("B")
+  happiness       HappinessScore[]
+  userValues      UserValue[]
+  bonds           BondBlueprint[]
+  drills          ConflictDrill[]
+  passkeys        PasskeyCredential[]
+  serendipityLogs SerendipityLog[]
+
+  // New: metrics back-relation
+  metrics Metric[]
+
+  // New: journaling & templates
+  journalEntries   JournalEntry[]
+  journalTemplates JournalTemplate[]
+
+  // Invites back-relation
+  invitesSent Invite[]
+}
+
+model Profile {
+  userId      String  @id
+  displayName String?
+  avatarUrl   String?
+  bio         String?
+  // Added to support your UI and API
+  location    String?
+  // Stored as comma-separated list for simplicity; parse/format in API
+  tags        String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Group {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  ownerId     String
+  createdAt   DateTime @default(now())
+
+  owner   User          @relation("GroupsOwned", fields: [ownerId], references: [id], onDelete: Cascade)
+  members GroupMember[]
+  posts   Post[]
+}
+
+model GroupMember {
+  id        String   @id @default(cuid())
+  userId    String
+  groupId   String
+  // Allowed: OWNER | ADMIN | MEMBER
+  role      String   @default("MEMBER")
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, groupId])
+}
+
+model Friendship {
+  id        String   @id @default(cuid())
+  userId    String
+  friendId  String
+  // Allowed: PENDING | ACCEPTED | BLOCKED
+  status    String   @default("PENDING")
+  createdAt DateTime @default(now())
+
+  user   User @relation("A", fields: [userId], references: [id], onDelete: Cascade)
+  friend User @relation("B", fields: [friendId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, friendId])
+}
+
+model Post {
+  id              String   @id @default(cuid())
+  userId          String
+  groupId         String?
+  // Allowed: JOURNAL | JOY | AWE | BONDS | SERENDIPITY | CHECKIN | PROGRESS | OTHER
+  feature         String   @default("OTHER")
+  content         String
+  // Allowed: PUBLIC | FRIENDS | PRIVATE
+  visibility      String   @default("PUBLIC")
+  joyScore        Int      @default(0)
+  connectionScore Int      @default(0)
+  creativityScore Int      @default(0)
+  createdAt       DateTime @default(now())
+
+  user  User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group Group?  @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  media Media[]
+}
+
+model Media {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  // Mirrors post feature: JOURNAL | JOY | ...
+  feature   String   @default("OTHER")
+  // Allowed: IMAGE | VIDEO | AUDIO
+  type      String
+  url       String
+  createdAt DateTime @default(now())
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model HappinessScore {
+  id        String   @id @default(cuid())
+  userId    String
+  // Allowed: JOY | CONNECTION | CREATIVITY
+  category  String
+  value     Int
+  // Source feature: JOURNAL | JOY | AWE | BONDS | SERENDIPITY | CHECKIN | PROGRESS | OTHER
+  source    String   @default("OTHER")
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Value {
+  id    String @id @default(cuid())
+  slug  String @unique
+  label String
+
+  userValues UserValue[]
+}
+
+model UserValue {
+  id      String @id @default(cuid())
+  userId  String
+  valueId String
+  rank    Int
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  value Value @relation(fields: [valueId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, valueId])
+}
+
+model BondBlueprint {
+  id         String   @id @default(cuid())
+  userId     String
+  personName String
+  goal       String?
+  notes      String?
+  createdAt  DateTime @default(now())
+
+  user   User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  drills ConflictDrill[]
+}
+
+model ConflictDrill {
+  id          String    @id @default(cuid())
+  userId      String
+  blueprintId String?
+  notes       String?
+  resolvedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  blueprint BondBlueprint? @relation(fields: [blueprintId], references: [id], onDelete: SetNull)
+}
+
+model PasskeyCredential {
+  id                  String  @id @default(cuid())
+  userId              String
+  credentialID        String  @unique // base64url
+  credentialPublicKey String // base64url
+  counter             Int     @default(0)
+  transports          String? // comma-separated list
+  aaguid              String? // optional
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model SerendipityLog {
+  id        String   @id @default(cuid())
+  userId    String
+  weekNum   Int
+  year      Int
+  packId    String?
+  completed Boolean  @default(false)
+  notes     String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, weekNum, year])
+}
+
+// New: Generic metrics table for stats from any feature (e.g., stress_avg_intensity, calm_index).
+// Stores a numeric value plus optional category. User is optional to allow anonymous.
+model Metric {
+  id        String   @id @default(cuid())
+  userId    String?
+  type      String
+  category  String?
+  value     Float
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([type, createdAt])
+  @@index([userId, type, createdAt])
+}
+
+// ------------------------
+// Journaling (Canvas + Templates)
+// ------------------------
+
+// A single journal entry. The canvas is saved in `blocks` as JSON string.
+// Keep `content` for quick previews / search; you can derive a summary in API.
+model JournalEntry {
+  id               String    @id @default(cuid())
+  userId           String
+  content          String
+  blocks           String? // JSON string: [{ id, type: "TEXT" | "IMAGE" | "VIDEO" | "AUDIO", ... }]
+  // Optional extras used by your UI (all optional to keep flexible)
+  mood             Int?
+  moodColor        String?
+  tags             String? // JSON string: ["gratitude","walk"]
+  sensations       String? // JSON string: [{ zone: "Chest", note: "tight" }]
+  meta             String? // JSON string: template blocks used, persona, etc.
+  unlockAt         DateTime?
+  shadowPassphrase String? // store hashed in API if sensitive
+  visibility       String    @default("PRIVATE") // if you ever expose journals themselves
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([visibility, createdAt])
+}
+
+// Reusable canvas templates users can publish or keep private.
+// Blocks are stored as JSON string in TEXT; owner is required.
+model JournalTemplate {
+  id          String  @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  visibility  String  @default("PRIVATE") // PUBLIC | PRIVATE
+  blocks      String // JSON string
+  author      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([visibility, createdAt])
+}
+
+// ------------------------
+// Invites (added)
+// ------------------------
+
+model Invite {
+  id         String    @id @default(cuid())
+  token      String    @unique
+  email      String?
+  username   String?
+  inviterId  String
+  status     String    @default("PENDING") // PENDING | ACCEPTED | REVOKED | EXPIRED
+  createdAt  DateTime  @default(now())
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  revokedAt  DateTime?
+
+  inviter User @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+
+  @@index([inviterId])
+  @@index([status, expiresAt])
+}
