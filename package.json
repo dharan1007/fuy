@@ -4,10 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3000",
-    "build": "next build",
-    "start": "next start -p 3000",
+    "build": "prisma generate && next build",
+    "start": "prisma migrate deploy && next start -p 3000",
     "lint": "eslint . --ext .ts,.tsx",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",
@@ -29,7 +30,7 @@
     "pdfkit": "0.15.0",
     "postcss": "8.4.40",
     "react": "18.2.0",
-    "react-dom": "18.3.1",
+    "react-dom": "18.2.0",
     "react-leaflet": "5.0.0",
     "react-markdown": "^10.1.0",
     "resend": "^6.0.1",
@@ -57,11 +58,9 @@
       "react-dom": "18.2.0",
       "@types/react": "18.2.73",
       "@types/react-dom": "18.2.25"
-    },
-    "ignoredBuiltDependencies": [
-      "@prisma/client",
-      "@prisma/engines",
-      "prisma"
-    ]
+    }
+  },
+  "engines": {
+    "node": ">=18.18 <21"
   }
 }
