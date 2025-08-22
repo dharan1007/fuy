@@ -1,4 +1,3 @@
-// src/app/api/diagnostics/env/route.ts
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const revalidate = 0;
@@ -12,10 +11,10 @@ export async function GET() {
     const safe = u
       ? {
           protocol: u.protocol,
-          user: u.username,          // should be: postgres.kuzwpzuulvpjdviwmptb
-          host: u.hostname,          // should be: aws-1-ap-south-1.pooler.supabase.com
-          port: u.port,              // should be: 5432 (session pooler) or 6543 (txn pooler)
-          db: u.pathname,            // /postgres
+          user: u.username,
+          host: u.hostname,
+          port: u.port,
+          db: u.pathname,
           hasSSLRequire: u.searchParams.get("sslmode") === "require",
           hasPgBouncer: u.searchParams.get("pgbouncer") === "true",
         }
