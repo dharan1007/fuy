@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "prisma generate && next build",
-    "start": "prisma migrate deploy && next start -p $PORT",
+    "start": "next start -p $PORT",
     "lint": "eslint . --ext .ts,.tsx",
     "prisma:studio": "prisma studio",
     "postinstall": "prisma generate"
