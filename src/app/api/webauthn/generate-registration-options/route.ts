@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { generateRegistrationOptions } from "@simplewebauthn/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db";
 
-// Shape we need from DB for excludeCredentials
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+export const revalidate = 0;
+
 type PasskeyIdRow = { id: string };
 
 export async function GET() {
-  // DEV user to avoid auth in local
   const email = "demo@fuy.local";
   let user = await prisma.user.findUnique({ where: { email } });
   if (!user) user = await prisma.user.create({ data: { email } });

@@ -1,11 +1,12 @@
 // src/app/api/rankings/route.ts
 import { NextResponse } from "next/server";
-import { prisma } from "../../../lib/db";
+import { prisma } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+export const revalidate = 0;
 
 export async function GET() {
-  // Sum scores per user across categories (toy example)
   const rows = await prisma.happinessScore.groupBy({
     by: ["userId"],
     _sum: { value: true },
@@ -13,13 +14,9 @@ export async function GET() {
     take: 50,
   });
 
-  // Inferred type for one grouped row
-  type Row = typeof rows[number];
-
-  // Collect userIds with typed callback
+  type Row = (typeof rows)[number];
   const userIds = rows.map((r: Row) => r.userId);
 
-  // Fetch minimal user info
   const users = await prisma.user.findMany({
     where: { id: { in: userIds } },
     select: {
@@ -29,15 +26,11 @@ export async function GET() {
     },
   });
 
-  // Inferred type for one user row
-  type UserRow = typeof users[number];
-
-  // Explicitly type the Map so lookup.get(...) returns UserRow | undefined
+  type UserRow = (typeof users)[number];
   const lookup: Map<string, UserRow> = new Map(
     users.map((u: UserRow) => [u.id, u] as [string, UserRow])
   );
 
-  // Compose response items (fully typed)
   const items = rows.map((r: Row) => {
     const u = lookup.get(r.userId);
     return {

@@ -3,10 +3,10 @@
 const nextConfig = {
   reactStrictMode: true,
   images: {
-    // add your domains if you load remote avatars
-    remotePatterns: [{ protocol: 'https', hostname: '**' }],
+    remotePatterns: [{ protocol: "https", hostname: "**" }],
   },
-  // no deprecated experimental keys
+  // IMPORTANT: build for SSR, not static export
+  output: "standalone",
 };
 
 export default nextConfig;

@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { generateAuthenticationOptions } from "@simplewebauthn/server";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db";
 
-// Shape we need from DB for allowCredentials
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+export const revalidate = 0;
+
 type PasskeyRow = { id: string; transports: string | null };
 
 export async function GET() {
@@ -22,7 +25,9 @@ export async function GET() {
     allowCredentials: creds.map((c: PasskeyRow) => ({
       id: Buffer.from(c.id, "base64url"),
       type: "public-key",
-      transports: c.transports ? (JSON.parse(c.transports) as AuthenticatorTransport[]) : undefined,
+      transports: c.transports
+        ? (JSON.parse(c.transports) as AuthenticatorTransport[])
+        : undefined,
     })),
     userVerification: "preferred",
   });
