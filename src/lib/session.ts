@@ -1,20 +1,19 @@
 // src/lib/session.ts
 import { getServerSession } from "next-auth";
-import { authOptions } from "./auth";
-import { prisma } from "./prisma";
+import { authOptions } from "@/lib/auth";
 
-export async function requireUserId(): Promise<string> {
-  // DEV BYPASS so you can click around locally
-  if (process.env.DEV_BYPASS_AUTH === "true") {
-    let user = await prisma.user.findFirst({ where: { email: "demo@fuy.local" } });
-    if (!user) user = await prisma.user.create({ data: { email: "demo@fuy.local" } });
-    return user.id;
-  }
-
+export async function getSessionUser() {
   const session = await getServerSession(authOptions);
-  const email = (session?.user as any)?.email as string | undefined;
-  if (!email) throw new Error("Not authenticated");
-  const user = await prisma.user.findUnique({ where: { email } });
-  if (!user) throw new Error("User not found");
+  return session?.user ?? null;
+}
+
+export async function requireUser() {
+  const user = await getSessionUser();
+  if (!user?.id) throw new Error("UNAUTHENTICATED");
+  return user;
+}
+
+export async function requireUserId() {
+  const user = await requireUser();
   return user.id;
 }

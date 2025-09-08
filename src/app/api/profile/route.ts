@@ -1,126 +1,140 @@
 // src/app/api/profile/route.ts
-import { NextResponse } from "next/server";
-import { prisma } from "../../../lib/db";
-import { requireUserId } from "../../../lib/session";
-import { z } from "zod";
-
 export const runtime = "nodejs";
 
-/** Helpers to normalize empty values */
-const toUndef = (v: unknown) =>
-  typeof v === "string" && v.trim() === "" ? undefined : v;
-const toNullIfEmpty = (v: unknown) =>
-  v === null || v === undefined || (typeof v === "string" && v.trim() === "")
-    ? null
-    : v;
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getSessionUser, requireUserId } from "@/lib/session";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 
-/** Allow absolute URL, relative "/path", or data URL */
-const RelativeOrAbsUrl = z.union([
-  z.string().url().max(500), // https://...
-  z.string().regex(/^\/[^\s]*$/).max(500), // /uploads/abc.jpg
-  z.string().regex(/^data:/).max(2_000_000), // data:image/png;base64,...
-]);
+const BUCKET = process.env.SUPABASE_PROFILE_BUCKET || "profiles";
 
-/** Input validator (matches updated Prisma model incl. location,tags) */
-const ProfileInput = z.object({
-  displayName: z.preprocess(toUndef, z.string().trim().min(1).max(80)).optional(),
-  bio: z.preprocess(toUndef, z.string().trim().max(280)).optional(),
-  avatarUrl: z.preprocess(toNullIfEmpty, RelativeOrAbsUrl).nullable().optional(),
-  location: z.preprocess(toUndef, z.string().trim().max(120)).optional(),
-  // accept array of strings or comma-separated string
-  tags: z
-    .preprocess(
-      (v: unknown) => {
-        if (Array.isArray(v)) return v.map((s: unknown) => String(s));
-        if (typeof v === "string") {
-          return v
-            .split(",")
-            .map((s: string) => s.trim())
-            .filter(Boolean);
-        }
-        return undefined;
-      },
-      z.array(z.string().trim().max(30))
-    )
-    .optional(),
-});
+async function uploadToStorage(userId: string, kind: "avatar" | "cover", file: File) {
+  const bytes = Buffer.from(await file.arrayBuffer());
+  const ext = (file.name.split(".").pop() || (kind === "avatar" ? "jpg" : "mp4")).toLowerCase();
+  const path = `${userId}/${kind}-${Date.now()}.${ext}`;
 
-/** Keep only defined keys (null is allowed) */
-function compact<T extends Record<string, unknown>>(obj: T): Partial<T> {
-  const out: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(obj)) {
-    if (v !== undefined) out[k] = v;
-  }
-  return out as Partial<T>;
-}
-
-/** GET profile */
-export async function GET() {
-  const userId = await requireUserId().catch(() => null);
-  if (!userId) {
-    return NextResponse.json({ ok: false, error: "UNAUTHENTICATED" }, { status: 401 });
-  }
-
-  const profile = await prisma.profile.findUnique({ where: { userId } });
-
-  // For convenience, expand tags string -> array in response
-  const result =
-    profile && typeof profile.tags === "string"
-      ? {
-          ...profile,
-          tags: profile.tags
-            .split(",")
-            .map((s: string) => s.trim())
-            .filter(Boolean),
-        }
-      : profile;
-
-  return NextResponse.json({ ok: true, profile: result });
-}
-
-/** POST upsert profile */
-export async function POST(req: Request) {
-  const userId = await requireUserId().catch(() => null);
-  if (!userId) {
-    return NextResponse.json({ ok: false, error: "UNAUTHENTICATED" }, { status: 401 });
-  }
-
-  let parsed: z.infer<typeof ProfileInput>;
-  try {
-    parsed = ProfileInput.parse(await req.json());
-  } catch {
-    return NextResponse.json({ ok: false, error: "INVALID_PAYLOAD" }, { status: 400 });
-  }
-
-  const data = compact({
-    displayName: parsed.displayName ?? undefined,
-    bio: parsed.bio ?? undefined,
-    avatarUrl: parsed.avatarUrl ?? undefined, // can be null to clear
-    location: parsed.location ?? undefined,
-    tags: parsed.tags ? parsed.tags.join(",") : undefined, // store as CSV
+  const { error } = await supabaseAdmin.storage.from(BUCKET).upload(path, bytes, {
+    contentType: file.type,
+    upsert: true,
   });
+  if (error) throw new Error(`Upload failed: ${error.message}`);
 
+  return supabaseAdmin.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+}
+
+// GET /api/profile
+export async function GET() {
   try {
-    const profile = await prisma.profile.upsert({
-      where: { userId },
-      update: data,
-      create: { userId, ...data },
+    const u = await getSessionUser();
+    if (!u?.id) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+
+    const userData = await prisma.user.findUnique({
+      where: { id: u.id },
+      select: {
+        name: true,
+        profile: {
+          select: {
+            displayName: true,
+            avatarUrl: true,
+            bio: true,
+            location: true,
+            tags: true,
+            coverVideoUrl: true,
+          },
+        },
+      },
     });
 
-    // expand tags back to array for client convenience
-    const result =
-      profile && typeof profile.tags === "string"
-        ? {
-            ...profile,
-            tags: profile.tags
-              .split(",")
-              .map((s: string) => s.trim())
-              .filter(Boolean),
-          }
-        : profile;
+    const [friendCount, postCount, posts] = await Promise.all([
+      prisma.friendship.count({
+        where: { status: "ACCEPTED", OR: [{ userId: u.id }, { friendId: u.id }] },
+      }),
+      prisma.post.count({ where: { userId: u.id } }),
+      prisma.post.findMany({
+        where: { userId: u.id },
+        orderBy: { createdAt: "desc" },
+        take: 12,
+        select: {
+          id: true,
+          content: true,
+          visibility: true,
+          feature: true,
+          createdAt: true,
+          media: { select: { type: true, url: true } },
+        },
+      }),
+    ]);
 
-    return NextResponse.json({ ok: true, profile: result });
-  } catch {
-    return NextResponse.json({ ok: false, error: "DB_ERROR" }, { status: 500 });
+    return NextResponse.json({
+      name: userData?.name ?? null,
+      profile: userData?.profile ?? null,
+      stats: { friends: friendCount, posts: postCount },
+      posts,
+    });
+  } catch (e: any) {
+    return NextResponse.json({ error: e?.message ?? "Failed to load profile" }, { status: 500 });
+  }
+}
+
+// PUT /api/profile (multipart form: text + files)
+export async function PUT(req: Request) {
+  try {
+    const userId = await requireUserId();
+
+    const ct = req.headers.get("content-type") || "";
+    if (!ct.includes("multipart/form-data")) {
+      return NextResponse.json({ error: "Send as multipart/form-data" }, { status: 400 });
+    }
+
+    const form = await req.formData();
+    const name = (form.get("name") as string) || undefined;
+    const displayName = (form.get("displayName") as string) || undefined;
+    const bio = (form.get("bio") as string) || undefined;
+    const location = (form.get("location") as string) || undefined;
+    const tags = (form.get("tags") as string) || undefined;
+    const avatar = form.get("avatar") as File | null;
+    const cover = form.get("cover") as File | null;
+
+    let avatarUrl: string | undefined;
+    let coverVideoUrl: string | undefined;
+
+    if (avatar && typeof avatar !== "string") {
+      avatarUrl = await uploadToStorage(userId, "avatar", avatar);
+    }
+    if (cover && typeof cover !== "string") {
+      coverVideoUrl = await uploadToStorage(userId, "cover", cover);
+    }
+
+    if (typeof name === "string") {
+      await prisma.user.update({ where: { id: userId }, data: { name } });
+    }
+
+    await prisma.profile.upsert({
+      where: { userId },
+      create: {
+        userId,
+        displayName: displayName ?? null,
+        bio: bio ?? null,
+        location: location ?? null,
+        tags: tags ?? null,
+        ...(avatarUrl ? { avatarUrl } : {}),
+        ...(coverVideoUrl ? { coverVideoUrl } : {}),
+      },
+      update: {
+        displayName: displayName ?? null,
+        bio: bio ?? null,
+        location: location ?? null,
+        tags: tags ?? null,
+        ...(avatarUrl ? { avatarUrl } : {}),
+        ...(coverVideoUrl ? { coverVideoUrl } : {}),
+      },
+    });
+
+    return NextResponse.json({ ok: true, avatarUrl, coverVideoUrl });
+  } catch (e: any) {
+    if (e?.message === "UNAUTHENTICATED") {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+    return NextResponse.json({ error: e?.message ?? "Failed to save profile" }, { status: 500 });
   }
 }

@@ -36,10 +36,15 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => ({} as any));
     const email = typeof body.email === "string" ? body.email.trim() : "";
     const username =
-      typeof body.username === "string" ? body.username.trim().replace(/^@/, "") : "";
+      typeof body.username === "string"
+        ? body.username.trim().replace(/^@/, "")
+        : "";
 
     if (!email && !username) {
-      return NextResponse.json({ error: "Provide email or username." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Provide email or username." },
+        { status: 400 }
+      );
     }
     if (email && !isValidEmail(email)) {
       return NextResponse.json({ error: "Invalid email." }, { status: 400 });
@@ -49,9 +54,17 @@ export async function POST(req: Request) {
     const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 48); // 48h
 
     await prisma.invite.create({
-      data: { token, email: email || null, username: username || null, inviterId, expiresAt, status: "PENDING" },
+      data: {
+        token,
+        email: email || null,
+        username: username || null,
+        inviterId,
+        expiresAt,
+        status: "PENDING",
+      },
     });
 
+    // Uses the (req, path) overload
     const link = absoluteUrl(req, `/join?token=${token}`);
 
     if (email) {
@@ -69,6 +82,9 @@ export async function POST(req: Request) {
 
     return new NextResponse(null, { status: 204 });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Server error while sending invite." }, { status: 500 });
+    return NextResponse.json(
+      { error: e?.message || "Server error while sending invite." },
+      { status: 500 }
+    );
   }
 }

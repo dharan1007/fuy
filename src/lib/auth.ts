@@ -1,41 +1,91 @@
+// src/lib/auth.ts
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import type { NextAuthOptions } from "next-auth";
 import EmailProvider from "next-auth/providers/email";
-import { prisma } from "./prisma";
+import Credentials from "next-auth/providers/credentials";
+import { prisma } from "@/lib/prisma";
+import { baseUrl } from "@/lib/base-url";
+import { sendMail } from "@/lib/mailer";
+import { jwtVerify } from "jose";
+
+const secret = process.env.NEXTAUTH_SECRET!;
+const enc = new TextEncoder();
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
+  session: { strategy: "jwt" },
+  secret,
+  pages: {
+    signIn: "/join",
+  },
   providers: [
     EmailProvider({
-      server: {
-        host: process.env.EMAIL_SERVER_HOST!,
-        port: Number(process.env.EMAIL_SERVER_PORT || 1025),
-        auth: { user: "", pass: "" }
+  from: process.env.EMAIL_FROM,
+  async sendVerificationRequest({ identifier, url, expires }) {
+    const host = new URL(baseUrl()).host;
+    const subject = `Sign in to ${host}`;
+    const text = `Hi!
+
+Click the link below to sign in:
+
+${url}
+
+This link expires at ${expires.toLocaleString()}.
+
+If you didn’t request this, you can ignore this email.`;
+    await sendMail({ to: identifier, subject, text });
+  },
+}),
+
+    Credentials({
+      name: "Passkey",
+      credentials: {
+        loginToken: { label: "loginToken", type: "text" },
       },
-      from: process.env.EMAIL_FROM
-    })
+      async authorize(creds) {
+        const loginToken = creds?.loginToken as string | undefined;
+        if (!loginToken) return null;
+
+        try {
+          const { payload } = await jwtVerify(loginToken, enc.encode(secret), {
+            issuer: "fuy",
+            audience: "fuy",
+          });
+          const uid = payload?.uid as string | undefined;
+          if (!uid) return null;
+
+          const user = await prisma.user.findUnique({ where: { id: uid } });
+          return user ?? null;
+        } catch {
+          return null;
+        }
+      },
+    }),
   ],
-  session: { strategy: "jwt" },
   callbacks: {
-    async signIn({ user }) {
-      if (!user?.email) return false;
-      // ensure user exists (adapter will usually do this)
-      await prisma.user.upsert({
-        where: { email: user.email },
-        update: {},
-        create: { email: user.email }
-      });
-      return true;
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id;
+        if (user.name) token.name = user.name;
+        if (user.email) token.email = user.email;
+      }
+      return token;
     },
-    async session({ session }) {
-      if (session?.user?.email) {
-        const u = await prisma.user.findUnique({ where: { email: session.user.email } });
-        if (u) (session as any).userId = u.id;
+    async session({ session, token }) {
+      if (session.user && token?.id) {
+        (session.user as any).id = token.id as string;
       }
       return session;
-    }
+    },
   },
-  pages: {
-    signIn: "/api/auth/signin"
-  }
+  events: {
+    async createUser({ user }) {
+      // Ensure profile exists
+      try {
+        await prisma.profile.create({
+          data: { userId: user.id, displayName: user.name ?? null },
+        });
+      } catch { /* ignore if exists */ }
+    },
+  },
 };

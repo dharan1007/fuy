@@ -1,57 +1,63 @@
-// Handles /join?token=...
 "use client";
 
-import { useEffect, useState } from "react";
+import { signIn } from "next-auth/react";
+import { useState } from "react";
 
-export default function JoinPage({ searchParams }: { searchParams: { token?: string } }) {
-  const token = (searchParams?.token || "").trim();
-  const [status, setStatus] = useState<"checking" | "ok" | "invalid" | "expired" | "error">("checking");
-  const [info, setInfo] = useState<{ inviterName?: string } | null>(null);
+export default function JoinPage() {
+  const [email, setEmail] = useState("");
+  const [sent, setSent] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
 
-  useEffect(() => {
-    (async () => {
-      if (!token) { setStatus("invalid"); return; }
-      try {
-        const r = await fetch(`/api/join/verify?token=${encodeURIComponent(token)}`, { cache: "no-store" });
-        if (r.ok) {
-          const j = await r.json();
-          setInfo({ inviterName: j?.inviterName || "your friend" });
-          setStatus("ok");
-        } else if (r.status === 410) {
-          setStatus("expired");
-        } else {
-          setStatus("invalid");
-        }
-      } catch {
-        setStatus("error");
-      }
-    })();
-  }, [token]);
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setErr("");
+    setLoading(true);
+    const res = await signIn("email", {
+      email,
+      redirect: false,
+      callbackUrl: "/",
+    });
+    setLoading(false);
+    if (res?.ok) setSent(true);
+    else setErr(res?.error || "Failed to send sign-in link");
+  }
 
   return (
-    <main className="mx-auto max-w-lg px-4 py-10 grid gap-4">
-      <h1 className="text-2xl font-semibold tracking-tight">Join Fuy</h1>
+    <div className="min-h-[60vh] flex items-center justify-center p-6">
+      <div className="w-full max-w-md rounded-lg border bg-white p-6 shadow-sm">
+        <h1 className="text-xl font-semibold">Sign in</h1>
+        <p className="mt-1 text-sm text-gray-600">
+          Get a one-time link by email. Or use <a className="underline" href="/passkeys">Passkeys</a>.
+        </p>
 
-      {status === "checking" && (
-        <p className="text-neutral-500">Checking your invitation…</p>
-      )}
-
-      {status === "ok" && (
-        <div className="rounded-2xl ring-1 ring-neutral-200 dark:ring-neutral-800 bg-white/60 dark:bg-neutral-900/40 backdrop-blur-sm p-6 grid gap-3">
-          <p>Welcome! You were invited by <strong>{info?.inviterName}</strong>.</p>
-          {/* TODO: sign-in / sign-up flow or one-click accept */}
-          <a
-            href="/signup"
-            className="inline-block rounded-full px-4 py-2 text-sm ring-1 ring-neutral-300 dark:ring-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-          >
-            Create your account
-          </a>
-        </div>
-      )}
-
-      {status === "invalid" && <p className="text-red-600">This invitation link is invalid.</p>}
-      {status === "expired" && <p className="text-red-600">This invitation link has expired.</p>}
-      {status === "error" && <p className="text-red-600">We couldn’t verify this invitation right now.</p>}
-    </main>
+        {sent ? (
+          <div className="mt-4 rounded border bg-green-50 p-3 text-sm">
+            Check your inbox at <b>{email}</b> for the sign-in link.
+          </div>
+        ) : (
+          <form className="mt-4 space-y-3" onSubmit={onSubmit}>
+            <label className="block text-sm font-medium">
+              Email
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="mt-1 w-full rounded border p-2"
+                placeholder="you@example.com"
+              />
+            </label>
+            {err ? <div className="text-sm text-red-600">{err}</div> : null}
+            <button
+              disabled={loading}
+              className="w-full rounded bg-black px-3 py-2 text-white disabled:opacity-60"
+            >
+              {loading ? "Sending…" : "Send magic link"}
+            </button>
+          </form>
+        )}
+      </div>
+    </div>
   );
 }

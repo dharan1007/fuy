@@ -2,62 +2,66 @@
 import { NextResponse } from "next/server";
 import { verifyAuthenticationResponse } from "@simplewebauthn/server";
 import { prisma } from "@/lib/prisma";
-import { requireUserId } from "@/lib/session";
+import { SignJWT } from "jose";
 
-function b64urlToUint8Array(b64url: string): Uint8Array {
-  // Node 18+ understands 'base64url'
+const ORIGIN = process.env.NEXT_PUBLIC_ORIGIN || "http://localhost:3000";
+const RP_ID = process.env.NEXT_PUBLIC_RP_ID || new URL(ORIGIN).hostname;
+
+const NEXTAUTH_SECRET = process.env.NEXTAUTH_SECRET!;
+const enc = new TextEncoder();
+
+function b64urlToU8(b64url: string) {
   return new Uint8Array(Buffer.from(b64url, "base64url"));
-}
-function uint8ArrayToB64url(u8: Uint8Array): string {
-  return Buffer.from(u8).toString("base64url");
 }
 
 export async function POST(req: Request) {
-  const userId = await requireUserId();
-  const body = await req.json();
+  try {
+    const expectedChallenge = req.headers.get("x-webauthn-challenge") || undefined;
+    if (!expectedChallenge) {
+      return NextResponse.json({ error: "Missing challenge header" }, { status: 400 });
+    }
 
-  // Get passkey by its credentialID (stored base64url)
-  const cred = await prisma.passkeyCredential.findUnique({
-    where: { credentialID: body.id as string },
-    // pull what we actually need
-    select: {
-      id: true,
-      userId: true,
-      credentialID: true,
-      credentialPublicKey: true,
-      counter: true,
-      transports: true,
-      aaguid: true,
-    },
-  });
-  if (!cred || cred.userId !== userId) {
-    return NextResponse.json({ error: "Unknown credential" }, { status: 400 });
+    const body = (await req.json()) as any;
+
+    const cred = await prisma.passkeyCredential.findUnique({
+      where: { credentialID: body.id },
+    });
+    if (!cred) {
+      return NextResponse.json({ error: "Unknown credential" }, { status: 400 });
+    }
+
+    const { verified, authenticationInfo } = await verifyAuthenticationResponse({
+      response: body,
+      expectedChallenge,
+      expectedOrigin: ORIGIN,
+      expectedRPID: RP_ID,
+      authenticator: {
+        credentialID: b64urlToU8(cred.credentialID),
+        credentialPublicKey: b64urlToU8(cred.credentialPublicKey),
+        counter: cred.counter,
+      },
+      requireUserVerification: false,
+    });
+
+    if (!verified || !authenticationInfo) {
+      return NextResponse.json({ error: "Authentication not verified" }, { status: 400 });
+    }
+
+    await prisma.passkeyCredential.update({
+      where: { credentialID: cred.credentialID },
+      data: { counter: authenticationInfo.newCounter },
+    });
+
+    const loginToken = await new SignJWT({ uid: cred.userId })
+      .setProtectedHeader({ alg: "HS256" })
+      .setIssuer("fuy")
+      .setAudience("fuy")
+      .setExpirationTime("10m")
+      .sign(enc.encode(NEXTAUTH_SECRET));
+
+    return NextResponse.json({ ok: true, loginToken });
+  } catch (e: any) {
+    const msg = e?.message || "Failed to verify authentication";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
-
-  const expectedChallenge = req.headers.get("x-webauthn-challenge") || "";
-
-  const verification = await verifyAuthenticationResponse({
-    response: body,
-    expectedChallenge,
-    expectedOrigin: process.env.WEBAUTHN_ORIGIN!,
-    expectedRPID: process.env.WEBAUTHN_RP_ID!,
-    authenticator: {
-      credentialID: b64urlToUint8Array(cred.credentialID),
-      credentialPublicKey: b64urlToUint8Array(cred.credentialPublicKey),
-      counter: cred.counter ?? 0,
-      transports: cred.transports ? cred.transports.split(",") as AuthenticatorTransport[] : undefined,
-    },
-  });
-
-  if (!verification.verified) {
-    return NextResponse.json({ error: "Verification failed" }, { status: 401 });
-  }
-
-  // Update counter
-  await prisma.passkeyCredential.update({
-    where: { id: cred.id },
-    data: { counter: verification.authenticationInfo.newCounter ?? cred.counter },
-  });
-
-  return NextResponse.json({ ok: true });
 }

@@ -1,38 +1,44 @@
+// src/app/api/webauthn/generate-authentication-options/route.ts
 import { NextResponse } from "next/server";
 import { generateAuthenticationOptions } from "@simplewebauthn/server";
-import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/prisma";
+import { getSessionUser } from "@/lib/session";
 
-export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
-export const revalidate = 0;
-
-type PasskeyRow = { id: string; transports: string | null };
+const ORIGIN = process.env.NEXT_PUBLIC_ORIGIN || "http://localhost:3000";
+const RP_ID = process.env.NEXT_PUBLIC_RP_ID || new URL(ORIGIN).hostname;
 
 export async function GET() {
-  const email = "demo@fuy.local";
-  const user = await prisma.user.findUnique({ where: { email } });
-  if (!user) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  try {
+    let allowCredentials: any[] = [];
+
+    const u = await getSessionUser();
+    if (u?.id) {
+      const creds = await prisma.passkeyCredential.findMany({
+        where: { userId: u.id },
+        select: { credentialID: true },
+      });
+      // id can be provided as a base64url string; the lib will coerce it.
+      allowCredentials = creds.map((c) => ({
+        id: c.credentialID,
+        type: "public-key",
+      }));
+    }
+
+    const options = await generateAuthenticationOptions({
+      rpID: RP_ID,
+      userVerification: "preferred",
+      allowCredentials,
+    });
+
+    return new NextResponse(JSON.stringify(options), {
+      headers: {
+        "content-type": "application/json",
+        "x-webauthn-challenge": options.challenge,
+      },
+      status: 200,
+    });
+  } catch (e: any) {
+    const msg = e?.message || "Failed to create authentication options";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
-
-  const creds = (await prisma.passkeyCredential.findMany({
-    where: { userId: user.id },
-    select: { id: true, transports: true },
-  })) as PasskeyRow[];
-
-  const options = await generateAuthenticationOptions({
-    rpID: process.env.NEXT_PUBLIC_RP_ID || "localhost",
-    allowCredentials: creds.map((c: PasskeyRow) => ({
-      id: Buffer.from(c.id, "base64url"),
-      type: "public-key",
-      transports: c.transports
-        ? (JSON.parse(c.transports) as AuthenticatorTransport[])
-        : undefined,
-    })),
-    userVerification: "preferred",
-  });
-
-  return NextResponse.json(options, {
-    headers: { "x-webauthn-challenge": options.challenge },
-  });
 }

@@ -5,6 +5,7 @@ import {
   startRegistration,
   startAuthentication,
 } from "@simplewebauthn/browser";
+import { signIn } from "next-auth/react";
 
 async function getOptions(path: string) {
   const res = await fetch(path, { method: "GET" });
@@ -12,9 +13,7 @@ async function getOptions(path: string) {
     const msg = await res.text().catch(() => "");
     throw new Error(`Failed to fetch options: ${res.status} ${msg}`);
   }
-  // API returns the options object (not wrapped)
   const opts = await res.json();
-  // we also expose challenge in a header (nice to forward back on verify)
   const challenge =
     res.headers.get("x-webauthn-challenge") ?? (opts as any).challenge ?? "";
   return { options: opts, challenge };
@@ -71,7 +70,17 @@ export default function PasskeysPage() {
       });
 
       if (!res.ok) throw new Error(await res.text());
-      setStatus("✅ Authenticated");
+      const { loginToken } = await res.json();
+
+      setStatus("Creating session…");
+      const result = await signIn("credentials", {
+        loginToken,
+        redirect: true,
+        callbackUrl: "/",
+      });
+      if (result?.error) {
+        setStatus(`❌ ${result.error}`);
+      }
     } catch (e: any) {
       setStatus(`❌ ${e?.message ?? e}`);
     }
@@ -82,8 +91,7 @@ export default function PasskeysPage() {
       <h1 className="text-2xl font-semibold tracking-tight">Passkeys</h1>
       <div className="c-card p-6 grid gap-4">
         <p className="text-stone-600">
-          Register a passkey on <span className="font-medium">localhost</span>,
-          then try authenticating.
+          Register a passkey (requires being signed in once), then sign in with it.
         </p>
         <div className="flex gap-3">
           <button onClick={register} className="c-btn-primary">Register</button>

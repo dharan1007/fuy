@@ -16,9 +16,13 @@ export async function GET(req: Request) {
       data: { token, inviterId, expiresAt, status: "PENDING" },
     });
 
+    // Uses the (req, path) overload
     const link = absoluteUrl(req, `/join?token=${token}`);
     return NextResponse.json({ link }, { status: 200 });
   } catch (e) {
-    return NextResponse.json({ error: "Unable to generate link." }, { status: 500 });
+    return NextResponse.json(
+      { error: "Unable to generate link." },
+      { status: 500 }
+    );
   }
 }

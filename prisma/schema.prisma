@@ -7,13 +7,13 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
-// NOTE: SQLite has no native enums in Prisma.
-// We model "enums" as STRING columns with defaults
-// and validate allowed values in application code.
+// NOTE: We keep string-based "enums" (status/role/type fields) for portability.
+// Validate allowed values in application code.
 // For structured data (blocks, tags, sensations, meta) we store JSON strings
-// in TEXT columns (use plain String fields; SQLite maps them to TEXT).
+// in TEXT-like columns (String in Prisma).
 
 // ------------------------
 // Core User & Social Graph
@@ -23,6 +23,7 @@ model User {
   id        String   @id @default(cuid())
   email     String   @unique
   name      String?
+  emailVerified DateTime?
   createdAt DateTime @default(now())
 
   // Relations
@@ -49,17 +50,30 @@ model User {
 
   // Invites back-relation
   invitesSent Invite[]
+
+  // --- Work management back-relations (added) ---
+  orgsOwned       Organization[]        @relation("OrgOwner")
+  orgMembership   OrgMember[]
+  tasksCreated    Task[]                @relation("TaskCreator")
+  taskAssignee    TaskAssignee[]
+  checklistChecks TaskChecklistItem[]   @relation("ChecklistCheckedBy")
+  taskComments    TaskComment[]         @relation("TaskCommentAuthor")
+  taskVolunteers  TaskVolunteer[]
+  reminders       Reminder[]
+
+  // --- Auth.js / NextAuth back-relations ---
+  accounts Account[]
+  sessions Session[]
 }
 
 model Profile {
-  userId      String  @id
-  displayName String?
-  avatarUrl   String?
-  bio         String?
-  // Added to support your UI and API
-  location    String?
-  // Stored as comma-separated list for simplicity; parse/format in API
-  tags        String?
+  userId        String  @id
+  displayName   String?
+  avatarUrl     String?
+  bio           String?
+  location      String?
+  tags          String?
+  coverVideoUrl String?      // <— NEW
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -199,7 +213,7 @@ model PasskeyCredential {
   id                  String  @id @default(cuid())
   userId              String
   credentialID        String  @unique // base64url
-  credentialPublicKey String // base64url
+  credentialPublicKey String  // base64url
   counter             Int     @default(0)
   transports          String? // comma-separated list
   aaguid              String? // optional
@@ -244,8 +258,6 @@ model Metric {
 // Journaling (Canvas + Templates)
 // ------------------------
 
-// A single journal entry. The canvas is saved in `blocks` as JSON string.
-// Keep `content` for quick previews / search; you can derive a summary in API.
 model JournalEntry {
   id               String    @id @default(cuid())
   userId           String
@@ -310,4 +322,226 @@ model Invite {
 
   @@index([inviterId])
   @@index([status, expiresAt])
+}
+
+// ------------------------
+// Work Management (Organizations / Projects / Tasks)
+// ------------------------
+
+model Organization {
+  id          String       @id @default(cuid())
+  name        String
+  description String?
+  ownerId     String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  owner       User         @relation("OrgOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members     OrgMember[]
+  projects    Project[]
+  tags        Tag[]
+}
+
+model OrgMember {
+  id              String        @id @default(cuid())
+  organizationId  String
+  userId          String
+  role            String        @default("MEMBER") // ADMIN | MANAGER | MEMBER
+  createdAt       DateTime      @default(now())
+
+  organization    Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([organizationId])
+  @@index([userId])
+}
+
+model Project {
+  id              String        @id @default(cuid())
+  organizationId  String
+  name            String
+  description     String?
+  status          String        @default("ACTIVE") // ACTIVE | ARCHIVED
+  startDate       DateTime?
+  dueDate         DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  organization    Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tasks           Task[]
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([dueDate])
+}
+
+model Task {
+  id              String        @id @default(cuid())
+  projectId       String
+  title           String
+  description     String?
+  status          String        @default("TODO")   // TODO | IN_PROGRESS | REVIEW | DONE
+  priority        String        @default("MEDIUM") // LOW | MEDIUM | HIGH | URGENT
+  startDate       DateTime?
+  dueDate         DateTime?
+  createdById     String
+  timeEstimateMin Int?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  project         Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy       User          @relation("TaskCreator", fields: [createdById], references: [id], onDelete: Cascade)
+
+  assignees       TaskAssignee[]
+  checklist       TaskChecklistItem[]
+  comments        TaskComment[]
+  tags            TaskTag[]
+  reminders       Reminder[]
+  volunteers      TaskVolunteer[]
+
+  @@index([projectId])
+  @@index([status])
+  @@index([dueDate])
+}
+
+model TaskAssignee {
+  id         String @id @default(cuid())
+  taskId     String
+  userId     String
+  assignedAt DateTime @default(now())
+
+  task       Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user       User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, userId])
+  @@index([userId])
+}
+
+model TaskChecklistItem {
+  id          String   @id @default(cuid())
+  taskId      String
+  label       String
+  completed   Boolean  @default(false)
+  checkedById String?
+  checkedAt   DateTime?
+
+  task        Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  checkedBy   User?    @relation("ChecklistCheckedBy", fields: [checkedById], references: [id], onDelete: SetNull)
+
+  @@index([taskId])
+  @@index([checkedById])
+}
+
+model TaskComment {
+  id        String   @id @default(cuid())
+  taskId    String
+  authorId  String
+  body      String
+  createdAt DateTime @default(now())
+
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author    User     @relation("TaskCommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([authorId])
+}
+
+model Tag {
+  id             String         @id @default(cuid())
+  organizationId String
+  name           String
+  colorHex       String?
+  createdAt      DateTime       @default(now())
+
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  taskTags       TaskTag[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+model TaskTag {
+  id     String @id @default(cuid())
+  taskId String
+  tagId  String
+
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, tagId])
+  @@index([tagId])
+}
+
+model TaskVolunteer {
+  id        String   @id @default(cuid())
+  taskId    String
+  userId    String
+  status    String   @default("REQUESTED") // REQUESTED | APPROVED | DECLINED
+  createdAt DateTime @default(now())
+
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, userId])
+  @@index([userId])
+}
+
+model Reminder {
+  id         String   @id @default(cuid())
+  taskId     String
+  userId     String
+  triggerAt  DateTime
+  type       String   @default("DUE") // DUE | START | CUSTOM
+  sent       Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([triggerAt, sent])
+  @@index([userId])
+}
+
+// ------------------------
+// Auth.js / NextAuth tables
+// ------------------------
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
 }
