@@ -5,6 +5,13 @@ import React from "react";
 import Link from "next/link";
 import Waves from "@/components/Waves";
 
+/**
+ * Temporary type-escape for Next Link to work around duplicate @types/react
+ * issues that cause TS to complain "Link cannot be used as a JSX component".
+ * Remove this alias once duplicate-type issues are resolved and use `Link` directly.
+ */
+const NextLink: any = Link;
+
 /* ---------------- DecryptedText (unchanged behaviour) ---------------- */
 const styles: { wrapper: React.CSSProperties; srOnly: React.CSSProperties } = {
   wrapper: { display: "inline-block", whiteSpace: "pre-wrap" },
@@ -413,9 +420,9 @@ export default function HomePage() {
                         <DecryptedText text={t.kpi} {...decryptProps} />
                       </span>
                     )}
-                    <Link href={t.href} className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-lg transition-colors" style={{ marginLeft: 6 }}>
+                    <NextLink href={t.href} className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-lg transition-colors" style={{ marginLeft: 6 }}>
                       <DecryptedText text="Open" {...decryptProps} />
-                    </Link>
+                    </NextLink>
                   </div>
                 ]}
               />
@@ -479,12 +486,12 @@ export default function HomePage() {
             <p className="text-xl mb-8" style={{ color: "rgba(15,23,42,0.9)" }}>
               <DecryptedText text="Step in, do a tiny thing, and step out. That's how compounding calm happens." {...decryptProps} />
             </p>
-            <Link
+            <NextLink
               className="inline-flex items-center px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors"
               href="/onboarding"
             >
               <DecryptedText text="Get started" {...decryptProps} />
-            </Link>
+            </NextLink>
           </div>
         </div>
       </section>
