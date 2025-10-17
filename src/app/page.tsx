@@ -242,89 +242,49 @@ function FAQItem({ qElement, aElement }: { qElement: React.ReactNode; aElement: 
 function BrightCircles() {
   return (
     <>
-      <div style={{
-        position: "absolute",
-        inset: 0,
-        zIndex: 1, // below Waves (we will render Waves at zIndex=2)
-        pointerEvents: "none",
-        overflow: "hidden",
-      }}>
-        <div style={{
+      <div
+        style={{
           position: "absolute",
-          left: "-8%",
-          top: "6%",
-          width: 560,
-          height: 560,
-          borderRadius: 9999,
-          background: "rgba(255,110,130,0.98)",
-          filter: "blur(20px)",
-          opacity: 1,
-          transform: "translate3d(0,0,0)",
-          animation: "bc1 11s ease-in-out infinite"
-        }} />
-        <div style={{
-          position: "absolute",
-          right: "-6%",
-          top: "0%",
-          width: 460,
-          height: 460,
-          borderRadius: 9999,
-          background: "rgba(90,170,255,0.98)",
-          filter: "blur(20px)",
-          opacity: 1,
-          transform: "translate3d(0,0,0)",
-          animation: "bc2 14s ease-in-out infinite"
-        }} />
-        <div style={{
-          position: "absolute",
-          left: "12%",
-          bottom: "-6%",
-          width: 400,
-          height: 400,
-          borderRadius: 9999,
-          background: "rgba(140,255,185,0.98)",
-          filter: "blur(20px)",
-          opacity: 1,
-          transform: "translate3d(0,0,0)",
-          animation: "bc3 12s ease-in-out infinite"
-        }} />
-        <div style={{
-          position: "absolute",
-          right: "18%",
-          bottom: "6%",
-          width: 320,
-          height: 320,
-          borderRadius: 9999,
-          background: "rgba(255,230,120,0.98)",
-          filter: "blur(20px)",
-          opacity: 1,
-          transform: "translate3d(0,0,0)",
-          animation: "bc4 16s ease-in-out infinite"
-        }} />
-        <div style={{
-          position: "absolute",
-          left: "50%",
-          top: "28%",
-          width: 240,
-          height: 240,
-          borderRadius: 9999,
-          background: "rgba(200,130,255,0.98)",
-          filter: "blur(20px)",
-          opacity: 1,
-          transform: "translate3d(0,0,0)",
-          animation: "bc5 9s ease-in-out infinite"
-        }} />
+          inset: 0,
+          zIndex: 1, // below Waves (we will render Waves at zIndex=2)
+          pointerEvents: "none",
+          overflow: "hidden",
+        }}
+        aria-hidden
+      >
+        <div className="bc-circle bc1" />
+        <div className="bc-circle bc2" />
+        <div className="bc-circle bc3" />
+        <div className="bc-circle bc4 bc-hide-md" />
+        <div className="bc-circle bc5 bc-hide-md" />
 
+        {/* global style for circles — uses class selectors (no attribute selectors) to avoid SSR/CSR mismatches */}
         <style>{`
+          .bc-circle {
+            position: absolute;
+            border-radius: 9999px;
+            filter: blur(20px);
+            opacity: 0.98;
+            transform: translate3d(0,0,0);
+            pointer-events: none;
+          }
+          .bc1 { left: -8%; top: 6%; width: 560px; height: 560px; background: rgba(255,110,130,0.98); animation: bc1 11s ease-in-out infinite; }
+          .bc2 { right: -6%; top: 0%; width: 460px; height: 460px; background: rgba(90,170,255,0.98); animation: bc2 14s ease-in-out infinite; }
+          .bc3 { left: 12%; bottom: -6%; width: 400px; height: 400px; background: rgba(140,255,185,0.98); animation: bc3 12s ease-in-out infinite; }
+          .bc4 { right: 18%; bottom: 6%; width: 320px; height: 320px; background: rgba(255,230,120,0.98); animation: bc4 16s ease-in-out infinite; }
+          .bc5 { left: 50%; top: 28%; width: 240px; height: 240px; background: rgba(200,130,255,0.98); animation: bc5 9s ease-in-out infinite; }
+
           @keyframes bc1 { 0% { transform: translateY(0) } 50% { transform: translateY(-40px) } 100% { transform: translateY(0) } }
           @keyframes bc2 { 0% { transform: translateY(0) } 50% { transform: translateY(44px) } 100% { transform: translateY(0) } }
           @keyframes bc3 { 0% { transform: translateY(0) } 50% { transform: translateY(-30px) } 100% { transform: translateY(0) } }
           @keyframes bc4 { 0% { transform: translateY(0) } 50% { transform: translateY(36px) } 100% { transform: translateY(0) } }
           @keyframes bc5 { 0% { transform: translateY(0) } 50% { transform: translateY(-20px) } 100% { transform: translateY(0) } }
+
+          /* hide the larger decorative circles on smaller screens to reduce clutter */
           @media (max-width: 768px) {
-            /* reduce clutter on small screens */
-            div[style*="width: 400px"] { display: none; }
-            div[style*="width: 320px"] { display: none; }
+            .bc-hide-md { display: none; }
+            /* additional adjustments for small screens */
+            .bc1, .bc2 { opacity: 0.95; filter: blur(18px); }
           }
         `}</style>
       </div>
@@ -374,17 +334,15 @@ export default function HomePage() {
         {/* Waves container: render your Waves component inside a positioned div with higher z-index */}
         <div style={{ position: "absolute", inset: 0, zIndex: 2, pointerEvents: "auto" }}>
           <Waves
-            // make the strokes black and background slightly translucent so circles show through
+            // now using three black-ish lines but you can pass pastel colors by changing lineColor to an array or multiple Waves components
             lineColor="#000000"
             backgroundColor="rgba(255,255,255,0.92)"
-            // tune speeds/amplitudes to feel snappy with cursor
             waveSpeedX={0.018}
             waveSpeedY={0.006}
             waveAmpX={28}
             waveAmpY={14}
             xGap={18}
             yGap={36}
-            // keep default friction/tension values inside component if desired
           />
         </div>
 
