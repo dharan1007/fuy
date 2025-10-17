@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 // CONSTANTS & TYPE SAFE ENUMS
 const CATEGORIES = ["Health", "Focus", "Social", "Home", "Emotion", "Learning", "Money"] as const;
@@ -50,7 +51,10 @@ export type ITPPlan = {
   doneCount?: number;
   visibility: VisibilityKind;
   deadline?: string; // ISO string date
-  remindAt?: string;  // ISO string date/time for reminder
+  remindAt?: string; // ISO string date/time for reminder
+  // New collaboration features
+  collaborators?: string[];
+  goal?: string;
 };
 
 const LS_KEY = "fuy.itp.plans.v4";
@@ -82,6 +86,8 @@ function newDraft(): ITPPlan {
     visibility: "PRIVATE",
     deadline: undefined,
     remindAt: undefined,
+    collaborators: [],
+    goal: "",
   };
 }
 
@@ -125,11 +131,8 @@ export default function ITPPage() {
   const [detailPlan, setDetailPlan] = useState<ITPPlan | null>(null);
   const liveInterval = useRef<NodeJS.Timeout | number | null>(null);
 
-  // BACKGROUND STYLE
-  useEffect(() => {
-    document.body.classList.add("bg-white", "dark:bg-neutral-950");
-    return () => { document.body.classList.remove("bg-white", "dark:bg-neutral-950"); };
-  }, []);
+  // FAKE USER DATA
+  const user = { name: "David" };
 
   // LocalStorage load/save
   useEffect(() => {
@@ -291,11 +294,13 @@ export default function ITPPage() {
         mediaFile: reader.result as string,
         mediaFileName: file.name,
         mediaUrl: "",
+        mediaType: file.type.startsWith("image") ? "image" : file.type.startsWith("video") ? "video" : "document",
       }));
     };
     reader.readAsDataURL(file);
   }
   function handleDrop(e: React.DragEvent, toStage: Stage) {
+    e.preventDefault();
     const id = e.dataTransfer.getData("id");
     if (id) movePlan(id, toStage);
   }
@@ -487,287 +492,289 @@ export default function ITPPage() {
     );
   }
 
-  // BACKGROUND EFFECTS
-  function BgBlur() {
+  // CALENDAR COMPONENT (simplified)
+  function Calendar({ selectedDate }: { selectedDate: Date }) {
+    const [viewDate, setViewDate] = useState(new Date());
+
+    const daysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
+    const firstDay = (year: number, month: number) => new Date(year, month, 1).getDay();
+
+    const dates = useMemo(() => {
+      const year = viewDate.getFullYear();
+      const month = viewDate.getMonth();
+      const numDays = daysInMonth(year, month);
+      const startDay = firstDay(year, month);
+      const calendarDates: (number | null)[] = Array(startDay).fill(null);
+      for (let i = 1; i <= numDays; i++) {
+        calendarDates.push(i);
+      }
+      return calendarDates;
+    }, [viewDate]);
+
+    const changeMonth = (delta: number) => {
+      setViewDate(prev => new Date(prev.getFullYear(), prev.getMonth() + delta, 1));
+    };
+
+    const isToday = (date: number) => {
+      const today = new Date();
+      return date === today.getDate() && viewDate.getMonth() === today.getMonth() && viewDate.getFullYear() === today.getFullYear();
+    };
+
     return (
-      <div className="pointer-events-none absolute inset-0 z-0">
-        <div className="absolute -top-40 -left-40 h-[400px] w-[400px] rounded-full bg-gradient-to-br from-indigo-400/20 via-fuchsia-400/20 to-emerald-400/20 blur-3xl animate-pulse" />
-        <div className="absolute bottom-[-180px] right-[-140px] h-[380px] w-[380px] rounded-full bg-gradient-to-br from-rose-400/20 via-amber-400/20 to-cyan-400/20 blur-3xl animate-[pulse_8s_ease-in-out_infinite]" />
-        <div className="absolute inset-0 bg-[radial-gradient(transparent_1px,rgba(0,0,0,0.012)_1px)] [background-size:12px_12px]" />
+      <div className="w-full h-full p-4 rounded-xl bg-white dark:bg-neutral-800 shadow-lg">
+        <div className="flex justify-between items-center mb-4">
+          <button onClick={() => changeMonth(-1)} className="text-neutral-500 text-lg">{"<"}</button>
+          <span className="text-sm font-semibold">{viewDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</span>
+          <button onClick={() => changeMonth(1)} className="text-neutral-500 text-lg">{">"}</button>
+        </div>
+        <div className="grid grid-cols-7 gap-2 text-center text-xs font-semibold text-neutral-500">
+          {["S", "M", "T", "W", "T", "F", "S"].map(day => <span key={day}>{day}</span>)}
+        </div>
+        <div className="grid grid-cols-7 gap-2 text-center text-sm mt-2">
+          {dates.map((date, i) => (
+            <div
+              key={i}
+              className={`w-8 h-8 flex items-center justify-center rounded-full cursor-pointer
+                ${date ? 'text-black dark:text-white' : ''}
+                ${date && isToday(date) ? 'bg-black text-white' : 'hover:bg-neutral-200 dark:hover:bg-neutral-700'}`}
+            >
+              {date}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  
+  // Custom Card Component
+  function PlanCard({ plan, onToggleDone, onOpenDetail }: { plan: ITPPlan, onToggleDone: (id: string) => void, onOpenDetail: (plan: ITPPlan) => void }) {
+    return (
+      <div
+        draggable
+        tabIndex={0}
+        onDragStart={e => e.dataTransfer.setData("id", plan.id)}
+        onClick={() => onOpenDetail(plan)}
+        className={`rounded-2xl border border-white/20 bg-white/70 dark:bg-neutral-900/60 p-4 transition-all shadow-sm cursor-pointer
+          ${plan.doneToday ? 'border-green-400/50' : ''}`}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              className="form-checkbox h-4 w-4 text-green-600 rounded-full"
+              checked={plan.doneToday || false}
+              onChange={(e) => {
+                e.stopPropagation();
+                onToggleDone(plan.id);
+              }}
+            />
+            <div className="font-semibold text-neutral-800 dark:text-white truncate">{plan.title}</div>
+          </div>
+          {plan.pinned && <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600">📌</span>}
+        </div>
+        <div className="text-sm text-neutral-600 dark:text-neutral-400 mt-2">
+          <b>If</b> ({plan.cueType}) {plan.cue} <b>then</b> {plan.action}
+        </div>
+        <div className="flex items-center justify-between text-xs text-neutral-500 mt-2">
+          <span>{plan.category} · {plan.frequency}</span>
+          <span>{timeUntil(plan.deadline)}</span>
+        </div>
+        {plan.mediaType !== "none" && (
+          <div className="mt-2 text-xs text-neutral-400">
+            📎 {plan.mediaFileName || plan.mediaUrl || plan.mediaType}
+          </div>
+        )}
       </div>
     );
   }
 
   // LAYOUT RENDER
   return (
-    <main className="min-h-screen relative max-w-[1440px] mx-auto overflow-x-hidden px-4 sm:px-6 lg:px-8">
-      <BgBlur />
-      <section className="relative z-10 py-6">
-        <header className="flex items-end justify-between gap-4 mb-6">
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight">ITP — If–Then Planner</h1>
-            <p className="text-neutral-500 mt-1">Design tiny If–Then plans, capture notes, attach media, and track your streaks live.</p>
+    <div className="flex flex-col min-h-screen bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-50">
+      {/* Top Header/Dashboard */}
+      <header className="bg-gradient-to-r from-purple-500 via-indigo-500 to-blue-500 text-white p-8 md:p-12 shadow-lg relative overflow-hidden">
+        <div className="absolute inset-0 z-0 opacity-20">
+          <div className="bg-white/10 w-96 h-96 rounded-full -top-20 -left-20 animate-[pulse_10s_infinite]" />
+          <div className="bg-white/10 w-80 h-80 rounded-full -bottom-10 -right-10 animate-[pulse_12s_infinite]" />
+        </div>
+        <div className="relative z-10 max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex-1">
+            <h1 className="text-3xl font-bold">Have a Good day, {user.name}</h1>
           </div>
-          <button className="btn btn-ghost" onClick={() => router.push("/dashboard")}>← Back to dashboard</button>
-        </header>
-        <div className="grid grid-cols-1 xl:grid-cols-[400px_minmax(0,1fr)] gap-6">
-          {/* LEFT PANEL - Creator + Filters + Summary */}
-          <div className="grid gap-6">
-            {/* Creation */}
-            <div className="rounded-2xl border border-white/10 bg-white/60 dark:bg-neutral-900/50 backdrop-blur-xl p-5 shadow-sm sticky top-6 z-20">
-              <h2 className="font-semibold mb-2">Create plan</h2>
-              <div className="grid gap-2">
-                <input className="input" placeholder="Title (e.g., After lunch walk)" value={draft.title} onChange={(e)=>setDraft({ ...draft, title: e.target.value })} />
-                <div className="grid grid-cols-2 gap-2">
-                  <select className="input" value={draft.category} onChange={(e)=>setDraft({ ...draft, category: e.target.value as Category })}>
-                    {CATEGORIES.map(c => <option key={c}>{c}</option>)}
-                  </select>
-                  <select className="input" value={draft.cueType} onChange={(e)=>setDraft({ ...draft, cueType: e.target.value as CueType })}>
-                    {CUE_TYPES.map(c => <option key={c}>{c}</option>)}
-                  </select>
-                </div>
-                <input className="input" placeholder="Cue (If …)" value={draft.cue} onChange={(e)=>setDraft({ ...draft, cue: e.target.value })} />
-                <input className="input" placeholder="Action (Then I will …)" value={draft.action} onChange={(e)=>setDraft({ ...draft, action: e.target.value })} />
-                <input className="input" placeholder="Obstacle" value={draft.obstacle || ""} onChange={(e)=>setDraft({ ...draft, obstacle: e.target.value })} />
-                <input className="input" placeholder="Backup If–Then" value={draft.backup || ""} onChange={(e)=>setDraft({ ...draft, backup: e.target.value })} />
-                <input className="input" placeholder="Tiny reward (optional)" value={draft.reward || ""} onChange={(e)=>setDraft({ ...draft, reward: e.target.value })} />
-
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm w-20">Confidence</span>
-                    <input type="range" min={0} max={10} value={draft.confidence} onChange={(e) => setDraft({ ...draft, confidence: Number(e.target.value) })} className="w-full" />
-                    <span className="text-sm w-6">{draft.confidence}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm w-16">Priority</span>
-                    <select className="input" value={draft.priority} onChange={e => setDraft({ ...draft, priority: Number(e.target.value) as 1|2|3 })}>
-                      <option value={1}>High</option>
-                      <option value={2}>Med</option>
-                      <option value={3}>Low</option>
-                    </select>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm w-20">Frequency</span>
-                    <select className="input" value={draft.frequency} onChange={e => setDraft({ ...draft, frequency: e.target.value as Frequency })}>
-                      {FREQUENCIES.map(f => <option key={f}>{f}</option>)}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <select className="input" value={draft.visibility} onChange={e => setDraft({ ...draft, visibility: e.target.value as VisibilityKind })}>
-                    {VISIBILITIES.map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
-                  </select>
-                  <select className="input" value={draft.mediaType} onChange={(e) => setDraft({ ...draft, mediaType: e.target.value as MediaKind, mediaFile:"", mediaFileName:"", mediaUrl:"" })}>
-                    {MEDIA_TYPES.map(m => <option key={m}>{m}</option>)}
-                  </select>
-                </div>
-
-                {draft.mediaType === "none" || !draft.mediaType ?
-                  <input disabled placeholder="No media" className="input" />
-                  : draft.mediaType === "text" ?
-                    <input value={draft.mediaUrl || ""} onChange={e => setDraft(d => ({...d, mediaUrl: e.target.value, mediaFile: "", mediaFileName: ""}))} placeholder="Optionally add a web link..." className="input" />
-                    : <input className="input" type="file"
-                        accept={
-                          draft.mediaType === "video" ? "video/*" :
-                          draft.mediaType === "image" ? "image/*" :
-                          draft.mediaType === "document" ? ".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                          : "*/*"
-                        }
-                        onChange={onDraftMediaFile} />
-                }
-                <textarea className="input min-h-[64px]" value={draft.notes || ""} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} placeholder="Notes (Markdown ok)" />
-
-                <div className="grid grid-cols-2 gap-2 mb-2">
-                  <div>
-                    <label className="block mb-1 text-sm">Deadline</label>
-                    <input
-                      type="date"
-                      className="input w-full"
-                      value={draft.deadline?.slice(0,10) || ""}
-                      onChange={e => setDraft({ ...draft, deadline: e.target.value || undefined })}
-                    />
-                  </div>
-                  <div>
-                    <label className="block mb-1 text-sm">Reminder</label>
-                    <input type="datetime-local" className="input w-full" value={draft.remindAt || ""} onChange={e => setDraft({ ...draft, remindAt: e.target.value || undefined })} />
-                  </div>
-                </div>
-
-                <button
-                  className="btn btn-primary w-full disabled:opacity-50"
-                  disabled={!draft.title.trim() || !draft.cue.trim() || !draft.action.trim() || saving}
-                  onClick={() => { addPlan(); saveAllToPosts(); }}
-                >
-                  {saving ? "Saving…" : "Save"}
-                </button>
-
+        </div>
+        <div className="relative z-10 max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 mt-8">
+          <div className="bg-white/30 p-4 rounded-xl backdrop-blur-md">
+            <h2 className="text-lg font-semibold mb-2">Upcoming Schedule</h2>
+            <div className="bg-white/50 rounded-lg p-2">
+              <Calendar selectedDate={new Date()} />
+            </div>
+          </div>
+          <div className="bg-white/30 p-4 rounded-xl backdrop-blur-md col-span-2 lg:col-span-1">
+            <h2 className="text-lg font-semibold mb-2">Today's Progress</h2>
+            <div className="flex items-center justify-between">
+              <div className="text-sm">
+                <p>You've completed <b className="text-xl">{todayDone}</b> of <b className="text-xl">{total}</b> tasks.</p>
+                <p>Keep up the great work!</p>
+              </div>
+              <ProgressRing value={pct} />
+            </div>
+          </div>
+          <div className="bg-white/30 p-4 rounded-xl backdrop-blur-md md:col-span-2 lg:col-span-2">
+            <h2 className="text-lg font-semibold mb-2">Content Planner</h2>
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day, i) => (
+                  <button key={day} className={`bg-white/40 px-3 py-1 rounded-full text-sm font-bold ${i === 2 ? 'bg-white/60' : ''}`}>
+                    {day.slice(0, 3)}
+                  </button>
+                ))}
+              </div>
+              <div className="text-white text-sm">
+                <span className="opacity-70">February 2024</span>
               </div>
             </div>
+            <div className="bg-white/50 p-4 rounded-lg mt-4">
+              <div className="flex flex-col space-y-2">
+                <div className="bg-purple-300 p-2 rounded-lg text-sm text-purple-900 shadow">
+                  <b>EcoHarmony Launch</b>
+                  <p className="text-xs">If (event) then I will...</p>
+                </div>
+                <div className="bg-teal-300 p-2 rounded-lg text-sm text-teal-900 shadow">
+                  <b>Marketing Review</b>
+                  <p className="text-xs">If (time) then I will...</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
 
-            {/* FILTERS */}
-            <div className="rounded-2xl border border-white/10 bg-white/60 dark:bg-neutral-900/50 backdrop-blur-md p-5 shadow-sm sticky top-[calc(4rem+1.5rem)] z-10">
-              <h3 className="font-semibold mb-3">Find & focus</h3>
-              <div className="grid gap-3">
-                <input className="input" placeholder="Search..." value={filter.query} onChange={e => setFilter({ ...filter, query: e.target.value })} />
-                <div className="grid grid-cols-2 gap-2">
-                  <select className="input" value={filter.category} onChange={e => setFilter({ ...filter, category: e.target.value as any })}>
-                    {["All", ...CATEGORIES].map(c => <option key={c}>{c}</option>)}
-                  </select>
-                  <select className="input" value={filter.frequency} onChange={e => setFilter({ ...filter, frequency: e.target.value as any })}>
-                    {["All", ...FREQUENCIES].map(f => <option key={f}>{f}</option>)}
-                  </select>
+      {/* Main Content Area */}
+      <main className="flex flex-1 max-w-7xl mx-auto w-full p-8 grid gap-8 grid-cols-1 xl:grid-cols-[280px_minmax(0,1fr)]">
+        {/* Left Sidebar - Filters & Creation */}
+        <aside className="space-y-6">
+          <div className="bg-white dark:bg-neutral-800 rounded-3xl p-6 shadow-xl sticky top-8 z-10">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold">Create Plan</h2>
+              <button className="text-sm text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 transition" onClick={() => setDraft(newDraft())}>Reset</button>
+            </div>
+            <div className="space-y-3">
+              <input className="input" placeholder="Plan Title" value={draft.title} onChange={(e)=>setDraft({ ...draft, title: e.target.value })} />
+              <div className="grid grid-cols-2 gap-2">
+                <select className="input" value={draft.category} onChange={(e)=>setDraft({ ...draft, category: e.target.value as Category })}>
+                  {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+                </select>
+                <select className="input" value={draft.cueType} onChange={(e)=>setDraft({ ...draft, cueType: e.target.value as CueType })}>
+                  {CUE_TYPES.map(c => <option key={c}>{c}</option>)}
+                </select>
+              </div>
+              <input className="input" placeholder="If..." value={draft.cue} onChange={(e)=>setDraft({ ...draft, cue: e.target.value })} />
+              <input className="input" placeholder="Then I will..." value={draft.action} onChange={(e)=>setDraft({ ...draft, action: e.target.value })} />
+              <textarea className="input min-h-[64px]" value={draft.goal || ""} onChange={(e) => setDraft({ ...draft, goal: e.target.value })} placeholder="Goal of this plan" />
+              <input className="input" placeholder="Add collaborators (comma-separated)" value={draft.collaborators?.join(', ') || ""} onChange={(e) => setDraft({ ...draft, collaborators: e.target.value.split(',').map(s => s.trim()) })} />
+              <input type="file" onChange={onDraftMediaFile} className="input" />
+              <button
+                className="btn btn-primary w-full disabled:opacity-50 mt-4"
+                disabled={!draft.title.trim() || !draft.cue.trim() || !draft.action.trim()}
+                onClick={addPlan}
+              >
+                Create Post
+              </button>
+            </div>
+          </div>
+          
+          <div className="bg-white dark:bg-neutral-800 rounded-3xl p-6 shadow-xl">
+            <h2 className="text-xl font-bold mb-4">Filters</h2>
+            <div className="space-y-3">
+              <input className="input" placeholder="Search plans..." value={filter.query} onChange={e => setFilter({ ...filter, query: e.target.value })} />
+              <select className="input" value={filter.category} onChange={e => setFilter({ ...filter, category: e.target.value as any })}>
+                {["All", ...CATEGORIES].map(c => <option key={c}>{c}</option>)}
+              </select>
+              <select className="input" value={filter.stage} onChange={e => setFilter({ ...filter, stage: e.target.value as any })}>
+                {["All", ...STAGES].map(s => <option key={s}>{s}</option>)}
+              </select>
+              <select className="input" value={filter.sortBy} onChange={e => setFilter({ ...filter, sortBy: e.target.value as any })}>
+                {["created", "priority", "confidence", "title", "deadline"].map(s => <option key={s}>{s}</option>)}
+              </select>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={filter.pinnedOnly} onChange={e => setFilter({ ...filter, pinnedOnly: e.target.checked })} />
+                Pinned Only
+              </label>
+            </div>
+          </div>
+        </aside>
+
+        {/* Main Kanban/Timeline Area */}
+        <section className="space-y-8">
+          {/* Kanban Board */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {STAGES.map(stage => (
+              <div
+                key={stage}
+                className="rounded-3xl p-6 bg-white dark:bg-neutral-800 shadow-xl min-h-[300px]"
+                onDragOver={e => e.preventDefault()}
+                onDrop={e => handleDrop(e, stage)}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold text-lg">{stage}</h3>
+                  <span className="text-sm text-neutral-500">{filtered.filter(p => p.stage === stage).length}</span>
                 </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <select className="input" value={filter.stage} onChange={e => setFilter({ ...filter, stage: e.target.value as any })}>
-                    {["All", ...STAGES].map(s => <option key={s}>{s}</option>)}
-                  </select>
-                  <select className="input" value={filter.sortBy} onChange={e => setFilter({ ...filter, sortBy: e.target.value as any })}>
-                    {["created", "priority", "confidence", "title", "deadline"].map(s => <option key={s}>{s}</option>)}
-                  </select>
-                  <select className="input" value={filter.visibility} onChange={e => setFilter({ ...filter, visibility: e.target.value as any })}>
-                    {["All", ...VISIBILITIES.map(v => v.value)].map(v => <option key={v}>{v}</option>)}
-                  </select>
-                </div>
-                <label className="flex items-center gap-2 text-sm px-2">
-                  <input type="checkbox" checked={filter.pinnedOnly} onChange={e => setFilter({ ...filter, pinnedOnly: e.target.checked })} />
-                  pinned only
-                </label>
-                <div className="flex flex-wrap gap-2 mt-1">
-                  {Object.entries(countsByCategory).map(([c, n]) => (
-                    <span key={c} className="badge badge-blue">{c} · {n}</span>
+                <div className="grid gap-4">
+                  {filtered.filter(p => p.stage === stage).map(p => (
+                    <PlanCard
+                      key={p.id}
+                      plan={p}
+                      onOpenDetail={setDetailPlan}
+                      onToggleDone={toggleDoneToday}
+                    />
                   ))}
                 </div>
               </div>
-            </div>
-
-            {/* SUMMARY */}
-            <div className="rounded-2xl border border-white/10 bg-white/60 dark:bg-neutral-900/50 backdrop-blur-md p-5 shadow-sm sticky top-[calc(20rem)] z-10">
-              <h3 className="font-semibold mb-3">Today</h3>
-              <div className="flex items-center justify-between">
-                <div className="grid">
-                  <span className="text-sm text-neutral-500">Done today</span>
-                  <span className="text-lg font-semibold">{todayDone}/{total}</span>
-                </div>
-                <ProgressRing value={pct} />
-              </div>
-              <div className="mt-4 grid grid-cols-2 gap-2">
-                <button className="btn btn-primary" onClick={saveAllToPosts} disabled={saving}>{saving ? "Saving…" : "Save All"}</button>
-                <button className="btn btn-ghost" onClick={() => setPlans([])} disabled={!total}>Clear all (local)</button>
-              </div>
-            </div>
+            ))}
           </div>
 
-          {/* RIGHT PANEL - Kanban board, List, Timeline */}
-          <div className="grid gap-6">
-            <div className="grid md:grid-cols-3 gap-4">
-              {STAGES.map(stage => (
-                <div
-                  key={stage}
-                  className="rounded-2xl border border-white/10 bg-white/50 dark:bg-neutral-900/40 backdrop-blur-md p-3 min-h-[180px]"
-                  onDragOver={e => e.preventDefault()}
-                  onDrop={e => handleDrop(e, stage)}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-medium">{stage}</h4>
-                    <span className="text-xs text-neutral-500">{filtered.filter(p => p.stage === stage).length}</span>
+          {/* Timeline View */}
+          <div className="bg-white dark:bg-neutral-800 rounded-3xl p-6 shadow-xl">
+            <h3 className="font-semibold text-lg mb-4">All Plans</h3>
+            <div className="grid gap-4">
+              {filtered.length === 0 && <p className="text-sm text-neutral-500">No plans match your filters. Try adjusting them!</p>}
+              {filtered.map(p => (
+                <div key={p.id} className="rounded-2xl border border-neutral-200 dark:border-neutral-700 p-4 flex items-center justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="font-medium text-lg">{p.title}</div>
+                    <div className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
+                      If ({p.cueType}) {p.cue} then {p.action}
+                    </div>
                   </div>
-                  <div className="grid gap-2 min-h-[120px]">
-                    {filtered.filter(p => p.stage === stage).map(p =>
-                      <div
-                        key={p.id}
-                        draggable
-                        tabIndex={0}
-                        onDragStart={e => e.dataTransfer.setData("id", p.id)}
-                        onClick={() => setDetailPlan(p)}
-                        className="rounded-xl border border-white/20 bg-white/70 dark:bg-neutral-900/60 p-3 hover:border-indigo-300/40 transition-shadow shadow-sm focus:outline focus:ring"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="font-medium truncate">{p.title}</div>
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-300">{p.category}</span>
-                        </div>
-                        <div className="text-xs text-neutral-600 mt-1 line-clamp-2">
-                          If ({p.cueType}) {p.cue} then {p.action}
-                        </div>
-                        <div className="flex items-center justify-between mt-2 text-[11px] text-neutral-500">
-                          <div>Pri {p.priority} · Conf {p.confidence}/10</div>
-                          {p.pinned && <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600">pinned</span>}
-                        </div>
-                        <div className="text-xs text-neutral-500 mt-1">Deadline: {timeUntil(p.deadline)}</div>
-                      </div>
-                    )}
+                  <div className="flex-shrink-0 flex items-center gap-4">
+                    <div className="text-sm text-neutral-500 flex flex-col items-end">
+                      <span>{p.category}</span>
+                      <span className="text-xs">{p.stage}</span>
+                    </div>
+                    <button
+                      className={`btn px-4 py-2 rounded-full text-sm font-medium transition
+                        ${p.doneToday ? 'bg-green-500 text-white hover:bg-green-600' : 'bg-neutral-200 text-neutral-800 hover:bg-neutral-300'}`}
+                      onClick={() => toggleDoneToday(p.id)}
+                    >
+                      {p.doneToday ? "Done" : "Mark Done"}
+                    </button>
                   </div>
                 </div>
               ))}
             </div>
-
-            {/* Full List */}
-            <div className="rounded-2xl border border-white/10 bg-white/60 dark:bg-neutral-900/50 backdrop-blur-md p-5">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold">All plans</h3>
-                <div className="text-sm text-neutral-500">{filtered.length} total</div>
-              </div>
-              <div className="grid gap-2">
-                {filtered.length === 0 && <p className="text-sm text-neutral-500">No plans match the filters.</p>}
-                {filtered.map(p =>
-                  <div key={p.id} className="rounded-xl border border-white/20 bg-white/70 dark:bg-neutral-900/60 p-3 grid gap-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="font-medium">{p.title}</div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-neutral-500">{p.category} · {p.frequency}</span>
-                        <button className="text-xs px-2 py-1 rounded bg-amber-500/10 text-amber-600" onClick={() => updatePlan(p.id, { pinned: !p.pinned })}>{p.pinned ? "Unpin" : "Pin"}</button>
-                        <button className="text-xs px-2 py-1 rounded bg-indigo-500/10 text-indigo-600" onClick={() => setDetailPlan(p)}>Open</button>
-                      </div>
-                    </div>
-                    <div className="text-sm"><b>If</b> ({p.cueType}) {p.cue} <b>then</b> {p.action}</div>
-                    {!!p.obstacle && <div className="text-xs text-neutral-600">Obstacle: {p.obstacle}</div>}
-                    {!!p.backup && <div className="text-xs text-neutral-600">Backup: {p.backup}</div>}
-                    {!!p.reward && <div className="text-xs text-neutral-600">Reward: {p.reward}</div>}
-                    <div className="flex items-center justify-between text-xs text-neutral-600 mt-1">
-                      <div>Conf: {p.confidence}/10 · Pri: {p.priority} · Streak: {p.streak || 0}</div>
-                      <div className="flex items-center gap-3">
-                        <label className="flex items-center gap-1">
-                          <input type="checkbox" checked={p.doneToday || false} onChange={() => toggleDoneToday(p.id)} />
-                          done today
-                        </label>
-                        <button className="text-neutral-500 hover:underline" onClick={() => removePlan(p.id)}>remove</button>
-                      </div>
-                    </div>
-                    <div className="text-xs mt-1 text-neutral-500">Deadline: {timeUntil(p.deadline)}</div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Timeline */}
-            <div className="rounded-2xl border border-white/10 bg-white/60 dark:bg-neutral-900/50 backdrop-blur-md p-5">
-              <h3 className="font-semibold mb-3">Recent timeline</h3>
-              <ol className="relative border-s border-neutral-200 dark:border-neutral-700 pl-4">
-                {[...filtered].sort((a, b) => a.createdAt - b.createdAt).slice(-12).map(p => (
-                  <li key={p.id} className="mb-4 ms-2">
-                    <span className="absolute -start-1.5 mt-1 h-3 w-3 rounded-full bg-gradient-to-br from-indigo-500 to-emerald-500"></span>
-                    <div className="text-sm font-medium">{p.title}</div>
-                    <div className="text-xs text-neutral-500">
-                      {new Date(p.createdAt).toLocaleDateString()} · {p.category} · {p.stage}
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            </div>
           </div>
-        </div>
+        </section>
+      </main>
 
-        {detailPlan && (
-          <DetailDrawer
-            plan={detailPlan}
-            onClose={() => setDetailPlan(null)}
-            onChange={(patch) => updatePlan(detailPlan.id, patch)}
-            onToggleDone={() => toggleDoneToday(detailPlan.id)}
-            onRemove={() => removePlan(detailPlan.id)}
-          />
-        )}
-
-      </section>
-    </main>
+      {detailPlan && (
+        <DetailDrawer
+          plan={detailPlan}
+          onClose={() => setDetailPlan(null)}
+          onChange={(patch) => updatePlan(detailPlan.id, patch)}
+          onToggleDone={() => toggleDoneToday(detailPlan.id)}
+          onRemove={() => removePlan(detailPlan.id)}
+        />
+      )}
+    </div>
   );
 }

@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import HeaderNav from "@/components/HeaderNav";
 import RouteProgress from "@/components/RouteProgress";
-import ThemeToggle from "@/components/ThemeToggle";
+
 
 /**
  * Prevents the initial flash of the wrong theme.
@@ -36,10 +36,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className="h-full" suppressHydrationWarning>
       <body className="min-h-screen h-full bg-white text-neutral-900 antialiased dark:bg-black dark:text-white">
         {/* Ensure correct theme before anything paints */}
-        <ThemeNoFlashScript />
+     
 
         {/* Top-right theme toggle (fixed) */}
-        <ThemeToggle />
+     
 
         {/* Instant visual feedback on route changes */}
         <RouteProgress />
@@ -56,9 +56,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </div>
           </header>
 
-          {/* Main content grows */}
-          <main className="flex-1">
-            <div className="mx-auto max-w-6xl px-4 py-8">{children}</div>
+          {/* Main content — full width so sections can be wide/full-bleed */}
+          <main className="flex-1 overflow-y-auto snap-y snap-mandatory touch-pan-y">
+            <div className="w-full px-6 md:px-10 py-0">
+              {children}
+            </div>
           </main>
 
           {/* Footer sticks to bottom via mt-auto on the flex column wrapper */}

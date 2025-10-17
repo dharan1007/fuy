@@ -1,26 +1,38 @@
 "use client";
 
+/**
+ * Feature set preserved.
+ * NEW:
+ * - Editable time (minutes + seconds) with “Apply” per current phase + presets.
+ * - Inputs & dropdowns: high-contrast (visible).
+ * - Auto-mini when tab/window is hidden, unless user manually toggled.
+ * - Full-width friendly layout.
+ */
+
 import { useEffect, useRef, useState } from "react";
+
+/* --------------- types + local storage keys --------------- */
 
 type IntervalRef = ReturnType<typeof setInterval> | null;
 type Phase = "work" | "short" | "long";
 
 const STORE_KEY = "fuy.pomo.v1";
 const HIST_KEY = "fuy.pomo.history.v1";
+const TASK_KEY = "fuy.pomo.tasks.v1";
 
 type Store = {
-  work: number; // seconds
-  short: number; // seconds
-  long: number; // seconds
+  work: number;
+  short: number;
+  long: number;
   cyclesUntilLong: number;
   targetPerDay: number;
   completedToday: number;
-  lastResetDate: string; // YYYY-MM-DD
+  lastResetDate: string;
   lastSession?: { phase: Phase; endedAt: string };
 };
 
 type Session = {
-  ts: string; // ISO
+  ts: string;
   intention: string;
   tag: "Deep" | "Light";
   category: "Study" | "Coding" | "Reading" | "Writing" | "Admin" | "Other";
@@ -30,12 +42,16 @@ type Session = {
   awaySeconds: number;
   idleSeconds: number;
   interruptions: string[];
-  energyBefore: number; // 0-10
-  energyAfter: number; // 0-10
-  quality: 1 | 2 | 3 | 4 | 5; // self-rated
+  energyBefore: number;
+  energyAfter: number;
+  quality: 1 | 2 | 3 | 4 | 5;
   visibility?: "PRIVATE" | "FRIENDS" | "PUBLIC";
   videoUrl?: string | null;
 };
+
+type Task = { id: string; text: string; done: boolean; created: string };
+
+/* ---------------- utilities ---------------- */
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -54,7 +70,6 @@ async function postJSON(url: string, data: any) {
   }
 }
 
-// Optional: upload a blob to your backend; expects { url: string }
 async function uploadBlob(url: string, blob: Blob, filename: string) {
   try {
     const fd = new FormData();
@@ -67,6 +82,8 @@ async function uploadBlob(url: string, blob: Blob, filename: string) {
     return { ok: false, url: null as string | null };
   }
 }
+
+/* ---------------- store hooks ---------------- */
 
 function useStore() {
   const [s, setS] = useState<Store>({
@@ -119,7 +136,50 @@ function useHistory() {
   return { list, setList };
 }
 
-/** ---------- Video Recorder (records only during WORK) ---------- */
+function useTasks() {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = localStorage.getItem(TASK_KEY);
+      if (raw) setTasks(JSON.parse(raw));
+    } catch {}
+  }, []);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem(TASK_KEY, JSON.stringify(tasks));
+    } catch {}
+  }, [tasks]);
+
+  const addTask = (text: string) => {
+    const t = text.trim();
+    if (!t) return;
+    setTasks((prev) =>
+      [
+        {
+          id: crypto.randomUUID(),
+          text: t,
+          done: false,
+          created: new Date().toISOString(),
+        },
+        ...prev,
+      ].slice(0, 100)
+    );
+  };
+  const toggleTask = (id: string) =>
+    setTasks((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t))
+    );
+  const removeTask = (id: string) =>
+    setTasks((prev) => prev.filter((t) => t.id !== id));
+  const clearDone = () => setTasks((prev) => prev.filter((t) => !t.done));
+
+  return { tasks, addTask, toggleTask, removeTask, clearDone };
+}
+
+/* ---------------- camera hook ---------------- */
+
 type RecorderState = "idle" | "ready" | "recording" | "paused" | "error";
 function useVideoRecorder() {
   const [state, setState] = useState<RecorderState>("idle");
@@ -141,10 +201,7 @@ function useVideoRecorder() {
       });
       mediaStreamRef.current = stream;
       setStreamReady(true);
-      if (videoEl.current) {
-        videoEl.current.srcObject = stream;
-        // don't autoplay to avoid noise; we show a muted preview tile the user can play
-      }
+      if (videoEl.current) videoEl.current.srcObject = stream;
       setState("ready");
       return stream;
     } catch (e) {
@@ -156,9 +213,7 @@ function useVideoRecorder() {
 
   const attachVideo = (el: HTMLVideoElement | null) => {
     videoEl.current = el;
-    if (el && mediaStreamRef.current) {
-      el.srcObject = mediaStreamRef.current;
-    }
+    if (el && mediaStreamRef.current) el.srcObject = mediaStreamRef.current;
   };
 
   const start = async () => {
@@ -171,16 +226,13 @@ function useVideoRecorder() {
       if (ev.data && ev.data.size > 0) chunksRef.current.push(ev.data);
     };
     rec.onstop = () => {
-      if (chunksRef.current.length) {
-        const b = new Blob(chunksRef.current, { type: "video/webm" });
-        setBlob(b);
-      }
+      if (chunksRef.current.length)
+        setBlob(new Blob(chunksRef.current, { type: "video/webm" }));
     };
     recorderRef.current = rec;
     rec.start();
     setState("recording");
   };
-
   const pause = () => {
     const r = recorderRef.current;
     if (r && r.state === "recording") {
@@ -188,7 +240,6 @@ function useVideoRecorder() {
       setState("paused");
     }
   };
-
   const resume = () => {
     const r = recorderRef.current;
     if (r && r.state === "paused") {
@@ -196,7 +247,6 @@ function useVideoRecorder() {
       setState("recording");
     }
   };
-
   const stop = () => {
     const r = recorderRef.current;
     if (r && (r.state === "recording" || r.state === "paused")) {
@@ -204,7 +254,6 @@ function useVideoRecorder() {
       setState("ready");
     }
   };
-
   const cleanup = () => {
     recorderRef.current?.stop?.();
     mediaStreamRef.current?.getTracks?.().forEach((t) => t.stop());
@@ -229,16 +278,18 @@ function useVideoRecorder() {
   };
 }
 
-/** ----------------------------- UI ----------------------------- */
+/* ----------------------------- UI ----------------------------- */
+
 export function PomodoroPro() {
   const { s, setS } = useStore();
   const { list, setList } = useHistory();
+  const { tasks, addTask, toggleTask, removeTask, clearDone } = useTasks();
 
   const [phase, setPhase] = useState<Phase>("work");
   const [running, setRunning] = useState(false);
   const [seconds, setSeconds] = useState(s.work);
 
-  // Focus recipe
+  // planner meta
   const [intention, setIntention] = useState("");
   const [tag, setTag] = useState<"Deep" | "Light">("Deep");
   const [category, setCategory] = useState<Session["category"]>("Coding");
@@ -246,7 +297,7 @@ export function PomodoroPro() {
   const [visibility, setVisibility] =
     useState<Session["visibility"]>("PRIVATE");
 
-  // Drift + interruptions
+  // drift + interruptions
   const [awaySeconds, setAwaySeconds] = useState(0);
   const awayStartRef = useRef<number | null>(null);
   const [idleSeconds, setIdleSeconds] = useState(0);
@@ -258,58 +309,81 @@ export function PomodoroPro() {
   const [cycleCount, setCycleCount] = useState(0);
   const timer = useRef<IntervalRef>(null);
 
-  // Video recorder instance
   const rec = useVideoRecorder();
 
-  // Mini widget mode
+  // Mini widget
   const [mini, setMini] = useState(false);
+  const userPinnedRef = useRef<null | boolean>(null);
 
-  // Hydrate seconds on phase change or store change
+  // seconds hydrate
   useEffect(() => {
     setSeconds(phase === "work" ? s.work : phase === "short" ? s.short : s.long);
   }, [phase, s.work, s.short, s.long]);
 
-  // Visibility drift
+  // away drift + auto mini
   useEffect(() => {
     const onVis = () => {
       if (document.hidden) {
-        awayStartRef.current = Date.now();
+        if (running && phase === "work") awayStartRef.current = Date.now();
       } else if (awayStartRef.current) {
         const dt = Math.round((Date.now() - awayStartRef.current) / 1000);
-        setAwaySeconds((v) => v + dt);
+        if (running && phase === "work") setAwaySeconds((v) => v + dt);
         awayStartRef.current = null;
       }
+      if (userPinnedRef.current == null) setMini(document.hidden);
     };
-    document.addEventListener("visibilitychange", onVis);
-    return () => document.removeEventListener("visibilitychange", onVis);
-  }, []);
+    const onBlur = () => {
+      if (userPinnedRef.current == null) setMini(true);
+    };
+    const onFocus = () => {
+      if (userPinnedRef.current == null) setMini(false);
+    };
 
-  // Idle drift (no mouse/keys for 25s → count idle)
-  useEffect(() => {
-    const mark = () => {
-      lastActivity.current = Date.now();
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("blur", onBlur);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("blur", onBlur);
+      window.removeEventListener("focus", onFocus);
     };
+  }, [running, phase]);
+
+  useEffect(() => {
+    if (!running) awayStartRef.current = null;
+  }, [running]);
+
+  // idle drift
+  useEffect(() => {
+    const mark = () => (lastActivity.current = Date.now());
     window.addEventListener("mousemove", mark);
     window.addEventListener("keydown", mark);
+    window.addEventListener("pointerdown", mark);
+    window.addEventListener("scroll", mark, { passive: true });
+
     if (idleTimer.current) clearInterval(idleTimer.current);
     idleTimer.current = setInterval(() => {
+      if (!(running && phase === "work")) return;
       const silence = Date.now() - lastActivity.current;
-      if (silence > 25000) setIdleSeconds((v) => v + 5); // accrue in 5s chunks
+      if (silence >= 25000) setIdleSeconds((v) => v + 5);
     }, 5000);
+
     return () => {
       window.removeEventListener("mousemove", mark);
       window.removeEventListener("keydown", mark);
+      window.removeEventListener("pointerdown", mark);
+      window.removeEventListener("scroll", mark);
       if (idleTimer.current) clearInterval(idleTimer.current);
     };
-  }, []);
+  }, [running, phase]);
 
-  // Main countdown
+  // countdown
   useEffect(() => {
     if (!running) return;
     if (timer.current) clearInterval(timer.current);
     timer.current = setInterval(() => {
-      setSeconds((s) => {
-        if (s > 1) return s - 1;
+      setSeconds((v) => {
+        if (v > 1) return v - 1;
         onPhaseEnd();
         return 0;
       });
@@ -317,48 +391,37 @@ export function PomodoroPro() {
     return () => {
       if (timer.current) clearInterval(timer.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [running, phase]);
 
-  // Start/pause/stop recorder in sync with work/break states
+  // recorder sync
   useEffect(() => {
-    // When entering WORK and running, ensure recording
     const sync = async () => {
       if (phase === "work" && running) {
         if (rec.state === "idle" || rec.state === "ready") {
           try {
             await rec.start();
           } catch {}
-        } else if (rec.state === "paused") {
-          rec.resume();
-        }
+        } else if (rec.state === "paused") rec.resume();
       } else {
-        // Breaks or paused ⇒ stop (finalize a clip for this session block)
-        if (rec.state === "recording" || rec.state === "paused") {
-          rec.stop();
-        }
+        if (rec.state === "recording" || rec.state === "paused") rec.stop();
       }
     };
     sync();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, running]);
+  }, [phase, running, rec]);
 
-  const onPhaseEnd = async () => {
+  const onPhaseEnd = () => {
     if (phase === "work") {
       setRunning(false);
       if (timer.current) clearInterval(timer.current);
-      setS((prev) => ({
-        ...prev,
-        completedToday: prev.completedToday + 1,
+      setS((p) => ({
+        ...p,
+        completedToday: p.completedToday + 1,
         lastSession: { phase: "work", endedAt: new Date().toISOString() },
       }));
-      // stop recorder and reveal review
-      if (rec.state === "recording" || rec.state === "paused") {
-        rec.stop();
-      }
+      if (rec.state === "recording" || rec.state === "paused") rec.stop();
+      setEnergyAfter(energyBefore);
       setShowReview(true);
     } else {
-      // break → back to work
       setPhase("work");
       setSeconds(s.work);
       setAwaySeconds(0);
@@ -367,19 +430,22 @@ export function PomodoroPro() {
     }
   };
 
-  // Review modal/state
+  // review
   const [showReview, setShowReview] = useState(false);
   const [energyAfter, setEnergyAfter] = useState(6);
   const [quality, setQuality] = useState<1 | 2 | 3 | 4 | 5>(4);
 
   const saveReview = async () => {
     const plannedSeconds = s.work;
-    const actualSeconds = plannedSeconds; // ran to end; (manual reset would differ)
+    const actualSeconds = Math.max(0, plannedSeconds - seconds);
 
-    // Try upload video if available and user visibility not PRIVATE
     let videoUrl: string | null = null;
     if (rec.blob && visibility !== "PRIVATE") {
-      const up = await uploadBlob("/api/upload", rec.blob, `pomo-${Date.now()}.webm`);
+      const up = await uploadBlob(
+        "/api/upload",
+        rec.blob,
+        `pomo-${Date.now()}.webm`
+      );
       if (up.ok && up.url) videoUrl = up.url;
     }
 
@@ -423,42 +489,41 @@ export function PomodoroPro() {
       creativityScore: 1,
     });
     await postJSON("/api/stats", { type: "pomodoro", category: "FOCUS", value: 1 });
-    await postJSON("/api/stats", { type: "focus_quality", category: "FOCUS", value: quality });
+    await postJSON("/api/stats", {
+      type: "focus_quality",
+      category: "FOCUS",
+      value: quality,
+    });
 
-    // Adaptive suggestion
-    const driftPct = ((awaySeconds + idleSeconds) / plannedSeconds) * 100;
-    if (driftPct > 25 || quality <= 2) {
-      setS((prev) => ({ ...prev, work: Math.max(10 * 60, prev.work - 5 * 60) }));
-    } else if (quality === 5 && driftPct < 5) {
-      setS((prev) => ({ ...prev, work: Math.min(60 * 60, prev.work + 5 * 60) }));
-    }
+    const driftPct =
+      ((awaySeconds + idleSeconds) / Math.max(1, plannedSeconds)) * 100;
+    if (driftPct > 25 || quality <= 2)
+      setS((p) => ({ ...p, work: Math.max(10 * 60, p.work - 5 * 60) }));
+    else if (quality === 5 && driftPct < 5)
+      setS((p) => ({ ...p, work: Math.min(60 * 60, p.work + 5 * 60) }));
 
-    // prepare next round
     const newCycle = cycleCount + 1;
     setCycleCount(newCycle);
     if (newCycle % s.cyclesUntilLong === 0) setPhase("long");
     else setPhase("short");
     setSeconds(newCycle % s.cyclesUntilLong === 0 ? s.long : s.short);
 
-    // reset drift + notes for breaks
     setAwaySeconds(0);
     setIdleSeconds(0);
     setInterruptions([]);
     setShowReview(false);
   };
 
-  const start = async () => {
-    if (!intention.trim()) return;
+  // controls
+  const start = () => {
     setRunning(true);
-    // Pre-warm permissions so recording begins smoothly
-    if (rec.state === "idle") {
-      try {
-        await rec.ensureStream();
-      } catch {}
-    }
+    lastActivity.current = Date.now();
+    awayStartRef.current = null;
+    if (rec.state === "idle") rec.ensureStream().catch(() => {});
   };
   const pause = () => {
     setRunning(false);
+    awayStartRef.current = null;
     if (timer.current) clearInterval(timer.current);
   };
   const reset = () => {
@@ -471,9 +536,11 @@ export function PomodoroPro() {
     setInterruptions([]);
   };
 
-  // UI helpers
-  const fmt = (n: number) => `${Math.floor(n / 60)}:${`${n % 60}`.padStart(2, "0")}`;
-  const pct = (seconds / (phase === "work" ? s.work : phase === "short" ? s.short : s.long || 1)) * 100;
+  // helpers
+  const fmt = (n: number) =>
+    `${Math.floor(n / 60)}:${`${n % 60}`.padStart(2, "0")}`;
+  const totalForPhase =
+    phase === "work" ? s.work : phase === "short" ? s.short : s.long || 1;
 
   const addInterrupt = () => {
     const v = interruptNote.trim();
@@ -482,313 +549,546 @@ export function PomodoroPro() {
     setInterruptNote("");
   };
 
+  const end = new Date(Date.now() + seconds * 1000);
+  const endLabel = end.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  const nextTask = tasks.find((t) => !t.done);
+
+  /* ---------------- layout ---------------- */
+
+  // wheel neighbors
+  const mm = Math.floor(seconds / 60);
+  const ss = seconds % 60;
+  const mmPrev = Math.max(0, mm - 1);
+  const mmNext = mm + 1;
+  const ssPrev = ss === 0 ? 59 : ss - 1;
+  const ssNext = (ss + 1) % 60;
+
+  // editable fields for custom duration
+  const [editMin, setEditMin] = useState(Math.floor(totalForPhase / 60));
+  const [editSec, setEditSec] = useState(totalForPhase % 60);
+  useEffect(() => {
+    setEditMin(Math.floor(totalForPhase / 60));
+    setEditSec(totalForPhase % 60);
+  }, [totalForPhase]);
+
+  const applyCustom = (m: number, sVal: number) => {
+    const total = Math.max(0, m) * 60 + Math.max(0, Math.min(59, sVal));
+    setS((p) => {
+      const next =
+        phase === "work"
+          ? { ...p, work: total }
+          : phase === "short"
+          ? { ...p, short: total }
+          : { ...p, long: total };
+      return next;
+    });
+    if (!running) setSeconds(total);
+  };
+
   return (
     <>
-      {/* Top controls + mini toggle */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2 text-sm text-neutral-600">
+      {/* Top row */}
+      <div className="flex items-center justify-between text-sm text-neutral-300">
+        <div className="flex items-center gap-3">
           <span className="inline-flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-emerald-500" aria-hidden />
-            <b>Phase:</b>&nbsp;{phase === "work" ? "Work" : phase === "short" ? "Short break" : "Long break"}
+            <span
+              className={`h-2 w-2 rounded-full ${
+                phase === "work"
+                  ? "bg-emerald-400"
+                  : phase === "short"
+                  ? "bg-sky-400"
+                  : "bg-violet-400"
+              }`}
+            />
+            <span className="font-medium">
+              {phase === "work" ? "Work" : phase === "short" ? "Short break" : "Long break"}
+            </span>
           </span>
-          <span className="hidden sm:inline">·</span>
-          <span className="hidden sm:inline">
-            <b>Cycle:</b>&nbsp;{cycleCount % s.cyclesUntilLong}/{s.cyclesUntilLong}
+          <span className="hidden sm:inline opacity-60">·</span>
+          <span className="hidden sm:inline opacity-80">
+            Cycle {cycleCount % s.cyclesUntilLong}/{s.cyclesUntilLong}
           </span>
-          <span className="hidden sm:inline">·</span>
-          <span className="hidden sm:inline">
-            <b>Today:</b>&nbsp;{s.completedToday}/{s.targetPerDay}
+          <span className="hidden sm:inline opacity-60">·</span>
+          <span className="hidden sm:inline opacity-80">
+            Today {s.completedToday}/{s.targetPerDay}
           </span>
         </div>
         <button
-          className="btn btn-ghost text-sm"
-          onClick={() => setMini((m) => !m)}
+          className="btn-ghost text-sm"
+          onClick={() => {
+            const next = !mini;
+            setMini(next);
+            userPinnedRef.current = next; // remember user intent
+          }}
           aria-label={mini ? "Exit mini mode" : "Enter mini mode"}
         >
-          {mini ? "↙ Expand" : "↗ Mini mode"}
+          {mini ? "↙ Expand" : "↗ Mini"}
         </button>
       </div>
 
-      {/* MAIN PANEL */}
-      <div className={`grid gap-4 ${mini ? "opacity-80" : ""}`}>
-        {/* Focus recipe */}
-        <div className="rounded-xl border p-4 grid gap-3 bg-white/60">
-          <div className="grid gap-2">
+      <div className="grid gap-6 lg:grid-cols-[1.05fr_1.25fr]">
+        {/* LEFT — Red wheel timer + editor */}
+        <div className="grid gap-4">
+          <div className="rounded-[28px] border border-white/10 bg-red-600/95 p-5 shadow-2xl">
+            <div className="text-white/90 text-sm font-semibold mb-3">
+              set your timer
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <WheelCard
+                big={mm}
+                prev={mmPrev}
+                next={mmNext}
+                label="min"
+                ariaLabel="minutes"
+              />
+              <WheelCard
+                big={ss}
+                prev={ssPrev}
+                next={ssNext}
+                label="sec"
+                ariaLabel="seconds"
+              />
+            </div>
+
+            {/* Controls */}
+            <div className="mt-5 flex flex-wrap items-center gap-3">
+              {!running ? (
+                <button
+                  className="rounded-xl bg-black/90 hover:bg-black px-5 py-3 font-semibold text-white shadow border border-white/10"
+                  onClick={start}
+                  aria-label="Start"
+                >
+                  ▶ Start
+                </button>
+              ) : (
+                <button
+                  className="rounded-xl bg-black/90 hover:bg-black px-5 py-3 font-semibold text-white shadow border border-white/10"
+                  onClick={pause}
+                  aria-label="Pause"
+                >
+                  ❚❚ Pause
+                </button>
+              )}
+
+              <button className="btn-ghost text-white" onClick={reset} aria-label="Reset">
+                Reset ▢
+              </button>
+
+              <div className="ml-auto text-sm text-white/90">Ends {endLabel}</div>
+            </div>
+
+            {/* Editable duration (current phase) */}
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-[auto_auto_auto_1fr] gap-2 items-center">
+              <span className="text-white/90 text-sm font-semibold">
+                Set {phase === "work" ? "Work" : phase === "short" ? "Short" : "Long"} duration
+              </span>
+              <input
+                type="number"
+                min={0}
+                className="input h-10 w-24 bg-white/95 text-black border-black/10"
+                value={editMin}
+                onChange={(e) => setEditMin(Math.max(0, Number(e.target.value)))}
+                aria-label="minutes input"
+              />
+              <span className="text-white/90 text-lg font-semibold text-center">:</span>
+              <input
+                type="number"
+                min={0}
+                max={59}
+                className="input h-10 w-24 bg-white/95 text-black border-black/10"
+                value={editSec}
+                onChange={(e) =>
+                  setEditSec(Math.max(0, Math.min(59, Number(e.target.value))))
+                }
+                aria-label="seconds input"
+              />
+              <div className="sm:col-span-4 flex flex-wrap items-center gap-2 mt-2">
+                <button
+                  className="rounded-lg bg-white/95 text-black border border-black/10 px-3 py-2 text-sm font-medium"
+                  onClick={() => applyCustom(editMin, editSec)}
+                >
+                  Apply to current phase
+                </button>
+                {/* Presets */}
+                <button
+                  className="rounded-lg bg-white/20 text-white border border-white/20 px-3 py-2 text-sm"
+                  onClick={() => applyCustom(25, 0)}
+                >
+                  25:00
+                </button>
+                <button
+                  className="rounded-lg bg-white/20 text-white border border-white/20 px-3 py-2 text-sm"
+                  onClick={() => applyCustom(5, 0)}
+                >
+                  05:00
+                </button>
+                <button
+                  className="rounded-lg bg-white/20 text-white border border-white/20 px-3 py-2 text-sm"
+                  onClick={() => applyCustom(15, 0)}
+                >
+                  15:00
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Upcoming (glass) */}
+          <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md p-4 text-white">
+            <div className="text-xs opacity-70">UPCOMING</div>
+            <div className="mt-1 text-lg font-semibold">
+              {nextTask ? nextTask.text : intention || "No upcoming task"}
+            </div>
+            <div className="mt-1 text-sm opacity-80">
+              {endLabel} · {category}
+            </div>
+          </div>
+
+          {/* Planner controls (glass) */}
+          <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md p-4 grid gap-3">
+            {/* Intention input — high contrast */}
             <input
-              className="input h-11 rounded-lg border-neutral-200 focus:outline-none focus:ring-2 focus:ring-neutral-900/10"
-              placeholder="Intention (e.g., “Outline section 2”)"
+              className="input h-11 bg-white/90 text-black border-black/10 placeholder:text-black/50"
+              placeholder='Intention (e.g., "Design review")'
               value={intention}
               onChange={(e) => setIntention(e.target.value)}
             />
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 text-sm">
-              <div className="flex items-center gap-2">
-                <span className="w-16">Tag</span>
-                <Select value={tag} onChange={(v) => setTag(v as "Deep" | "Light")} items={["Deep", "Light"]} />
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-20">Category</span>
+
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 text-sm">
+              <Field label="Tag">
+                <Select
+                  value={tag}
+                  onChange={(v) => setTag(v as "Deep" | "Light")}
+                  items={["Deep", "Light"]}
+                  light
+                />
+              </Field>
+              <Field label="Category">
                 <Select
                   value={category}
                   onChange={(v) => setCategory(v as Session["category"])}
                   items={["Coding", "Reading", "Writing", "Study", "Admin", "Other"]}
+                  light
                 />
-              </div>
-              <div className="flex items-center gap-2 lg:col-span-2">
-                <span className="w-24">Energy before</span>
-                <input
-                  type="range"
-                  min={0}
-                  max={10}
-                  value={energyBefore}
-                  onChange={(e) => setEnergyBefore(Number(e.target.value))}
-                  className="w-full accent-neutral-800"
-                />
-                <span className="w-8">{energyBefore}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-20">Post to</span>
+              </Field>
+              <Field label="Energy">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="range"
+                    min={0}
+                    max={10}
+                    value={energyBefore}
+                    onChange={(e) => setEnergyBefore(Number(e.target.value))}
+                    className="w-full"
+                  />
+                  <span className="w-6 text-right">{energyBefore}</span>
+                </div>
+              </Field>
+              <Field label="Post to">
                 <Select
                   value={visibility ?? "PRIVATE"}
                   onChange={(v) => setVisibility(v as Session["visibility"])}
                   items={["PRIVATE", "FRIENDS", "PUBLIC"]}
+                  light
                 />
-              </div>
+              </Field>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-sm">
+              <Num
+                label="Focus (min)"
+                value={Math.round(s.work / 60)}
+                onChange={(v) => setS((p) => ({ ...p, work: v * 60 }))}
+                min={5}
+                max={120}
+                light
+              />
+              <Num
+                label="Break (min)"
+                value={Math.round(s.short / 60)}
+                onChange={(v) => setS((p) => ({ ...p, short: v * 60 }))}
+                min={3}
+                max={60}
+                light
+              />
+              <Num
+                label="Rest (min)"
+                value={Math.round(s.long / 60)}
+                onChange={(v) => setS((p) => ({ ...p, long: v * 60 }))}
+                min={5}
+                max={60}
+                light
+              />
+              <Num
+                label="Cycles ↦ long"
+                value={s.cyclesUntilLong}
+                onChange={(v) =>
+                  setS((p) => ({ ...p, cyclesUntilLong: Math.max(1, v) }))
+                }
+                min={1}
+                max={10}
+                light
+              />
+              <Num
+                label="Target/day"
+                value={s.targetPerDay}
+                onChange={(v) =>
+                  setS((p) => ({ ...p, targetPerDay: Math.max(1, v) }))
+                }
+                min={1}
+                max={24}
+                light
+              />
             </div>
           </div>
 
-          {/* Config line */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-sm">
-            <Num label="Work (min)" value={Math.round(s.work / 60)} onChange={(v) => setS((p) => ({ ...p, work: v * 60 }))} min={5} max={120} />
-            <Num label="Short (min)" value={Math.round(s.short / 60)} onChange={(v) => setS((p) => ({ ...p, short: v * 60 }))} min={3} max={60} />
-            <Num label="Long (min)" value={Math.round(s.long / 60)} onChange={(v) => setS((p) => ({ ...p, long: v * 60 }))} min={5} max={60} />
-            <Num
-              label="Cycles ↦ long"
-              value={s.cyclesUntilLong}
-              onChange={(v) => setS((p) => ({ ...p, cyclesUntilLong: Math.max(1, v) }))}
-              min={1}
-              max={10}
-            />
-            <Num
-              label="Target/day"
-              value={s.targetPerDay}
-              onChange={(v) => setS((p) => ({ ...p, targetPerDay: Math.max(1, v) }))}
-              min={1}
-              max={24}
-            />
-          </div>
-        </div>
+          {/* Tasks — glass */}
+          <TaskPanel
+            tasks={tasks}
+            addTask={addTask}
+            toggleTask={toggleTask}
+            removeTask={removeTask}
+            clearDone={clearDone}
+          />
 
-        {/* Timer block */}
-        <div className="rounded-2xl border bg-white/70 p-5 grid gap-4">
-          <div className="grid place-items-center gap-4">
-            {/* Circular progress timer */}
-            <div className="relative h-40 w-40">
-              <svg viewBox="0 0 100 100" className="h-40 w-40 -rotate-90">
-                <circle cx="50" cy="50" r="45" stroke="rgba(0,0,0,.08)" strokeWidth="8" fill="none" />
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="45"
-                  stroke="rgba(0,0,0,.7)"
-                  strokeWidth="8"
-                  strokeLinecap="round"
-                  fill="none"
-                  strokeDasharray={2 * Math.PI * 45}
-                  strokeDashoffset={(2 * Math.PI * 45 * (100 - pct)) / 100}
-                />
-              </svg>
-              <div className="absolute inset-0 grid place-items-center">
-                <div className="text-4xl font-semibold tabular-nums">{fmt(seconds)}</div>
-              </div>
-            </div>
-
+          {/* Interruption ledger — glass */}
+          <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md p-4">
+            <div className="font-medium mb-2">Interruption ledger</div>
             <div className="flex gap-2">
-              {!running ? (
-                <button className="btn btn-primary" onClick={start} disabled={!intention.trim() || phase !== "work"}>
-                  Start
-                </button>
-              ) : (
-                <button className="btn" onClick={pause}>
-                  Pause
-                </button>
-              )}
-              <button className="btn btn-ghost" onClick={reset}>
-                Reset
+              <input
+                className="input w-full bg-white/90 text-black border-black/10 placeholder:text-black/50"
+                placeholder='Jot the urge (e.g., "check email")'
+                value={interruptNote}
+                onChange={(e) => setInterruptNote(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") addInterrupt();
+                }}
+              />
+              <button className="btn-ghost" onClick={addInterrupt}>
+                Add
               </button>
             </div>
-
-            {/* Recorder status pill */}
-            <RecorderPill state={rec.state} />
-          </div>
-
-          {/* Drift + interruptions */}
-          <div className="grid md:grid-cols-3 gap-3 text-sm">
-            <div className="rounded-lg border p-3">
-              <div className="font-medium mb-1">Drift</div>
-              <div className="text-neutral-600">
-                Away: <b>{awaySeconds}s</b> · Idle: <b>{idleSeconds}s</b>
-              </div>
-              <div className="text-xs text-neutral-500 mt-1">
-                Leaving the tab or going idle increments drift.
-              </div>
-            </div>
-            <div className="md:col-span-2 rounded-lg border p-3">
-              <div className="font-medium mb-2">Interruption ledger</div>
-              <div className="flex gap-2">
-                <input
-                  className="input w-full"
-                  placeholder="Jot the urge (e.g., “check email”)"
-                  value={interruptNote}
-                  onChange={(e) => setInterruptNote(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") addInterrupt();
-                  }}
-                />
-                <button className="btn" onClick={addInterrupt}>
-                  Add
-                </button>
-              </div>
-              <ul className="mt-2 grid gap-1 text-sm">
-                {interruptions.map((txt, i) => (
-                  <li key={i} className="rounded border px-2 py-1 bg-white">
-                    {txt}
-                  </li>
-                ))}
-                {interruptions.length === 0 && <li className="text-neutral-500">Nothing yet — good sign.</li>}
-              </ul>
-            </div>
-          </div>
-
-          {/* Live preview (muted) + save/download current clip if any */}
-          <div className="rounded-lg border p-3 grid gap-2">
-            <div className="font-medium">Recording (work blocks only)</div>
-            <div className="grid md:grid-cols-2 gap-3">
-              <div className="rounded-lg overflow-hidden border bg-black/3 grid place-items-center">
-                <video
-                  ref={rec.attachVideo}
-                  muted
-                  playsInline
-                  className="w-full aspect-video bg-neutral-100 object-cover"
-                  aria-label="Live camera preview"
-                />
-              </div>
-              <div className="grid content-start gap-2 text-sm">
-                <div className="text-neutral-600">
-                  {rec.error ? (
-                    <span className="text-red-600">{rec.error}</span>
-                  ) : rec.streamReady ? (
-                    <>Camera ready.</>
-                  ) : (
-                    <>Camera will ask permission on first start.</>
-                  )}
-                </div>
-                {rec.blob && (
-                  <div className="grid gap-2">
-                    <div className="text-neutral-700">Last clip (auto-captured from the finished work block):</div>
-                    <video
-                      src={URL.createObjectURL(rec.blob)}
-                      controls
-                      className="w-full aspect-video bg-neutral-100"
-                    />
-                    <a
-                      className="btn btn-ghost w-max"
-                      href={URL.createObjectURL(rec.blob)}
-                      download={`pomodoro-${Date.now()}.webm`}
-                    >
-                      Download video
-                    </a>
-                  </div>
-                )}
-              </div>
-            </div>
+            <ul className="mt-2 grid gap-1 text-sm">
+              {interruptions.map((txt, i) => (
+                <li
+                  key={i}
+                  className="rounded border border-white/10 px-2 py-1 bg-white/10 text-white/90"
+                >
+                  {txt}
+                </li>
+              ))}
+              {interruptions.length === 0 && (
+                <li className="text-neutral-400">Nothing yet — good sign.</li>
+              )}
+            </ul>
           </div>
         </div>
 
-        {/* Review (appears after a WORK phase completes) */}
-        {showReview && (
-          <div className="rounded-xl border p-4 grid gap-3 bg-white">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold">Session review</h3>
-              <span className="text-xs text-neutral-500">{intention || "(no title)"}</span>
+        {/* RIGHT — timeline, camera, review, stats */}
+        <div className="grid gap-4">
+          {/* Timeline */}
+          <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-lg font-bold">Today</div>
+              <div className="text-xs text-neutral-300">{list.length} recent</div>
             </div>
-            <div className="grid md:grid-cols-3 gap-3 text-sm">
-              <div className="flex items-center gap-2">
-                <span className="w-24">Energy after</span>
-                <input
-                  type="range"
-                  min={0}
-                  max={10}
-                  value={energyAfter}
-                  onChange={(e) => setEnergyAfter(Number(e.target.value))}
-                  className="w-full accent-neutral-800"
+            <div className="relative">
+              <div className="pointer-events-none absolute left-10 top-0 bottom-0 w-px bg-white/10" />
+              <div className="grid gap-3">
+                <TimelineCard
+                  color="bg-white/10"
+                  title={intention || (nextTask ? nextTask.text : "Focus block")}
+                  time={`${new Date()
+                    .toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                    .replace(" ", "")}–${endLabel}`}
+                  subtitle="Current"
+                  icon="🧠"
                 />
-                <span className="w-8">{energyAfter}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-24">Quality</span>
-                <Select
-                  value={String(quality)}
-                  onChange={(v) => setQuality(Number(v) as Session["quality"])}
-                  items={["1", "2", "3", "4", "5"]}
+                <TimelineCard
+                  color="bg-white/10"
+                  title="Design meeting — check product"
+                  time="in 1h"
+                  subtitle="Collaboration"
+                  icon="👥"
                 />
-              </div>
-              <div className="text-neutral-600 grid content-center">
-                Drift: away <b>{awaySeconds}s</b> · idle <b>{idleSeconds}s</b>
+                {list
+                  .slice(-3)
+                  .reverse()
+                  .map((x, i) => (
+                    <TimelineCard
+                      key={i}
+                      color="bg-white/10"
+                      title={x.intention || "Completed block"}
+                      time={new Date(x.ts).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                      subtitle={`${x.category} · ${x.quality}/5`}
+                      icon="✅"
+                    />
+                  ))}
               </div>
             </div>
-            <div className="grid md:grid-cols-2 gap-3">
-              <div className="grid gap-2">
-                <span className="text-sm font-medium">Post visibility</span>
-                <Select
-                  value={visibility ?? "PRIVATE"}
-                  onChange={(v) => setVisibility(v as Session["visibility"])}
-                  items={["PRIVATE", "FRIENDS", "PUBLIC"]}
-                />
-                <p className="text-xs text-neutral-500">
-                  If not private and a video exists, I’ll attach it to your post.
-                </p>
+          </div>
+
+          {/* Camera panel */}
+          <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md p-4 grid md:grid-cols-2 gap-3">
+            <div className="rounded-xl overflow-hidden border border-white/10 bg-black/40 grid place-items-center">
+              <video
+                ref={rec.attachVideo}
+                muted
+                playsInline
+                className="w-full aspect-video object-cover"
+                aria-label="Live camera preview"
+              />
+            </div>
+            <div className="grid content-start gap-2 text-sm text-neutral-200">
+              <div className="">
+                {rec.error ? (
+                  <span className="text-red-400">{rec.error}</span>
+                ) : rec.streamReady ? (
+                  <>Camera ready.</>
+                ) : (
+                  <>Camera will ask permission on first start.</>
+                )}
               </div>
               {rec.blob && (
                 <div className="grid gap-2">
-                  <span className="text-sm font-medium">Recording preview</span>
-                  <video src={URL.createObjectURL(rec.blob)} controls className="w-full aspect-video bg-neutral-100" />
+                  <div className="text-neutral-100">Last clip from finished block:</div>
+                  <video
+                    src={URL.createObjectURL(rec.blob)}
+                    controls
+                    className="w-full aspect-video bg-black/50"
+                  />
+                  <a
+                    className="btn-ghost w-max"
+                    href={URL.createObjectURL(rec.blob)}
+                    download={`pomodoro-${Date.now()}.webm`}
+                  >
+                    Download video
+                  </a>
                 </div>
               )}
             </div>
-            <div className="grid gap-2">
-              <button className="btn btn-primary" onClick={saveReview}>
-                Save review & continue
-              </button>
-              <p className="text-xs text-neutral-500">
-                Tip: heavy drift or low quality will gently shorten your next block; excellent focus lengthens it.
-              </p>
-            </div>
           </div>
-        )}
 
-        {/* History */}
-        <div className="rounded-xl border p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold">Recent sessions</h3>
-            <div className="text-xs text-neutral-500">{list.length} total</div>
-          </div>
-          <div className="grid md:grid-cols-3 gap-3">
-            <SparkPanel
-              title="Away % (lower is better)"
-              data={list.slice(-7).map((x) => Math.round(((x.awaySeconds + x.idleSeconds) / Math.max(1, x.plannedSeconds)) * 100))}
-              format={(v) => `${v}%`}
-            />
-            <SparkPanel title="Quality" data={list.slice(-7).map((x) => x.quality)} format={(v) => `${v}/5`} />
-            <SparkPanel
-              title="Energy Δ"
-              data={list.slice(-7).map((x) => x.energyAfter - x.energyBefore)}
-              format={(v) => (v >= 0 ? `+${v}` : `${v}`)}
-            />
+          {/* Review */}
+          {showReview && (
+            <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md p-4 grid gap-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold">Session review</h3>
+                <span className="text-xs text-neutral-300">
+                  {intention || "(no title)"}
+                </span>
+              </div>
+              <div className="grid md:grid-cols-3 gap-3 text-sm">
+                <div className="flex items-center gap-2">
+                  <span className="w-24">Energy after</span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={10}
+                    value={energyAfter}
+                    onChange={(e) => setEnergyAfter(Number(e.target.value))}
+                    className="w-full"
+                  />
+                  <span className="w-8">{energyAfter}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-24">Quality</span>
+                  <Select
+                    value={String(quality)}
+                    onChange={(v) => setQuality(Number(v) as Session["quality"])}
+                    items={["1", "2", "3", "4", "5"]}
+                    light
+                  />
+                </div>
+                <div className="text-neutral-200 grid content-center">
+                  Drift: away <b>{awaySeconds}s</b> · idle <b>{idleSeconds}s</b>
+                </div>
+              </div>
+              <div className="grid md:grid-cols-2 gap-3">
+                <div className="grid gap-2">
+                  <span className="text-sm font-medium">Post visibility</span>
+                  <Select
+                    value={visibility ?? "PRIVATE"}
+                    onChange={(v) => setVisibility(v as Session["visibility"])}
+                    items={["PRIVATE", "FRIENDS", "PUBLIC"]}
+                    light
+                  />
+                  <p className="text-xs text-neutral-300">
+                    If not private and a video exists, it will be attached.
+                  </p>
+                </div>
+                {rec.blob && (
+                  <div className="grid gap-2">
+                    <span className="text-sm font-medium">Recording</span>
+                    <video
+                      src={URL.createObjectURL(rec.blob)}
+                      controls
+                      className="w-full aspect-video bg-black/50"
+                    />
+                  </div>
+                )}
+              </div>
+              <div className="grid gap-2">
+                <button className="btn-gold" onClick={saveReview}>
+                  Save review & continue
+                </button>
+                <p className="text-xs text-neutral-300">
+                  Heavy drift shortens the next block; excellent focus lengthens it.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Stats */}
+          <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md p-4">
+            <div className="grid md:grid-cols-3 gap-3">
+              <SparkPanel
+                title="Away % (lower is better)"
+                data={list
+                  .slice(-7)
+                  .map((x) =>
+                    Math.round(
+                      ((x.awaySeconds + x.idleSeconds) /
+                        Math.max(1, x.plannedSeconds)) *
+                        100
+                    )
+                  )}
+                format={(v) => `${v}%`}
+              />
+              <SparkPanel
+                title="Quality"
+                data={list.slice(-7).map((x) => x.quality)}
+                format={(v) => `${v}/5`}
+              />
+              <SparkPanel
+                title="Energy Δ"
+                data={list
+                  .slice(-7)
+                  .map((x) => x.energyAfter - x.energyBefore)}
+                format={(v) => (v >= 0 ? `+${v}` : `${v}`)}
+              />
+            </div>
           </div>
         </div>
       </div>
 
-      {/* MINI WIDGET */}
+      {/* Bottom Bar */}
+      <BottomBar
+        canStart={!running && phase === "work"}
+        onStart={start}
+        onPause={pause}
+        running={running}
+        onReset={reset}
+      />
+
+      {/* Mini Widget */}
       {mini && (
         <MiniWidget
           running={running}
@@ -797,14 +1097,61 @@ export function PomodoroPro() {
           onStart={start}
           onPause={pause}
           onReset={reset}
-          onClose={() => setMini(false)}
+          onClose={() => {
+            setMini(false);
+            userPinnedRef.current = false;
+          }}
         />
       )}
     </>
   );
 }
 
-/** ---------- Small components ---------- */
+/* ---------------- subcomponents ---------------- */
+
+function WheelCard({
+  big,
+  prev,
+  next,
+  label,
+  ariaLabel,
+}: {
+  big: number;
+  prev: number;
+  next: number;
+  label: string;
+  ariaLabel: string;
+}) {
+  return (
+    <div
+      aria-label={ariaLabel}
+      className="bg-white/95 text-red-600 rounded-3xl px-6 py-4 grid place-items-center relative"
+    >
+      <div className="absolute inset-0 rounded-3xl ring-1 ring-black/10 pointer-events-none" />
+      <div className="grid place-items-center select-none">
+        <div className="text-3xl font-bold opacity-20 -mb-1 tabular-nums">
+          {String(prev).padStart(2, "0")}
+        </div>
+        <div className="text-7xl leading-none font-extrabold tabular-nums">
+          {String(big).padStart(2, "0")}
+        </div>
+        <div className="text-3xl font-bold opacity-20 -mt-1 tabular-nums">
+          {String(next).padStart(2, "0")}
+        </div>
+      </div>
+      <div className="mt-2 text-sm text-red-600/70 font-semibold">{label}</div>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="flex items-center gap-2 text-sm">
+      <span className="w-28 text-neutral-200">{label}</span>
+      <div className="w-full">{children}</div>
+    </label>
+  );
+}
 
 function Num({
   label,
@@ -812,18 +1159,22 @@ function Num({
   onChange,
   min,
   max,
+  light,
 }: {
   label: string;
   value: number;
   onChange: (v: number) => void;
   min: number;
   max: number;
+  light?: boolean;
 }) {
   return (
     <label className="flex items-center gap-2">
-      <span className="w-32">{label}</span>
+      <span className="w-32 text-neutral-200">{label}</span>
       <input
-        className="input w-24 h-9 rounded-lg border-neutral-200 focus:outline-none focus:ring-2 focus:ring-neutral-900/10"
+        className={`input w-24 h-9 ${
+          light ? "bg-white/90 text-black border-black/10" : "bg-white/10 text-white border-white/10"
+        }`}
         type="number"
         min={min}
         max={max}
@@ -834,22 +1185,25 @@ function Num({
   );
 }
 
-/** Custom-styled, minimal select (native under the hood) */
 function Select({
   value,
   onChange,
   items,
+  light,
 }: {
   value: string;
   onChange: (v: string) => void;
   items: string[];
+  light?: boolean;
 }) {
   return (
     <div className="relative w-full">
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="appearance-none input w-full h-9 pr-9 rounded-lg border-neutral-200 bg-white/80 focus:outline-none focus:ring-2 focus:ring-neutral-900/10"
+        className={`input h-9 pr-8 ${
+          light ? "bg-white/90 text-black border-black/10" : "bg-white/10 text-white border-white/10"
+        }`}
       >
         {items.map((it) => (
           <option key={it} value={it}>
@@ -857,12 +1211,12 @@ function Select({
           </option>
         ))}
       </select>
-      {/* Chevron */}
       <svg
-        className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-600"
+        className={`pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 ${
+          light ? "text-black/80" : "text-neutral-200"
+        }`}
         viewBox="0 0 20 20"
         fill="currentColor"
-        aria-hidden
       >
         <path
           fillRule="evenodd"
@@ -885,32 +1239,175 @@ function SparkPanel({
 }) {
   const max = Math.max(1, ...data.map((n) => Math.abs(n)));
   return (
-    <div className="rounded-lg border p-3 bg-white/60">
+    <div className="rounded-2xl p-3 border border-white/10 bg-white/5">
       <div className="text-sm font-medium mb-2">{title}</div>
       <div className="flex items-end gap-1 h-16">
         {data.map((v, i) => (
-          <div key={i} title={format(v)} className="bg-black/20 w-6 rounded-sm" style={{ height: `${(Math.abs(v) / max) * 100}%` }} />
+          <div
+            key={i}
+            title={format(v)}
+            className="bg-white/30 w-6 rounded-sm"
+            style={{ height: `${(Math.abs(v) / max) * 100}%` }}
+          />
         ))}
       </div>
-      <div className="text-xs text-neutral-600 mt-1">{data.map(format).join(" · ") || "—"}</div>
+      <div className="text-xs text-neutral-300 mt-1">
+        {data.map(format).join(" · ") || "—"}
+      </div>
     </div>
   );
 }
 
-function RecorderPill({ state }: { state: RecorderState }) {
-  const color =
-    state === "recording" ? "bg-red-500" : state === "paused" ? "bg-amber-500" : state === "ready" ? "bg-emerald-500" : "bg-neutral-400";
-  const label =
-    state === "recording" ? "Recording" : state === "paused" ? "Paused" : state === "ready" ? "Ready" : state === "idle" ? "Idle" : "Error";
+function TimelineCard({
+  color,
+  title,
+  time,
+  subtitle,
+  icon,
+}: {
+  color: string;
+  title: string;
+  time: string;
+  subtitle: string;
+  icon: string;
+}) {
   return (
-    <div className="inline-flex items-center gap-2 text-xs text-neutral-700">
-      <span className={`h-2.5 w-2.5 rounded-full ${color}`} aria-hidden />
-      <span className="font-medium">{label}</span>
+    <div className={`${color} rounded-2xl p-4 border border-white/10 relative ml-6`}>
+      <div className="absolute -left-6 top-1/2 -translate-y-1/2 h-3 w-3 rounded-full bg-white/20 border border-white/20" />
+      <div className="text-[28px] leading-none mb-1">{icon}</div>
+      <div className="text-[15px] font-semibold">{title}</div>
+      <div className="text-[13px] text-neutral-300 mt-1">{time}</div>
+      <div className="text-[12px] text-neutral-400">{subtitle}</div>
     </div>
   );
 }
 
-/** Floating mini widget */
+function TaskPanel({
+  tasks,
+  addTask,
+  toggleTask,
+  removeTask,
+  clearDone,
+}: {
+  tasks: Task[];
+  addTask: (t: string) => void;
+  toggleTask: (id: string) => void;
+  removeTask: (id: string) => void;
+  clearDone: () => void;
+}) {
+  const [text, setText] = useState("");
+  return (
+    <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md p-4">
+      <div className="flex items-center justify-between mb-2">
+        <div className="font-medium">Tasks</div>
+        <button className="btn-ghost btn-xs" onClick={clearDone}>
+          Clear done
+        </button>
+      </div>
+      <div className="flex gap-2">
+        <input
+          className="input w-full bg-white/90 text-black border-black/10 placeholder:text-black/50"
+          placeholder='Add a task (e.g., "Outline section 2")'
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              addTask(text);
+              setText("");
+            }
+          }}
+        />
+        <button
+          className="btn-ghost"
+          onClick={() => {
+            addTask(text);
+            setText("");
+          }}
+        >
+          Add
+        </button>
+      </div>
+      <ul className="mt-3 grid gap-1 text-sm">
+        {tasks.map((t) => (
+          <li
+            key={t.id}
+            className="rounded-xl border border-white/10 px-3 py-2 bg-white/10 flex items-center gap-3"
+          >
+            <input
+              checked={t.done}
+              onChange={() => toggleTask(t.id)}
+              type="checkbox"
+              className="checkbox checkbox-sm"
+            />
+            <span className={t.done ? "line-through text-neutral-400" : ""}>
+              {t.text}
+            </span>
+            <button
+              className="btn-ghost btn-xs ml-auto"
+              onClick={() => removeTask(t.id)}
+              aria-label="Delete"
+            >
+              ✕
+            </button>
+          </li>
+        ))}
+        {tasks.length === 0 && (
+          <li className="text-neutral-400">No tasks yet — add one above.</li>
+        )}
+      </ul>
+    </div>
+  );
+}
+
+function BottomBar({
+  canStart,
+  onStart,
+  onPause,
+  running,
+  onReset,
+}: {
+  canStart: boolean;
+  onStart: () => void;
+  onPause: () => void;
+  running: boolean;
+  onReset: () => void;
+}) {
+  return (
+    <div className="fixed bottom-0 inset-x-0 z-50 pointer-events-none">
+      <div className="w-full px-6 pb-5">
+        <div className="pointer-events-auto rounded-[22px] px-4 py-3 flex items-center justify-between border border-white/10 bg-white/5 backdrop-blur-md shadow-lg">
+          <button className="btn-ghost text-white/90" aria-label="Open tasks">
+            Tasks
+          </button>
+          <div className="flex items-center gap-2">
+            {!running ? (
+              <button
+                className="rounded-full w-12 h-12 p-0 bg-red-600 hover:bg-red-500 text-white font-bold shadow"
+                onClick={onStart}
+                disabled={!canStart}
+                aria-label="Start"
+              >
+                ▶
+              </button>
+            ) : (
+              <button
+                className="rounded-full w-12 h-12 p-0 bg-red-600 hover:bg-red-500 text-white font-bold shadow"
+                onClick={onPause}
+                aria-label="Pause"
+              >
+                ❚❚
+              </button>
+            )}
+          </div>
+          <button className="btn-ghost text-white/90" onClick={onReset} aria-label="Reset">
+            ▢
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MiniWidget({
   running,
   time,
@@ -930,31 +1427,37 @@ function MiniWidget({
 }) {
   return (
     <div
-      className="fixed bottom-4 right-4 z-40 rounded-xl border bg-white/90 backdrop-blur shadow-lg w-[260px] p-3"
+      className="fixed bottom-4 right-4 z-[60] rounded-xl shadow-lg w-[260px] p-3 border border-white/10 bg-white/5 backdrop-blur-md text-white"
       role="dialog"
       aria-label="Pomodoro mini widget"
     >
       <div className="flex items-center justify-between mb-2">
-        <div className="text-xs text-neutral-600">
-          <b>{phase === "work" ? "Work" : phase === "short" ? "Short break" : "Long break"}</b>
+        <div className="text-xs text-neutral-200">
+          <b>
+            {phase === "work"
+              ? "Work"
+              : phase === "short"
+              ? "Short break"
+              : "Long break"}
+          </b>
         </div>
-        <button className="btn btn-ghost btn-xs" onClick={onClose} aria-label="Close mini widget">
+        <button className="btn-ghost btn-xs" onClick={onClose} aria-label="Close mini widget">
           ✕
         </button>
       </div>
       <div className="grid place-items-center gap-2">
-        <div className="text-3xl font-semibold tabular-nums">{time}</div>
-        <div className="flex gap-2">
+        <div className="text-3xl font-bold tabular-nums">{time}</div>
+        <div className="flex items-center gap-2">
           {!running ? (
-            <button className="btn btn-primary btn-sm" onClick={onStart}>
+            <button className="btn-gold btn-sm" onClick={onStart}>
               Start
             </button>
           ) : (
-            <button className="btn btn-sm" onClick={onPause}>
+            <button className="btn-ghost btn-sm" onClick={onPause}>
               Pause
             </button>
           )}
-          <button className="btn btn-ghost btn-sm" onClick={onReset}>
+          <button className="btn-ghost btn-sm" onClick={onReset}>
             Reset
           </button>
         </div>

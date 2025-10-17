@@ -7,42 +7,33 @@ export default function PomodoroPage() {
   const router = useRouter();
 
   return (
-    <section
-      className="relative min-h-[calc(100dvh-4rem)]"
-      aria-label="Pomodoro — Focus Forge"
-    >
-      {/* Minimal gradient + geometric texture */}
-      <div
-        className="pointer-events-none absolute inset-0 -z-10"
-        aria-hidden
-        style={{
-          background:
-            "radial-gradient(1200px 600px at 10% -10%, rgba(0,0,0,.07), transparent 60%), radial-gradient(1000px 500px at 120% 20%, rgba(0,0,0,.05), transparent 55%), linear-gradient(to bottom, #fafafa, #f5f5f5)",
-        }}
-      />
-      <div className="mx-auto max-w-5xl px-4 py-8 grid gap-8">
-        <div className="flex items-end justify-between">
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight">
-              Pomodoro — Focus Forge
-            </h1>
-            <p className="text-neutral-500 mt-1">
-              Minimal. Adaptive. Interruption-aware focus blocks.
-            </p>
-          </div>
+    <>
+      {/* Dark backdrop */}
+      <div className="fixed inset-0 -z-10 bg-gradient-to-b from-neutral-900 via-neutral-950 to-black" />
+
+      <section
+        className="relative min-h-screen-safe text-white"
+        aria-label="Pomodoro — Planner View"
+        style={{ touchAction: "pan-y" }}
+      >
+        <header className="w-full px-6 py-5 flex items-center justify-between">
+          <h1 className="text-lg font-semibold tracking-wide opacity-90">
+            Pomodoro Console
+          </h1>
           <button
-            className="btn btn-ghost"
+            className="btn-ghost text-sm opacity-90 hover:opacity-100"
             onClick={() => router.push("/dashboard")}
             aria-label="Back to dashboard"
           >
-            ← Back to dashboard
+            ← Back
           </button>
-        </div>
+        </header>
 
-        <div className="rounded-2xl border border-neutral-200/70 bg-white/70 backdrop-blur px-5 py-6 shadow-sm">
+        {/* FULL WIDTH content */}
+        <main className="w-full px-6 pb-28 grid gap-6">
           <PomodoroPro />
-        </div>
-      </div>
-    </section>
+        </main>
+      </section>
+    </>
   );
 }

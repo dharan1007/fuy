@@ -134,7 +134,7 @@ export default function BondsPage() {
 
   useEffect(() => setStatus(""), [bp, log, compose]);
 
-  // Weather logic: naive derivation from streak and latest log
+  // Weather logic
   useEffect(() => {
     if (streak >= 10) setWeather("sunny");
     else if (streak >= 5) setWeather("breezy");
@@ -142,16 +142,14 @@ export default function BondsPage() {
     else setWeather("stormy");
   }, [streak]);
 
-  // Soft warnings in message compose
   const flagged = spoilers.filter(sp => compose.toLowerCase().includes(sp));
 
-  // Local "scheduler" simulate for Time Capsule (fires on reload tick)
+  // Local "scheduler"
   useEffect(() => {
     const t = setInterval(() => {
       const now = new Date();
       const updated = capsules.map(c => {
         if (!c.sent && c.when && new Date(c.when) <= now) {
-          // In real app, trigger server push/email/notification here
           return { ...c, sent: true };
         }
         return c;
@@ -233,10 +231,7 @@ export default function BondsPage() {
     );
   }
 
-  const bingoWin = useMemo(() => {
-    // Simple win: any 3 selected
-    return bingoState.length >= 3;
-  }, [bingoState]);
+  const bingoWin = useMemo(() => bingoState.length >= 3, [bingoState]);
 
   function adjustOrbit(name: string, delta: number) {
     setOrbits(os => os.map(o => o.name === name ? { ...o, distance: Math.max(1, o.distance + delta) } : o));
@@ -271,226 +266,356 @@ export default function BondsPage() {
   }
 
   return (
-    <div className="grid gap-8">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">💞 Bond Dashboard</h1>
-        <div className="flex items-center gap-3">
-          <span className="pill-red">level {bondLevel}</span>
-          <span className="pill-red">coins {glowCoins}</span>
-        </div>
+    <div
+      className="
+        relative min-h-screen w-full
+        p-4 sm:p-6 lg:p-10
+        text-[17px] md:text-[18px] lg:text-[19px]
+        [background-image:radial-gradient(theme(colors.slate.300)_1px,transparent_1px)]
+        [background-size:18px_18px]
+        [background-position:0_0]
+      "
+    >
+      {/* floating interactive shapes (decor only, css hover/animate) */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="pointer-events-auto absolute top-8 right-16 h-24 w-24 rounded-full bg-indigo-400/25 mix-blend-multiply animate-pulse" />
+        <div className="pointer-events-auto absolute -top-6 left-6 h-28 w-36 rounded-[2rem] bg-amber-400/25 rotate-6 transition duration-500 hover:rotate-0 hover:scale-110" />
+        <div className="pointer-events-auto absolute bottom-16 left-10 h-20 w-20 rounded-xl bg-emerald-400/20 blur-[1px] transition duration-500 hover:scale-125" />
+        <div className="pointer-events-auto absolute bottom-10 right-1/4 h-16 w-28 rounded-3xl bg-rose-400/20 -rotate-12 transition duration-500 hover:rotate-0 hover:scale-110" />
       </div>
 
-      {/* Emotion Weather */}
-      <section className="c-card p-6 grid gap-3">
-        <h2 className="font-medium">⛅ Emotion Weather</h2>
-        <div className="text-3xl">
-          {weather === "sunny" && "☀️ Sunny: momentum is strong"}
-          {weather === "breezy" && "🌤️ Breezy: light & open"}
-          {weather === "overcast" && "☁️ Overcast: watch for dips"}
-          {weather === "stormy" && "⛈️ Stormy: consider a repair ritual"}
-        </div>
-        <div className="text-sm text-stone-600">Streak: {streak} | Level: {bondLevel}</div>
-      </section>
-
-      {/* Blueprint */}
-      <section className="c-card p-6 grid gap-4">
-        <h2 className="font-medium">📝 Bond Blueprint</h2>
-        <div className="grid sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm text-stone-600 mb-1">Person</label>
-            <input className="w-full border rounded-lg px-3 py-2"
-                   placeholder="Name / role"
-                   value={bp.person}
-                   onChange={(e) => setBp({ ...bp, person: e.target.value })}/>
-          </div>
-          <div>
-            <label className="block text-sm text-stone-600 mb-1">Shared Joys</label>
-            <input className="w-full border rounded-lg px-3 py-2"
-                   placeholder="What lights you both up?"
-                   value={bp.joys}
-                   onChange={(e) => setBp({ ...bp, joys: e.target.value })}/>
+      <div className="relative grid gap-6 lg:gap-8">
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl md:text-4xl font-semibold tracking-tight">💞 Bond Dashboard</h1>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-rose-600 text-white text-sm px-3.5 py-1.5">level {bondLevel}</span>
+            <span className="rounded-full bg-rose-600 text-white text-sm px-3.5 py-1.5">coins {glowCoins}</span>
           </div>
         </div>
-        <div className="grid sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm text-stone-600 mb-1">Core Needs</label>
-            <textarea className="w-full border rounded-lg px-3 py-2 h-24"
-                      placeholder="What does this person need to feel safe/seen?"
-                      value={bp.needs}
-                      onChange={(e) => setBp({ ...bp, needs: e.target.value })}/>
-          </div>
-          <div>
-            <label className="block text-sm text-stone-600 mb-1">Rupture Signals</label>
-            <textarea className="w-full border rounded-lg px-3 py-2 h-24"
-                      placeholder="Early warning signs (tone, withdrawal, keywords)…"
-                      value={bp.ruptureSignals}
-                      onChange={(e) => setBp({ ...bp, ruptureSignals: e.target.value })}/>
-          </div>
-        </div>
-        <div>
-          <label className="block text-sm text-stone-600 mb-1">Repair Script</label>
-          <textarea className="w-full border rounded-lg px-3 py-2 h-24"
-                    placeholder='“When X happened I felt Y, my need is Z. How did it land for you?”'
-                    value={bp.repairScript}
-                    onChange={(e) => setBp({ ...bp, repairScript: e.target.value })}/>
-        </div>
-        <div className="flex gap-3">
-          <button onClick={saveBlueprint} disabled={saving} className="c-btn-primary">Save blueprint</button>
-          {status && <div className="text-sm text-stone-700">{status}</div>}
-        </div>
-      </section>
 
-      {/* Micro-repair Log */}
-      <section className="c-card p-6 grid gap-4">
-        <h2 className="font-medium">🪄 Micro-repair Log</h2>
-        <div className="flex gap-2">
-          <input
-            className="border rounded-lg px-3 py-2 flex-1"
-            placeholder="e.g., Paused, named impact, asked ‘what do you need now?’"
-            value={log}
-            onChange={(e) => setLog(e.target.value)}
-          />
-          <button onClick={saveRepairLog} disabled={saving} className="c-btn-ghost">Log</button>
-        </div>
-      </section>
-
-      {/* Handshake Builder */}
-      <section className="c-card p-6 grid gap-3">
-        <h2 className="font-medium">🤝 Secret Handshake Builder</h2>
-        <div className="text-3xl">{handshake.join(" ")}</div>
-        <div className="flex gap-2">
-          <input className="border rounded px-3 py-2 w-28" placeholder="Emoji" value={handEmoji} onChange={e=>setHandEmoji(e.target.value)} />
-          <button className="c-btn-ghost" onClick={addHandshakeStep}>+ Step</button>
-        </div>
-        <div className="text-xs text-stone-600">Tip: include “🫶 🌀 ✨” to signal repair + reset + celebrate.</div>
-      </section>
-
-      {/* Story Seed Roulette */}
-      <section className="c-card p-6 grid gap-3">
-        <h2 className="font-medium">🎡 Story Seed Roulette</h2>
-        <button className="c-btn-primary w-fit" onClick={spinStory}>Spin</button>
-        {story && <div className="p-3 border rounded bg-stone-50 text-sm">Seed: {story} — Write 5 lines together.</div>}
-      </section>
-
-      {/* Rupture Bingo */}
-      <section className="c-card p-6 grid gap-3">
-        <h2 className="font-medium">🧩 Rupture Bingo</h2>
-        <div className="grid grid-cols-3 gap-2">
-          {bingoCells.map(cell => (
-            <button
-              key={cell}
-              onClick={() => toggleBingo(cell)}
-              className={`border rounded px-2 py-3 text-sm ${bingoState.includes(cell) ? "bg-yellow-100 border-yellow-300" : "bg-white"}`}
-            >
-              {cell}
-            </button>
-          ))}
-        </div>
-        {bingoWin && (
-          <div className="p-3 border rounded bg-green-50 text-sm">
-            Bingo! Repair task: 60 seconds of eye contact + “One thing I learned” + hug.
-          </div>
-        )}
-      </section>
-
-      {/* Boundaries Switchboard */}
-      <section className="c-card p-6 grid gap-3">
-        <h2 className="font-medium">🚦 Boundaries Switchboard</h2>
-        <div className="grid sm:grid-cols-2 gap-2">
-          {boundaries.map(b => (
-            <label key={b.key} className="flex items-center gap-3 border rounded px-3 py-2">
-              <input type="checkbox" checked={b.on} onChange={() => toggleBoundary(b.key)} />
-              <span className="text-sm">{b.label}</span>
-            </label>
-          ))}
-        </div>
-        <div className="text-xs text-stone-600">Toggles generate scripts in Compose if needed.</div>
-      </section>
-
-      {/* Compose with Mood Spoiler Alerts */}
-      <section className="c-card p-6 grid gap-3">
-        <h2 className="font-medium">✍️ Compose (Soft Guards)</h2>
-        <textarea className="w-full border rounded-lg px-3 py-2 h-24"
-                  placeholder="Draft a message…"
-                  value={compose}
-                  onChange={e => setCompose(e.target.value)} />
-        {flagged.length > 0 && (
-          <div className="text-xs text-red-700">
-            Consider rephrasing: {flagged.join(", ")}
-          </div>
-        )}
-        <div className="flex gap-2">
-          <button className="c-btn-ghost" onClick={rollDare}>Insert playful prompt</button>
-          <button className="c-btn-ghost" onClick={generateAdventure}>Micro-adventure</button>
-          <button className="c-btn-ghost" onClick={spendGlowCoin} disabled={glowCoins < 2}>Redeem Glow (2)</button>
-          <button className="c-btn-primary" onClick={redButtonOfGrace}>🧯 Red Button of Grace</button>
-        </div>
-      </section>
-
-      {/* Time Capsule */}
-      <section className="c-card p-6 grid gap-3">
-        <h2 className="font-medium">📦 Time Capsule Pings</h2>
-        <div className="grid sm:grid-cols-3 gap-2">
-          <input className="border rounded px-3 py-2 sm:col-span-2" placeholder="Future message"
-                 value={capsuleMsg} onChange={e=>setCapsuleMsg(e.target.value)} />
-          <input type="datetime-local" className="border rounded px-3 py-2"
-                 value={capsuleWhen} onChange={e=>setCapsuleWhen(e.target.value)} />
-        </div>
-        <button className="c-btn-ghost w-fit" onClick={scheduleCapsule}>Schedule</button>
-        <div className="grid gap-2">
-          {capsules.map((c, i) => (
-            <div key={i} className="text-sm border rounded px-3 py-2 flex items-center justify-between">
-              <span>{c.msg} — <span className="text-xs text-stone-500">{c.when}</span></span>
-              <span className="text-xs">{c.sent ? "📬 delivered" : "⏳ pending"}</span>
+        {/* tiles layout across full width */}
+        <div className="grid gap-6 lg:gap-8 lg:[grid-template-columns:repeat(12,minmax(0,1fr))]">
+          {/* Emotion Weather (wide) */}
+          <section className="lg:col-span-5 rounded-2xl bg-white/90 shadow-sm border border-slate-200 p-6 grid gap-3 backdrop-blur">
+            <h2 className="text-lg font-semibold">⛅ Emotion Weather</h2>
+            <div className="text-2xl md:text-[30px]">
+              {weather === "sunny" && "☀️ Sunny: momentum is strong"}
+              {weather === "breezy" && "🌤️ Breezy: light & open"}
+              {weather === "overcast" && "☁️ Overcast: watch for dips"}
+              {weather === "stormy" && "⛈️ Stormy: consider a repair ritual"}
             </div>
-          ))}
-        </div>
-      </section>
+            <div className="text-sm text-slate-500">Streak: {streak} | Level: {bondLevel}</div>
+          </section>
 
-      {/* Orbit Builder */}
-      <section className="c-card p-6 grid gap-3">
-        <h2 className="font-medium">🪐 Orbit Builder</h2>
-        <div className="grid sm:grid-cols-2 gap-2">
-          {orbits.map(o => (
-            <div key={o.name} className="flex items-center justify-between border rounded px-3 py-2">
+          {/* Blueprint (tall) */}
+          <section className="lg:col-span-7 rounded-2xl bg-white/90 shadow-sm border border-slate-200 p-6 grid gap-5 backdrop-blur">
+            <h2 className="text-lg font-semibold">📝 Bond Blueprint</h2>
+            <div className="grid md:grid-cols-2 gap-4">
               <div>
-                <div className="text-sm">{o.name} {o.type === "moon" ? "🌙" : "🪐"}</div>
-                <div className="text-xs text-stone-600">Distance: {o.distance}</div>
+                <label className="block text-xs uppercase tracking-wide text-slate-500 mb-2">Person</label>
+                <input
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5"
+                  placeholder="Name / role"
+                  value={bp.person}
+                  onChange={(e) => setBp({ ...bp, person: e.target.value })}
+                />
               </div>
-              <div className="flex gap-2">
-                <button className="c-btn-ghost" onClick={()=>adjustOrbit(o.name, -1)}>⬅️ closer</button>
-                <button className="c-btn-ghost" onClick={()=>adjustOrbit(o.name, +1)}>➡️ farther</button>
+              <div>
+                <label className="block text-xs uppercase tracking-wide text-slate-500 mb-2">Shared Joys</label>
+                <input
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5"
+                  placeholder="What lights you both up?"
+                  value={bp.joys}
+                  onChange={(e) => setBp({ ...bp, joys: e.target.value })}
+                />
               </div>
             </div>
-          ))}
-        </div>
-        <div className="flex gap-2">
-          <input className="border rounded px-3 py-2 flex-1" placeholder="Add orbit name" value={newOrbitName} onChange={e=>setNewOrbitName(e.target.value)} />
-          <select className="border rounded px-3 py-2" value={newOrbitType} onChange={e=>setNewOrbitType(e.target.value as any)}>
-            <option value="planet">planet</option>
-            <option value="moon">moon</option>
-          </select>
-          <button className="c-btn-ghost" onClick={addOrbitBody}>+ Add</button>
-        </div>
-      </section>
-
-      {/* Alchemy Lab */}
-      <section className="c-card p-6 grid gap-3">
-        <h2 className="font-medium">🧪 Bond Alchemy Lab</h2>
-        <div className="flex flex-wrap gap-2">
-          {ingredients.map((ing, i) => {
-            const active = selectedIng.includes(ing);
-            return (
-              <button key={i}
-                      onClick={() => craftAlchemy(ing)}
-                      className={`px-2 py-1 border rounded text-xs ${active ? "bg-purple-100 border-purple-300" : "bg-white"}`}>
-                {ing}
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs uppercase tracking-wide text-slate-500 mb-2">Core Needs</label>
+                <textarea
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5 h-28"
+                  placeholder="What does this person need to feel safe/seen?"
+                  value={bp.needs}
+                  onChange={(e) => setBp({ ...bp, needs: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-xs uppercase tracking-wide text-slate-500 mb-2">Rupture Signals</label>
+                <textarea
+                  className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5 h-28"
+                  placeholder="Early warning signs (tone, withdrawal, keywords)…"
+                  value={bp.ruptureSignals}
+                  onChange={(e) => setBp({ ...bp, ruptureSignals: e.target.value })}
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs uppercase tracking-wide text-slate-500 mb-2">Repair Script</label>
+              <textarea
+                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5 h-28"
+                placeholder='“When X happened I felt Y, my need is Z. How did it land for you?”'
+                value={bp.repairScript}
+                onChange={(e) => setBp({ ...bp, repairScript: e.target.value })}
+              />
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+              <button
+                onClick={saveBlueprint}
+                disabled={saving}
+                className="rounded-full bg-slate-900 text-white px-6 py-3 text-sm hover:opacity-90 disabled:opacity-50"
+              >
+                Save blueprint
               </button>
-            );
-          })}
+              {status && <div className="text-sm text-slate-700">{status}</div>}
+            </div>
+          </section>
+
+          {/* Micro-repair Log (horizontal small) */}
+          <section className="lg:col-span-6 rounded-2xl bg-white/90 shadow-sm border border-slate-200 p-6 grid gap-4 backdrop-blur">
+            <h2 className="text-lg font-semibold">🪄 Micro-repair Log</h2>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3.5"
+                placeholder="e.g., Paused, named impact, asked ‘what do you need now?’"
+                value={log}
+                onChange={(e) => setLog(e.target.value)}
+              />
+              <button
+                onClick={saveRepairLog}
+                disabled={saving}
+                className="rounded-full border border-slate-300 bg-white px-5 py-3 text-sm hover:bg-slate-50 disabled:opacity-50"
+              >
+                Log
+              </button>
+            </div>
+          </section>
+
+          {/* Handshake Builder (compact) */}
+          <section className="lg:col-span-6 rounded-2xl bg-white/90 shadow-sm border border-slate-200 p-6 grid gap-3 backdrop-blur">
+            <h2 className="text-lg font-semibold">🤝 Secret Handshake Builder</h2>
+            <div className="text-3xl">{handshake.join(" ")}</div>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                className="w-28 rounded-xl border border-slate-200 bg-white px-4 py-3.5"
+                placeholder="Emoji"
+                value={handEmoji}
+                onChange={e=>setHandEmoji(e.target.value)}
+              />
+              <button
+                className="rounded-full border border-slate-300 bg-white px-5 py-3 text-sm hover:bg-slate-50"
+                onClick={addHandshakeStep}
+              >
+                + Step
+              </button>
+            </div>
+            <div className="text-xs text-slate-500">
+              Tip: include “🫶 🌀 ✨” to signal repair + reset + celebrate.
+            </div>
+          </section>
+
+          {/* Story Seed Roulette */}
+          <section className="lg:col-span-5 rounded-2xl bg-white/90 shadow-sm border border-slate-200 p-6 grid gap-3 backdrop-blur">
+            <h2 className="text-lg font-semibold">🎡 Story Seed Roulette</h2>
+            <button
+              className="w-fit rounded-full bg-slate-900 text-white px-6 py-3 text-sm hover:opacity-90"
+              onClick={spinStory}
+            >
+              Spin
+            </button>
+            {story && (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-[15px]">
+                Seed: {story} — Write 5 lines together.
+              </div>
+            )}
+          </section>
+
+          {/* Rupture Bingo */}
+          <section className="lg:col-span-7 rounded-2xl bg-white/90 shadow-sm border border-slate-200 p-6 grid gap-3 backdrop-blur">
+            <h2 className="text-lg font-semibold">🧩 Rupture Bingo</h2>
+            <div className="grid grid-cols-3 gap-2">
+              {bingoCells.map(cell => (
+                <button
+                  key={cell}
+                  onClick={() => toggleBingo(cell)}
+                  className={`rounded-xl border px-2 py-3 text-sm transition ${
+                    bingoState.includes(cell)
+                      ? "bg-amber-50 border-amber-200"
+                      : "bg-white border-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  {cell}
+                </button>
+              ))}
+            </div>
+            {bingoWin && (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-[15px]">
+                Bingo! Repair task: 60 seconds of eye contact + “One thing I learned” + hug.
+              </div>
+            )}
+          </section>
+
+          {/* Boundaries Switchboard */}
+          <section className="lg:col-span-6 rounded-2xl bg-white/90 shadow-sm border border-slate-200 p-6 grid gap-3 backdrop-blur">
+            <h2 className="text-lg font-semibold">🚦 Boundaries Switchboard</h2>
+            <div className="grid sm:grid-cols-2 gap-2">
+              {boundaries.map(b => (
+                <label
+                  key={b.key}
+                  className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3"
+                >
+                  <input type="checkbox" checked={b.on} onChange={() => toggleBoundary(b.key)} />
+                  <span className="text-[15px]">{b.label}</span>
+                </label>
+              ))}
+            </div>
+            <div className="text-xs text-slate-500">Toggles generate scripts in Compose if needed.</div>
+          </section>
+
+          {/* Compose */}
+          <section className="lg:col-span-6 rounded-2xl bg-white/90 shadow-sm border border-slate-200 p-6 grid gap-3 backdrop-blur">
+            <h2 className="text-lg font-semibold">✍️ Compose (Soft Guards)</h2>
+            <textarea
+              className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3.5 h-32"
+              placeholder="Draft a message…"
+              value={compose}
+              onChange={e => setCompose(e.target.value)}
+            />
+            {flagged.length > 0 && (
+              <div className="text-xs text-rose-700">
+                Consider rephrasing: {flagged.join(", ")}
+              </div>
+            )}
+            <div className="flex flex-wrap gap-2">
+              <button className="rounded-full border border-slate-300 bg-white px-4 py-2.5 text-sm hover:bg-slate-50" onClick={rollDare}>
+                Insert playful prompt
+              </button>
+              <button className="rounded-full border border-slate-300 bg-white px-4 py-2.5 text-sm hover:bg-slate-50" onClick={generateAdventure}>
+                Micro-adventure
+              </button>
+              <button className="rounded-full border border-slate-300 bg-white px-4 py-2.5 text-sm hover:bg-slate-50 disabled:opacity-50" onClick={spendGlowCoin} disabled={glowCoins < 2}>
+                Redeem Glow (2)
+              </button>
+              <button className="rounded-full bg-slate-900 text-white px-4 py-2.5 text-sm hover:opacity-90" onClick={redButtonOfGrace}>
+                🧯 Red Button of Grace
+              </button>
+            </div>
+          </section>
+
+          {/* Time Capsule */}
+          <section className="lg:col-span-7 rounded-2xl bg-white/90 shadow-sm border border-slate-200 p-6 grid gap-3 backdrop-blur">
+            <h2 className="text-lg font-semibold">📦 Time Capsule Pings</h2>
+            <div className="grid sm:grid-cols-3 gap-2">
+              <input
+                className="rounded-xl border border-slate-200 bg-white px-4 py-3.5 sm:col-span-2"
+                placeholder="Future message"
+                value={capsuleMsg}
+                onChange={e=>setCapsuleMsg(e.target.value)}
+              />
+              <input
+                type="datetime-local"
+                className="rounded-xl border border-slate-200 bg-white px-4 py-3.5"
+                value={capsuleWhen}
+                onChange={e=>setCapsuleWhen(e.target.value)}
+              />
+            </div>
+            <button
+              className="w-fit rounded-full border border-slate-300 bg-white px-5 py-3 text-sm hover:bg-slate-50"
+              onClick={scheduleCapsule}
+            >
+              Schedule
+            </button>
+            <div className="grid gap-2">
+              {capsules.map((c, i) => (
+                <div
+                  key={i}
+                  className="text-[15px] rounded-xl border border-slate-200 bg-white px-4 py-3 flex items-center justify-between"
+                >
+                  <span>
+                    {c.msg} —{" "}
+                    <span className="text-xs text-slate-500">{c.when}</span>
+                  </span>
+                  <span className="text-xs">{c.sent ? "📬 delivered" : "⏳ pending"}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Orbit Builder */}
+          <section className="lg:col-span-5 rounded-2xl bg-white/90 shadow-sm border border-slate-200 p-6 grid gap-3 backdrop-blur">
+            <h2 className="text-lg font-semibold">🪐 Orbit Builder</h2>
+            <div className="grid sm:grid-cols-2 gap-2">
+              {orbits.map(o => (
+                <div
+                  key={o.name}
+                  className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3"
+                >
+                  <div>
+                    <div className="text-[15px]">{o.name} {o.type === "moon" ? "🌙" : "🪐"}</div>
+                    <div className="text-xs text-slate-500">Distance: {o.distance}</div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-50" onClick={()=>adjustOrbit(o.name, -1)}>
+                      ⬅️ closer
+                    </button>
+                    <button className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-50" onClick={()=>adjustOrbit(o.name, +1)}>
+                      ➡️ farther
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3.5"
+                placeholder="Add orbit name"
+                value={newOrbitName}
+                onChange={e=>setNewOrbitName(e.target.value)}
+              />
+              <select
+                className="rounded-xl border border-slate-200 bg-white px-4 py-3.5"
+                value={newOrbitType}
+                onChange={e=>setNewOrbitType(e.target.value as any)}
+              >
+                <option value="planet">planet</option>
+                <option value="moon">moon</option>
+              </select>
+              <button
+                className="rounded-full border border-slate-300 bg-white px-5 py-3 text-sm hover:bg-slate-50"
+                onClick={addOrbitBody}
+              >
+                + Add
+              </button>
+            </div>
+          </section>
+
+          {/* Alchemy Lab */}
+          <section className="lg:col-span-12 rounded-2xl bg-white/90 shadow-sm border border-slate-200 p-6 grid gap-3 backdrop-blur">
+            <h2 className="text-lg font-semibold">🧪 Bond Alchemy Lab</h2>
+            <div className="flex flex-wrap gap-2">
+              {ingredients.map((ing, i) => {
+                const active = selectedIng.includes(ing);
+                return (
+                  <button
+                    key={i}
+                    onClick={() => craftAlchemy(ing)}
+                    className={`px-3 py-1.5 rounded-full text-xs border transition ${
+                      active
+                        ? "bg-violet-50 border-violet-200"
+                        : "bg-white border-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    {ing}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-[15px]">
+              {alchemyOutcome}
+            </div>
+          </section>
         </div>
-        <div className="p-3 border rounded bg-stone-50 text-sm">{alchemyOutcome}</div>
-      </section>
+      </div>
     </div>
   );
 }

@@ -1,0 +1,65 @@
+/* ScrollStack.css - simple scroll-snap + active-state visuals */
+
+/* container fills viewport height and snaps children into place */
+.scroll-snap-container {
+  height: 100vh;
+  width: 100%;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  -webkit-overflow-scrolling: touch;
+  background: transparent;
+}
+
+/* inner wrapper keeps contents (useful for padding) */
+.scroll-snap-inner {
+  min-height: 100%;
+}
+
+/* each section acts as a full-screen "card" */
+.scroll-snap-section {
+  scroll-snap-align: start;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3.5rem;
+  box-sizing: border-box;
+
+  /* base visuals */
+  transition: transform 420ms cubic-bezier(.2,.9,.2,1), opacity 360ms ease, filter 360ms ease, box-shadow 360ms ease;
+  transform-origin: top center;
+  will-change: transform, opacity, filter;
+  opacity: 0.9;
+  filter: none;
+}
+
+/* inactive / background cards scale down and shift */
+.scroll-snap-section.inactive {
+  transform: translateY(28px) scale(0.96);
+  opacity: 0.75;
+  filter: blur(0.2px);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.04);
+}
+
+/* active card sits forward and uses more of the space */
+.scroll-snap-section.active {
+  transform: translateY(0px) scale(1);
+  opacity: 1;
+  filter: none;
+  box-shadow: 0 18px 48px rgba(0,0,0,0.08);
+}
+
+/* responsive padding tweaks */
+@media (max-width: 768px) {
+  .scroll-snap-section {
+    padding: 2rem;
+  }
+  .scroll-snap-section.inactive { transform: translateY(18px) scale(0.985); opacity: 0.9; }
+}
+
+/* make content inside sections expand to use space (optional helper) */
+.scroll-snap-section > .section-content {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+}

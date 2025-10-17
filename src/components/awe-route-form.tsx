@@ -7,13 +7,13 @@ export default function AweRouteForm() {
   const [name, setName] = useState("");
   const [cues, setCues] = useState<string>("sky,texture,quiet,edges,colors");
 
-  // store a pretty-printed GeoJSON string
-  const [geojson, setGeojson] = useState<string>('{"type":"LineString","coordinates":[]}');
+  const [geojson, setGeojson] = useState<string>(
+    '{"type":"LineString","coordinates":[]}'
+  );
 
   const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const [msg, setMsg] = useState<{ type: "ok" | "err" | "info"; text: string } | null>(null);
 
-  // Try to pre-fill from current map route on mount (if any)
   useEffect(() => {
     try {
       const raw = localStorage.getItem("awe-routes:leaflet");
@@ -22,30 +22,22 @@ export default function AweRouteForm() {
       if (Array.isArray(pts) && pts.length) {
         const gj = ptsToGeoJSON(pts);
         setGeojson(JSON.stringify(gj, null, 2));
+        setMsg({ type: "info", text: "Loaded current map route into the editor." });
       }
-    } catch {
-      // ignore if parsing fails
-    }
+    } catch {}
   }, []);
 
   const cueArray = useMemo(
-    () =>
-      cues
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean),
+    () => cues.split(",").map((s) => s.trim()).filter(Boolean),
     [cues]
   );
 
   async function save() {
     setMsg(null);
-
-    // Basic validation
     if (!name.trim()) {
       setMsg({ type: "err", text: "Please enter a route name." });
       return;
     }
-
     let parsedGeo: any;
     try {
       parsedGeo = JSON.parse(geojson);
@@ -53,14 +45,11 @@ export default function AweRouteForm() {
       setMsg({ type: "err", text: "GeoJSON is not valid JSON." });
       return;
     }
-
-    // Accept either LineString geometry or Feature(Feature<LineString>)
     const valid =
       (parsedGeo?.type === "LineString" && Array.isArray(parsedGeo.coordinates)) ||
       (parsedGeo?.type === "Feature" &&
         parsedGeo.geometry?.type === "LineString" &&
         Array.isArray(parsedGeo.geometry.coordinates));
-
     if (!valid) {
       setMsg({
         type: "err",
@@ -72,7 +61,6 @@ export default function AweRouteForm() {
     const payload = {
       name: name.trim(),
       cues: cueArray,
-      // store as string on server or as parsed object — here we send parsed
       geojson: parsedGeo,
     };
 
@@ -96,58 +84,27 @@ export default function AweRouteForm() {
     }
   }
 
-  function loadFromMap() {
-    setMsg(null);
-    try {
-      const raw = localStorage.getItem("awe-routes:leaflet");
-      if (!raw) {
-        setMsg({ type: "err", text: "No current route found in map." });
-        return;
-      }
-      const pts = JSON.parse(raw) as LatLng[];
-      if (!Array.isArray(pts) || !pts.length) {
-        setMsg({ type: "err", text: "Map route is empty." });
-        return;
-      }
-      const gj = ptsToGeoJSON(pts);
-      setGeojson(JSON.stringify(gj, null, 2));
-      setMsg({ type: "ok", text: "Loaded GeoJSON from current map route." });
-    } catch {
-      setMsg({ type: "err", text: "Could not load route from map." });
-    }
-  }
-
   async function importGpx(file: File) {
     setMsg(null);
     try {
       const text = await file.text();
       const doc = new DOMParser().parseFromString(text, "text/xml");
-
-      // Try to extract <trkpt lat=".." lon=".."> elements
       const pts: LatLng[] = [];
       const nodes = Array.from(doc.getElementsByTagName("trkpt"));
       nodes.forEach((n) => {
         const lat = parseFloat(n.getAttribute("lat") || "");
         const lon = parseFloat(n.getAttribute("lon") || "");
-        if (Number.isFinite(lat) && Number.isFinite(lon)) {
-          pts.push({ lat, lng: lon });
-        }
+        if (Number.isFinite(lat) && Number.isFinite(lon)) pts.push({ lat, lng: lon });
       });
-
       if (!pts.length) {
-        // Fallback: try <rtept lat=".." lon="..">
         const rte = Array.from(doc.getElementsByTagName("rtept"));
         rte.forEach((n) => {
           const lat = parseFloat(n.getAttribute("lat") || "");
           const lon = parseFloat(n.getAttribute("lon") || "");
-          if (Number.isFinite(lat) && Number.isFinite(lon)) {
-            pts.push({ lat, lng: lon });
-          }
+          if (Number.isFinite(lat) && Number.isFinite(lon)) pts.push({ lat, lng: lon });
         });
       }
-
       if (!pts.length) throw new Error("No track/route points found in GPX.");
-
       const gj = ptsToGeoJSON(pts);
       setGeojson(JSON.stringify(gj, null, 2));
       setMsg({ type: "ok", text: `Imported ${pts.length} points from GPX.` });
@@ -163,53 +120,79 @@ export default function AweRouteForm() {
   }
 
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-4 rounded-xl border border-white/10 bg-white/5 p-4 text-stone-200">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-white/90">Create / Save Route</h3>
+        {msg && (
+          <span
+            className={
+              msg.type === "ok"
+                ? "text-emerald-300 text-sm"
+                : msg.type === "info"
+                ? "text-stone-300 text-sm"
+                : "text-red-300 text-sm"
+            }
+          >
+            {msg.text}
+          </span>
+        )}
+      </div>
+
       <input
-        className="border rounded px-3 py-2"
+        className="rounded px-3 py-2 outline-none border border-white/10 bg-black/30 text-stone-100 placeholder:text-stone-500"
         placeholder="Route name"
         value={name}
         onChange={(e) => setName(e.target.value)}
       />
 
       <label className="grid gap-1">
-        <span className="text-sm">Attention cues (comma-separated)</span>
+        <span className="text-sm text-stone-400">Attention cues (comma-separated)</span>
         <textarea
-          className="border rounded p-2"
+          className="rounded p-2 outline-none border border-white/10 bg-black/30 text-stone-100"
           value={cues}
           onChange={(e) => setCues(e.target.value)}
           rows={2}
         />
         {!!cueArray.length && (
-          <span className="text-[12px] text-stone-500">Parsed: [{cueArray.join(", ")}]</span>
+          <span className="text-[12px] text-stone-400">Parsed: [{cueArray.join(", ")}]</span>
         )}
       </label>
 
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
-          className="px-3 py-1.5 rounded-2xl text-[13px] transition bg-white text-stone-900 hover:bg-stone-50 border border-stone-200 shadow-sm"
-          onClick={loadFromMap}
+          className="px-3 py-1.5 rounded-2xl text-[13px] transition bg-white/10 text-stone-100 hover:bg-white/20 border border-white/10"
+          onClick={() => {
+            try {
+              const raw = localStorage.getItem("awe-routes:leaflet");
+              if (!raw) return setMsg({ type: "err", text: "No current route found in map." });
+              const pts = JSON.parse(raw) as LatLng[];
+              if (!Array.isArray(pts) || !pts.length) {
+                return setMsg({ type: "err", text: "Map route is empty." });
+              }
+              const gj = ptsToGeoJSON(pts);
+              setGeojson(JSON.stringify(gj, null, 2));
+              setMsg({ type: "ok", text: "Loaded GeoJSON from current map route." });
+            } catch {
+              setMsg({ type: "err", text: "Could not load route from map." });
+            }
+          }}
         >
           Use current map route
         </button>
 
         <label className="cursor-pointer">
-          <span className="px-3 py-1.5 rounded-2xl text-[13px] transition bg-white text-stone-900 hover:bg-stone-50 border border-stone-200 shadow-sm inline-block">
+          <span className="px-3 py-1.5 rounded-2xl text-[13px] transition bg-white/10 text-stone-100 hover:bg-white/20 border border-white/10 inline-block">
             Import GPX
           </span>
-          <input
-            type="file"
-            className="hidden"
-            accept=".gpx,application/gpx+xml"
-            onChange={onGpxInput}
-          />
+          <input type="file" className="hidden" accept=".gpx,application/gpx+xml" onChange={onGpxInput} />
         </label>
       </div>
 
       <label className="grid gap-1">
-        <span className="text-sm">GeoJSON (LineString or Feature&lt;LineString&gt;)</span>
+        <span className="text-sm text-stone-400">GeoJSON (LineString or Feature&lt;LineString&gt;)</span>
         <textarea
-          className="border rounded p-2 font-mono text-xs"
+          className="rounded p-2 font-mono text-xs outline-none border border-white/10 bg-black/30 text-stone-100"
           value={geojson}
           onChange={(e) => setGeojson(e.target.value)}
           rows={10}
@@ -218,32 +201,21 @@ export default function AweRouteForm() {
 
       <div className="flex items-center gap-3">
         <button
-          className="bg-black text-white rounded px-4 py-2 w-fit disabled:opacity-50"
+          className="bg-white text-black rounded px-4 py-2 w-fit disabled:opacity-50"
           onClick={save}
           disabled={saving}
         >
           {saving ? "Saving…" : "Save route"}
         </button>
-        {msg && (
-          <span
-            className={
-              msg.type === "ok" ? "text-green-600 text-sm" : "text-red-600 text-sm"
-            }
-          >
-            {msg.text}
-          </span>
-        )}
       </div>
     </div>
   );
 }
 
 /* ---------- helpers ---------- */
-
-// Convert our local map points to a plain GeoJSON LineString
 function ptsToGeoJSON(pts: LatLng[]) {
   return {
     type: "LineString",
-    coordinates: pts.map((p) => [p.lng, p.lat]), // GeoJSON is [lon, lat]
+    coordinates: pts.map((p) => [p.lng, p.lat]),
   };
 }

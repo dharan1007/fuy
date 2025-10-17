@@ -10,6 +10,7 @@ const pass = process.env.SMTP_PASS;
 let _tx: nodemailer.Transporter | null = null;
 
 function getTransporter() {
+  1
   if (_tx) return _tx;
 
   if (host && user && pass) {
