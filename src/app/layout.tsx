@@ -1,10 +1,8 @@
 // src/app/layout.tsx
 import "./globals.css";
-import Link from "next/link";
 import type { Metadata } from "next";
-import HeaderNav from "@/components/HeaderNav";
 import RouteProgress from "@/components/RouteProgress";
-
+import { Providers } from "@/components/Providers";
 
 /**
  * Prevents the initial flash of the wrong theme.
@@ -36,41 +34,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className="h-full" suppressHydrationWarning>
       <body className="min-h-screen h-full bg-white text-neutral-900 antialiased dark:bg-black dark:text-white">
         {/* Ensure correct theme before anything paints */}
-     
-
-        {/* Top-right theme toggle (fixed) */}
-     
+        <ThemeNoFlashScript />
 
         {/* Instant visual feedback on route changes */}
         <RouteProgress />
 
-        {/* Page frame */}
-        <div className="flex min-h-screen flex-col">
-          {/* Header */}
-          <header className="sticky top-0 z-40 border-b bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/50 dark:bg-black/70 dark:supports-[backdrop-filter]:bg-black/50 dark:border-white/10">
-            <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between">
-              <Link href="/" className="font-semibold tracking-tight">
-                fuy
-              </Link>
-              <HeaderNav />
-            </div>
-          </header>
-
-          {/* Main content — full width so sections can be wide/full-bleed */}
-          <main className="flex-1 overflow-y-auto snap-y snap-mandatory touch-pan-y">
-            <div className="w-full px-6 md:px-10 py-0">
-              {children}
-            </div>
-          </main>
-
-          {/* Footer sticks to bottom via mt-auto on the flex column wrapper */}
-          <footer className="mt-auto border-t bg-white dark:bg-black dark:border-white/10">
-            <div className="mx-auto max-w-6xl px-4 py-6 text-sm text-neutral-600 dark:text-neutral-300 flex items-center justify-between">
-              <span>© {new Date().getFullYear()} fuy</span>
-              <div className="flex gap-4" />
-            </div>
-          </footer>
-        </div>
+        <Providers>
+          {/* Each route can define its own layout */}
+          {children}
+        </Providers>
       </body>
     </html>
   );

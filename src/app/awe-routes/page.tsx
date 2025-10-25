@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import PlanBoard from "@/components/plan-board";
 import LeafletMap, {
   type POICategory,
@@ -181,24 +182,35 @@ export default function AweRoutesPage() {
     return out;
   }, [cues, pts]);
 
+  const router = useRouter();
+
   return (
-    <div className="w-full px-4 sm:px-6 md:px-8 py-6 text-[16px] md:text-[17px] leading-7">
-      {/* FULL WIDTH: no max-w cap */}
-      <div className="mx-auto max-w-none">
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-[320px,1fr]">
+    <div className="min-h-screen bg-gray-50">
+      {/* Full-screen layout without sidebar overlap */}
+      <div className="w-full">
+        <div className="flex flex-col lg:flex-row gap-6 p-4">
           {/* ===== Sidebar ===== */}
-          <aside className="md:sticky md:top-[96px] self-start rounded-2xl border border-black/10 bg-neutral-900 text-neutral-100 p-4 max-h-[80vh] overflow-auto">
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-semibold">Awe Routes</h1>
-              <span className="rounded-full border border-white/10 bg-white/10 px-2 py-0.5 text-xs">
+          <aside className="lg:w-80 lg:sticky lg:top-4 self-start rounded-2xl border border-gray-200 bg-white shadow-lg p-4 max-h-[calc(100vh-2rem)] overflow-auto">
+            <div className="flex items-center gap-2 mb-4">
+              <button
+                onClick={() => router.back()}
+                className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                title="Go back"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <h1 className="text-xl font-semibold text-gray-900">Awe Routes</h1>
+              <span className="rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs text-blue-700">
                 awe
               </span>
             </div>
 
-            <div className="mt-4 text-[11px] uppercase tracking-widest text-neutral-400">
-              Browse
+            <div className="mt-4 text-[11px] uppercase tracking-widest text-gray-500 font-semibold">
+              Browse POIs
             </div>
-            <div className="mt-1 grid">
+            <div className="mt-2 grid gap-1">
               {(
                 [
                   "ATMs",
@@ -216,10 +228,10 @@ export default function AweRoutesPage() {
                   onClick={() =>
                     setActiveCategory((c) => (c === label ? null : label))
                   }
-                  className={`rounded-md px-3 py-2 text-left hover:bg-white/10 ${
+                  className={`rounded-lg px-3 py-2 text-left text-sm transition-colors ${
                     activeCategory === label
-                      ? "bg-white/15 ring-1 ring-white/10"
-                      : ""
+                      ? "bg-blue-100 text-blue-900 font-medium"
+                      : "text-gray-700 hover:bg-gray-100"
                   }`}
                 >
                   {label}
@@ -227,16 +239,18 @@ export default function AweRoutesPage() {
               ))}
             </div>
 
-            <div className="mt-4 text-[11px] uppercase tracking-widest text-neutral-400">
+            <div className="mt-4 text-[11px] uppercase tracking-widest text-gray-500 font-semibold">
               Map Style
             </div>
-            <div className="mt-1 flex gap-2">
+            <div className="mt-2 flex gap-2">
               {(["dark", "light", "sepia"] as const).map((s) => (
                 <button
                   key={s}
                   onClick={() => setBasemapStyle(s)}
-                  className={`rounded-md border border-white/10 px-3 py-1 text-xs ${
-                    basemapStyle === s ? "bg-white/20" : "bg-white/10"
+                  className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium capitalize transition-colors ${
+                    basemapStyle === s
+                      ? "bg-blue-600 text-white border-blue-600"
+                      : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
                   }`}
                 >
                   {s}
@@ -244,74 +258,80 @@ export default function AweRoutesPage() {
               ))}
             </div>
 
-            <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="opacity-75">Now</span>
-                <span className="font-medium">
-                  {new Date().toLocaleTimeString([], {
+            <div className="mt-4 rounded-xl border border-gray-200 bg-blue-50 p-3 text-sm">
+              <div className="flex items-center justify-between text-gray-900">
+                <span className="font-medium">Now</span>
+                <span className="font-semibold" suppressHydrationWarning>
+                  {typeof window !== 'undefined' && new Date().toLocaleTimeString([], {
                     hour: "2-digit",
                     minute: "2-digit",
                   })}
                 </span>
               </div>
-              <div className="mt-1 opacity-80">Good conditions for a walk.</div>
+              <div className="mt-1 text-gray-600">Good conditions for a walk.</div>
             </div>
           </aside>
 
           {/* ===== Main ===== */}
-          <section className="space-y-6">
+          <section className="flex-1 space-y-6">
             {/* Map + HUD */}
-            <div className="relative rounded-2xl border border-black/10 bg-black/90 p-3">
-              <div className="mb-3 flex flex-wrap items-center gap-2 text-[14px] text-white/90">
-                <span className="rounded-2xl border border-white/10 bg-black/60 px-3 py-1.5">
+            <div className="relative rounded-2xl border border-gray-200 bg-gray-900 p-4 shadow-lg">
+              <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-white">
+                <span className="rounded-full border border-white/20 bg-white/10 px-4 py-2">
                   Dist: <b>{fmt(distanceKm, "km")}</b> ·{" "}
                   <b>{fmt(distanceKm, "mi")}</b> · Points: <b>{points}</b>
                   {isLoop && (
-                    <span className="ml-2 rounded bg-emerald-400/20 px-2 py-0.5 text-xs text-emerald-200">
-                      loop
+                    <span className="ml-2 rounded-full bg-emerald-500 px-2 py-0.5 text-xs text-white font-medium">
+                      Loop
                     </span>
                   )}
                 </span>
-                <span className="rounded-2xl border border-white/10 bg-black/60 px-3 py-1.5">
+                <span className="rounded-full border border-white/20 bg-white/10 px-4 py-2">
                   ETA — Walk <b>{ETA.walk}</b> · Run <b>{ETA.run}</b> · Bike{" "}
                   <b>{ETA.bike}</b>
                 </span>
-                <span className="rounded-2xl border border-white/10 bg-black/60 px-3 py-1.5">
-                  Tips:{" "}
-                  {suggestions.map((s, i) => (
-                    <span key={i}>💡 {s} </span>
-                  ))}
-                </span>
               </div>
 
-              <LeafletMap
-                basemapStyle={basemapStyle}
-                activeCategory={activeCategory}
-              />
+              <div className="mb-3 rounded-lg border border-white/20 bg-white/10 p-3 text-sm text-white">
+                <div className="font-medium mb-1">💡 Tips:</div>
+                {suggestions.map((s, i) => (
+                  <div key={i} className="text-white/90">• {s}</div>
+                ))}
+              </div>
+
+              {/* Map container with proper height */}
+              <div className="rounded-xl overflow-hidden" style={{ position: 'relative', zIndex: 0 }}>
+                <LeafletMap
+                  basemapStyle={basemapStyle}
+                  activeCategory={activeCategory}
+                  height="600px"
+                />
+              </div>
             </div>
 
             {/* Info row */}
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <div className="rounded-xl border border-black/10 bg-neutral-900 p-4 text-neutral-100">
-                <div className="mb-1 font-medium text-white">
+              <div className="rounded-xl border border-gray-200 bg-white shadow p-5">
+                <div className="mb-2 font-semibold text-gray-900 text-lg">
                   Effort & Calories
                 </div>
-                <div>
-                  Walk: ~{kcal.walk} kcal · Run: ~{kcal.run} kcal · Bike: ~
-                  {kcal.bike} kcal
+                <div className="text-gray-700 space-y-1">
+                  <div>🚶 Walk: <span className="font-medium">~{kcal.walk} kcal</span></div>
+                  <div>🏃 Run: <span className="font-medium">~{kcal.run} kcal</span></div>
+                  <div>🚴 Bike: <span className="font-medium">~{kcal.bike} kcal</span></div>
                 </div>
               </div>
-              <div className="rounded-xl border border-black/10 bg-neutral-900 p-4 text-neutral-100">
-                <div className="mb-1 font-medium text-white">Route Shape</div>
-                <div>
+              <div className="rounded-xl border border-gray-200 bg-white shadow p-5">
+                <div className="mb-2 font-semibold text-gray-900 text-lg">Route Shape</div>
+                <div className="text-gray-700">
                   {isLoop
-                    ? "Looks like a loop (starts ≈ ends)"
-                    : "Out & back / point-to-point"}
+                    ? "🔄 Looks like a loop (start ≈ end)"
+                    : "📍 Out & back / point-to-point"}
                 </div>
               </div>
-              <div className="rounded-xl border border-black/10 bg-neutral-900 p-4 text-neutral-100">
-                <div className="mb-1 font-medium text-white">Data</div>
-                <div className="flex flex-wrap gap-2 pt-1">
+              <div className="rounded-xl border border-gray-200 bg-white shadow p-5">
+                <div className="mb-2 font-semibold text-gray-900 text-lg">Export Data</div>
+                <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() =>
                       download(
@@ -320,9 +340,9 @@ export default function AweRoutesPage() {
                         "application/gpx+xml"
                       )
                     }
-                    className="rounded-2xl border border-white/10 bg-white/10 px-3 py-1.5 text-[14px] hover:bg-white/20"
+                    className="rounded-lg bg-blue-600 text-white px-4 py-2 text-sm font-medium hover:bg-blue-700 transition-colors"
                   >
-                    ⤓ Export GPX
+                    ⤓ GPX
                   </button>
                   <button
                     onClick={() =>
@@ -332,19 +352,19 @@ export default function AweRoutesPage() {
                         "application/json"
                       )
                     }
-                    className="rounded-2xl border border-white/10 bg-white/10 px-3 py-1.5 text-[14px] hover:bg-white/20"
+                    className="rounded-lg bg-gray-700 text-white px-4 py-2 text-sm font-medium hover:bg-gray-800 transition-colors"
                   >
-                    {"{ }"} Export JSON
+                    {"{ }"} JSON
                   </button>
                 </div>
               </div>
             </div>
 
             {/* Cue sheet + Plans */}
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-              <div className="rounded-xl border border-black/10 bg-neutral-900 p-4 text-neutral-100">
-                <div className="mb-2 flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-white">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              <div className="rounded-xl border border-gray-200 bg-white shadow p-5">
+                <div className="mb-3 flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-gray-900">
                     Attention Cue Sheet
                   </h2>
                   <button
@@ -356,52 +376,52 @@ export default function AweRoutesPage() {
                         .join("\n");
                       try {
                         await navigator.clipboard.writeText(lines);
-                        alert("Cue sheet copied");
+                        alert("Cue sheet copied!");
                       } catch {
                         alert("Copy failed");
                       }
                     }}
-                    className="rounded-2xl border border-white/10 bg-white/10 px-3 py-1.5 text-[14px] hover:bg-white/20"
+                    className="rounded-lg bg-blue-600 text-white px-3 py-1.5 text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled={!cueSheet.length}
                     title="Copy cue sheet to clipboard"
                   >
                     📋 Copy
                   </button>
                 </div>
-                <p className="mb-2 text-sm text-neutral-400">
+                <p className="mb-3 text-sm text-gray-600">
                   Rotate gentle cues along the route. Edit (comma separated),
                   then copy to share.
                 </p>
                 <input
                   value={cueSeed}
                   onChange={(e) => setCueSeed(e.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white outline-none placeholder:text-neutral-500"
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-400"
                   placeholder="sky,texture,quiet,edges,colors"
                 />
-                <ol className="mt-3 grid gap-2 md:grid-cols-2">
+                <div className="mt-3 grid gap-2 md:grid-cols-2">
                   {cueSheet.map((c, i) => (
-                    <li
+                    <div
                       key={i}
-                      className="rounded-xl border border-white/10 bg-black/30 p-3 text-sm text-neutral-100"
+                      className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm"
                     >
-                      <div className="font-medium text-white">
+                      <div className="font-medium text-gray-900">
                         {i + 1}. {c.text}
                       </div>
-                      <div className="text-neutral-400">
+                      <div className="text-gray-600 text-xs mt-1">
                         {c.km.toFixed(2)} km from start
                       </div>
-                    </li>
+                    </div>
                   ))}
                   {!cueSheet.length && (
-                    <div className="text-sm text-neutral-500">
+                    <div className="text-sm text-gray-500 col-span-2 text-center py-4">
                       Add points on the map to generate a cue sheet.
                     </div>
                   )}
-                </ol>
+                </div>
               </div>
 
-              {/* PLAN BOARD — forced light skin so buttons/inputs are visible */}
-              <div className="rounded-xl border border-black/10 bg-white p-0 text-neutral-900 overflow-hidden">
+              {/* PLAN BOARD */}
+              <div className="rounded-xl border border-gray-200 bg-white shadow p-0 overflow-hidden">
                 <div className="px-4 pt-4">
                   <h2 className="mb-2 text-lg font-semibold">
                     Plans, Invites & Cards

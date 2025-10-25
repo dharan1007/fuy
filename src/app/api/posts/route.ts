@@ -158,9 +158,44 @@ export async function GET(req: NextRequest) {
         },
       },
       group: { select: { id: true, name: true } },
+      likes: {
+        select: {
+          userId: true,
+        },
+      },
+      comments: {
+        select: {
+          id: true,
+          content: true,
+          createdAt: true,
+          userId: true,
+          user: {
+            select: {
+              id: true,
+              email: true,
+              profile: { select: { displayName: true, avatarUrl: true } },
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+      },
+      shares: {
+        select: {
+          id: true,
+        },
+      },
     },
     take: 50,
   });
 
-  return NextResponse.json(posts);
+  // Transform to include likes count, likedByMe, comments count, shares count
+  const transformed = posts.map((post) => ({
+    ...post,
+    likes: post.likes?.length || 0,
+    likedByMe: post.likes?.some((like) => like.userId === userId) || false,
+    shares: post.shares?.length || 0,
+  }));
+
+  return NextResponse.json(transformed);
 }

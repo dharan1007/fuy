@@ -3,6 +3,7 @@
 
 import useSWR from "swr";
 import { useMemo, useRef, useState } from "react";
+import AppHeader from "@/components/AppHeader";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -56,7 +57,10 @@ export default function ProfileEditor() {
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-sky-50 via-white to-white">
+    <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-sky-50 via-white to-white pb-20">
+      {/* Header with Settings and Logout */}
+      <AppHeader title="Profile" showSettingsAndLogout />
+
       {/* Cover video / banner */}
       <div className="relative">
         {coverPreview ? (
@@ -73,7 +77,7 @@ export default function ProfileEditor() {
         )}
 
         {/* Avatar */}
-        <div className="absolute -bottom-10 left-6 flex items-end gap-4">
+        <div className="absolute -bottom-10 left-4 sm:left-6 flex flex-col sm:flex-row items-start sm:items-end gap-2 sm:gap-4">
           <div className="relative">
             <img
               src={
@@ -83,12 +87,12 @@ export default function ProfileEditor() {
                 )}`
               }
               alt="profile"
-              className="h-24 w-24 rounded-full ring-4 ring-white object-cover bg-white"
+              className="h-20 w-20 sm:h-24 sm:w-24 rounded-full ring-4 ring-white object-cover bg-white"
             />
             <button
               type="button"
               onClick={() => avatarInput.current?.click()}
-              className="absolute bottom-0 right-0 rounded-full bg-black/80 text-white text-xs px-2 py-1"
+              className="absolute bottom-0 right-0 rounded-full bg-black/80 text-white text-xs px-2 py-1 sm:px-2.5 sm:py-1.5"
             >
               Change
             </button>
@@ -104,7 +108,7 @@ export default function ProfileEditor() {
           <button
             type="button"
             onClick={() => coverInput.current?.click()}
-            className="rounded-full bg-white shadow px-3 py-1 text-sm hover:shadow-md"
+            className="rounded-full bg-white shadow px-3 py-1.5 text-xs sm:text-sm hover:shadow-md"
           >
             Change cover video
           </button>
@@ -119,14 +123,14 @@ export default function ProfileEditor() {
       </div>
 
       {/* Content card */}
-      <div className="mx-auto max-w-4xl px-6 pt-14">
+      <div className="mx-auto max-w-4xl px-4 sm:px-6 pt-14">
         {/* Stats */}
-        <div className="flex flex-wrap gap-3 mb-6">
+        <div className="flex flex-wrap gap-2 sm:gap-3 mb-6">
           <Stat label="Friends" value={stats.friends} />
           <Stat label="Posts" value={stats.posts} />
         </div>
 
-        <form onSubmit={onSave} className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white/80 backdrop-blur rounded-xl p-6 shadow-sm">
+        <form onSubmit={onSave} className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 bg-white/80 backdrop-blur rounded-xl p-4 sm:p-6 shadow-sm">
           <div className="md:col-span-2">
             <label className="block text-sm font-medium">Name (account)</label>
             <input
@@ -186,29 +190,65 @@ export default function ProfileEditor() {
         </form>
 
         {/* Posts */}
-        <section className="mt-10">
-          <h2 className="text-lg font-semibold mb-3">Your recent posts</h2>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {(data?.posts as Post[] | undefined)?.map((p) => (
-              <article key={p.id} className="rounded-lg border bg-white/80 p-4 hover:shadow-sm transition">
-                <div className="text-xs uppercase text-gray-500 mb-1">
-                  {p.feature} • {p.visibility}
-                </div>
-                <p className="whitespace-pre-wrap text-sm">{p.content}</p>
-                {p.media?.length ? (
-                  <div className="mt-3 space-y-2">
-                    {p.media.map((m, i) =>
-                      m.type === "IMAGE" ? (
-                        <img key={i} src={m.url} className="w-full h-48 object-cover rounded" />
-                      ) : m.type === "VIDEO" ? (
-                        <video key={i} src={m.url} className="w-full h-48 object-cover rounded" controls />
-                      ) : null
-                    )}
+        <section className="mt-10 mb-10">
+          <h2 className="text-xl font-bold mb-4">Your Recent Posts</h2>
+          {data?.posts && (data.posts as Post[]).length > 0 ? (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {(data.posts as Post[]).map((p) => (
+                <article
+                  key={p.id}
+                  className="rounded-xl border border-gray-200 bg-white shadow-sm p-5 hover:shadow-md transition-all duration-200"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      {p.feature}
+                    </span>
+                    <span className="text-xs text-gray-500">{p.visibility}</span>
                   </div>
-                ) : null}
-              </article>
-            ))}
-          </div>
+                  <p className="whitespace-pre-wrap text-sm text-gray-700 mb-3 line-clamp-4">
+                    {p.content}
+                  </p>
+                  {p.media?.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      {p.media.map((m, i) =>
+                        m.type === "IMAGE" ? (
+                          <img
+                            key={i}
+                            src={m.url}
+                            alt="Post media"
+                            className="w-full h-48 object-cover rounded-lg"
+                          />
+                        ) : m.type === "VIDEO" ? (
+                          <video
+                            key={i}
+                            src={m.url}
+                            className="w-full h-48 object-cover rounded-lg"
+                            controls
+                            playsInline
+                          />
+                        ) : null
+                      )}
+                    </div>
+                  )}
+                  <div className="mt-3 text-xs text-gray-400">
+                    {new Date(p.createdAt).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric'
+                    })}
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 bg-white/50 rounded-xl border border-gray-200">
+              <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <p className="mt-4 text-gray-500">No posts yet</p>
+              <p className="mt-1 text-sm text-gray-400">Start sharing your journey!</p>
+            </div>
+          )}
         </section>
       </div>
     </div>

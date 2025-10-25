@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { baseUrl } from "@/lib/base-url";
 import { sendMail } from "@/lib/mailer";
 import { jwtVerify } from "jose";
+import bcrypt from "bcryptjs";
 
 const secret = process.env.NEXTAUTH_SECRET!;
 const enc = new TextEncoder();
@@ -37,7 +38,32 @@ If you didn’t request this, you can ignore this email.`;
   },
 }),
 
+    // Email/Password credentials
     Credentials({
+      id: "credentials",
+      name: "Email and Password",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(creds) {
+        if (!creds?.email || !creds?.password) return null;
+
+        const user = await prisma.user.findUnique({
+          where: { email: creds.email.toLowerCase() },
+        });
+
+        if (!user || !user.password) return null;
+
+        const isValid = await bcrypt.compare(creds.password, user.password);
+        if (!isValid) return null;
+
+        return user;
+      },
+    }),
+    // Passkey credentials
+    Credentials({
+      id: "passkey",
       name: "Passkey",
       credentials: {
         loginToken: { label: "loginToken", type: "text" },

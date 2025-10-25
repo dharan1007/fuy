@@ -18,6 +18,7 @@ export type LeafletMapProps = {
   activeCategory: POICategory | null;
   center?: [number, number];
   zoom?: number;
+  height?: string;
 };
 
 const STORAGE_ROUTE = "awe-routes:leaflet";
@@ -78,6 +79,7 @@ export default function LeafletMap({
   activeCategory,
   center = [20.59, 78.96],
   zoom = 5,
+  height = "78vh",
 }: LeafletMapProps) {
   const holderRef = useRef<HTMLDivElement | null>(null);
   const mapElRef = useRef<HTMLDivElement | null>(null);
@@ -168,8 +170,10 @@ export default function LeafletMap({
     };
     window.addEventListener("keydown", onKey);
 
-    // first paint
+    // first paint - multiple attempts to ensure map renders
     setTimeout(scheduleInvalidate, 200);
+    setTimeout(scheduleInvalidate, 500);
+    setTimeout(scheduleInvalidate, 1000);
 
     return () => {
       ro.disconnect();
@@ -282,13 +286,15 @@ export default function LeafletMap({
       ref={holderRef}
       style={{
         width: "100%",
-        minHeight: "78vh",
+        height: height,
+        minHeight: height,
+        maxHeight: height,
         position: "relative",
         borderRadius: 16,
         overflow: "hidden",
       }}
     >
-      <div ref={mapElRef} style={{ position: "absolute", inset: 0 }} />
+      <div ref={mapElRef} style={{ position: "absolute", inset: 0, width: '100%', height: '100%' }} />
 
       {/* Toolbar */}
       <div
@@ -320,13 +326,14 @@ export default function LeafletMap({
 }
 
 const btnStyle: React.CSSProperties = {
-  padding: "8px 12px",
-  borderRadius: 12,
+  padding: "6px 10px",
+  borderRadius: 8,
   border: "1px solid rgba(255,255,255,.25)",
-  background: "rgba(0,0,0,.65)",
+  background: "rgba(0,0,0,.75)",
   color: "white",
-  fontSize: 14,
+  fontSize: 13,
   fontWeight: 600,
   backdropFilter: "blur(6px)",
   cursor: "pointer",
+  whiteSpace: "nowrap",
 };

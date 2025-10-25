@@ -68,16 +68,21 @@ export async function POST(req: Request) {
     const link = absoluteUrl(req, `/join?token=${token}`);
 
     if (email) {
-      const subject = "You’ve been invited to Fuy";
-      const text = `You’ve been invited to join Fuy.\n\nAccept invite: ${link}\n\nThis link expires in 48 hours.`;
+      const subject = "You've been invited to Fuy";
+      const text = `You've been invited to join Fuy.\n\nAccept invite: ${link}\n\nThis link expires in 48 hours.`;
       const html = `
         <div style="font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111">
-          <p>You’ve been invited to join <strong>Fuy</strong>.</p>
+          <p>You've been invited to join <strong>Fuy</strong>.</p>
           <p><a href="${link}">Accept your invitation</a></p>
           <p style="color:#555;font-size:12px">This link expires in 48 hours.</p>
         </div>
       `;
-      await sendMail({ to: email, subject, html, text });
+      try {
+        await sendMail({ to: email, subject, html, text });
+      } catch (emailError: any) {
+        console.error("Failed to send invite email:", emailError?.message);
+        // Continue anyway - invite is created, user can use the link
+      }
     }
 
     return new NextResponse(null, { status: 204 });

@@ -631,14 +631,14 @@ export function PomodoroPro() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1.05fr_1.25fr]">
-        {/* LEFT — Red wheel timer + editor */}
+        {/* LEFT — Modern timer card with gradient */}
         <div className="grid gap-4">
-          <div className="rounded-[28px] border border-white/10 bg-red-600/95 p-5 shadow-2xl">
-            <div className="text-white/90 text-sm font-semibold mb-3">
-              set your timer
+          <div className="rounded-[28px] border border-white/20 bg-gradient-to-br from-rose-500 via-red-500 to-orange-500 p-6 shadow-2xl">
+            <div className="text-white text-sm font-bold mb-4 uppercase tracking-wider">
+              Set Your Timer
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-4">
               <WheelCard
                 big={mm}
                 prev={mmPrev}
@@ -656,10 +656,10 @@ export function PomodoroPro() {
             </div>
 
             {/* Controls */}
-            <div className="mt-5 flex flex-wrap items-center gap-3">
+            <div className="mt-6 flex flex-wrap items-center gap-3">
               {!running ? (
                 <button
-                  className="rounded-xl bg-black/90 hover:bg-black px-5 py-3 font-semibold text-white shadow border border-white/10"
+                  className="rounded-xl bg-white text-rose-600 hover:bg-white/90 px-6 py-3 font-bold shadow-lg transition-all hover:scale-105"
                   onClick={start}
                   aria-label="Start"
                 >
@@ -667,7 +667,7 @@ export function PomodoroPro() {
                 </button>
               ) : (
                 <button
-                  className="rounded-xl bg-black/90 hover:bg-black px-5 py-3 font-semibold text-white shadow border border-white/10"
+                  className="rounded-xl bg-white text-rose-600 hover:bg-white/90 px-6 py-3 font-bold shadow-lg transition-all"
                   onClick={pause}
                   aria-label="Pause"
                 >
@@ -675,60 +675,67 @@ export function PomodoroPro() {
                 </button>
               )}
 
-              <button className="btn-ghost text-white" onClick={reset} aria-label="Reset">
+              <button
+                className="rounded-xl bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white border border-white/30 px-4 py-3 font-semibold transition-all"
+                onClick={reset}
+                aria-label="Reset"
+              >
                 Reset ▢
               </button>
 
-              <div className="ml-auto text-sm text-white/90">Ends {endLabel}</div>
+              <div className="ml-auto text-sm text-white font-semibold bg-white/20 backdrop-blur-sm px-4 py-2 rounded-lg">
+                Ends {endLabel}
+              </div>
             </div>
 
             {/* Editable duration (current phase) */}
-            <div className="mt-4 grid grid-cols-1 sm:grid-cols-[auto_auto_auto_1fr] gap-2 items-center">
-              <span className="text-white/90 text-sm font-semibold">
-                Set {phase === "work" ? "Work" : phase === "short" ? "Short" : "Long"} duration
-              </span>
-              <input
-                type="number"
-                min={0}
-                className="input h-10 w-24 bg-white/95 text-black border-black/10"
-                value={editMin}
-                onChange={(e) => setEditMin(Math.max(0, Number(e.target.value)))}
-                aria-label="minutes input"
-              />
-              <span className="text-white/90 text-lg font-semibold text-center">:</span>
-              <input
-                type="number"
-                min={0}
-                max={59}
-                className="input h-10 w-24 bg-white/95 text-black border-black/10"
-                value={editSec}
-                onChange={(e) =>
-                  setEditSec(Math.max(0, Math.min(59, Number(e.target.value))))
-                }
-                aria-label="seconds input"
-              />
-              <div className="sm:col-span-4 flex flex-wrap items-center gap-2 mt-2">
+            <div className="mt-5 p-4 bg-white/10 backdrop-blur-md rounded-xl border border-white/20">
+              <div className="text-white text-xs font-bold mb-3 uppercase tracking-wider">
+                Set {phase === "work" ? "Work" : phase === "short" ? "Short" : "Long"} Duration
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="number"
+                  min={0}
+                  className="input h-12 w-20 bg-white text-rose-600 font-bold text-center text-lg border-2 border-white/30 rounded-lg"
+                  value={editMin}
+                  onChange={(e) => setEditMin(Math.max(0, Number(e.target.value)))}
+                  aria-label="minutes input"
+                />
+                <span className="text-white text-2xl font-bold">:</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={59}
+                  className="input h-12 w-20 bg-white text-rose-600 font-bold text-center text-lg border-2 border-white/30 rounded-lg"
+                  value={editSec}
+                  onChange={(e) =>
+                    setEditSec(Math.max(0, Math.min(59, Number(e.target.value))))
+                  }
+                  aria-label="seconds input"
+                />
                 <button
-                  className="rounded-lg bg-white/95 text-black border border-black/10 px-3 py-2 text-sm font-medium"
+                  className="rounded-lg bg-white text-rose-600 hover:bg-white/90 px-4 py-3 text-sm font-bold transition-all ml-2"
                   onClick={() => applyCustom(editMin, editSec)}
                 >
-                  Apply to current phase
+                  Apply
                 </button>
-                {/* Presets */}
+              </div>
+              <div className="flex flex-wrap items-center gap-2 mt-3">
                 <button
-                  className="rounded-lg bg-white/20 text-white border border-white/20 px-3 py-2 text-sm"
+                  className="rounded-lg bg-white/20 hover:bg-white/30 text-white border border-white/30 px-3 py-2 text-xs font-semibold transition-all"
                   onClick={() => applyCustom(25, 0)}
                 >
                   25:00
                 </button>
                 <button
-                  className="rounded-lg bg-white/20 text-white border border-white/20 px-3 py-2 text-sm"
+                  className="rounded-lg bg-white/20 hover:bg-white/30 text-white border border-white/30 px-3 py-2 text-xs font-semibold transition-all"
                   onClick={() => applyCustom(5, 0)}
                 >
                   05:00
                 </button>
                 <button
-                  className="rounded-lg bg-white/20 text-white border border-white/20 px-3 py-2 text-sm"
+                  className="rounded-lg bg-white/20 hover:bg-white/30 text-white border border-white/30 px-3 py-2 text-xs font-semibold transition-all"
                   onClick={() => applyCustom(15, 0)}
                 >
                   15:00

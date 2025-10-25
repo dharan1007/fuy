@@ -1,34 +1,19 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 
-const from = process.env.EMAIL_FROM || "Fuy <no-reply@localhost>";
-const host = process.env.SMTP_HOST;
-const port = Number(process.env.SMTP_PORT || 587);
-const user = process.env.SMTP_USER;
-const pass = process.env.SMTP_PASS;
+const from = process.env.EMAIL_FROM || "Fuy <onboarding@resend.dev>";
+const resendApiKey = process.env.RESEND_API_KEY;
 
 // cache across hot reloads
-let _tx: nodemailer.Transporter | null = null;
+let _resend: Resend | null = null;
 
-function getTransporter() {
-  1
-  if (_tx) return _tx;
+function getResend() {
+  if (_resend) return _resend;
 
-  if (host && user && pass) {
-    _tx = nodemailer.createTransport({
-      host,
-      port,
-      secure: port === 465,         // true only for 465
-      auth: { user, pass },
-    });
-  } else {
-    // Dev fallback: print emails to console if SMTP env is missing
-    _tx = nodemailer.createTransport({
-      streamTransport: true,
-      newline: "unix",
-      buffer: true,
-    });
+  if (resendApiKey) {
+    _resend = new Resend(resendApiKey);
   }
-  return _tx;
+
+  return _resend;
 }
 
 export async function sendMail(opts: {
@@ -37,7 +22,7 @@ export async function sendMail(opts: {
   text?: string;
   html?: string;
 }) {
-  const transporter = getTransporter();
+  const resend = getResend();
   const { to, subject } = opts;
 
   const text = opts.text ?? "";
@@ -47,21 +32,33 @@ export async function sendMail(opts: {
       text
     )}</pre>`;
 
-  const info = await transporter.sendMail({ from, to, subject, text, html });
-
-  // echo if using dev stream transport
-  // @ts-expect-error optional prop on purpose
-  if (transporter.options?.streamTransport) {
-    console.log("\n----- DEV EMAIL (no SMTP configured) -----");
+  // If no Resend API key, just log to console (dev mode)
+  if (!resend) {
+    console.log("\n----- DEV EMAIL (no RESEND_API_KEY configured) -----");
+    console.log(`FROM: ${from}`);
     console.log(`TO: ${to}`);
     console.log(`SUBJECT: ${subject}`);
     console.log(text || "(no text body)");
     console.log("----- END DEV EMAIL -----\n");
-  } else {
-    console.log(`Email sent -> ${info.messageId || "(no id)"} to ${to}`);
+    return { id: "dev-mode-no-send" };
   }
 
-  return info;
+  // Send via Resend
+  const { data, error } = await resend.emails.send({
+    from,
+    to,
+    subject,
+    text,
+    html,
+  });
+
+  if (error) {
+    console.error("Resend error:", error);
+    throw new Error(`Failed to send email: ${error.message}`);
+  }
+
+  console.log(`Email sent via Resend -> ${data?.id} to ${to}`);
+  return data;
 }
 
 function escapeHtml(s: string) {

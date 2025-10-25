@@ -138,3 +138,34 @@ export async function PUT(req: Request) {
     return NextResponse.json({ error: e?.message ?? "Failed to save profile" }, { status: 500 });
   }
 }
+
+// PATCH /api/profile (JSON: simple text updates only)
+export async function PATCH(req: Request) {
+  try {
+    const userId = await requireUserId();
+    const body = await req.json();
+    const { displayName, bio, location } = body;
+
+    await prisma.profile.upsert({
+      where: { userId },
+      create: {
+        userId,
+        displayName: displayName ?? null,
+        bio: bio ?? null,
+        location: location ?? null,
+      },
+      update: {
+        ...(displayName !== undefined ? { displayName } : {}),
+        ...(bio !== undefined ? { bio } : {}),
+        ...(location !== undefined ? { location } : {}),
+      },
+    });
+
+    return NextResponse.json({ ok: true });
+  } catch (e: any) {
+    if (e?.message === "UNAUTHENTICATED") {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+    return NextResponse.json({ error: e?.message ?? "Failed to update profile" }, { status: 500 });
+  }
+}

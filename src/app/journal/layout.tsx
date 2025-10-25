@@ -1,7 +1,9 @@
+import FullPageLayout from "@/components/FullPageLayout";
+
 export default function JournalLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <>{children}</>;
+  return <FullPageLayout>{children}</FullPageLayout>;
 }

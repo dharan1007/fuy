@@ -3,7 +3,9 @@
 
 import React from "react";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import Waves from "@/components/Waves";
+import HomePageLayout from "@/components/HomePageLayout";
 
 /**
  * Temporary type-escape for Next Link to work around duplicate @types/react
@@ -127,12 +129,21 @@ function DecryptedText({
 
   React.useEffect(() => {
     if (animateOn !== "view" && animateOn !== "both") return;
+
+    // Check if animation has already been shown in this session
+    const hasShownAnimation = sessionStorage.getItem('decryption-animated');
+    if (hasShownAnimation) {
+      setHasAnimated(true);
+      return;
+    }
+
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting && !hasAnimated) {
             setIsHovering(true);
             setHasAnimated(true);
+            sessionStorage.setItem('decryption-animated', 'true');
           }
         });
       },
@@ -312,6 +323,9 @@ function BrightCircles() {
 
 /* ---------------- Main page ---------------- */
 export default function HomePage() {
+  const { data: session, status } = useSession();
+  const isAuthenticated = status === "authenticated";
+
   const decryptProps = {
     speed: 120,
     maxIterations: 30,
@@ -335,7 +349,7 @@ export default function HomePage() {
   const contentZ: React.CSSProperties = {
     position: "relative",
     zIndex: 3, // above Waves (2) and circles (1)
-    padding: "0 2rem",
+    padding: "0 1rem",
     maxWidth: "1200px",
     margin: "0 auto",
     pointerEvents: "none", // allow underlying waves to receive pointer events
@@ -344,7 +358,7 @@ export default function HomePage() {
   const interactiveStyle: React.CSSProperties = { pointerEvents: "auto" };
 
   return (
-    <div>
+    <HomePageLayout>
       <section style={sectionStyle}>
         {/* Brighter/darker pastel circles (zIndex 1) */}
         <BrightCircles />
@@ -365,10 +379,10 @@ export default function HomePage() {
 
         {/* Foreground content (zIndex 3) */}
         <div className="section-content text-center" style={contentZ}>
-          <h1 className="text-6xl font-bold mb-6" style={{ color: "#0f172a", ...interactiveStyle }}>
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold mb-6" style={{ color: "#0f172a", ...interactiveStyle }}>
             <DecryptedText text="fuy — find yourself" {...decryptProps} />
           </h1>
-          <p className="text-xl mb-8" style={{ color: "rgba(15,23,42,0.9)", ...interactiveStyle }}>
+          <p className="text-lg sm:text-xl mb-8" style={{ color: "rgba(15,23,42,0.9)", ...interactiveStyle }}>
             <DecryptedText text="Tiny, evidence-based actions that compound into clearer days, deeper bonds, and more ease. Designed to be gentle, playful, and private-by-default." {...decryptProps} />
           </p>
 
@@ -423,10 +437,10 @@ export default function HomePage() {
         </div>
 
         <div className="section-content" style={contentZ}>
-          <h2 className="text-4xl font-bold text-center mb-6" style={{ color: "#0f172a", ...interactiveStyle }}>
+          <h2 className="text-3xl sm:text-4xl font-bold text-center mb-6" style={{ color: "#0f172a", ...interactiveStyle }}>
             <DecryptedText text="A gentle social layer" {...decryptProps} />
           </h2>
-          <p className="text-center text-xl mb-8" style={{ color: "rgba(15,23,42,0.9)", ...interactiveStyle }}>
+          <p className="text-center text-lg sm:text-xl mb-8" style={{ color: "rgba(15,23,42,0.9)", ...interactiveStyle }}>
             <DecryptedText text="Invite a few friends, or join a small group. Share little wins, not hot takes." {...decryptProps} />
           </p>
 
@@ -436,7 +450,7 @@ export default function HomePage() {
             <SocialChip labelElement={<DecryptedText text="Kind rankings" {...decryptProps} />} />
           </div>
 
-          <h2 className="text-4xl font-bold text-center mb-8" style={{ color: "#0f172a", ...interactiveStyle }}>
+          <h2 className="text-3xl sm:text-4xl font-bold text-center mb-8" style={{ color: "#0f172a", ...interactiveStyle }}>
             <DecryptedText text="FAQ" {...decryptProps} />
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-20" style={interactiveStyle}>
@@ -455,21 +469,38 @@ export default function HomePage() {
           </div>
 
           <div className="text-center" style={interactiveStyle}>
-            <h3 className="text-5xl font-bold mb-6" style={{ color: "#0f172a" }}>
+            <h3 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-6" style={{ color: "#0f172a" }}>
               <DecryptedText text="Ready when you are" {...decryptProps} />
             </h3>
-            <p className="text-xl mb-8" style={{ color: "rgba(15,23,42,0.9)" }}>
+            <p className="text-lg sm:text-xl mb-8" style={{ color: "rgba(15,23,42,0.9)" }}>
               <DecryptedText text="Step in, do a tiny thing, and step out. That's how compounding calm happens." {...decryptProps} />
             </p>
-            <NextLink
-              className="inline-flex items-center px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors"
-              href="/onboarding"
-            >
-              <DecryptedText text="Get started" {...decryptProps} />
-            </NextLink>
+            {isAuthenticated ? (
+              <NextLink
+                className="inline-flex items-center px-6 sm:px-8 py-3 sm:py-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors text-sm sm:text-base"
+                href="/onboarding"
+              >
+                <DecryptedText text="Get started" {...decryptProps} />
+              </NextLink>
+            ) : (
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center px-4">
+                <NextLink
+                  className="inline-flex items-center justify-center px-6 sm:px-8 py-3 sm:py-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors text-sm sm:text-base"
+                  href="/signup"
+                >
+                  <DecryptedText text="Sign Up" {...decryptProps} />
+                </NextLink>
+                <NextLink
+                  className="inline-flex items-center justify-center px-6 sm:px-8 py-3 sm:py-4 border-2 border-blue-600 text-blue-600 hover:bg-blue-50 font-semibold rounded-lg transition-colors text-sm sm:text-base"
+                  href="/login"
+                >
+                  <DecryptedText text="Login" {...decryptProps} />
+                </NextLink>
+              </div>
+            )}
           </div>
         </div>
       </section>
-    </div>
+    </HomePageLayout>
   );
 }

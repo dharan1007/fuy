@@ -22,6 +22,7 @@ datasource db {
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
+  password  String?  // hashed password for email/password auth
   name      String?
   emailVerified DateTime?
   createdAt DateTime @default(now())
@@ -62,8 +63,10 @@ model User {
   reminders       Reminder[]
 
   // --- Auth.js / NextAuth back-relations ---
-  accounts Account[]
-  sessions Session[]
+  accounts     Account[]
+  sessions     Session[]
+  postLikes    PostLike[]
+  postComments PostComment[]
 }
 
 model Profile {
@@ -132,9 +135,70 @@ model Post {
   creativityScore Int      @default(0)
   createdAt       DateTime @default(now())
 
-  user  User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  group Group?  @relation(fields: [groupId], references: [id], onDelete: SetNull)
-  media Media[]
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group    Group?        @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  media    Media[]
+  likes    PostLike[]
+  comments PostComment[]
+  shares   PostShare[]
+}
+
+model PostLike {
+  id        String   @id @default(cuid())
+  userId    String
+  postId    String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+  @@index([postId])
+  @@index([userId])
+}
+
+model PostComment {
+  id        String   @id @default(cuid())
+  userId    String
+  postId    String
+  content   String
+  createdAt DateTime @default(now())
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+  @@index([userId])
+}
+
+model PostShare {
+  id        String   @id @default(cuid())
+  userId    String
+  postId    String
+  toUserId  String?
+  toGroupId String?
+  message   String?
+  createdAt DateTime @default(now())
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+  @@index([userId])
+  @@index([toUserId])
+  @@index([toGroupId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  message   String
+  postId    String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
+  @@index([createdAt])
 }
 
 model Media {
