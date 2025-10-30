@@ -76,7 +76,7 @@ interface HopinData {
 // COMPONENTS
 // ============================================================================
 
-function GoalNode({ data, onUpdate }: { data: GoalData; onUpdate: (data: GoalData) => void }) {
+function GoalNode({ data, onUpdate, essenzId }: { data: GoalData; onUpdate: (data: GoalData) => void; essenzId: string | null }) {
   const [statement, setStatement] = useState(data.statement || "");
   const [codename, setCodename] = useState(data.codename || "");
   const [showCodename, setShowCodename] = useState(!!data.codename);
@@ -152,19 +152,32 @@ function GoalNode({ data, onUpdate }: { data: GoalData; onUpdate: (data: GoalDat
   );
 }
 
-function StepsNode({ data, onUpdate }: { data: StepData; onUpdate: (data: StepData) => void }) {
+function StepsNode({ data, onUpdate, essenzId }: { data: StepData; onUpdate: (data: StepData) => void; essenzId: string | null }) {
   const [steps, setSteps] = useState(data.steps || []);
   const [newStep, setNewStep] = useState("");
 
-  const addStep = () => {
+  const addStep = async () => {
     if (!newStep.trim()) return;
     const newSteps = [...steps, { id: Date.now().toString(), title: newStep, duration: "", difficulty: "MEDIUM" as const, completed: false }];
     setSteps(newSteps);
     onUpdate({ steps: newSteps });
+
+    // Save to backend
+    if (essenzId) {
+      try {
+        await fetch(`/api/essenz/${essenzId}/steps`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: newStep.trim(), difficulty: "MEDIUM" }),
+        });
+      } catch (err) {
+        console.error("Failed to save step:", err);
+      }
+    }
     setNewStep("");
   };
 
-  const toggleComplete = (id: string) => {
+  const toggleComplete = async (id: string) => {
     const updated = steps.map((s) => (s.id === id ? { ...s, completed: !s.completed } : s));
     setSteps(updated);
     onUpdate({ steps: updated });
@@ -225,7 +238,7 @@ function StepsNode({ data, onUpdate }: { data: StepData; onUpdate: (data: StepDa
   );
 }
 
-function PrioritizeNode({ data, onUpdate }: { data: PriorityData; onUpdate: (data: PriorityData) => void }) {
+function PrioritizeNode({ data, onUpdate, essenzId }: { data: PriorityData; onUpdate: (data: PriorityData) => void; essenzId: string | null }) {
   const [tasks, setTasks] = useState(data.tasks || []);
   const [newTask, setNewTask] = useState("");
   const [draggedId, setDraggedId] = useState<string | null>(null);
@@ -320,15 +333,28 @@ function PrioritizeNode({ data, onUpdate }: { data: PriorityData; onUpdate: (dat
   );
 }
 
-function TodoNode({ data, onUpdate }: { data: TodoData; onUpdate: (data: TodoData) => void }) {
+function TodoNode({ data, onUpdate, essenzId }: { data: TodoData; onUpdate: (data: TodoData) => void; essenzId: string | null }) {
   const [todos, setTodos] = useState(data.todos || []);
   const [newTodo, setNewTodo] = useState("");
 
-  const addTodo = () => {
+  const addTodo = async () => {
     if (!newTodo.trim()) return;
     const newTodos = [...todos, { id: Date.now().toString(), title: newTodo, completed: false, time: "", note: "", postponed: 0 }];
     setTodos(newTodos);
     onUpdate({ todos: newTodos });
+
+    // Save to backend
+    if (essenzId) {
+      try {
+        await fetch(`/api/essenz/${essenzId}/todos`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: newTodo.trim() }),
+        });
+      } catch (err) {
+        console.error("Failed to save todo:", err);
+      }
+    }
     setNewTodo("");
   };
 
@@ -406,7 +432,7 @@ function TodoNode({ data, onUpdate }: { data: TodoData; onUpdate: (data: TodoDat
   );
 }
 
-function DiaryNode({ data, onUpdate }: { data: DiaryData; onUpdate: (data: DiaryData) => void }) {
+function DiaryNode({ data, onUpdate, essenzId }: { data: DiaryData; onUpdate: (data: DiaryData) => void; essenzId: string | null }) {
   const [entries, setEntries] = useState(data.entries || []);
   const [text, setText] = useState("");
   const [mood, setMood] = useState("");
@@ -456,7 +482,7 @@ function DiaryNode({ data, onUpdate }: { data: DiaryData; onUpdate: (data: Diary
     }
   };
 
-  const addEntry = () => {
+  const addEntry = async () => {
     if (!text.trim()) return;
     const newEntries = [
       {
@@ -470,6 +496,19 @@ function DiaryNode({ data, onUpdate }: { data: DiaryData; onUpdate: (data: Diary
     ];
     setEntries(newEntries);
     onUpdate({ entries: newEntries });
+
+    // Save to backend
+    if (essenzId) {
+      try {
+        await fetch(`/api/essenz/${essenzId}/diary`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content: text.trim(), mood, tags: [] }),
+        });
+      } catch (err) {
+        console.error("Failed to save diary entry:", err);
+      }
+    }
     setText("");
     setMood("");
   };
@@ -531,13 +570,13 @@ function DiaryNode({ data, onUpdate }: { data: DiaryData; onUpdate: (data: Diary
   );
 }
 
-function ResourcesNode({ data, onUpdate }: { data: ResourceData; onUpdate: (data: ResourceData) => void }) {
+function ResourcesNode({ data, onUpdate, essenzId }: { data: ResourceData; onUpdate: (data: ResourceData) => void; essenzId: string | null }) {
   const [resources, setResources] = useState(data.resources || []);
   const [title, setTitle] = useState("");
   const [type, setType] = useState<"PODCAST" | "VIDEO" | "BOOK" | "WEBSITE" | "COURSE">("PODCAST");
   const [url, setUrl] = useState("");
 
-  const addResource = () => {
+  const addResource = async () => {
     if (!title.trim()) return;
     const newResources = [
       ...resources,
@@ -545,6 +584,19 @@ function ResourcesNode({ data, onUpdate }: { data: ResourceData; onUpdate: (data
     ];
     setResources(newResources);
     onUpdate({ resources: newResources });
+
+    // Save to backend
+    if (essenzId) {
+      try {
+        await fetch(`/api/essenz/${essenzId}/resources`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: title.trim(), type, url: url || undefined }),
+        });
+      } catch (err) {
+        console.error("Failed to save resource:", err);
+      }
+    }
     setTitle("");
     setUrl("");
   };
@@ -617,7 +669,7 @@ function ResourcesNode({ data, onUpdate }: { data: ResourceData; onUpdate: (data
   );
 }
 
-function WatchlistNode({ data, onUpdate }: { data: WatchlistData; onUpdate: (data: WatchlistData) => void }) {
+function WatchlistNode({ data, onUpdate, essenzId }: { data: WatchlistData; onUpdate: (data: WatchlistData) => void; essenzId: string | null }) {
   const [items, setItems] = useState(data.items || []);
   const [title, setTitle] = useState("");
   const [type, setType] = useState<"MOVIE" | "SERIES" | "DOCUMENTARY">("MOVIE");
@@ -699,7 +751,7 @@ function WatchlistNode({ data, onUpdate }: { data: WatchlistData; onUpdate: (dat
   );
 }
 
-function HopinNode({ data, onUpdate }: { data: HopinData; onUpdate: (data: HopinData) => void }) {
+function HopinNode({ data, onUpdate, essenzId }: { data: HopinData; onUpdate: (data: HopinData) => void; essenzId: string | null }) {
   const [plans, setPlans] = useState(data.plans || []);
   const [selectedDay, setSelectedDay] = useState("Monday");
   const [goal, setGoal] = useState("");
@@ -874,6 +926,93 @@ export default function EssenzPage() {
 
   const [draggedNode, setDraggedNode] = useState<string | null>(null);
   const [codenameSet, setCodenameSet] = useState(false);
+  const [essenzId, setEssenzId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Load essenz data on mount
+  useEffect(() => {
+    const loadEssenzData = async () => {
+      try {
+        const res = await fetch("/api/essenz");
+        if (res.ok) {
+          const { goals } = await res.json();
+          if (goals.length > 0) {
+            const essenz = goals[0];
+            setEssenzId(essenz.id);
+
+            // Load all node data from backend
+            const [stepsRes, todosRes, diaryRes, resourcesRes, watchlistRes] = await Promise.all([
+              fetch(`/api/essenz/${essenz.id}/steps`),
+              fetch(`/api/essenz/${essenz.id}/todos`),
+              fetch(`/api/essenz/${essenz.id}/diary`),
+              fetch(`/api/essenz/${essenz.id}/resources`),
+              fetch(`/api/essenz/${essenz.id}/watchlist`),
+            ]);
+
+            if (stepsRes.ok) {
+              const { steps } = await stepsRes.json();
+              setNodes((prev) => prev.map((n) => (n.id === "steps" ? { ...n, data: { steps } } : n)));
+            }
+            if (todosRes.ok) {
+              const { todos } = await todosRes.json();
+              setNodes((prev) => prev.map((n) => (n.id === "todo" ? { ...n, data: { todos } } : n)));
+            }
+            if (diaryRes.ok) {
+              const { entries } = await diaryRes.json();
+              setNodes((prev) => prev.map((n) => (n.id === "diary" ? { ...n, data: { entries } } : n)));
+            }
+            if (resourcesRes.ok) {
+              const { resources } = await resourcesRes.json();
+              setNodes((prev) => prev.map((n) => (n.id === "resources" ? { ...n, data: { resources } } : n)));
+            }
+            if (watchlistRes.ok) {
+              const { items } = await watchlistRes.json();
+              setNodes((prev) => prev.map((n) => (n.id === "watchlist" ? { ...n, data: { items } } : n)));
+            }
+
+            // Load goal data
+            if (essenz.goal) {
+              setNodes((prev) =>
+                prev.map((n) =>
+                  n.id === "goal"
+                    ? {
+                        ...n,
+                        data: {
+                          statement: essenz.goal || "",
+                          focusAreas: essenz.focusAreas || [],
+                          plan: essenz.plan || [],
+                          codename: essenz.codename || "",
+                        } as GoalData,
+                      }
+                    : n
+                )
+              );
+              if (essenz.codename) {
+                setCodenameSet(true);
+              }
+            }
+          } else {
+            // Create new essenz goal if none exists
+            const createRes = await fetch("/api/essenz", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ title: "My Goal", goal: "" }),
+            });
+            if (createRes.ok) {
+              const { goal } = await createRes.json();
+              setEssenzId(goal.id);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load essenz data:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadEssenzData();
+  }, []);
 
   if (!session) {
     return (
@@ -897,9 +1036,36 @@ export default function EssenzPage() {
     setNodes((prev) => prev.map((n) => (n.id === id ? { ...n, expanded: !n.expanded } : n)));
   };
 
-  const updateNodeData = (id: string, data: any) => {
-    setNodes((prev) => prev.map((n) => (n.id === id ? { ...n, data } : n)));
-  };
+  const updateNodeData = useCallback(
+    async (id: string, data: any) => {
+      // Update local state immediately for UI responsiveness
+      setNodes((prev) => prev.map((n) => (n.id === id ? { ...n, data } : n)));
+
+      if (!essenzId) return;
+
+      // Save to backend based on node type
+      try {
+        if (id === "goal") {
+          await fetch(`/api/essenz/${essenzId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              goal: data.statement,
+              codename: data.codename,
+              plan: data.plan,
+              focusAreas: data.focusAreas,
+            }),
+          });
+          if (data.codename && !codenameSet) {
+            setCodenameSet(true);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to update essenz data:", err);
+      }
+    },
+    [essenzId, codenameSet]
+  );
 
   const handleNodeDragStart = (e: React.DragEvent, id: string) => {
     setDraggedNode(id);
@@ -975,23 +1141,6 @@ export default function EssenzPage() {
       >
         <div className="relative" style={{ minHeight: "1200px" }}>
           {nodes.map((node) => {
-            const NodeComponent =
-              node.type === "goal"
-                ? GoalNode
-                : node.type === "steps"
-                ? StepsNode
-                : node.type === "prioritize"
-                ? PrioritizeNode
-                : node.type === "todo"
-                ? TodoNode
-                : node.type === "diary"
-                ? DiaryNode
-                : node.type === "resources"
-                ? ResourcesNode
-                : node.type === "watchlist"
-                ? WatchlistNode
-                : HopinNode;
-
             const colorMap: Record<string, string> = {
               goal: "from-blue-500 to-blue-600",
               steps: "from-green-500 to-green-600",
@@ -1060,10 +1209,62 @@ export default function EssenzPage() {
                     }`}
                   >
                     <div className="p-4 space-y-3">
-                      <NodeComponent
-                        data={node.data}
-                        onUpdate={(data) => updateNodeData(node.id, data)}
-                      />
+                      {node.type === "goal" && (
+                        <GoalNode
+                          data={node.data as GoalData}
+                          onUpdate={(data) => updateNodeData(node.id, data)}
+                          essenzId={essenzId}
+                        />
+                      )}
+                      {node.type === "steps" && (
+                        <StepsNode
+                          data={node.data as StepData}
+                          onUpdate={(data) => updateNodeData(node.id, data)}
+                          essenzId={essenzId}
+                        />
+                      )}
+                      {node.type === "prioritize" && (
+                        <PrioritizeNode
+                          data={node.data as PriorityData}
+                          onUpdate={(data) => updateNodeData(node.id, data)}
+                          essenzId={essenzId}
+                        />
+                      )}
+                      {node.type === "todo" && (
+                        <TodoNode
+                          data={node.data as TodoData}
+                          onUpdate={(data) => updateNodeData(node.id, data)}
+                          essenzId={essenzId}
+                        />
+                      )}
+                      {node.type === "diary" && (
+                        <DiaryNode
+                          data={node.data as DiaryData}
+                          onUpdate={(data) => updateNodeData(node.id, data)}
+                          essenzId={essenzId}
+                        />
+                      )}
+                      {node.type === "resources" && (
+                        <ResourcesNode
+                          data={node.data as ResourceData}
+                          onUpdate={(data) => updateNodeData(node.id, data)}
+                          essenzId={essenzId}
+                        />
+                      )}
+                      {node.type === "watchlist" && (
+                        <WatchlistNode
+                          data={node.data as WatchlistData}
+                          onUpdate={(data) => updateNodeData(node.id, data)}
+                          essenzId={essenzId}
+                        />
+                      )}
+                      {node.type === "hopin" && (
+                        <HopinNode
+                          data={node.data as HopinData}
+                          onUpdate={(data) => updateNodeData(node.id, data)}
+                          essenzId={essenzId}
+                        />
+                      )}
                     </div>
                   </div>
                 </div>
