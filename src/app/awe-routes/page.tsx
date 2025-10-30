@@ -341,8 +341,8 @@ export default function AweRoutesPage() {
 
         {/* ===== MAIN CONTENT ===== */}
         <main className="flex-1 overflow-hidden p-0 flex flex-col">
-          {/* Map - Full available height */}
-          <div className="flex-1 overflow-hidden border-b border-gray-200">
+          {/* Map - Takes 65% of space */}
+          <div style={{ flex: "1 1 auto", minHeight: "65%" }} className="overflow-hidden border-b border-gray-200">
             <LeafletMap
               basemapStyle={basemapStyle}
               activeCategory={activeCategory}
@@ -350,8 +350,8 @@ export default function AweRoutesPage() {
             />
           </div>
 
-          {/* Content below map - Scrollable */}
-          <div className="overflow-y-auto p-6 space-y-6 bg-white">
+          {/* Content below map - Scrollable, takes 35% */}
+          <div style={{ flex: "0 1 35%" }} className="overflow-y-auto p-6 space-y-6 bg-white">
 
           {/* Info row */}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">

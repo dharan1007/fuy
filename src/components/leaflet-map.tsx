@@ -236,6 +236,34 @@ export default function LeafletMap({
   }, [activeCategory, leafletReady]);
 
   /* Helpers */
+  const createCustomMarker = useCallback((lat: number, lng: number, label: string, emoji = "📍") => {
+    const L = LRef.current;
+    // Create a custom div icon with emoji
+    const markerHtml = `
+      <div style="
+        background: white;
+        border: 2px solid #f18f01;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      ">${emoji}</div>
+    `;
+
+    const customIcon = L.divIcon({
+      html: markerHtml,
+      iconSize: [40, 40],
+      iconAnchor: [20, 20],
+      popupAnchor: [0, -20],
+    });
+
+    return L.marker([lat, lng], { icon: customIcon }).bindPopup(label);
+  }, []);
+
   const drawRoute = useCallback((pts: LatLng[]) => {
     const L = LRef.current;
     routeLayerRef.current?.clearLayers();
@@ -243,10 +271,11 @@ export default function LeafletMap({
     const latlngs = pts.map((p) => [p.lat, p.lng]) as [number, number][];
     const poly = L.polyline(latlngs, { color: "#f18f01", weight: 4 });
     poly.addTo(routeLayerRef.current);
-    latlngs.forEach((ll, i) =>
-      L.marker(ll).bindPopup(`Waypoint ${i + 1}`).addTo(routeLayerRef.current)
-    );
-  }, []);
+    latlngs.forEach((ll, i) => {
+      const emoji = i === 0 ? "🟢" : i === latlngs.length - 1 ? "🏁" : "📍";
+      createCustomMarker(ll[0], ll[1], `Waypoint ${i + 1}`, emoji).addTo(routeLayerRef.current);
+    });
+  }, [createCustomMarker]);
 
   const fitToRoute = useCallback(() => {
     const L = LRef.current;
