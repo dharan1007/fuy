@@ -421,24 +421,55 @@ export default function ChatPage() {
           <div className="p-4 border-b border-gray-200 bg-gradient-to-b from-purple-50 to-white">
             <p className="text-xs font-semibold text-purple-700 uppercase mb-3">Essenz & Tags</p>
             <div className="space-y-2">
-              <div className="text-xs bg-white rounded-lg p-2 border border-purple-200">
+              <button
+                onClick={() => {
+                  if (otherUser?.id) {
+                    router.push(`/essenz?user=${otherUser.id}`);
+                  }
+                }}
+                className="w-full text-xs bg-white rounded-lg p-2 border border-purple-200 hover:bg-purple-50 transition text-left"
+              >
                 <p className="font-semibold text-purple-900 mb-1">🎯 {otherUser.name}'s Goals</p>
                 <p className="text-purple-600 text-[10px]">View shared goals and collaborate</p>
-              </div>
-              <div className="text-xs bg-white rounded-lg p-2 border border-red-200">
+              </button>
+              <button
+                onClick={() => {
+                  if (otherUser?.id) {
+                    router.push(`/essenz?tab=watchlist&user=${otherUser.id}`);
+                  }
+                }}
+                className="w-full text-xs bg-white rounded-lg p-2 border border-red-200 hover:bg-red-50 transition text-left"
+              >
                 <p className="font-semibold text-red-900 mb-1">🎬 Watchlist</p>
                 <p className="text-red-600 text-[10px]">Watch together on their list</p>
-              </div>
-              <div className="text-xs bg-white rounded-lg p-2 border border-blue-200">
+              </button>
+              <button
+                onClick={() => {
+                  if (otherUser?.id) {
+                    router.push(`/essenz?tab=resources&user=${otherUser.id}`);
+                  }
+                }}
+                className="w-full text-xs bg-white rounded-lg p-2 border border-blue-200 hover:bg-blue-50 transition text-left"
+              >
                 <p className="font-semibold text-blue-900 mb-1">📔 Shared Resources</p>
                 <p className="text-blue-600 text-[10px]">Tools, books, and courses</p>
-              </div>
+              </button>
             </div>
           </div>
 
           {/* Collaboration Features */}
           <div className="p-4 flex-1 overflow-y-auto space-y-2">
             <p className="text-xs font-semibold text-gray-600 uppercase">Collaborate</p>
+            <button
+              onClick={() => {
+                if (otherUser?.id) {
+                  router.push(`/essenz?collaborate=${otherUser.id}`);
+                }
+              }}
+              className="w-full p-3 text-sm font-medium text-purple-600 border border-purple-200 rounded-lg hover:bg-purple-50 transition"
+            >
+              ✨ Essenz Together
+            </button>
             <button
               onClick={() => {
                 if (otherUser?.id) {
