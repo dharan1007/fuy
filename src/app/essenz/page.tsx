@@ -752,6 +752,7 @@ function WatchlistNode({ data, onUpdate, essenzId }: { data: WatchlistData; onUp
 }
 
 function HopinNode({ data, onUpdate, essenzId }: { data: HopinData; onUpdate: (data: HopinData) => void; essenzId: string | null }) {
+  const router = useRouter();
   const [plans, setPlans] = useState(data.plans || []);
   const [selectedDay, setSelectedDay] = useState("Monday");
   const [goal, setGoal] = useState("");
@@ -807,12 +808,20 @@ function HopinNode({ data, onUpdate, essenzId }: { data: HopinData; onUpdate: (d
           placeholder="Habit to track..."
           className="w-full px-3 py-2 border-2 border-cyan-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-cyan-500 text-sm"
         />
-        <button
-          onClick={addPlan}
-          className="w-full bg-cyan-500 text-white py-2 rounded-2xl font-bold hover:bg-cyan-600 transition-all"
-        >
-          + Add Plan
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={addPlan}
+            className="flex-1 bg-cyan-500 text-white py-2 rounded-2xl font-bold hover:bg-cyan-600 transition-all"
+          >
+            + Add Plan
+          </button>
+          <button
+            onClick={() => router.push("/awe-routes")}
+            className="flex-1 bg-blue-600 text-white py-2 rounded-2xl font-bold hover:bg-blue-700 transition-all"
+          >
+            Open
+          </button>
+        </div>
       </div>
 
       <div className="space-y-2 max-h-48 overflow-y-auto">
