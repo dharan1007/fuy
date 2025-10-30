@@ -1,30 +1,22 @@
 // src/app/api/users/search/route.ts
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
 
 export async function GET(req: Request) {
   try {
     const userId = await requireUserId();
     const { searchParams } = new URL(req.url);
-    const query = searchParams.get("q") || "";
+    const query = (searchParams.get("q") || "").toLowerCase();
 
-    if (!query || query.length < 2) {
+    if (!query || query.length < 1) {
       return NextResponse.json({ users: [] });
     }
 
-    // Search users by name or email
-    const users = await prisma.user.findMany({
+    // Get all users and filter in memory (SQLite compatible)
+    const allUsers = await prisma.user.findMany({
       where: {
-        AND: [
-          { id: { not: userId } }, // Exclude current user
-          {
-            OR: [
-              { name: { contains: query, mode: "insensitive" } },
-              { email: { contains: query, mode: "insensitive" } },
-            ],
-          },
-        ],
+        id: { not: userId }, // Exclude self
       },
       select: {
         id: true,
@@ -34,76 +26,19 @@ export async function GET(req: Request) {
           select: {
             displayName: true,
             avatarUrl: true,
-            bio: true,
-          },
-        },
-        // Get friendship status with current user
-        friendshipsA: {
-          where: {
-            OR: [
-              { friendId: userId },
-              { userId: userId },
-            ],
-          },
-          select: {
-            id: true,
-            status: true,
-            userId: true,
-            friendId: true,
-          },
-        },
-        friendshipsB: {
-          where: {
-            OR: [
-              { friendId: userId },
-              { userId: userId },
-            ],
-          },
-          select: {
-            id: true,
-            status: true,
-            userId: true,
-            friendId: true,
           },
         },
       },
-      take: 20,
     });
 
-    // Format results with friendship status
-    const results = users.map((user) => {
-      const allFriendships = [...user.friendshipsA, ...user.friendshipsB];
-      const friendship = allFriendships[0]; // There should be at most one
+    // Filter by name or email (case-insensitive) in memory
+    const users = allUsers.filter(
+      (user: typeof allUsers[0]) =>
+        (user.name?.toLowerCase().includes(query)) ||
+        (user.email?.toLowerCase().includes(query))
+    ).slice(0, 20); // Limit to 20 results
 
-      let friendshipStatus = "NONE";
-      let friendshipId = null;
-      let isPending = false;
-      let isSentByMe = false;
-
-      if (friendship) {
-        friendshipId = friendship.id;
-        friendshipStatus = friendship.status;
-        if (friendship.status === "PENDING") {
-          isPending = true;
-          isSentByMe = friendship.userId === userId;
-        }
-      }
-
-      return {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        displayName: user.profile?.displayName,
-        avatarUrl: user.profile?.avatarUrl,
-        bio: user.profile?.bio,
-        friendshipStatus,
-        friendshipId,
-        isPending,
-        isSentByMe,
-      };
-    });
-
-    return NextResponse.json({ users: results });
+    return NextResponse.json({ users });
   } catch (error: any) {
     console.error("Search users error:", error);
     if (error?.message === "UNAUTHENTICATED") {

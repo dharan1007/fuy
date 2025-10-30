@@ -8,6 +8,7 @@
     "start": "next start -p $PORT",
     "lint": "eslint . --ext .ts,.tsx",
     "prisma:studio": "prisma studio",
+    "prisma:seed": "tsx prisma/seed.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

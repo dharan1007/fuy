@@ -187,7 +187,7 @@ export default function RouteDrawMap() {
 
     (async () => {
       await import("leaflet/dist/leaflet.css");
-      const L = await import("leaflet");
+      const L = await import("leaflet") as any;
       LRef.current = L;
 
       // default marker icons (unused since we use divIcon, but keep for safety)
@@ -320,32 +320,32 @@ export default function RouteDrawMap() {
 
   // Popup HTML
   function renderPopupHTML(idx: number, cards: PlanCard[]) {
-    const header = `<div style="font-weight:600;margin-bottom:6px">Waypoint #${idx + 1}</div>`;
+    const header = `<div style="font-weight:600;margin-bottom:6px;color:#1f2937;background:#f9fafb;padding:8px;border-radius:6px">Waypoint #${idx + 1}</div>`;
     if (!cards.length) {
-      return header + `<div style="color:#6b7280;font-size:12px">No cards linked. Open the Plan and attach cards to this waypoint.</div>`;
+      return header + `<div style="color:#4b5563;font-size:12px;padding:8px;background:#f9fafb;border-radius:6px;margin-top:4px">No cards linked. Open the Plan and attach cards to this waypoint.</div>`;
     }
     const items = cards.map((c) => {
       const tags = (c.tags || [])
-        .map((t) => `<span style="background:#f3f4f6;border-radius:999px;padding:2px 6px;font-size:10px;margin-right:4px">#${escapeHTML(t)}</span>`)
+        .map((t) => `<span style="background:#e5e7eb;color:#1f2937;border-radius:999px;padding:2px 6px;font-size:10px;margin-right:4px;display:inline-block">#${escapeHTML(t)}</span>`)
         .join("");
       let body = "";
-      if (c.type === "note") body = `<div style="white-space:pre-wrap;font-size:12px;color:#374151">${escapeHTML(c.content || "")}</div>`;
-      if (c.type === "link") body = `<a href="${escapeAttr(c.content || "#")}" target="_blank" style="color:#2563eb;word-break:break-all">${escapeHTML(c.content || "")}</a>`;
-      if (c.type === "image") body = `<img src="${escapeAttr(c.content || "")}" style="max-width:220px;max-height:150px;border-radius:8px;border:1px solid #e5e7eb" />`;
-      if (c.type === "video") body = `<video src="${escapeAttr(c.content || "")}" style="max-width:220px;max-height:150px;border-radius:8px;border:1px solid #e5e7eb" controls></video>`;
+      if (c.type === "note") body = `<div style="white-space:pre-wrap;font-size:12px;color:#374151;background:#f9fafb;padding:6px;border-radius:4px;margin:4px 0">${escapeHTML(c.content || "")}</div>`;
+      if (c.type === "link") body = `<a href="${escapeAttr(c.content || "#")}" target="_blank" style="color:#2563eb;word-break:break-all;text-decoration:underline">${escapeHTML(c.content || "")}</a>`;
+      if (c.type === "image") body = `<img src="${escapeAttr(c.content || "")}" style="max-width:220px;max-height:150px;border-radius:8px;border:2px solid #d1d5db;margin:4px 0" />`;
+      if (c.type === "video") body = `<video src="${escapeAttr(c.content || "")}" style="max-width:220px;max-height:150px;border-radius:8px;border:2px solid #d1d5db;margin:4px 0" controls></video>`;
       if (c.type === "todo") {
         const done = (c.checklist || []).filter((i) => i.done).length; const total = (c.checklist || []).length;
-        body = `<div style="font-size:12px;color:#374151">${done}/${total} done</div>`;
+        body = `<div style="font-size:12px;color:#374151;background:#f9fafb;padding:6px;border-radius:4px;margin:4px 0">${done}/${total} done</div>`;
       }
       return `
-        <div style="padding:8px;border:1px solid #e5e7eb;border-radius:10px;margin-bottom:6px;background:#fff">
-          <div style="font-weight:600;font-size:13px;margin-bottom:4px">${escapeHTML(c.title || "Card")}</div>
+        <div style="padding:8px;border:2px solid #d1d5db;border-radius:10px;margin-bottom:6px;background:#ffffff">
+          <div style="font-weight:600;font-size:13px;margin-bottom:4px;color:#1f2937">${escapeHTML(c.title || "Card")}</div>
           ${body}
           <div style="margin-top:6px">${tags}</div>
         </div>
       `;
     }).join("");
-    return header + items;
+    return `<div style="background:#ffffff;color:#1f2937;padding:8px">` + header + items + `</div>`;
   }
 
   function openPopupForWaypoint(index: number, mk: any) {

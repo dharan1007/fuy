@@ -4,6 +4,7 @@ import { signOut, useSession } from "next-auth/react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useCartStore } from "@/lib/cartStore";
 
 interface AppHeaderProps {
   title?: string;
@@ -16,6 +17,8 @@ export default function AppHeader({ title, showBackButton = false, showSettingsA
   const pathname = usePathname();
   const { data: session } = useSession();
   const [unreadCount, setUnreadCount] = useState(0);
+  const [cartItemCount, setCartItemCount] = useState(0);
+  const cartItems = useCartStore((state) => state.items);
 
   useEffect(() => {
     if (session) {
@@ -25,6 +28,12 @@ export default function AppHeader({ title, showBackButton = false, showSettingsA
       return () => clearInterval(interval);
     }
   }, [session]);
+
+  useEffect(() => {
+    // Update cart item count whenever items change
+    const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+    setCartItemCount(totalItems);
+  }, [cartItems]);
 
   async function loadUnreadCount() {
     try {
@@ -89,6 +98,50 @@ export default function AppHeader({ title, showBackButton = false, showSettingsA
                 <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
+              </Link>
+            )}
+
+            {/* Chat button */}
+            {session && pathname !== "/chat" && (
+              <Link
+                href="/chat"
+                className="p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                title="Messages"
+              >
+                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+              </Link>
+            )}
+
+            {/* Shop button */}
+            {pathname !== "/shop" && (
+              <Link
+                href="/shop"
+                className="p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                title="Shop"
+              >
+                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                </svg>
+              </Link>
+            )}
+
+            {/* Cart button */}
+            {pathname !== "/cart" && (
+              <Link
+                href="/cart"
+                className="relative p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                title="Shopping Cart"
+              >
+                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                {cartItemCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 sm:-top-1 sm:-right-1 bg-blue-600 text-white text-[10px] sm:text-xs rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center font-medium">
+                    {cartItemCount > 9 ? "9+" : cartItemCount}
+                  </span>
+                )}
               </Link>
             )}
 

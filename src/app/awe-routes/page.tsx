@@ -185,12 +185,13 @@ export default function AweRoutesPage() {
   const router = useRouter();
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Full-screen layout without sidebar overlap */}
-      <div className="w-full">
-        <div className="flex flex-col lg:flex-row gap-6 p-4">
-          {/* ===== Sidebar ===== */}
-          <aside className="lg:w-80 lg:sticky lg:top-4 self-start rounded-2xl border border-gray-200 bg-white shadow-lg p-4 max-h-[calc(100vh-2rem)] overflow-auto">
+    <div className="h-screen w-full overflow-hidden bg-white">
+      {/* Grid layout: sidebar | map */}
+      <div className="grid grid-cols-[350px_1fr] h-full gap-0">
+        {/* ===== LEFT SIDEBAR ===== */}
+        <aside className="border-r border-gray-200 bg-white overflow-y-auto flex flex-col">
+          {/* Header */}
+          <div className="p-4 border-b border-gray-200 flex-shrink-0">
             <div className="flex items-center gap-2 mb-4">
               <button
                 onClick={() => router.back()}
@@ -201,10 +202,61 @@ export default function AweRoutesPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
-              <h1 className="text-xl font-semibold text-gray-900">Awe Routes</h1>
-              <span className="rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs text-blue-700">
-                awe
-              </span>
+              <div>
+                <h1 className="text-lg font-bold text-gray-900">Awe Routes</h1>
+                <p className="text-xs text-gray-500">Plan your adventure</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Scrollable content */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-6">
+            {/* Current Stats Card */}
+            <div className="rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 p-4">
+              <h3 className="text-sm font-semibold text-gray-900 mb-2">Route Stats</h3>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-600">Distance</span>
+                  <span className="font-semibold text-gray-900">{fmt(distanceKm, "km")}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-600">Points</span>
+                  <span className="font-semibold text-gray-900">{points}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-600">Type</span>
+                  <span className="font-semibold text-gray-900">{isLoop ? "Loop" : "A→B"}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* ETA Card */}
+            <div className="rounded-lg bg-gradient-to-br from-green-50 to-emerald-50 border border-green-100 p-4">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">Estimated Time</h3>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-700">🚶 Walking</span>
+                  <span className="font-semibold text-gray-900">{ETA.walk}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-700">🚴 Cycling</span>
+                  <span className="font-semibold text-gray-900">{ETA.bike}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-700">🏃 Running</span>
+                  <span className="font-semibold text-gray-900">{ETA.run}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Tips Section */}
+            <div className="rounded-lg bg-amber-50 border border-amber-100 p-4">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">💡 Tips</h3>
+              <ul className="space-y-1">
+                {suggestions.map((s, i) => (
+                  <li key={i} className="text-xs text-gray-700 leading-relaxed">• {s}</li>
+                ))}
+              </ul>
             </div>
 
             <div className="mt-4 text-[11px] uppercase tracking-widest text-gray-500 font-semibold">
@@ -274,39 +326,13 @@ export default function AweRoutesPage() {
 
           {/* ===== Main ===== */}
           <section className="flex-1 space-y-6">
-            {/* Map + HUD */}
-            <div className="relative rounded-2xl border border-gray-200 bg-gray-900 p-4 shadow-lg">
-              <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-white">
-                <span className="rounded-full border border-white/20 bg-white/10 px-4 py-2">
-                  Dist: <b>{fmt(distanceKm, "km")}</b> ·{" "}
-                  <b>{fmt(distanceKm, "mi")}</b> · Points: <b>{points}</b>
-                  {isLoop && (
-                    <span className="ml-2 rounded-full bg-emerald-500 px-2 py-0.5 text-xs text-white font-medium">
-                      Loop
-                    </span>
-                  )}
-                </span>
-                <span className="rounded-full border border-white/20 bg-white/10 px-4 py-2">
-                  ETA — Walk <b>{ETA.walk}</b> · Run <b>{ETA.run}</b> · Bike{" "}
-                  <b>{ETA.bike}</b>
-                </span>
-              </div>
-
-              <div className="mb-3 rounded-lg border border-white/20 bg-white/10 p-3 text-sm text-white">
-                <div className="font-medium mb-1">💡 Tips:</div>
-                {suggestions.map((s, i) => (
-                  <div key={i} className="text-white/90">• {s}</div>
-                ))}
-              </div>
-
-              {/* Map container with proper height */}
-              <div className="rounded-xl overflow-hidden" style={{ position: 'relative', zIndex: 0 }}>
-                <LeafletMap
-                  basemapStyle={basemapStyle}
-                  activeCategory={activeCategory}
-                  height="600px"
-                />
-              </div>
+            {/* Map - Full width */}
+            <div className="rounded-xl overflow-hidden border border-gray-200" style={{ height: "600px" }}>
+              <LeafletMap
+                basemapStyle={basemapStyle}
+                activeCategory={activeCategory}
+                height="600px"
+              />
             </div>
 
             {/* Info row */}

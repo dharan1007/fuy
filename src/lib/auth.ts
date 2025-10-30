@@ -1,11 +1,7 @@
 // src/lib/auth.ts
-import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import type { NextAuthOptions } from "next-auth";
-import EmailProvider from "next-auth/providers/email";
 import Credentials from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
-import { baseUrl } from "@/lib/base-url";
-import { sendMail } from "@/lib/mailer";
 import { jwtVerify } from "jose";
 import bcrypt from "bcryptjs";
 
@@ -13,30 +9,29 @@ const secret = process.env.NEXTAUTH_SECRET!;
 const enc = new TextEncoder();
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
   secret,
   pages: {
     signIn: "/join",
   },
   providers: [
-    EmailProvider({
-  from: process.env.EMAIL_FROM,
-  async sendVerificationRequest({ identifier, url, expires }) {
-    const host = new URL(baseUrl()).host;
-    const subject = `Sign in to ${host}`;
-    const text = `Hi!
+    // EmailProvider({
+    //   from: process.env.EMAIL_FROM,
+    //   async sendVerificationRequest({ identifier, url, expires }) {
+    //     const host = new URL(baseUrl()).host;
+    //     const subject = `Sign in to ${host}`;
+    //     const text = `Hi!
 
-Click the link below to sign in:
+    // Click the link below to sign in:
 
-${url}
+    // ${url}
 
-This link expires at ${expires.toLocaleString()}.
+    // This link expires at ${expires.toLocaleString()}.
 
-If you didn’t request this, you can ignore this email.`;
-    await sendMail({ to: identifier, subject, text });
-  },
-}),
+    // If you didn't request this, you can ignore this email.`;
+    //     await sendMail({ to: identifier, subject, text });
+    //   },
+    // }),
 
     // Email/Password credentials
     Credentials({

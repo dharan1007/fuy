@@ -6,6 +6,19 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
+const DEMO_USERS = [
+  { email: "jasmine@example.com", name: "Jasmine" },
+  { email: "alex@example.com", name: "Alex" },
+  { email: "jordan@example.com", name: "Jordan" },
+  { email: "jacob@example.com", name: "Jacob" },
+  { email: "carmen@example.com", name: "Carmen" },
+  { email: "toriano@example.com", name: "Toriano" },
+  { email: "jesse@example.com", name: "Jesse" },
+  { email: "vanessa@example.com", name: "Vanessa" },
+  { email: "anthony@example.com", name: "Anthony" },
+  { email: "ms@example.com", name: "Ms" },
+];
+
 export default function LoginPage() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(true);
@@ -13,6 +26,45 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const handleDemoLogin = async (demoEmail: string) => {
+    setLoading(true);
+    setError("");
+
+    try {
+      // Get login token from dev endpoint
+      const res = await fetch("/api/dev/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: demoEmail, password: "test" }),
+      });
+
+      if (!res.ok) {
+        setError("Login failed");
+        setLoading(false);
+        return;
+      }
+
+      const data = await res.json();
+
+      // Sign in using the loginToken via passkey provider
+      const signInResult = await signIn("passkey", {
+        loginToken: data.loginToken,
+        redirect: false,
+      });
+
+      if (signInResult?.ok) {
+        router.push("/");
+      } else {
+        setError("Failed to authenticate");
+      }
+    } catch (err) {
+      setError("An error occurred");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   async function handlePasswordLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -57,6 +109,24 @@ export default function LoginPage() {
             <p className="mt-2 text-sm text-gray-600">
               Sign in to continue to Fuy
             </p>
+          </div>
+
+          {/* Demo Users Quick Login */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-xs font-semibold text-blue-900 mb-3 uppercase">Quick Demo Login</p>
+            <div className="grid grid-cols-5 gap-2">
+              {DEMO_USERS.map((user) => (
+                <button
+                  key={user.email}
+                  onClick={() => handleDemoLogin(user.email)}
+                  disabled={loading}
+                  className="p-2 text-xs font-semibold bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={user.email}
+                >
+                  {user.name}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">

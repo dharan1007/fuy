@@ -58,6 +58,20 @@ export async function GET(req: Request) {
   }
 }
 
+// List of demo user emails for auto-accept
+const DEMO_USERS = [
+  "jasmine@example.com",
+  "alex@example.com",
+  "jordan@example.com",
+  "jacob@example.com",
+  "carmen@example.com",
+  "toriano@example.com",
+  "jesse@example.com",
+  "vanessa@example.com",
+  "anthony@example.com",
+  "ms@example.com",
+];
+
 // Send friend request
 export async function POST(req: Request) {
   try {
@@ -75,6 +89,19 @@ export async function POST(req: Request) {
     if (userId === friendId) {
       return NextResponse.json(
         { error: "Cannot send friend request to yourself" },
+        { status: 400 }
+      );
+    }
+
+    // Verify both users exist
+    const [currentUser, targetUser] = await Promise.all([
+      prisma.user.findUnique({ where: { id: userId } }),
+      prisma.user.findUnique({ where: { id: friendId } }),
+    ]);
+
+    if (!currentUser || !targetUser) {
+      return NextResponse.json(
+        { error: "One or both users do not exist" },
         { status: 400 }
       );
     }
@@ -104,27 +131,36 @@ export async function POST(req: Request) {
       }
     }
 
-    // Create friend request
+    // Check if target user is a demo user
+    const isTargetDemoUser = DEMO_USERS.includes(targetUser.email.toLowerCase());
+    const status = isTargetDemoUser ? "ACCEPTED" : "PENDING";
+
+    // Create friend request (with auto-accept if demo user)
     const friendship = await prisma.friendship.create({
       data: {
         userId,
         friendId,
-        status: "PENDING",
+        status,
       },
     });
 
     // Create notification for the recipient
+    const notificationType = isTargetDemoUser ? "FRIEND_ACCEPTED" : "FRIEND_REQUEST";
+    const message = isTargetDemoUser
+      ? `accepted your friend request`
+      : `sent you a friend request`;
+
     await prisma.notification.create({
       data: {
         userId: friendId,
-        type: "FRIEND_REQUEST",
-        message: `sent you a friend request`,
-        postId: userId, // Store sender ID in postId field temporarily
+        type: notificationType,
+        message,
+        postId: userId,
         read: false,
       },
     });
 
-    return NextResponse.json({ friendship });
+    return NextResponse.json({ friendship, autoAccepted: isTargetDemoUser });
   } catch (error: any) {
     console.error("Send friend request error:", error);
     if (error?.message === "UNAUTHENTICATED") {

@@ -1,0 +1,408 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { useSession } from "next-auth/react";
+
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  discountPrice?: number;
+  images?: string[];
+  brand: { name: string; slug: string };
+  isFeatured: boolean;
+  isTrending: boolean;
+}
+
+interface Brand {
+  id: string;
+  name: string;
+  slug: string;
+  logoUrl?: string;
+}
+
+// Dummy data
+const DUMMY_PRODUCTS: Product[] = [
+  {
+    id: "1",
+    name: "Classic Black Jacket",
+    price: 89.99,
+    discountPrice: 64.99,
+    images: ["https://images.unsplash.com/photo-1551028719-00167b16ebc5?w=500&h=500&fit=crop"],
+    brand: { name: "StyleCo", slug: "styleco" },
+    isFeatured: true,
+    isTrending: false,
+  },
+  {
+    id: "2",
+    name: "Olive Green Blazer",
+    price: 109.99,
+    discountPrice: 79.99,
+    images: ["https://images.unsplash.com/photo-1551028719-00167b16ebc5?w=500&h=500&fit=crop"],
+    brand: { name: "FashionHub", slug: "fashionhub" },
+    isFeatured: true,
+    isTrending: false,
+  },
+  {
+    id: "3",
+    name: "White Button-Up Shirt",
+    price: 49.99,
+    discountPrice: 34.99,
+    images: ["https://images.unsplash.com/photo-1551028719-00167b16ebc5?w=500&h=500&fit=crop"],
+    brand: { name: "ClassicWear", slug: "classicwear" },
+    isFeatured: true,
+    isTrending: true,
+  },
+  {
+    id: "4",
+    name: "Black Leather Pants",
+    price: 129.99,
+    discountPrice: 99.99,
+    images: ["https://images.unsplash.com/photo-1551028719-00167b16ebc5?w=500&h=500&fit=crop"],
+    brand: { name: "StyleCo", slug: "styleco" },
+    isFeatured: true,
+    isTrending: false,
+  },
+  {
+    id: "5",
+    name: "Denim Jacket",
+    price: 79.99,
+    discountPrice: 59.99,
+    images: ["https://images.unsplash.com/photo-1551028719-00167b16ebc5?w=500&h=500&fit=crop"],
+    brand: { name: "DenimPro", slug: "denimpro" },
+    isFeatured: false,
+    isTrending: true,
+  },
+  {
+    id: "6",
+    name: "Summer Dress",
+    price: 69.99,
+    discountPrice: 49.99,
+    images: ["https://images.unsplash.com/photo-1595777707802-cbb3668cf981?w=500&h=500&fit=crop"],
+    brand: { name: "SummerStyle", slug: "summerstyle" },
+    isFeatured: false,
+    isTrending: true,
+  },
+  {
+    id: "7",
+    name: "Striped T-Shirt",
+    price: 39.99,
+    discountPrice: 29.99,
+    images: ["https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=500&h=500&fit=crop"],
+    brand: { name: "CasualWear", slug: "casualwear" },
+    isFeatured: false,
+    isTrending: true,
+  },
+  {
+    id: "8",
+    name: "Wool Sweater",
+    price: 99.99,
+    discountPrice: 74.99,
+    images: ["https://images.unsplash.com/photo-1556821552-5c0ead50f8f2?w=500&h=500&fit=crop"],
+    brand: { name: "CozyWear", slug: "cozywear" },
+    isFeatured: false,
+    isTrending: false,
+  },
+];
+
+const DUMMY_DEALS = [
+  {
+    id: "1",
+    title: "New Year Collection",
+    description: "Fresh styles for the new year",
+    discountValue: 25,
+    brandId: null,
+    brand: undefined,
+  },
+  {
+    id: "2",
+    title: "Discount Up to 25%",
+    description: "Selected items",
+    discountValue: 25,
+    brandId: null,
+    brand: undefined,
+  },
+  {
+    id: "3",
+    title: "Best Fashion in 2024",
+    description: "Trending now",
+    discountValue: 30,
+    brandId: null,
+    brand: undefined,
+  },
+  {
+    id: "4",
+    title: "End Year Sale",
+    description: "Limited time offer",
+    discountValue: 40,
+    brandId: null,
+    brand: undefined,
+  },
+];
+
+const DUMMY_BRANDS: Brand[] = [
+  { id: "1", name: "StyleCo", slug: "styleco", logoUrl: "https://via.placeholder.com/100?text=StyleCo" },
+  { id: "2", name: "FashionHub", slug: "fashionhub", logoUrl: "https://via.placeholder.com/100?text=FashionHub" },
+  { id: "3", name: "ClassicWear", slug: "classicwear", logoUrl: "https://via.placeholder.com/100?text=Classic" },
+  { id: "4", name: "DenimPro", slug: "denimpro", logoUrl: "https://via.placeholder.com/100?text=DenimPro" },
+  { id: "5", name: "SummerStyle", slug: "summerstyle", logoUrl: "https://via.placeholder.com/100?text=Summer" },
+  { id: "6", name: "CasualWear", slug: "casualwear", logoUrl: "https://via.placeholder.com/100?text=Casual" },
+];
+
+export default function ShopPage() {
+  const { data: session } = useSession();
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const newArrivals = DUMMY_PRODUCTS.slice(0, 4);
+  const trendingProducts = DUMMY_PRODUCTS.filter((p) => p.isTrending);
+
+  const renderProductCard = (product: Product) => (
+    <Link key={product.id} href={`/shop/product/${product.id}`}>
+      <div className="bg-white rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer h-full">
+        {/* Product Image */}
+        <div className="relative w-full aspect-square bg-gray-200 overflow-hidden">
+          {product.images?.[0] ? (
+            <img
+              src={product.images[0]}
+              alt={product.name}
+              className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-gray-400 bg-gray-100">
+              No Image
+            </div>
+          )}
+          {product.discountPrice && (
+            <div className="absolute top-3 right-3 bg-red-600 text-white px-3 py-1 rounded-full text-xs font-bold">
+              {Math.round(((product.price - product.discountPrice) / product.price) * 100)}% OFF
+            </div>
+          )}
+        </div>
+
+        {/* Product Info */}
+        <div className="p-4">
+          <p className="text-xs text-gray-500 mb-1 font-medium">{product.brand?.name}</p>
+          <h3 className="font-semibold text-sm text-gray-900 line-clamp-2 mb-3">{product.name}</h3>
+
+          {/* Price */}
+          <div className="flex items-baseline gap-2">
+            <span className="text-lg font-bold text-gray-900">
+              ${(product.discountPrice || product.price).toFixed(2)}
+            </span>
+            {product.discountPrice && (
+              <span className="text-xs text-gray-500 line-through">${product.price.toFixed(2)}</span>
+            )}
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+
+  return (
+    <div className="min-h-screen bg-white">
+      {/* Navigation Bar */}
+      <nav className="bg-white border-b border-gray-200 sticky top-16 z-40">
+        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="flex gap-8 text-sm font-medium text-gray-700">
+            <button className="hover:text-gray-900">Home</button>
+            <button className="hover:text-gray-900">Men</button>
+            <button className="hover:text-gray-900">Women</button>
+            <button className="hover:text-gray-900">Kids</button>
+            <button className="hover:text-gray-900">Customize</button>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="relative w-64">
+              <input
+                type="text"
+                placeholder="Search..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+              />
+              <svg className="absolute right-3 top-2.5 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+            <svg className="w-5 h-5 text-gray-700 cursor-pointer hover:text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+            <svg className="w-5 h-5 text-gray-700 cursor-pointer hover:text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+          </div>
+        </div>
+      </nav>
+
+      {/* Main Hero Section */}
+      <div className="relative w-full bg-black text-white overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 py-16 flex items-center justify-between">
+          <div className="flex-1">
+            <h1 className="text-5xl font-bold mb-4">YOUR STYLE IS HERE!</h1>
+            <p className="text-lg text-gray-300 mb-8">Discover the latest fashion trends and exclusive collections</p>
+            <div className="flex gap-4">
+              <button className="px-6 py-2 bg-yellow-500 text-black font-bold rounded hover:bg-yellow-600 transition">
+                New Year Collection
+              </button>
+              <button className="px-6 py-2 border-2 border-white text-white font-bold rounded hover:bg-white hover:text-black transition">
+                View Collection
+              </button>
+            </div>
+            <div className="mt-8 flex gap-6 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="font-bold">New Year Collection</span>
+              </div>
+              <span className="text-gray-400">×</span>
+              <div className="flex items-center gap-2">
+                <span className="font-bold">Discount Up to 25%</span>
+              </div>
+              <span className="text-gray-400">×</span>
+              <div className="flex items-center gap-2">
+                <span className="font-bold">Best Fashion in 2024</span>
+              </div>
+              <span className="text-gray-400">×</span>
+              <div className="flex items-center gap-2">
+                <span className="font-bold">End Year Sale</span>
+              </div>
+            </div>
+          </div>
+          <div className="flex-1 relative h-96">
+            <img
+              src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&h=600&fit=crop"
+              alt="Fashion Hero"
+              className="w-full h-full object-cover rounded-lg"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Side Banners Section */}
+      <div className="max-w-7xl mx-auto px-4 py-8 grid grid-cols-3 gap-6">
+        {/* End Year Big Sale Banner */}
+        <div className="col-span-1 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg overflow-hidden">
+          <div className="relative h-96 bg-gray-300 flex items-end justify-between p-6">
+            <img
+              src="https://images.unsplash.com/photo-1495386794519-c21d9a3a8d6d?w=300&h=400&fit=crop"
+              alt="Model"
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+            <div className="relative z-10">
+              <h3 className="text-2xl font-bold text-white mb-2">END YEAR BIG SALE 🎉</h3>
+              <p className="text-white text-sm mb-4">The Modern Classic</p>
+              <button className="px-6 py-2 bg-yellow-500 text-black font-bold rounded hover:bg-yellow-600">
+                Shop Now
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Stay up to date banner */}
+        <div className="col-span-2 grid grid-cols-2 gap-6">
+          <div className="bg-gray-900 text-white rounded-lg p-6 flex flex-col justify-between">
+            <div>
+              <h3 className="text-2xl font-bold mb-2">STAY UP TO DATE BY JOINING OUR NEWSLETTER</h3>
+              <p className="text-sm text-gray-300">Get the latest collection & exclusive vouchers</p>
+            </div>
+            <button className="px-6 py-2 border border-white text-white font-bold rounded w-fit hover:bg-white hover:text-black transition mt-4">
+              Join Now
+            </button>
+          </div>
+
+          {/* Featured Collection Banner */}
+          <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg p-6 text-white flex flex-col justify-between">
+            <div>
+              <p className="text-sm font-semibold mb-2">NEW COLLECTION</p>
+              <h3 className="text-2xl font-bold">SUMMER VIBES</h3>
+            </div>
+            <button className="px-6 py-2 bg-white text-blue-600 font-bold rounded w-fit hover:bg-gray-100 transition mt-4">
+              Explore
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Hot Deals Section */}
+      <div className="max-w-7xl mx-auto px-4 py-12">
+        <h2 className="text-2xl font-bold mb-8 text-gray-900">🔥 Hot Deals from Brands</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {DUMMY_DEALS.map((deal) => (
+            <div key={deal.id} className="bg-gradient-to-br from-blue-600 to-purple-600 text-white rounded-lg p-6 text-center">
+              <p className="text-sm font-medium mb-2">{deal.title}</p>
+              <div className="text-4xl font-bold mb-4">{deal.discountValue}% OFF</div>
+              <p className="text-sm text-blue-100 mb-4">{deal.description}</p>
+              <button className="w-full bg-yellow-400 text-gray-900 py-2 rounded font-bold hover:bg-yellow-500 transition">
+                Shop Now
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* New Arrivals Section */}
+      <div className="max-w-7xl mx-auto px-4 py-12 border-t border-gray-200">
+        <div className="flex justify-between items-center mb-8">
+          <h2 className="text-2xl font-bold text-gray-900">📦 NEW ARRIVALS</h2>
+          <Link href="/shop/new" className="text-blue-600 hover:text-blue-700 font-semibold text-sm">
+            View All →
+          </Link>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {newArrivals.map(renderProductCard)}
+        </div>
+      </div>
+
+      {/* Trending Products Section */}
+      <div className="max-w-7xl mx-auto px-4 py-12 border-t border-gray-200">
+        <div className="flex justify-between items-center mb-8">
+          <h2 className="text-2xl font-bold text-gray-900">⭐ TRENDING</h2>
+          <Link href="/shop/trending" className="text-blue-600 hover:text-blue-700 font-semibold text-sm">
+            View All →
+          </Link>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {trendingProducts.map(renderProductCard)}
+        </div>
+      </div>
+
+      {/* Brands Section */}
+      <div className="max-w-7xl mx-auto px-4 py-12 border-t border-gray-200">
+        <h2 className="text-2xl font-bold mb-8 text-gray-900">🏢 FEATURED BRANDS</h2>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          {DUMMY_BRANDS.map((brand) => (
+            <Link key={brand.id} href={`/shop/brand/${brand.slug}`}>
+              <div className="bg-white rounded-lg p-6 text-center hover:shadow-lg transition-shadow cursor-pointer border border-gray-200">
+                <div className="w-full h-20 bg-gray-100 rounded flex items-center justify-center mb-3">
+                  <span className="text-sm font-semibold text-gray-600">{brand.name}</span>
+                </div>
+                <p className="font-semibold text-sm text-gray-900">{brand.name}</p>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* Seller CTA Section */}
+      <div className="bg-blue-600 text-white py-16 mt-12">
+        <div className="max-w-4xl mx-auto text-center px-4">
+          <h2 className="text-4xl font-bold mb-4">Start Selling Today</h2>
+          <p className="text-lg mb-8 text-blue-100">Join thousands of sellers and reach millions of customers</p>
+          {session ? (
+            <Link
+              href="/seller/create-brand"
+              className="inline-block bg-yellow-400 text-gray-900 px-8 py-3 rounded-lg font-bold hover:bg-yellow-500 transition-colors"
+            >
+              Create Your Brand Now →
+            </Link>
+          ) : (
+            <Link
+              href="/login"
+              className="inline-block bg-yellow-400 text-gray-900 px-8 py-3 rounded-lg font-bold hover:bg-yellow-500 transition-colors"
+            >
+              Sign in to Start Selling →
+            </Link>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

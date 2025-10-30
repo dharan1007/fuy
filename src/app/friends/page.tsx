@@ -436,6 +436,10 @@ function FriendRow({ item }: { item: FriendItem }) {
 }
 
 function SearchUserRow({ user, onSendRequest }: { user: SearchUser; onSendRequest: (userId: string) => void }) {
+  const [showProfile, setShowProfile] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [justAdded, setJustAdded] = useState(false);
+
   const name = user.displayName || user.name || "Unknown User";
   const avatar = user.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}`;
 
@@ -452,29 +456,117 @@ function SearchUserRow({ user, onSendRequest }: { user: SearchUser; onSendReques
     return { text: "Add Friend", color: "bg-blue-600 text-white hover:bg-blue-700", disabled: false };
   }
 
+  const handleAddFriend = async () => {
+    setSending(true);
+    try {
+      onSendRequest(user.id);
+      setJustAdded(true);
+      setTimeout(() => setJustAdded(false), 3000);
+    } finally {
+      setSending(false);
+    }
+  };
+
   const buttonProps = getButtonContent();
 
   return (
-    <li className="flex items-center justify-between rounded-lg ring-1 ring-gray-200 bg-white p-4 hover:bg-gray-50 transition">
-      <div className="flex min-w-0 items-center gap-3">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={avatar} alt={name} className="w-12 h-12 rounded-full object-cover" loading="lazy" />
-        <div className="min-w-0">
-          <div className="font-medium truncate">{name}</div>
-          <div className="text-sm text-gray-500 truncate">{user.email}</div>
-          {user.bio && <div className="text-xs text-gray-400 truncate mt-1">{user.bio}</div>}
+    <>
+      <li className="flex items-center justify-between rounded-lg ring-1 ring-gray-200 bg-white p-4 hover:bg-gray-50 transition cursor-pointer group" onClick={() => setShowProfile(true)}>
+        <div className="flex min-w-0 items-center gap-3 flex-1">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={avatar} alt={name} className="w-12 h-12 rounded-full object-cover" loading="lazy" />
+          <div className="min-w-0">
+            <div className="font-medium truncate group-hover:text-blue-600">{name}</div>
+            <div className="text-sm text-gray-500 truncate">{user.email}</div>
+            {user.bio && <div className="text-xs text-gray-400 truncate mt-1">{user.bio}</div>}
+          </div>
         </div>
-      </div>
-      <button
-        onClick={() => !buttonProps.disabled && onSendRequest(user.id)}
-        disabled={buttonProps.disabled}
-        className={`rounded-full px-4 py-2 text-sm font-medium transition ${buttonProps.color} ${
-          buttonProps.disabled ? "cursor-not-allowed" : ""
-        }`}
-      >
-        {buttonProps.text}
-      </button>
-    </li>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            !buttonProps.disabled && handleAddFriend();
+          }}
+          disabled={buttonProps.disabled || sending}
+          className={`rounded-full px-4 py-2 text-sm font-medium transition ${buttonProps.color} ${
+            buttonProps.disabled ? "cursor-not-allowed" : ""
+          } ${sending ? "opacity-50" : ""}`}
+        >
+          {sending ? "Adding..." : buttonProps.text}
+        </button>
+      </li>
+
+      {/* Profile Card Modal */}
+      {showProfile && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowProfile(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+            {/* Close Button */}
+            <button
+              onClick={() => setShowProfile(false)}
+              className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-full transition"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            {/* Avatar & Name */}
+            <div className="text-center mb-6">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={avatar} alt={name} className="w-20 h-20 rounded-full mx-auto mb-4 object-cover ring-4 ring-blue-100" />
+              <h3 className="text-2xl font-bold text-gray-900">{name}</h3>
+              <p className="text-gray-600">{user.email}</p>
+            </div>
+
+            {/* Bio Section */}
+            {user.bio && (
+              <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                <p className="text-sm text-gray-700">{user.bio}</p>
+              </div>
+            )}
+
+            {/* Status Badge */}
+            {justAdded && (
+              <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-center">
+                <p className="text-sm font-medium text-green-700">✓ Friend request sent & auto-accepted!</p>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="space-y-3">
+              {!buttonProps.disabled && !justAdded && (
+                <button
+                  onClick={handleAddFriend}
+                  disabled={sending}
+                  className="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 transition disabled:opacity-50"
+                >
+                  {sending ? "Adding..." : "Add Friend"}
+                </button>
+              )}
+
+              {(buttonProps.disabled || justAdded) && (
+                <button
+                  onClick={() => setShowProfile(false)}
+                  className="w-full bg-gray-200 text-gray-900 py-2 rounded-lg font-medium hover:bg-gray-300 transition"
+                >
+                  Close
+                </button>
+              )}
+
+              {user.friendshipStatus === "ACCEPTED" && (
+                <>
+                  <a
+                    href={`/chat?user=${user.id}`}
+                    className="block w-full bg-indigo-600 text-white py-2 rounded-lg font-medium hover:bg-indigo-700 transition text-center"
+                  >
+                    💬 Message
+                  </a>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

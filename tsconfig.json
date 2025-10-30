@@ -10,7 +10,7 @@
     "paths": {
       "@/*": ["src/*"]
     },
-    "types": ["react", "react-dom", "node", "@prisma/client"],
+    "types": ["react", "react-dom", "node", "@prisma/client", "leaflet"],
     "skipLibCheck": true,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
