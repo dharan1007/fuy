@@ -2,21 +2,8 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
-import Link from "next/link";
 import dynamic from "next/dynamic";
-
-/* ---------- types ---------- */
-type LatLng = { lat: number; lng: number; owner?: string };
-type POICategory =
-  | "ATMs"
-  | "Bus Stops"
-  | "Cafés"
-  | "Emergencies"
-  | "Museums"
-  | "Parkings"
-  | "Restaurants"
-  | "Sport Centers";
+import type { LatLng, POICategory } from "@/components/leaflet-map";
 
 /* ---------- dynamic imports ---------- */
 const LeafletMap = dynamic(() => import("@/components/leaflet-map"), {
@@ -141,7 +128,6 @@ function useLiveRoute(): LiveRoute {
 /* ---------- page ---------- */
 export default function AweRoutesPage() {
   const router = useRouter();
-  const { data: session } = useSession();
   const { distanceKm, isLoop, points, pts } = useLiveRoute();
 
   const ETA = {
