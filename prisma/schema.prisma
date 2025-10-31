@@ -84,6 +84,14 @@ model User {
   productReviews  ProductReview[]      @relation("ProductReviews")
   brandReviews    BrandReview[]        @relation("BrandReviews")
   orders          Order[]              @relation("Orders")
+
+  // --- Awe Routes & Places ---
+  waypoints       RouteWaypoint[]
+  waypointPhotos  WaypointPhoto[]      @relation("WaypointPhotoAuthor")
+  photoShares     PhotoShare[]         @relation("PhotoShareRecipient")
+  placeReviews    PlaceReview[]
+  placePhotos     PlacePhoto[]         @relation("PlacePhotoAuthor")
+  placePhotoShares PlacePhotoShare[]   @relation("PlacePhotoShareRecipient")
 }
 
 model Profile {
@@ -1083,4 +1091,122 @@ model HopinPlan {
 
   @@index([nodeId])
   @@index([weekStart])
+}
+
+// ========================
+// Awe Routes - Places & Photos
+// ========================
+
+model RouteWaypoint {
+  id          String   @id @default(cuid())
+  userId      String
+  routeId     String   // OSM place ID or custom identifier
+  lat         Float
+  lng         Float
+  name        String
+  description String?
+  emoji       String   @default("📍") // Visual marker
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  photos      WaypointPhoto[]
+
+  @@index([userId])
+  @@index([routeId])
+  @@index([createdAt])
+}
+
+model WaypointPhoto {
+  id          String   @id @default(cuid())
+  waypointId  String
+  userId      String
+  url         String   // URL to uploaded image
+  caption     String?
+  visibility  String   @default("PRIVATE") // PUBLIC, FRIENDS, PRIVATE
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  waypoint    RouteWaypoint @relation(fields: [waypointId], references: [id], onDelete: Cascade)
+  user        User          @relation("WaypointPhotoAuthor", fields: [userId], references: [id], onDelete: Cascade)
+  shares      PhotoShare[]
+
+  @@index([waypointId])
+  @@index([userId])
+  @@index([visibility])
+}
+
+model PhotoShare {
+  id          String   @id @default(cuid())
+  photoId     String
+  userId      String   // User who the photo is shared with (for FRIENDS sharing)
+  createdAt   DateTime @default(now())
+
+  // Relations
+  photo       WaypointPhoto @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  user        User          @relation("PhotoShareRecipient", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([photoId, userId])
+  @@index([photoId])
+  @@index([userId])
+}
+
+model PlaceReview {
+  id          String   @id @default(cuid())
+  userId      String
+  osmId       String   // OpenStreetMap place ID
+  placeName   String   // Cafe, Restaurant, ATM, etc.
+  category    String   // POI category
+  lat         Float
+  lng         Float
+  rating      Int      // 1-5 stars
+  text        String?  // Review text
+  visited     DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  photos      PlacePhoto[]
+
+  @@index([userId])
+  @@index([osmId])
+  @@index([category])
+  @@index([createdAt])
+}
+
+model PlacePhoto {
+  id          String   @id @default(cuid())
+  reviewId    String
+  userId      String
+  url         String   // URL to uploaded image
+  caption     String?
+  visibility  String   @default("PUBLIC") // PUBLIC, FRIENDS, PRIVATE
+  createdAt   DateTime @default(now())
+
+  // Relations
+  review      PlaceReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  user        User        @relation("PlacePhotoAuthor", fields: [userId], references: [id], onDelete: Cascade)
+  shares      PlacePhotoShare[]
+
+  @@index([reviewId])
+  @@index([userId])
+  @@index([visibility])
+}
+
+model PlacePhotoShare {
+  id          String   @id @default(cuid())
+  photoId     String
+  userId      String   // User who the photo is shared with
+  createdAt   DateTime @default(now())
+
+  // Relations
+  photo       PlacePhoto @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  user        User       @relation("PlacePhotoShareRecipient", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([photoId, userId])
+  @@index([photoId])
+  @@index([userId])
 }

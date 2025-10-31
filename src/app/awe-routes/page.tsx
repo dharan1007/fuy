@@ -41,6 +41,35 @@ function estimateHours(distanceKm: number, speedKmH: number) {
   return distanceKm / speedKmH;
 }
 
+// Calculate calories based on MET (Metabolic Equivalent) values
+// Assumes average person ~70kg. Adjust with user weight for accuracy
+function estimateCalories(distanceKm: number, activity: 'walk' | 'run' | 'bike', userWeightKg: number = 70) {
+  // MET values for different activities at moderate intensity
+  const metValues = {
+    walk: 3.5,    // 3.5 mph (5.6 km/h) - moderate pace
+    run: 9.8,     // 6 mph (9.6 km/h) - moderate pace
+    bike: 7.5,    // 12-14 mph (19-22 km/h) - moderate pace
+  };
+
+  // Time in hours for each activity
+  const speeds = { walk: 5, run: 9, bike: 16 };
+  const timeHours = distanceKm / speeds[activity];
+
+  // Calories = MET × Weight (kg) × Time (hours)
+  const calories = metValues[activity] * userWeightKg * timeHours;
+  return Math.round(calories);
+}
+
+// Estimate elevation gain (simplified - assumes some hills in typical routes)
+function estimateElevationGain(distanceKm: number, pointCount: number): number {
+  if (pointCount < 2) return 0;
+  // Rough estimate: assume 10-15m elevation per km on average routes
+  // More points = more elevation variation
+  const baseElevation = distanceKm * 12;
+  const variation = (pointCount - 1) * 20;
+  return Math.round(baseElevation + variation);
+}
+
 function hhmm(hours: number) {
   const h = Math.floor(hours);
   const m = Math.round((hours - h) * 60);
@@ -138,11 +167,16 @@ export default function AweRoutesPage() {
 
   const kcal = useMemo(
     () => ({
-      walk: Math.round(distanceKm * 55),
-      run: Math.round(distanceKm * 80),
-      bike: Math.round(distanceKm * 30),
+      walk: estimateCalories(distanceKm, 'walk'),
+      run: estimateCalories(distanceKm, 'run'),
+      bike: estimateCalories(distanceKm, 'bike'),
     }),
     [distanceKm]
+  );
+
+  const elevationGain = useMemo(
+    () => estimateElevationGain(distanceKm, points),
+    [distanceKm, points]
   );
 
   const [cueSeed, setCueSeed] = useState("sky,texture,quiet,edges,colors");
@@ -150,7 +184,7 @@ export default function AweRoutesPage() {
     () =>
       cueSeed
         .split(",")
-        .map((s) => s.trim())
+        .map((s: string) => s.trim())
         .filter(Boolean),
     [cueSeed]
   );
@@ -267,7 +301,7 @@ export default function AweRoutesPage() {
             <div className="rounded-lg bg-amber-50 border border-amber-100 p-4">
               <h3 className="text-sm font-semibold text-gray-900 mb-3">💡 Tips</h3>
               <ul className="space-y-1">
-                {suggestions.map((s, i) => (
+                {suggestions.map((s: string, i: number) => (
                   <li key={i} className="text-xs text-gray-700 leading-relaxed">• {s}</li>
                 ))}
               </ul>
@@ -288,11 +322,11 @@ export default function AweRoutesPage() {
                   "Restaurants",
                   "Sport Centers",
                 ] as POICategory[]
-              ).map((label) => (
+              ).map((label: POICategory) => (
                 <button
                   key={label}
                   onClick={() =>
-                    setActiveCategory((c) => (c === label ? null : label))
+                    setActiveCategory((c: POICategory | null) => (c === label ? null : label))
                   }
                   className={`rounded-lg px-3 py-2 text-left text-sm transition-colors ${
                     activeCategory === label
@@ -309,10 +343,10 @@ export default function AweRoutesPage() {
               Map Style
             </div>
             <div className="mt-2 flex gap-2">
-              {(["dark", "light", "sepia"] as const).map((s) => (
+              {(["dark", "light", "sepia"] as const).map((s: string) => (
                 <button
                   key={s}
-                  onClick={() => setBasemapStyle(s)}
+                  onClick={() => setBasemapStyle(s as "dark" | "light" | "sepia")}
                   className={`flex-1 rounded-lg border px-3 py-2 text-xs font-medium capitalize transition-colors ${
                     basemapStyle === s
                       ? "bg-blue-600 text-white border-blue-600"
@@ -352,188 +386,230 @@ export default function AweRoutesPage() {
 
           {/* Content below map - Scrollable, takes 35% */}
           <div style={{ flex: "0 1 35%" }} className="overflow-y-auto p-6 space-y-6 bg-white">
-
-          {/* Info row */}
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <div className="rounded-xl border border-gray-200 bg-white shadow p-5">
-              <div className="mb-2 font-semibold text-gray-900 text-lg">
-                Effort & Calories
+            {/* Info row */}
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div className="rounded-xl border border-gray-200 bg-gradient-to-br from-orange-50 to-red-50 shadow p-5">
+                <div className="mb-3 font-semibold text-gray-900 text-lg">🔥 Effort & Calories</div>
+                <div className="text-gray-700 space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span>🚶 Walk</span>
+                    <span className="font-semibold text-orange-700">{kcal.walk} kcal</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span>🏃 Run</span>
+                    <span className="font-semibold text-red-700">{kcal.run} kcal</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span>🚴 Bike</span>
+                    <span className="font-semibold text-orange-600">{kcal.bike} kcal</span>
+                  </div>
+                </div>
+                <div className="mt-3 pt-3 border-t border-orange-200 text-sm">
+                  <div className="flex justify-between">
+                    <span>⛰️ Elevation</span>
+                    <span className="font-semibold">{elevationGain}m</span>
+                  </div>
+                </div>
               </div>
-              <div className="text-gray-700 space-y-1">
-                <div>🚶 Walk: <span className="font-medium">~{kcal.walk} kcal</span></div>
-                <div>🏃 Run: <span className="font-medium">~{kcal.run} kcal</span></div>
-                <div>🚴 Bike: <span className="font-medium">~{kcal.bike} kcal</span></div>
+              <div className="rounded-xl border border-gray-200 bg-white shadow p-5">
+                <div className="mb-2 font-semibold text-gray-900 text-lg">Route Shape</div>
+                <div className="text-gray-700">
+                  {isLoop
+                    ? "🔄 Looks like a loop (start ≈ end)"
+                    : "📍 Out & back / point-to-point"}
+                </div>
               </div>
-            </div>
-            <div className="rounded-xl border border-gray-200 bg-white shadow p-5">
-              <div className="mb-2 font-semibold text-gray-900 text-lg">Route Shape</div>
-              <div className="text-gray-700">
-                {isLoop
-                  ? "🔄 Looks like a loop (start ≈ end)"
-                  : "📍 Out & back / point-to-point"}
-              </div>
-            </div>
-            <div className="rounded-xl border border-gray-200 bg-white shadow p-5">
-              <div className="mb-2 font-semibold text-gray-900 text-lg">Export Data</div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() =>
-                    download(
-                      "route.gpx",
-                      makeGpxFromPts(pts),
-                      "application/gpx+xml"
-                    )
-                  }
-                  className="rounded-lg bg-blue-600 text-white px-4 py-2 text-sm font-medium hover:bg-blue-700 transition-colors"
-                >
-                  ⤓ GPX
-                </button>
-                <button
-                  onClick={() =>
-                    download(
-                      "route.json",
-                      JSON.stringify(makeGeoJSONFromPts(pts), null, 2),
-                      "application/json"
-                    )
-                  }
-                  className="rounded-lg bg-gray-700 text-white px-4 py-2 text-sm font-medium hover:bg-gray-800 transition-colors"
-                >
-                  {"{ }"} JSON
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Cue sheet + Plans */}
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <div className="rounded-xl border border-gray-200 bg-white shadow p-5">
-              <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">
-                  Attention Cue Sheet
-                </h2>
-                <button
-                  onClick={async () => {
-                    const lines = (cueSheet || [])
-                      .map(
-                        (c, i) => `${i + 1}. ${c.text} — ${c.km.toFixed(2)} km`
+              <div className="rounded-xl border border-gray-200 bg-white shadow p-5">
+                <div className="mb-2 font-semibold text-gray-900 text-lg">Export Data</div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() =>
+                      download(
+                        "route.gpx",
+                        makeGpxFromPts(pts),
+                        "application/gpx+xml"
                       )
-                      .join("\n");
-                    try {
-                      await navigator.clipboard.writeText(lines);
-                      alert("Cue sheet copied!");
-                    } catch {
-                      alert("Copy failed");
                     }
-                  }}
-                  className="rounded-lg bg-blue-600 text-white px-3 py-1.5 text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={!cueSheet.length}
-                  title="Copy cue sheet to clipboard"
-                >
-                  📋 Copy
-                </button>
-              </div>
-              <p className="mb-3 text-sm text-gray-600">
-                Rotate gentle cues along the route. Edit (comma separated),
-                then copy to share.
-              </p>
-              <input
-                value={cueSeed}
-                onChange={(e) => setCueSeed(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-400"
-                placeholder="sky,texture,quiet,edges,colors"
-              />
-              <div className="mt-3 grid gap-2 md:grid-cols-2">
-                {cueSheet.map((c, i) => (
-                  <div
-                    key={i}
-                    className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm"
+                    className="rounded-lg bg-blue-600 text-white px-4 py-2 text-sm font-medium hover:bg-blue-700 transition-colors"
                   >
-                    <div className="font-medium text-gray-900">
-                      {i + 1}. {c.text}
-                    </div>
-                    <div className="text-gray-600 text-xs mt-1">
-                      {c.km.toFixed(2)} km from start
-                    </div>
-                  </div>
-                ))}
-                {!cueSheet.length && (
-                  <div className="text-sm text-gray-500 col-span-2 text-center py-4">
-                    Add points on the map to generate a cue sheet.
-                  </div>
-                )}
+                    ⤓ GPX
+                  </button>
+                  <button
+                    onClick={() =>
+                      download(
+                        "route.json",
+                        JSON.stringify(makeGeoJSONFromPts(pts), null, 2),
+                        "application/json"
+                      )
+                    }
+                    className="rounded-lg bg-gray-700 text-white px-4 py-2 text-sm font-medium hover:bg-gray-800 transition-colors"
+                  >
+                    {"{ }"} JSON
+                  </button>
+                </div>
               </div>
             </div>
 
-            {/* PLAN BOARD */}
-            <div className="rounded-xl border border-gray-200 bg-white shadow p-0 overflow-hidden">
-              <div className="px-4 pt-4">
-                <h2 className="mb-2 text-lg font-semibold">
-                  Plans, Invites & Cards
-                </h2>
-                <p className="mb-3 text-sm text-neutral-600">
-                  Create a plan, invite friends with a link, and add cards.
-                  Attach cards to route waypoints — they'll show up when you
-                  click that pin on the map.
+            {/* Cue sheet + Plans */}
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              <div className="rounded-xl border border-gray-200 bg-white shadow p-5">
+                <div className="mb-3 flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    Attention Cue Sheet
+                  </h2>
+                  <button
+                    onClick={async () => {
+                      const lines = (cueSheet || [])
+                        .map(
+                          (c: any, i: number) => `${i + 1}. ${c.text} — ${c.km.toFixed(2)} km`
+                        )
+                        .join("\n");
+                      try {
+                        await navigator.clipboard.writeText(lines);
+                        alert("Cue sheet copied!");
+                      } catch {
+                        alert("Copy failed");
+                      }
+                    }}
+                    className="rounded-lg bg-blue-600 text-white px-3 py-1.5 text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={!cueSheet.length}
+                    title="Copy cue sheet to clipboard"
+                  >
+                    📋 Copy
+                  </button>
+                </div>
+                <p className="mb-3 text-sm text-gray-600">
+                  Rotate gentle cues along the route. Edit (comma separated),
+                  then copy to share.
                 </p>
+                <input
+                  value={cueSeed}
+                  onChange={(e) => setCueSeed(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-400"
+                  placeholder="sky,texture,quiet,edges,colors"
+                />
+                <div className="mt-3 grid gap-2 md:grid-cols-2">
+                  {cueSheet.map((c: any, i: number) => (
+                    <div
+                      key={i}
+                      className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm"
+                    >
+                      <div className="font-medium text-gray-900">
+                        {i + 1}. {c.text}
+                      </div>
+                      <div className="text-gray-600 text-xs mt-1">
+                        {c.km.toFixed(2)} km from start
+                      </div>
+                    </div>
+                  ))}
+                  {!cueSheet.length && (
+                    <div className="text-sm text-gray-500 col-span-2 text-center py-4">
+                      Add points on the map to generate a cue sheet.
+                    </div>
+                  )}
+                </div>
               </div>
 
-              <div className="planboard-skin px-4 pb-4 max-h-[60vh] overflow-auto">
-                <PlanBoard currentWaypointCount={points} />
+              {/* PLAN BOARD - Redesigned */}
+              <div className="rounded-xl border border-gray-200 bg-gradient-to-br from-blue-50 via-white to-purple-50 shadow p-0 overflow-hidden">
+                <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-4">
+                  <h2 className="text-xl font-bold mb-2">
+                    📋 Plans, Invites & Cards
+                  </h2>
+                  <p className="text-blue-100 text-sm leading-relaxed">
+                    Organize your adventure! Create waypoint cards, invite friends, and track progress together.
+                  </p>
+                </div>
+
+                <div className="planboard-skin px-6 pb-6 max-h-[60vh] overflow-auto">
+                  <PlanBoard currentWaypointCount={points} />
+                </div>
               </div>
+
+              {/* Style overrides for PlanBoard - Modern Aesthetic */}
+              <style jsx global>{`
+                .planboard-skin {
+                  --pb-bg: #ffffff;
+                  --pb-muted: #6b7280;
+                  --pb-border: #e5e7eb;
+                  --pb-text: #111827;
+                  --pb-btn: #2563eb;
+                  --pb-btn-text: #ffffff;
+                }
+                .planboard-skin,
+                .planboard-skin * {
+                  color: var(--pb-text);
+                  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+                }
+                .planboard-skin input,
+                .planboard-skin textarea,
+                .planboard-skin select {
+                  background: #fff !important;
+                  color: var(--pb-text) !important;
+                  border: 1.5px solid var(--pb-border) !important;
+                  border-radius: 8px !important;
+                  padding: 10px 12px !important;
+                  font-size: 14px !important;
+                  transition: all 0.2s ease !important;
+                }
+                .planboard-skin input:focus,
+                .planboard-skin textarea:focus,
+                .planboard-skin select:focus {
+                  border-color: #2563eb !important;
+                  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1) !important;
+                  outline: none !important;
+                }
+                .planboard-skin button {
+                  border-radius: 8px !important;
+                  font-weight: 600 !important;
+                  transition: all 0.2s ease !important;
+                }
+                .planboard-skin .btn,
+                .planboard-skin button:not(.ghost) {
+                  background: var(--pb-btn) !important;
+                  color: var(--pb-btn-text) !important;
+                  border: none !important;
+                  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.15) !important;
+                }
+                .planboard-skin .btn:hover,
+                .planboard-skin button:not(.ghost):hover {
+                  background: #1d4ed8 !important;
+                  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25) !important;
+                  transform: translateY(-1px) !important;
+                }
+                .planboard-skin .ghost,
+                .planboard-skin .secondary {
+                  background: #f9fafb !important;
+                  color: var(--pb-text) !important;
+                  border: 1.5px solid var(--pb-border) !important;
+                }
+                .planboard-skin .ghost:hover,
+                .planboard-skin .secondary:hover {
+                  background: #f3f4f6 !important;
+                  border-color: #d1d5db !important;
+                }
+                .planboard-skin .card,
+                .planboard-skin .panel,
+                .planboard-skin .group,
+                .planboard-skin .box {
+                  background: #ffffff !important;
+                  border: 1.5px solid #e5e7eb !important;
+                  border-radius: 12px !important;
+                  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+                }
+                .planboard-skin .card:hover,
+                .planboard-skin .panel:hover {
+                  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+                  border-color: #d1d5db !important;
+                }
+                .planboard-skin .muted,
+                .planboard-skin .hint,
+                .planboard-skin .help {
+                  color: var(--pb-muted) !important;
+                  font-size: 13px !important;
+                }
+              `}</style>
             </div>
-
-            {/* Style overrides for PlanBoard so everything is readable */}
-            <style jsx global>{`
-              .planboard-skin {
-                --pb-bg: #ffffff;
-                --pb-muted: #6b7280;
-                --pb-border: #e5e7eb;
-                --pb-text: #111827;
-                --pb-btn: #111827;
-                --pb-btn-text: #ffffff;
-              }
-              .planboard-skin,
-              .planboard-skin * {
-                color: var(--pb-text);
-              }
-              .planboard-skin input,
-              .planboard-skin textarea,
-              .planboard-skin select {
-                background: #fff !important;
-                color: var(--pb-text) !important;
-                border: 1px solid var(--pb-border) !important;
-                border-radius: 12px !important;
-              }
-              .planboard-skin button {
-                border-radius: 12px !important;
-              }
-              .planboard-skin .btn,
-              .planboard-skin button:not(.ghost) {
-                background: var(--pb-btn) !important;
-                color: var(--pb-btn-text) !important;
-                border: 1px solid #000 !important;
-              }
-              .planboard-skin .ghost,
-              .planboard-skin .secondary {
-                background: #f3f4f6 !important;
-                color: var(--pb-text) !important;
-                border: 1px solid var(--pb-border) !important;
-              }
-              .planboard-skin .card,
-              .planboard-skin .panel,
-              .planboard-skin .group,
-              .planboard-skin .box {
-                background: #ffffff !important;
-                border: 1px solid var(--pb-border) !important;
-                border-radius: 14px !important;
-              }
-              .planboard-skin .muted,
-              .planboard-skin .hint,
-              .planboard-skin .help {
-                color: var(--pb-muted) !important;
-              }
-            `}</style>
-          </div>
           </div>
         </main>
       </div>

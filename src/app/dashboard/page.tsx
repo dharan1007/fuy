@@ -1,8 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
+
+/* ========================================================================================
+   TYPES
+======================================================================================== */
 
 interface EssenzGoal {
   id: string;
@@ -22,8 +27,105 @@ interface EssenzStats {
   resources: number;
 }
 
+interface ITPPlan {
+  id: string;
+  title: string;
+  cue: string;
+  cueType: string;
+  action: string;
+  priority?: number;
+  confidence?: number;
+  doneToday?: boolean;
+  tags?: string[];
+  category?: string;
+}
+
+/* ========================================================================================
+   CONSTANTS (localStorage keys)
+======================================================================================== */
+
+const ITP_LS_KEY = "fuy.itp.plans.v1";
+const POMO_LS_KEY = "fuy.pomo.v1";
+const BREATH_LS_LAST = "fuy.breath.last.v1";
+const THOUGHTS_TODAY = "fuy.thoughts.today.v1";
+const GROUND_LS_LAST = "fuy.grounding.last.v1";
+const SC_LS_LAST = "fuy.sc.last.v1";
+
+/* ========================================================================================
+   HOOKS
+======================================================================================== */
+
+function useLSWatch<T>(
+  key: string,
+  read: () => T | null,
+  set: (v: T | null) => void
+) {
+  const readRef = useRef(read);
+  const setRef = useRef(set);
+  const prevRef = useRef<T | null>(null);
+
+  readRef.current = read;
+  setRef.current = set;
+
+  useEffect(() => {
+    let mounted = true;
+
+    const deepEqual = (a: unknown, b: unknown) => {
+      if (Object.is(a, b)) return true;
+      const ta = typeof a;
+      const tb = typeof b;
+      const isObjA = a !== null && (ta === "object" || ta === "function");
+      const isObjB = b !== null && (tb === "object" || tb === "function");
+      if (isObjA || isObjB) {
+        try {
+          return JSON.stringify(a) === JSON.stringify(b);
+        } catch {
+          return false;
+        }
+      }
+      return false;
+    };
+
+    const refresh = () => {
+      if (typeof window === "undefined" || !mounted) return;
+      try {
+        const next = readRef.current();
+        if (!deepEqual(prevRef.current, next)) {
+          prevRef.current = next;
+          setRef.current(next);
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    refresh();
+
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === key) refresh();
+    };
+    const onVis = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+
+    window.addEventListener("storage", onStorage);
+    document.addEventListener("visibilitychange", onVis);
+
+    return () => {
+      mounted = false;
+      window.removeEventListener("storage", onStorage);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [key]);
+}
+
+/* ========================================================================================
+   MAIN DASHBOARD
+======================================================================================== */
+
 export default function DashboardPage() {
   const { data: session } = useSession();
+  const router = useRouter();
   const [goals, setGoals] = useState<EssenzGoal[]>([]);
   const [stats, setStats] = useState<EssenzStats>({
     totalGoals: 0,
@@ -74,7 +176,7 @@ export default function DashboardPage() {
           }
         }
 
-        const activeGoals = essenzGoals.filter((g) => g.status === "ACTIVE").length;
+        const activeGoals = essenzGoals.filter((g: EssenzGoal) => g.status === "ACTIVE").length;
 
         setStats({
           totalGoals: essenzGoals.length,
@@ -134,13 +236,14 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-slate-900">
+      {/* Header */}
       <div className="bg-slate-800 border-b border-slate-700 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="text-3xl">✨</div>
             <div>
               <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-              <p className="text-xs text-slate-400">Goal orchestration</p>
+              <p className="text-xs text-slate-400">Goal orchestration & wellness</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -160,8 +263,9 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        <div className="bg-slate-800 rounded-lg p-8 border border-slate-700 mb-8">
+      <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
+        {/* Essenz Section */}
+        <div className="bg-slate-800 rounded-lg p-8 border border-slate-700">
           <h2 className="text-xl font-bold text-white mb-6">Essenz Orchestration</h2>
 
           <div className="grid grid-cols-3 gap-6 mb-8">
@@ -186,7 +290,7 @@ export default function DashboardPage() {
                 value={microGoal}
                 onChange={(e) => setMicroGoal(e.target.value)}
                 placeholder="Describe your goal..."
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white"
+                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400"
                 rows={2}
               />
 
@@ -223,7 +327,7 @@ export default function DashboardPage() {
           <h3 className="text-lg font-bold text-white mb-4">Active Goals ({stats.activeGoals})</h3>
           <div className="space-y-3">
             {goals
-              .filter((g) => g.status === "ACTIVE")
+              .filter((g: EssenzGoal) => g.status === "ACTIVE")
               .map((goal) => (
                 <div
                   key={goal.id}
@@ -253,7 +357,7 @@ export default function DashboardPage() {
             </div>
 
             {goals
-              .filter((g) => g.id === selectedGoal)
+              .filter((g: EssenzGoal) => g.id === selectedGoal)
               .map((goal) => (
                 <div key={goal.id} className="space-y-4">
                   <div>
@@ -289,6 +393,321 @@ export default function DashboardPage() {
               ))}
           </div>
         )}
+
+        {/* Wellness Features Section */}
+        <div>
+          <h2 className="text-2xl font-bold text-white mb-6">Wellness Tracking</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <ITPPreview />
+            <BreathingPreview />
+            <ThoughtsPreview />
+            <GroundingPreview />
+            <SelfCompassionPreview />
+            <PomodoroPreview />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ========================================================================================
+   ITP PREVIEW
+======================================================================================== */
+
+function ITPPreview() {
+  const router = useRouter();
+  const [plans, setPlans] = useState<ITPPlan[]>([]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = localStorage.getItem(ITP_LS_KEY);
+      if (raw) setPlans(JSON.parse(raw));
+    } catch {}
+  }, []);
+
+  useLSWatch<ITPPlan[]>(
+    ITP_LS_KEY,
+    () => {
+      const raw = localStorage.getItem(ITP_LS_KEY);
+      return raw ? (JSON.parse(raw) as ITPPlan[]) : [];
+    },
+    (v) => setPlans(v ?? [])
+  );
+
+  const doneCount = useMemo(() => plans.filter((p) => p.doneToday).length, [plans]);
+  const total = plans.length || 1;
+  const percent = Math.round((doneCount / total) * 100);
+  const pendingCount = Math.max(0, plans.length - doneCount);
+
+  return (
+    <div className="bg-slate-800 rounded-lg p-6 border border-slate-700 hover:border-slate-600 transition-colors cursor-pointer" onClick={() => router.push("/itp")}>
+      <h3 className="text-lg font-bold text-white mb-4">ITP — Plan Tracker</h3>
+      <div className="space-y-3">
+        <div className="flex justify-between items-center">
+          <span className="text-slate-400">Done</span>
+          <span className="text-white font-semibold">{doneCount}/{plans.length}</span>
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="text-slate-400">Pending</span>
+          <span className="text-white font-semibold">{pendingCount}</span>
+        </div>
+        <div className="w-full bg-slate-700 rounded-full h-2 overflow-hidden">
+          <div className="bg-blue-500 h-full transition-all" style={{ width: `${percent}%` }} />
+        </div>
+        <p className="text-xs text-slate-500 mt-2">Click to manage plans</p>
+      </div>
+    </div>
+  );
+}
+
+/* ========================================================================================
+   BREATHING PREVIEW
+======================================================================================== */
+
+function BreathingPreview() {
+  const router = useRouter();
+  const [info, setInfo] = useState<{ preset?: string; cycles?: number } | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = localStorage.getItem(BREATH_LS_LAST);
+      if (raw) setInfo(JSON.parse(raw));
+    } catch {}
+  }, []);
+
+  useLSWatch(
+    BREATH_LS_LAST,
+    () => {
+      const raw = localStorage.getItem(BREATH_LS_LAST);
+      return raw ? JSON.parse(raw) : null;
+    },
+    (v) => setInfo(v)
+  );
+
+  const cycles = info?.cycles ?? 0;
+  const pct = Math.min(100, Math.round((Math.min(12, cycles) / 12) * 100));
+
+  return (
+    <div className="bg-slate-800 rounded-lg p-6 border border-slate-700 hover:border-slate-600 transition-colors cursor-pointer" onClick={() => router.push("/breathing")}>
+      <h3 className="text-lg font-bold text-white mb-4">Breathing Exercises</h3>
+      <div className="space-y-3">
+        <div className="flex justify-between items-center">
+          <span className="text-slate-400">Preset</span>
+          <span className="text-white font-semibold">{info?.preset || "—"}</span>
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="text-slate-400">Cycles</span>
+          <span className="text-white font-semibold">{cycles || "—"}</span>
+        </div>
+        <div className="w-full bg-slate-700 rounded-full h-2 overflow-hidden">
+          <div className="bg-green-500 h-full transition-all" style={{ width: `${pct}%` }} />
+        </div>
+        <p className="text-xs text-slate-500 mt-2">Click to practice</p>
+      </div>
+    </div>
+  );
+}
+
+/* ========================================================================================
+   THOUGHTS PREVIEW
+======================================================================================== */
+
+function ThoughtsPreview() {
+  const router = useRouter();
+  const [count, setCount] = useState<number>(0);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = localStorage.getItem(THOUGHTS_TODAY);
+      if (raw) {
+        const d = JSON.parse(raw) as { date: string; count: number };
+        const today = new Date().toISOString().slice(0, 10);
+        setCount(d.date === today ? d.count : 0);
+      }
+    } catch {}
+  }, []);
+
+  useLSWatch(
+    THOUGHTS_TODAY,
+    () => {
+      const raw = localStorage.getItem(THOUGHTS_TODAY);
+      if (!raw) return 0;
+      const d = JSON.parse(raw) as { date: string; count: number };
+      const today = new Date().toISOString().slice(0, 10);
+      return d.date === today ? d.count : 0;
+    },
+    (v) => setCount(v ?? 0)
+  );
+
+  const cap = Math.max(5, Math.min(12, count + 4));
+  const pct = Math.round((count / cap) * 100);
+
+  return (
+    <div className="bg-slate-800 rounded-lg p-6 border border-slate-700 hover:border-slate-600 transition-colors cursor-pointer" onClick={() => router.push("/thoughts")}>
+      <h3 className="text-lg font-bold text-white mb-4">Thought Labeling</h3>
+      <div className="space-y-3">
+        <div className="flex justify-between items-center">
+          <span className="text-slate-400">Entries Today</span>
+          <span className="text-white font-semibold">{count}</span>
+        </div>
+        <div className="w-full bg-slate-700 rounded-full h-2 overflow-hidden">
+          <div className="bg-purple-500 h-full transition-all" style={{ width: `${pct}%` }} />
+        </div>
+        <p className="text-xs text-slate-500 mt-2">Click to label thoughts</p>
+      </div>
+    </div>
+  );
+}
+
+/* ========================================================================================
+   GROUNDING PREVIEW
+======================================================================================== */
+
+function GroundingPreview() {
+  const router = useRouter();
+  const [delta, setDelta] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = localStorage.getItem(GROUND_LS_LAST);
+      if (raw) setDelta((JSON.parse(raw) as any).delta);
+    } catch {}
+  }, []);
+
+  useLSWatch(
+    GROUND_LS_LAST,
+    () => {
+      const raw = localStorage.getItem(GROUND_LS_LAST);
+      if (!raw) return null;
+      const obj = JSON.parse(raw) as any;
+      return typeof obj?.delta === "number" ? obj.delta : null;
+    },
+    (v) => setDelta(v)
+  );
+
+  const display = delta === null ? "—" : delta > 0 ? `-${delta}` : `${delta}`;
+  const mag = delta === null ? 0 : Math.min(10, Math.abs(delta));
+  const pct = Math.round((mag / 10) * 100);
+
+  return (
+    <div className="bg-slate-800 rounded-lg p-6 border border-slate-700 hover:border-slate-600 transition-colors cursor-pointer" onClick={() => router.push("/grounding")}>
+      <h3 className="text-lg font-bold text-white mb-4">Grounding Exercises</h3>
+      <div className="space-y-3">
+        <div className="flex justify-between items-center">
+          <span className="text-slate-400">SUDS Change</span>
+          <span className="text-white font-semibold">{display}</span>
+        </div>
+        <div className="w-full bg-slate-700 rounded-full h-2 overflow-hidden">
+          <div className="bg-orange-500 h-full transition-all" style={{ width: `${pct}%` }} />
+        </div>
+        <p className="text-xs text-slate-500 mt-2">Lower = more grounded</p>
+      </div>
+    </div>
+  );
+}
+
+/* ========================================================================================
+   SELF-COMPASSION PREVIEW
+======================================================================================== */
+
+function SelfCompassionPreview() {
+  const router = useRouter();
+  const [soothe, setSoothe] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = localStorage.getItem(SC_LS_LAST);
+      if (raw) setSoothe((JSON.parse(raw) as any).soothe);
+    } catch {}
+  }, []);
+
+  useLSWatch(
+    SC_LS_LAST,
+    () => {
+      const raw = localStorage.getItem(SC_LS_LAST);
+      if (!raw) return null;
+      const obj = JSON.parse(raw) as any;
+      return typeof obj?.soothe === "number" ? obj.soothe : null;
+    },
+    (v) => setSoothe(v)
+  );
+
+  const val = soothe ?? 0;
+  const pct = Math.round((Math.min(10, Math.max(0, val)) / 10) * 100);
+
+  return (
+    <div className="bg-slate-800 rounded-lg p-6 border border-slate-700 hover:border-slate-600 transition-colors cursor-pointer" onClick={() => router.push("/self-compassion")}>
+      <h3 className="text-lg font-bold text-white mb-4">Self-Compassion</h3>
+      <div className="space-y-3">
+        <div className="flex justify-between items-center">
+          <span className="text-slate-400">Soothe Level</span>
+          <span className="text-white font-semibold">{soothe === null ? "—" : val}</span>
+        </div>
+        <div className="w-full bg-slate-700 rounded-full h-2 overflow-hidden">
+          <div className="bg-pink-500 h-full transition-all" style={{ width: `${pct}%` }} />
+        </div>
+        <p className="text-xs text-slate-500 mt-2">Higher = more soothed</p>
+      </div>
+    </div>
+  );
+}
+
+/* ========================================================================================
+   POMODORO PREVIEW
+======================================================================================== */
+
+function PomodoroPreview() {
+  const router = useRouter();
+  const [state, setState] = useState<{ completedToday: number; targetPerDay: number } | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = localStorage.getItem(POMO_LS_KEY);
+      if (raw) {
+        const s = JSON.parse(raw) as any;
+        const today = new Date().toISOString().slice(0, 10);
+        if (s.lastResetDate !== today) s.completedToday = 0;
+        setState({ completedToday: s.completedToday ?? 0, targetPerDay: s.targetPerDay ?? 4 });
+      }
+    } catch {}
+  }, []);
+
+  useLSWatch(
+    POMO_LS_KEY,
+    () => {
+      const raw = localStorage.getItem(POMO_LS_KEY);
+      if (!raw) return null;
+      const s = JSON.parse(raw) as any;
+      const today = new Date().toISOString().slice(0, 10);
+      if (s.lastResetDate !== today) s.completedToday = 0;
+      return { completedToday: s.completedToday ?? 0, targetPerDay: s.targetPerDay ?? 4 };
+    },
+    (v) => setState(v)
+  );
+
+  const done = state?.completedToday ?? 0;
+  const target = state?.targetPerDay ?? 4;
+  const pct = Math.max(0, Math.min(100, Math.round((done / Math.max(1, target)) * 100)));
+
+  return (
+    <div className="bg-slate-800 rounded-lg p-6 border border-slate-700 hover:border-slate-600 transition-colors cursor-pointer" onClick={() => router.push("/pomodoro")}>
+      <h3 className="text-lg font-bold text-white mb-4">Pomodoro Sessions</h3>
+      <div className="space-y-3">
+        <div className="flex justify-between items-center">
+          <span className="text-slate-400">Sessions</span>
+          <span className="text-white font-semibold">{done}/{target}</span>
+        </div>
+        <div className="w-full bg-slate-700 rounded-full h-2 overflow-hidden">
+          <div className="bg-red-500 h-full transition-all" style={{ width: `${pct}%` }} />
+        </div>
+        <p className="text-xs text-slate-500 mt-2">Click to start session</p>
       </div>
     </div>
   );

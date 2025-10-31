@@ -415,7 +415,7 @@ function TodoNode({ data, onUpdate, essenzId }: { data: TodoData; onUpdate: (dat
               <p className={`text-sm font-semibold ${todo.completed ? "line-through text-slate-400" : "text-slate-800"}`}>
                 {todo.title}
               </p>
-              {todo.postponed > 0 && <p className="text-xs text-orange-600 mt-1">Postponed {todo.postponed}x</p>}
+              {(todo.postponed ?? 0) > 0 && <p className="text-xs text-orange-600 mt-1">Postponed {todo.postponed}x</p>}
             </div>
             {!todo.completed && (
               <button
@@ -1085,7 +1085,6 @@ export default function EssenzPage() {
     e.preventDefault();
     if (!draggedNode) return;
 
-    const rect = (e.target as HTMLElement).getBoundingClientRect();
     const container = (e.target as HTMLElement).closest("[data-canvas]");
     if (!container) return;
 
@@ -1103,192 +1102,274 @@ export default function EssenzPage() {
     setDraggedNode(null);
   };
 
+  const addNode = (type: EssenzNodeData["type"], title: string) => {
+    const id = `${type}-${Date.now()}`;
+    const newNode: EssenzNodeData = {
+      id,
+      type,
+      title,
+      icon: type === "goal" ? "🎯" : type === "steps" ? "📝" : type === "prioritize" ? "⚡" : type === "todo" ? "✅" : type === "diary" ? "📔" : type === "resources" ? "📚" : type === "watchlist" ? "🎬" : "🎯",
+      position: { x: 50, y: nodes.length * 15 + 10 },
+      expanded: true,
+      data: type === "goal" ? { statement: "", focusAreas: [], plan: [], codename: "" } : { [type === "steps" ? "steps" : type === "prioritize" ? "tasks" : type === "todo" ? "todos" : type === "diary" ? "entries" : type === "resources" ? "resources" : type === "watchlist" ? "items" : "plans"]: [] },
+    };
+    setNodes((prev) => [...prev, newNode]);
+  };
+
+  // Dark theme stylesheet
+  const darkThemeStyles = `
+    /* Input styling */
+    textarea, input[type="text"], input[type="email"], input[type="number"], select {
+      background-color: rgba(30, 41, 59, 0.8) !important;
+      color: #e2e8f0 !important;
+      border: 1.5px solid rgba(59, 130, 246, 0.4) !important;
+      border-radius: 12px !important;
+    }
+
+    textarea:focus, input[type="text"]:focus, input[type="email"]:focus, input[type="number"]:focus, select:focus {
+      background-color: rgba(30, 41, 59, 0.95) !important;
+      border-color: #60a5fa !important;
+      outline: none !important;
+      box-shadow: 0 0 12px rgba(96, 165, 250, 0.3) !important;
+    }
+
+    textarea::placeholder, input::placeholder {
+      color: rgba(96, 165, 250, 0.5) !important;
+    }
+
+    /* Button styling */
+    button {
+      transition: all 0.2s ease !important;
+    }
+
+    button:hover {
+      transform: translateY(-1px) !important;
+    }
+  `;
+
   return (
-    <div className="min-h-screen bg-slate-50">
+    <>
+      <style>{darkThemeStyles}</style>
+      <div className="min-h-screen" style={{ backgroundColor: "#0a0e27" }}>
       {/* Header */}
-      <div className="bg-white border-b-2 border-slate-200 sticky top-0 z-40 backdrop-blur">
-        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="text-4xl">✨</div>
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-black text-slate-900">Essenz</h1>
-                <p className="text-xs sm:text-sm text-slate-600 font-semibold">
-                  {codenameSet ? "Your Personal System" : "Personal Goal Achievement"}
-                </p>
+      <div className="border-b" style={{ borderColor: "rgba(59, 130, 246, 0.2)", backgroundColor: "rgba(10, 14, 39, 0.8)" }}>
+        <div className="max-w-full px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="text-4xl">✨</div>
+            <div>
+              <h1 className="text-2xl font-black" style={{ color: "#60a5fa" }}>Essenz</h1>
+              <p className="text-xs font-semibold" style={{ color: "rgba(96, 165, 250, 0.6)" }}>
+                {codenameSet ? "Your Personal System" : "Personal Goal Achievement"}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <Link
+              href="/chat"
+              className="text-sm font-bold px-4 py-2 rounded-lg transition-all"
+              style={{ color: "#60a5fa", backgroundColor: "rgba(59, 130, 246, 0.1)" }}
+            >
+              💬 Chat
+            </Link>
+            <Link
+              href="/profile"
+              className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-lg"
+              style={{ backgroundImage: "linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%)" }}
+            >
+              {session.user?.name?.charAt(0) || "U"}
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content - Three Column Layout */}
+      <div className="flex h-[calc(100vh-80px)] overflow-hidden">
+        {/* Left Sidebar - Node List */}
+        <div
+          className="w-64 border-r overflow-y-auto p-6"
+          style={{
+            borderColor: "rgba(59, 130, 246, 0.2)",
+            backgroundColor: "rgba(10, 14, 39, 0.5)"
+          }}
+        >
+          <div className="space-y-2">
+            {nodes.map((node) => (
+              <button
+                key={node.id}
+                onClick={() => toggleNode(node.id)}
+                className="w-full text-left px-4 py-3 rounded-lg transition-all text-sm font-medium"
+                style={{
+                  backgroundColor: node.expanded ? "rgba(59, 130, 246, 0.15)" : "transparent",
+                  color: node.expanded ? "#60a5fa" : "rgba(96, 165, 250, 0.7)",
+                  borderLeft: node.expanded ? "3px solid #60a5fa" : "3px solid transparent"
+                }}
+              >
+                <span className="mr-2">{node.icon}</span>
+                {node.title}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Center - Main Canvas */}
+        <div
+          className="flex-1 relative overflow-auto"
+          style={{
+            backgroundImage: `radial-gradient(circle, rgba(59, 130, 246, 0.1) 1px, transparent 1px)`,
+            backgroundSize: "20px 20px",
+            backgroundColor: "#0a0e27",
+          }}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={handleNodeDrop}
+        >
+          <div className="relative p-8" style={{ minHeight: "100%" }}>
+            {nodes.map((node) => (
+              <div
+                key={node.id}
+                draggable
+                onDragStart={(e) => handleNodeDragStart(e, node.id)}
+                className={`mb-8 rounded-2xl overflow-hidden transition-all duration-200 ${!node.expanded ? "hidden" : ""}`}
+                style={{
+                  backgroundColor: "rgba(30, 41, 59, 0.6)",
+                  borderLeft: "3px solid #60a5fa",
+                  boxShadow: draggedNode === node.id ? "0 0 20px rgba(96, 165, 250, 0.3)" : "0 4px 12px rgba(0, 0, 0, 0.3)"
+                }}
+              >
+                {/* Card Header */}
+                <div
+                  className="px-6 py-4 flex items-center justify-between"
+                  style={{ backgroundColor: "rgba(59, 130, 246, 0.1)" }}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{node.icon}</span>
+                    <h3 className="font-bold" style={{ color: "#60a5fa" }}>{node.title}</h3>
+                  </div>
+                  <button
+                    onClick={() => toggleNode(node.id)}
+                    className="p-1 rounded transition-all"
+                    style={{ color: "#60a5fa" }}
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {/* Card Content */}
+                <div className={`px-6 py-4 space-y-3 ${!node.expanded ? "hidden" : ""}`}>
+                  {node.type === "goal" && (
+                    <GoalNode
+                      data={node.data as GoalData}
+                      onUpdate={(data) => updateNodeData(node.id, data)}
+                      essenzId={essenzId}
+                    />
+                  )}
+                  {node.type === "steps" && (
+                    <StepsNode
+                      data={node.data as StepData}
+                      onUpdate={(data) => updateNodeData(node.id, data)}
+                      essenzId={essenzId}
+                    />
+                  )}
+                  {node.type === "prioritize" && (
+                    <PrioritizeNode
+                      data={node.data as PriorityData}
+                      onUpdate={(data) => updateNodeData(node.id, data)}
+                      essenzId={essenzId}
+                    />
+                  )}
+                  {node.type === "todo" && (
+                    <TodoNode
+                      data={node.data as TodoData}
+                      onUpdate={(data) => updateNodeData(node.id, data)}
+                      essenzId={essenzId}
+                    />
+                  )}
+                  {node.type === "diary" && (
+                    <DiaryNode
+                      data={node.data as DiaryData}
+                      onUpdate={(data) => updateNodeData(node.id, data)}
+                      essenzId={essenzId}
+                    />
+                  )}
+                  {node.type === "resources" && (
+                    <ResourcesNode
+                      data={node.data as ResourceData}
+                      onUpdate={(data) => updateNodeData(node.id, data)}
+                      essenzId={essenzId}
+                    />
+                  )}
+                  {node.type === "watchlist" && (
+                    <WatchlistNode
+                      data={node.data as WatchlistData}
+                      onUpdate={(data) => updateNodeData(node.id, data)}
+                      essenzId={essenzId}
+                    />
+                  )}
+                  {node.type === "hopin" && (
+                    <HopinNode
+                      data={node.data as HopinData}
+                      onUpdate={(data) => updateNodeData(node.id, data)}
+                      essenzId={essenzId}
+                    />
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Right Sidebar - Info & Controls */}
+        <div
+          className="w-80 border-l overflow-y-auto p-6"
+          style={{
+            borderColor: "rgba(59, 130, 246, 0.2)",
+            backgroundColor: "rgba(10, 14, 39, 0.5)"
+          }}
+        >
+          <div className="space-y-4">
+            <div className="rounded-lg p-4" style={{ backgroundColor: "rgba(59, 130, 246, 0.1)" }}>
+              <h3 className="font-bold text-sm mb-2" style={{ color: "#60a5fa" }}>Quick Actions</h3>
+              <button
+                onClick={() => addNode("goal", "New Goal")}
+                className="w-full px-3 py-2 rounded text-sm font-medium mb-2 transition-all"
+                style={{ backgroundColor: "rgba(96, 165, 250, 0.2)", color: "#60a5fa" }}
+              >
+                + Add Goal
+              </button>
+              <button
+                onClick={() => addNode("todo", "Tasks")}
+                className="w-full px-3 py-2 rounded text-sm font-medium transition-all"
+                style={{ backgroundColor: "rgba(96, 165, 250, 0.2)", color: "#60a5fa" }}
+              >
+                + Add Tasks
+              </button>
+            </div>
+
+            <div className="rounded-lg p-4" style={{ backgroundColor: "rgba(59, 130, 246, 0.1)" }}>
+              <h3 className="font-bold text-sm mb-3" style={{ color: "#60a5fa" }}>Overview</h3>
+              <div className="space-y-2 text-xs" style={{ color: "rgba(96, 165, 250, 0.7)" }}>
+                <div>Total Nodes: {nodes.length}</div>
+                <div>Active: {nodes.filter((n) => n.expanded).length}</div>
+                <div>Last Updated: Just now</div>
               </div>
             </div>
-            <div className="flex items-center gap-4">
-              <Link
-                href="/chat"
-                className="text-sm font-bold text-blue-600 hover:text-blue-700 bg-blue-50 px-4 py-2 rounded-2xl hover:bg-blue-100 transition-all"
-              >
-                💬 Chat
-              </Link>
-              <Link
-                href="/profile"
-                className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-600 flex items-center justify-center text-white font-bold text-lg"
-              >
-                {session.user?.name?.charAt(0) || "U"}
-              </Link>
+
+            <div className="rounded-lg p-4" style={{ backgroundColor: "rgba(59, 130, 246, 0.1)" }}>
+              <h3 className="font-bold text-sm mb-2" style={{ color: "#60a5fa" }}>Tips</h3>
+              <p className="text-xs" style={{ color: "rgba(96, 165, 250, 0.6)" }}>
+                Click nodes on the left to expand/collapse. Edit details in the center panel.
+              </p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Canvas */}
-      <div
-        data-canvas
-        className="relative w-full min-h-[calc(100vh-100px)] overflow-auto"
-        style={{
-          backgroundImage: `radial-gradient(circle, rgba(100, 116, 139, 0.08) 1px, transparent 1px)`,
-          backgroundSize: "24px 24px",
-          backgroundColor: "#f8fafc",
-        }}
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={handleNodeDrop}
-      >
-        <div className="relative" style={{ minHeight: "1200px" }}>
-          {nodes.map((node) => {
-            const colorMap: Record<string, string> = {
-              goal: "from-blue-500 to-blue-600",
-              steps: "from-green-500 to-green-600",
-              prioritize: "from-purple-500 to-purple-600",
-              todo: "from-yellow-500 to-yellow-600",
-              diary: "from-pink-500 to-pink-600",
-              resources: "from-indigo-500 to-indigo-600",
-              watchlist: "from-red-500 to-red-600",
-              hopin: "from-cyan-500 to-cyan-600",
-            };
-
-            return (
-              <div
-                key={node.id}
-                draggable
-                onDragStart={(e) => handleNodeDragStart(e, node.id)}
-                className="absolute transition-all duration-200 cursor-move group"
-                style={{
-                  left: `${node.position.x}%`,
-                  top: `${node.position.y}%`,
-                  transform: "translate(-50%, -50%)",
-                  zIndex: draggedNode === node.id ? 50 : 10,
-                }}
-              >
-                <div
-                  className={`
-                    w-72 bg-white rounded-3xl shadow-lg hover:shadow-2xl
-                    border-2 border-slate-200 hover:border-slate-300
-                    overflow-hidden transition-all duration-300
-                    ${draggedNode === node.id ? "ring-2 ring-blue-500 opacity-90 scale-105" : ""}
-                  `}
-                >
-                  {/* Header */}
-                  <div
-                    className={`bg-gradient-to-r ${colorMap[node.type]} p-4 text-white relative overflow-hidden`}
-                  >
-                    <div className="absolute inset-0 opacity-10 animate-pulse" />
-                    <div className="relative z-10 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <span className="text-3xl drop-shadow">{node.icon}</span>
-                        <h3 className="font-black text-lg">{node.title}</h3>
-                      </div>
-                      <button
-                        onClick={() => toggleNode(node.id)}
-                        className="p-1 hover:bg-white/20 rounded-lg transition-all"
-                      >
-                        <svg
-                          className={`w-6 h-6 transition-transform ${node.expanded ? "rotate-180" : ""}`}
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Content */}
-                  <div
-                    className={`transition-all duration-300 overflow-hidden ${
-                      node.expanded ? "max-h-96" : "max-h-0"
-                    }`}
-                  >
-                    <div className="p-4 space-y-3">
-                      {node.type === "goal" && (
-                        <GoalNode
-                          data={node.data as GoalData}
-                          onUpdate={(data) => updateNodeData(node.id, data)}
-                          essenzId={essenzId}
-                        />
-                      )}
-                      {node.type === "steps" && (
-                        <StepsNode
-                          data={node.data as StepData}
-                          onUpdate={(data) => updateNodeData(node.id, data)}
-                          essenzId={essenzId}
-                        />
-                      )}
-                      {node.type === "prioritize" && (
-                        <PrioritizeNode
-                          data={node.data as PriorityData}
-                          onUpdate={(data) => updateNodeData(node.id, data)}
-                          essenzId={essenzId}
-                        />
-                      )}
-                      {node.type === "todo" && (
-                        <TodoNode
-                          data={node.data as TodoData}
-                          onUpdate={(data) => updateNodeData(node.id, data)}
-                          essenzId={essenzId}
-                        />
-                      )}
-                      {node.type === "diary" && (
-                        <DiaryNode
-                          data={node.data as DiaryData}
-                          onUpdate={(data) => updateNodeData(node.id, data)}
-                          essenzId={essenzId}
-                        />
-                      )}
-                      {node.type === "resources" && (
-                        <ResourcesNode
-                          data={node.data as ResourceData}
-                          onUpdate={(data) => updateNodeData(node.id, data)}
-                          essenzId={essenzId}
-                        />
-                      )}
-                      {node.type === "watchlist" && (
-                        <WatchlistNode
-                          data={node.data as WatchlistData}
-                          onUpdate={(data) => updateNodeData(node.id, data)}
-                          essenzId={essenzId}
-                        />
-                      )}
-                      {node.type === "hopin" && (
-                        <HopinNode
-                          data={node.data as HopinData}
-                          onUpdate={(data) => updateNodeData(node.id, data)}
-                          essenzId={essenzId}
-                        />
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Info Footer */}
-      <div className="fixed bottom-6 right-6 bg-white rounded-2xl shadow-lg border-2 border-slate-200 p-4 max-w-xs animate-pulse">
-        <p className="text-sm font-bold text-slate-800">
-          ✋ Drag to move • Click to expand • Voice to record
+      {/* Footer Info */}
+      <div className="fixed bottom-6 right-6 rounded-lg p-4" style={{ backgroundColor: "rgba(10, 14, 39, 0.8)", borderLeft: "3px solid #60a5fa" }}>
+        <p className="text-xs font-medium" style={{ color: "rgba(96, 165, 250, 0.8)" }}>
+          ✨ Essenz • Goal Achievement System
         </p>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

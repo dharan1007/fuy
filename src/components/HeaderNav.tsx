@@ -9,6 +9,7 @@ const NAV_LINKS = [
   { href: '/friends',   label: 'Friends' },
   { href: '/feed',      label: 'Feed' },
   { href: '/rankings',  label: 'Rankings' },
+  { href: '/shop',      label: 'Shop' },
   { href: '/profile',   label: 'Profile' },
 ];
 

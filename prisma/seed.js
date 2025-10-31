@@ -1,5 +1,5 @@
-import { PrismaClient } from "@prisma/client";
-import bcrypt from "bcryptjs";
+const { PrismaClient } = require("@prisma/client");
+const bcrypt = require("bcryptjs");
 
 const prisma = new PrismaClient();
 
@@ -71,7 +71,7 @@ async function main() {
   ];
 
   // Create users
-  const createdUsers: any[] = [];
+  const createdUsers = [];
   for (const userData of demoUsers) {
     try {
       // Check if user exists
@@ -115,7 +115,7 @@ async function main() {
     }
   }
 
-  // Create friendships between users (make everyone friends with first 2 users)
+  // Create friendships between users
   if (createdUsers.length >= 2) {
     console.log("\n👥 Creating friendships...");
     const baseUser = createdUsers[0];
@@ -166,11 +166,6 @@ async function main() {
     }
   }
 
-  // Note: RouteWaypoint and PlaceReview need Prisma client regeneration
-  // These will be created once Prisma client is updated with new models
-  console.log("\n🗺️  Skipping route waypoints (requires Prisma regeneration)...");
-  console.log("⭐ Skipping place reviews (requires Prisma regeneration)...");
-
   // Create sample posts
   if (createdUsers.length > 0) {
     console.log("\n📝 Creating sample posts...");
@@ -206,6 +201,17 @@ async function main() {
   }
 
   console.log("\n✅ Seeding complete! All test data ready for development.");
+  console.log("\n📋 Demo Users (all with '@example.com'):");
+  console.log("   jasmine / Jasmine@1234");
+  console.log("   alex / Alex@1234");
+  console.log("   jordan / Jordan@1234");
+  console.log("   jacob / Jacob@1234");
+  console.log("   carmen / Carmen@1234");
+  console.log("   toriano / Toriano@1234");
+  console.log("   jesse / Jesse@1234");
+  console.log("   vanessa / Vanessa@1234");
+  console.log("   anthony / Anthony@1234");
+  console.log("   ms / Ms@1234");
 }
 
 main()
