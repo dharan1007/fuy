@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 
@@ -21,6 +21,7 @@ interface EssenzNodeData {
   position: NodePosition;
   expanded: boolean;
   data: Record<string, any>;
+  connections: string[];
 }
 
 interface GoalData {
@@ -69,6 +70,14 @@ interface WatchlistData {
 
 interface HopinData {
   plans: { id: string; day: string; goal: string; habit?: string; completed: boolean }[];
+}
+
+interface HistoryEntry {
+  id: string;
+  timestamp: Date;
+  category: string;
+  action: string;
+  data: any;
 }
 
 // ============================================================================
@@ -267,6 +276,7 @@ function TodoNode({ data, onUpdate }: { data: TodoData; onUpdate: (data: TodoDat
           <div key={todo.id} className="flex items-center gap-2 p-1 text-xs" style={{ backgroundColor: "rgba(96, 165, 250, 0.05)" }}>
             <input type="checkbox" checked={todo.completed} onChange={() => toggleTodo(todo.id)} />
             <span className={todo.completed ? "line-through opacity-50" : "flex-1"}>{todo.title}</span>
+            {(todo.postponed ?? 0) > 0 && <span className="text-orange-400">⏱️ {todo.postponed}x</span>}
           </div>
         ))}
       </div>
@@ -444,6 +454,11 @@ export default function EssenzPage() {
   const { data: session } = useSession();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [draggedNode, setDraggedNode] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const [panX, setPanX] = useState(0);
+  const [panY, setPanY] = useState(0);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const canvasRef = useRef<HTMLDivElement>(null);
 
   const [nodes, setNodes] = useState<EssenzNodeData[]>([
     {
@@ -451,72 +466,80 @@ export default function EssenzPage() {
       type: "goal",
       title: "What's Your Goal?",
       icon: "🎯",
-      position: { x: 5, y: 5 },
-      expanded: true,
+      position: { x: 10, y: 10 },
+      expanded: false,
       data: {} as GoalData,
+      connections: [],
     },
     {
       id: "steps",
       type: "steps",
       title: "Break It Down",
       icon: "🪜",
-      position: { x: 35, y: 5 },
-      expanded: true,
+      position: { x: 40, y: 10 },
+      expanded: false,
       data: {} as StepData,
+      connections: [],
     },
     {
       id: "priorities",
       type: "prioritize",
       title: "Prioritize",
       icon: "📊",
-      position: { x: 65, y: 5 },
-      expanded: true,
+      position: { x: 70, y: 10 },
+      expanded: false,
       data: {} as PriorityData,
+      connections: [],
     },
     {
       id: "todo",
       type: "todo",
       title: "Today's Tasks",
       icon: "✅",
-      position: { x: 5, y: 50 },
+      position: { x: 10, y: 50 },
       expanded: false,
       data: {} as TodoData,
+      connections: [],
     },
     {
       id: "diary",
       type: "diary",
       title: "My Diary",
       icon: "📔",
-      position: { x: 35, y: 50 },
+      position: { x: 40, y: 50 },
       expanded: false,
       data: {} as DiaryData,
+      connections: [],
     },
     {
       id: "resources",
       type: "resources",
       title: "Tools & Resources",
       icon: "🔧",
-      position: { x: 65, y: 50 },
+      position: { x: 70, y: 50 },
       expanded: false,
       data: {} as ResourceData,
+      connections: [],
     },
     {
       id: "watchlist",
       type: "watchlist",
       title: "Watch Together",
       icon: "🎬",
-      position: { x: 5, y: 95 },
+      position: { x: 10, y: 90 },
       expanded: false,
       data: {} as WatchlistData,
+      connections: [],
     },
     {
       id: "hopin",
       type: "hopin",
       title: "This Week",
       icon: "📅",
-      position: { x: 35, y: 95 },
+      position: { x: 40, y: 90 },
       expanded: false,
       data: {} as HopinData,
+      connections: [],
     },
   ]);
 
@@ -531,16 +554,106 @@ export default function EssenzPage() {
     { id: "hopin", label: "This Week", icon: "📅" },
   ];
 
-  useEffect(() => {
-    const loadEssenzData = async () => {
-      try {
-        await fetch("/api/essenz");
-      } catch (err) {
-        console.error("Failed to load essenz data:", err);
-      }
+  const nodeHasData = (node: EssenzNodeData) => {
+    const data = node.data;
+    if (node.type === "goal") return !!(data.statement || data.plan?.length);
+    if (node.type === "steps") return !!(data.steps?.length);
+    if (node.type === "prioritize") return !!(data.tasks?.length);
+    if (node.type === "todo") return !!(data.todos?.length);
+    if (node.type === "diary") return !!(data.entries?.length);
+    if (node.type === "resources") return !!(data.resources?.length);
+    if (node.type === "watchlist") return !!(data.items?.length);
+    if (node.type === "hopin") return !!(data.plans?.length);
+    return false;
+  };
+
+  const toggleNode = (id: string) => {
+    setNodes((prev) => prev.map((n) => (n.id === id ? { ...n, expanded: !n.expanded } : n)));
+    addHistory(nodes.find((n) => n.id === id)?.type || "", "toggled");
+  };
+
+  const removeNode = (id: string) => {
+    setNodes((prev) => prev.filter((n) => n.id !== id));
+    addHistory(nodes.find((n) => n.id === id)?.type || "", "removed");
+  };
+
+  const updateNodeData = useCallback(
+    (id: string, data: any) => {
+      setNodes((prev) => prev.map((n) => (n.id === id ? { ...n, data } : n)));
+      addHistory(nodes.find((n) => n.id === id)?.type || "", "updated");
+    },
+    [nodes]
+  );
+
+  const addHistory = (category: string, action: string) => {
+    const entry: HistoryEntry = {
+      id: Date.now().toString(),
+      timestamp: new Date(),
+      category,
+      action,
+      data: nodes,
     };
-    loadEssenzData();
-  }, []);
+    setHistory((prev) => [...prev, entry]);
+  };
+
+  const handleNodeDragStart = (e: React.DragEvent, id: string) => {
+    setDraggedNode(id);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleNodeDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (!draggedNode || !canvasRef.current) return;
+
+    const containerRect = canvasRef.current.getBoundingClientRect();
+    const x = ((e.clientX - containerRect.left) / containerRect.width) * 100;
+    const y = ((e.clientY - containerRect.top) / containerRect.height) * 100;
+
+    setNodes((prev) =>
+      prev.map((n) =>
+        n.id === draggedNode
+          ? { ...n, position: { x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) } }
+          : n
+      )
+    );
+    setDraggedNode(null);
+  };
+
+  const getPendingCount = () => {
+    return nodes.reduce((count, node) => {
+      if (node.type === "todo") {
+        return count + (node.data.todos?.filter((t: any) => !t.completed).length || 0);
+      }
+      return count;
+    }, 0);
+  };
+
+  const getPostponedCount = () => {
+    return nodes.reduce((count, node) => {
+      if (node.type === "todo") {
+        return count + (node.data.todos?.filter((t: any) => (t.postponed ?? 0) > 0).length || 0);
+      }
+      return count;
+    }, 0);
+  };
+
+  const getSuggestions = () => {
+    const suggestions: string[] = [];
+    nodes.forEach((node) => {
+      if (node.type === "goal" && nodeHasData(node)) {
+        suggestions.push("📌 Complete goal definition");
+      }
+      if (node.type === "steps" && node.data.steps?.length > 0) {
+        const uncompleted = node.data.steps.filter((s: any) => !s.completed).length;
+        if (uncompleted > 0) suggestions.push(`📝 ${uncompleted} steps remaining`);
+      }
+      if (node.type === "todo" && node.data.todos?.length > 0) {
+        const pending = getPendingCount();
+        if (pending > 0) suggestions.push(`✅ ${pending} tasks pending`);
+      }
+    });
+    return suggestions;
+  };
 
   if (!session) {
     return (
@@ -556,43 +669,6 @@ export default function EssenzPage() {
       </div>
     );
   }
-
-  const toggleNode = (id: string) => {
-    setNodes((prev) => prev.map((n) => (n.id === id ? { ...n, expanded: !n.expanded } : n)));
-  };
-
-  const updateNodeData = useCallback(
-    (id: string, data: any) => {
-      setNodes((prev) => prev.map((n) => (n.id === id ? { ...n, data } : n)));
-    },
-    []
-  );
-
-  const handleNodeDragStart = (e: React.DragEvent, id: string) => {
-    setDraggedNode(id);
-    e.dataTransfer.effectAllowed = "move";
-  };
-
-  const handleNodeDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    if (!draggedNode) return;
-
-    const container = (e.target as HTMLElement).closest("[data-canvas]");
-    if (!container) return;
-
-    const containerRect = container.getBoundingClientRect();
-    const x = ((e.clientX - containerRect.left) / containerRect.width) * 100;
-    const y = ((e.clientY - containerRect.top) / containerRect.height) * 100;
-
-    setNodes((prev) =>
-      prev.map((n) =>
-        n.id === draggedNode
-          ? { ...n, position: { x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) } }
-          : n
-      )
-    );
-    setDraggedNode(null);
-  };
 
   return (
     <>
@@ -627,7 +703,7 @@ export default function EssenzPage() {
         <div
           className="flex flex-col transition-all duration-300 border-r"
           style={{
-            width: sidebarOpen ? "240px" : "60px",
+            width: sidebarOpen ? "280px" : "60px",
             backgroundColor: "#0f0f0f",
             borderColor: "rgba(59, 130, 246, 0.1)",
           }}
@@ -639,90 +715,218 @@ export default function EssenzPage() {
           </div>
 
           {sidebarOpen && (
-            <div className="flex-1 overflow-y-auto p-3 space-y-1">
-              <div className="text-xs font-bold text-gray-600 px-2 mb-3">CATEGORIES</div>
-              {categories.map((cat) => (
-                <button
-                  key={cat.id}
-                  className="w-full text-left px-3 py-2 rounded text-sm transition-all hover:bg-opacity-20"
-                  style={{ color: "rgba(226, 232, 240, 0.7)" }}
-                >
-                  <span className="mr-2">{cat.icon}</span>
-                  {cat.label}
-                </button>
-              ))}
+            <div className="flex-1 overflow-y-auto p-3 space-y-3">
+              {/* Suggestions */}
+              <div className="p-3 rounded-lg" style={{ backgroundColor: "rgba(96, 165, 250, 0.1)" }}>
+                <h3 className="text-xs font-bold mb-2" style={{ color: "#60a5fa" }}>💡 Suggestions</h3>
+                <div className="space-y-1 text-xs" style={{ color: "rgba(226, 232, 240, 0.7)" }}>
+                  {getSuggestions().length > 0 ? (
+                    getSuggestions().map((s, i) => <div key={i}>{s}</div>)
+                  ) : (
+                    <p className="opacity-50">Start adding content...</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Status Indicators */}
+              <div className="p-3 rounded-lg" style={{ backgroundColor: "rgba(96, 165, 250, 0.1)" }}>
+                <h3 className="text-xs font-bold mb-2" style={{ color: "#60a5fa" }}>📊 Status</h3>
+                <div className="space-y-1 text-xs" style={{ color: "rgba(226, 232, 240, 0.7)" }}>
+                  <div>⏱️ Postponed: {getPostponedCount()}</div>
+                  <div>⏳ Pending: {getPendingCount()}</div>
+                </div>
+              </div>
+
+              {/* Categories */}
+              <div>
+                <div className="text-xs font-bold text-gray-600 px-2 mb-2">CATEGORIES</div>
+                {categories.map((cat) => {
+                  const catNode = nodes.find((n) => n.id === cat.id.slice(0, -1) || n.id === cat.id);
+                  const hasData = catNode && nodeHasData(catNode);
+                  return (
+                    <div key={cat.id} className="space-y-1">
+                      <button
+                        onClick={() => {
+                          const node = nodes.find((n) => n.type === (cat.id as any));
+                          if (node) toggleNode(node.id);
+                        }}
+                        className="w-full text-left px-3 py-2 rounded text-sm transition-all hover:bg-opacity-20"
+                        style={{ color: hasData ? "#60a5fa" : "rgba(226, 232, 240, 0.7)" }}
+                      >
+                        <span className="mr-2">{cat.icon}</span>
+                        {cat.label}
+                        {hasData && <span className="ml-1 text-xs">✓</span>}
+                      </button>
+                      <Link
+                        href={`/essenz/history/${cat.id}`}
+                        className="text-xs px-3 py-1 rounded ml-3 block transition-all hover:bg-opacity-20"
+                        style={{ color: "rgba(226, 232, 240, 0.5)" }}
+                      >
+                        📜 History
+                      </Link>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
 
         {/* MAIN CANVAS */}
         <div
-          className="flex-1 relative overflow-auto"
+          className="flex-1 relative overflow-auto flex flex-col"
           style={{
-            backgroundImage: `radial-gradient(circle, rgba(96, 165, 250, 0.08) 1px, transparent 1px)`,
-            backgroundSize: "20px 20px",
             backgroundColor: "#000",
           }}
-          data-canvas
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={handleNodeDrop}
         >
-          <div className="relative" style={{ minHeight: "100%", minWidth: "100%" }}>
-            {nodes.map((node) => (
-              <div
-                key={node.id}
-                draggable
-                onDragStart={(e) => handleNodeDragStart(e, node.id)}
-                className="absolute transition-all duration-200 rounded-lg border overflow-hidden"
-                style={{
-                  width: "320px",
-                  left: `calc(${node.position.x}% - 160px)`,
-                  top: `${node.position.y}%`,
-                  backgroundColor: "rgba(15, 20, 25, 0.7)",
-                  borderColor: "rgba(59, 130, 246, 0.3)",
-                  backdropFilter: "blur(10px)",
-                  boxShadow: draggedNode === node.id ? "0 0 20px rgba(96, 165, 250, 0.4)" : "0 4px 12px rgba(0, 0, 0, 0.3)",
-                  cursor: "grab",
-                }}
-              >
-                {/* Card Header */}
-                <div
-                  className="px-4 py-3 border-b flex items-center justify-between"
-                  style={{
-                    borderColor: "rgba(59, 130, 246, 0.2)",
-                    backgroundColor: "rgba(59, 130, 246, 0.08)",
-                  }}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">{node.icon}</span>
-                    <h3 className="font-semibold text-sm" style={{ color: "#60a5fa" }}>
-                      {node.title}
-                    </h3>
-                  </div>
-                  <button
-                    onClick={() => toggleNode(node.id)}
-                    className="p-1 rounded transition-all text-xs"
-                    style={{ color: "#60a5fa" }}
-                  >
-                    {node.expanded ? "▼" : "▶"}
-                  </button>
-                </div>
+          {/* Zoom Controls */}
+          <div className="absolute top-4 right-4 z-20 flex gap-2 p-2 rounded-lg" style={{ backgroundColor: "rgba(15, 20, 25, 0.8)" }}>
+            <button
+              onClick={() => setZoom((z) => Math.min(z + 0.1, 3))}
+              className="px-3 py-1 rounded text-xs font-bold"
+              style={{ backgroundColor: "rgba(96, 165, 250, 0.2)", color: "#60a5fa" }}
+            >
+              🔍+
+            </button>
+            <span className="px-2 py-1 text-xs" style={{ color: "#60a5fa" }}>
+              {Math.round(zoom * 100)}%
+            </span>
+            <button
+              onClick={() => setZoom((z) => Math.max(z - 0.1, 0.5))}
+              className="px-3 py-1 rounded text-xs font-bold"
+              style={{ backgroundColor: "rgba(96, 165, 250, 0.2)", color: "#60a5fa" }}
+            >
+              🔍-
+            </button>
+            <button
+              onClick={() => {
+                setZoom(1);
+                setPanX(0);
+                setPanY(0);
+              }}
+              className="px-3 py-1 rounded text-xs font-bold"
+              style={{ backgroundColor: "rgba(96, 165, 250, 0.2)", color: "#60a5fa" }}
+            >
+              ↺ Reset
+            </button>
+          </div>
 
-                {/* Card Content */}
-                {node.expanded && (
-                  <div className="px-4 py-3 text-sm" style={{ color: "rgba(226, 232, 240, 0.8)" }}>
-                    {node.type === "goal" && <GoalNode data={node.data as GoalData} onUpdate={(data) => updateNodeData(node.id, data)} />}
-                    {node.type === "steps" && <StepsNode data={node.data as StepData} onUpdate={(data) => updateNodeData(node.id, data)} />}
-                    {node.type === "prioritize" && <PrioritizeNode data={node.data as PriorityData} onUpdate={(data) => updateNodeData(node.id, data)} />}
-                    {node.type === "todo" && <TodoNode data={node.data as TodoData} onUpdate={(data) => updateNodeData(node.id, data)} />}
-                    {node.type === "diary" && <DiaryNode data={node.data as DiaryData} onUpdate={(data) => updateNodeData(node.id, data)} />}
-                    {node.type === "resources" && <ResourcesNode data={node.data as ResourceData} onUpdate={(data) => updateNodeData(node.id, data)} />}
-                    {node.type === "watchlist" && <WatchlistNode data={node.data as WatchlistData} onUpdate={(data) => updateNodeData(node.id, data)} />}
-                    {node.type === "hopin" && <HopinNode data={node.data as HopinData} onUpdate={(data) => updateNodeData(node.id, data)} />}
-                  </div>
+          {/* Canvas */}
+          <div
+            ref={canvasRef}
+            className="flex-1 relative overflow-auto"
+            style={{
+              backgroundImage: `radial-gradient(circle, rgba(96, 165, 250, 0.08) 1px, transparent 1px)`,
+              backgroundSize: `${20 * zoom}px ${20 * zoom}px`,
+              backgroundColor: "#000",
+              cursor: "grab",
+            }}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={handleNodeDrop}
+          >
+            <div
+              style={{
+                minWidth: "200%",
+                minHeight: "200%",
+                transform: `scale(${zoom}) translate(${panX}px, ${panY}px)`,
+                transformOrigin: "top left",
+                transition: "transform 0.1s ease-out",
+              }}
+            >
+              {/* Connection SVG */}
+              <svg className="absolute inset-0 pointer-events-none" style={{ width: "100%", height: "100%" }}>
+                {nodes.map((node) =>
+                  node.connections.map((connId) => {
+                    const targetNode = nodes.find((n) => n.id === connId);
+                    if (!targetNode) return null;
+                    const x1 = node.position.x * 10 + 160;
+                    const y1 = node.position.y * 10 + 50;
+                    const x2 = targetNode.position.x * 10 + 160;
+                    const y2 = targetNode.position.y * 10 + 50;
+                    return (
+                      <line
+                        key={`${node.id}-${connId}`}
+                        x1={x1}
+                        y1={y1}
+                        x2={x2}
+                        y2={y2}
+                        stroke="#60a5fa"
+                        strokeWidth="2"
+                        opacity="0.4"
+                      />
+                    );
+                  })
                 )}
-              </div>
-            ))}
+              </svg>
+
+              {/* Nodes */}
+              {nodes
+                .filter((node) => node.expanded || nodeHasData(node))
+                .map((node) => (
+                  <div
+                    key={node.id}
+                    draggable
+                    onDragStart={(e) => handleNodeDragStart(e, node.id)}
+                    className="absolute transition-all duration-200 rounded-lg border overflow-hidden"
+                    style={{
+                      width: "320px",
+                      left: `${node.position.x * 10}px`,
+                      top: `${node.position.y * 10}px`,
+                      backgroundColor: "rgba(15, 20, 25, 0.7)",
+                      borderColor: "rgba(59, 130, 246, 0.3)",
+                      backdropFilter: "blur(10px)",
+                      boxShadow: draggedNode === node.id ? "0 0 20px rgba(96, 165, 250, 0.4)" : "0 4px 12px rgba(0, 0, 0, 0.3)",
+                      cursor: "grab",
+                    }}
+                  >
+                    {/* Card Header */}
+                    <div
+                      className="px-4 py-3 border-b flex items-center justify-between"
+                      style={{
+                        borderColor: "rgba(59, 130, 246, 0.2)",
+                        backgroundColor: "rgba(59, 130, 246, 0.08)",
+                      }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">{node.icon}</span>
+                        <h3 className="font-semibold text-sm" style={{ color: "#60a5fa" }}>
+                          {node.title}
+                        </h3>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => toggleNode(node.id)}
+                          className="p-1 rounded transition-all text-xs"
+                          style={{ color: "#60a5fa" }}
+                        >
+                          {node.expanded ? "▼" : "▶"}
+                        </button>
+                        <button
+                          onClick={() => removeNode(node.id)}
+                          className="p-1 rounded transition-all text-xs"
+                          style={{ color: "#ff6b6b" }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Card Content */}
+                    {node.expanded && (
+                      <div className="px-4 py-3 text-sm" style={{ color: "rgba(226, 232, 240, 0.8)" }}>
+                        {node.type === "goal" && <GoalNode data={node.data as GoalData} onUpdate={(data) => updateNodeData(node.id, data)} />}
+                        {node.type === "steps" && <StepsNode data={node.data as StepData} onUpdate={(data) => updateNodeData(node.id, data)} />}
+                        {node.type === "prioritize" && <PrioritizeNode data={node.data as PriorityData} onUpdate={(data) => updateNodeData(node.id, data)} />}
+                        {node.type === "todo" && <TodoNode data={node.data as TodoData} onUpdate={(data) => updateNodeData(node.id, data)} />}
+                        {node.type === "diary" && <DiaryNode data={node.data as DiaryData} onUpdate={(data) => updateNodeData(node.id, data)} />}
+                        {node.type === "resources" && <ResourcesNode data={node.data as ResourceData} onUpdate={(data) => updateNodeData(node.id, data)} />}
+                        {node.type === "watchlist" && <WatchlistNode data={node.data as WatchlistData} onUpdate={(data) => updateNodeData(node.id, data)} />}
+                        {node.type === "hopin" && <HopinNode data={node.data as HopinData} onUpdate={(data) => updateNodeData(node.id, data)} />}
+                      </div>
+                    )}
+                  </div>
+                ))}
+            </div>
           </div>
         </div>
 
@@ -737,11 +941,12 @@ export default function EssenzPage() {
           <div className="space-y-4 flex-1">
             <div className="rounded-lg p-3" style={{ backgroundColor: "rgba(59, 130, 246, 0.1)" }}>
               <h3 className="text-sm font-semibold mb-2" style={{ color: "#60a5fa" }}>
-                Overview
+                Canvas
               </h3>
               <div className="space-y-1 text-xs" style={{ color: "rgba(226, 232, 240, 0.6)" }}>
-                <div>Active Nodes: {nodes.filter((n) => n.expanded).length}</div>
-                <div>Total Nodes: {nodes.length}</div>
+                <div>Zoom: {Math.round(zoom * 100)}%</div>
+                <div>Nodes: {nodes.filter((n) => n.expanded || nodeHasData(n)).length}</div>
+                <div>History: {history.length} events</div>
               </div>
             </div>
 
@@ -750,7 +955,7 @@ export default function EssenzPage() {
                 Tips
               </h3>
               <p className="text-xs" style={{ color: "rgba(226, 232, 240, 0.6)" }}>
-                Drag cards to reposition. Click collapse/expand buttons to toggle content.
+                Drag cards freely. Zoom with buttons. Remove nodes with ✕. Click History to see past entries.
               </p>
             </div>
           </div>
