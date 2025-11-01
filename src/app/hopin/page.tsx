@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import AppHeader from "@/components/AppHeader";
 import type { LatLng, POICategory } from "@/components/leaflet-map";
@@ -156,7 +155,6 @@ type TogetherBurnUser = {
 };
 
 export default function HopinPage() {
-  const router = useRouter();
   const { distanceKm, isLoop, points, pts } = useLiveRoute();
 
   const ETA = {
@@ -408,12 +406,12 @@ export default function HopinPage() {
 
             {/* Right columns - Main content */}
             <div className="lg:col-span-3 space-y-6">
-              {/* Effort & Calories Card with Custom Inputs */}
-              <div className="rounded-xl border border-gray-200 dark:border-neutral-700 bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-950 dark:to-red-950 shadow p-6">
-                <div className="mb-4 font-semibold text-gray-900 dark:text-white text-lg">🔥 Effort & Calories</div>
+              {/* Unified Burn & Effort Tracking Card */}
+              <div className="rounded-xl border border-gray-200 dark:border-neutral-700 bg-gradient-to-br from-orange-50 via-red-50 to-purple-50 dark:from-orange-950 dark:via-red-950 dark:to-purple-950 shadow p-6">
+                <div className="mb-6 font-semibold text-gray-900 dark:text-white text-lg">Burn & Effort Tracking</div>
 
-                {/* Effort Level Selector */}
-                <div className="mb-4">
+                {/* Effort Level Selector - Full Width */}
+                <div className="mb-6">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Effort Level</label>
                   <select
                     value={effortLevel}
@@ -426,122 +424,116 @@ export default function HopinPage() {
                   </select>
                 </div>
 
-                {/* Estimated Calories */}
-                <div className="grid grid-cols-3 gap-3 mb-4">
-                  <div>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">🚶 Walk</p>
-                    <p className="text-lg font-semibold text-orange-700 dark:text-orange-300">{kcal.walk}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">kcal</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">🏃 Run</p>
-                    <p className="text-lg font-semibold text-red-700 dark:text-red-300">{kcal.run}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">kcal</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">🚴 Bike</p>
-                    <p className="text-lg font-semibold text-orange-600 dark:text-orange-300">{kcal.bike}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">kcal</p>
+                {/* Estimated Calories - 3 columns */}
+                <div className="mb-6">
+                  <label className="block text-xs font-semibold uppercase text-gray-700 dark:text-gray-300 mb-3 tracking-wide">Estimated Calories</label>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="bg-white dark:bg-neutral-800 rounded-lg p-3 border border-gray-200 dark:border-neutral-700">
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Walking</p>
+                      <p className="text-lg font-semibold text-orange-700 dark:text-orange-300">{kcal.walk}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">kcal</p>
+                    </div>
+                    <div className="bg-white dark:bg-neutral-800 rounded-lg p-3 border border-gray-200 dark:border-neutral-700">
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Running</p>
+                      <p className="text-lg font-semibold text-red-700 dark:text-red-300">{kcal.run}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">kcal</p>
+                    </div>
+                    <div className="bg-white dark:bg-neutral-800 rounded-lg p-3 border border-gray-200 dark:border-neutral-700">
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Biking</p>
+                      <p className="text-lg font-semibold text-orange-600 dark:text-orange-300">{kcal.bike}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">kcal</p>
+                    </div>
                   </div>
                 </div>
 
                 {/* Custom Calorie Inputs */}
-                <div className="border-t border-orange-200 dark:border-orange-800 pt-4 mb-4">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Custom Calories (Optional)</label>
+                <div className="mb-6">
+                  <label className="block text-xs font-semibold uppercase text-gray-700 dark:text-gray-300 mb-3 tracking-wide">Custom Calories (Optional)</label>
                   <div className="grid grid-cols-3 gap-2">
                     <input
                       type="number"
                       placeholder="Walk"
                       value={customCalories.walk}
                       onChange={(e) => setCustomCalories({ ...customCalories, walk: e.target.value })}
-                      className="px-2 py-1 text-sm rounded border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-900 dark:text-white"
+                      className="px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-900 dark:text-white"
                     />
                     <input
                       type="number"
                       placeholder="Run"
                       value={customCalories.run}
                       onChange={(e) => setCustomCalories({ ...customCalories, run: e.target.value })}
-                      className="px-2 py-1 text-sm rounded border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-900 dark:text-white"
+                      className="px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-900 dark:text-white"
                     />
                     <input
                       type="number"
                       placeholder="Bike"
                       value={customCalories.bike}
                       onChange={(e) => setCustomCalories({ ...customCalories, bike: e.target.value })}
-                      className="px-2 py-1 text-sm rounded border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-900 dark:text-white"
+                      className="px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-900 dark:text-white"
                     />
                   </div>
                 </div>
 
-                {/* Elevation */}
-                <div className="border-t border-orange-200 dark:border-orange-800 pt-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-700 dark:text-gray-300">⛰️ Elevation Gain</span>
-                    <span className="font-semibold text-gray-900 dark:text-white">{elevationGain}m</span>
+                {/* Elevation Gain & Together Burn - 2 columns */}
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  <div className="bg-white dark:bg-neutral-800 rounded-lg p-4 border border-gray-200 dark:border-neutral-700">
+                    <p className="text-xs font-semibold uppercase text-gray-700 dark:text-gray-300 mb-2 tracking-wide">Elevation Gain</p>
+                    <p className="text-xl font-bold text-gray-900 dark:text-white">{elevationGain}m</p>
                   </div>
-                </div>
-              </div>
-
-              {/* Together Burn Feature */}
-              <div className="rounded-xl border border-gray-200 dark:border-neutral-700 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950 dark:to-pink-950 shadow p-6">
-                <div className="mb-4 font-semibold text-gray-900 dark:text-white text-lg">👥 Together Burn</div>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Add friends and track combined calories burned</p>
-
-                {/* Add User Form */}
-                <div className="mb-4 p-3 bg-white dark:bg-neutral-800 rounded-lg border border-gray-200 dark:border-neutral-700">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-2">
-                    <input
-                      type="text"
-                      placeholder="Friend's name"
-                      value={newUserName}
-                      onChange={(e) => setNewUserName(e.target.value)}
-                      className="px-3 py-2 rounded border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-900 dark:text-white text-sm"
-                    />
-                    <input
-                      type="number"
-                      placeholder="Calories"
-                      value={newUserCalories}
-                      onChange={(e) => setNewUserCalories(e.target.value)}
-                      className="px-3 py-2 rounded border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-900 dark:text-white text-sm"
-                    />
-                    <button
-                      onClick={addTogetherBurnUser}
-                      className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded font-medium text-sm transition-colors"
-                    >
-                      Add User
-                    </button>
+                  <div className="bg-white dark:bg-neutral-800 rounded-lg p-4 border border-gray-200 dark:border-neutral-700">
+                    <p className="text-xs font-semibold uppercase text-gray-700 dark:text-gray-300 mb-2 tracking-wide">Group Burn Total</p>
+                    <p className="text-xl font-bold text-purple-600 dark:text-purple-400">{totalTogetherBurn} kcal</p>
                   </div>
                 </div>
 
-                {/* Users List */}
-                {togetherBurnUsers.length > 0 && (
-                  <div className="space-y-2 mb-4">
-                    {togetherBurnUsers.map((user) => (
-                      <div key={user.id} className="flex items-center justify-between bg-white dark:bg-neutral-800 p-3 rounded border border-gray-200 dark:border-neutral-700">
-                        <div>
-                          <p className="font-medium text-gray-900 dark:text-white">{user.name}</p>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">{user.caloriesBurned} kcal</p>
-                        </div>
-                        <button
-                          onClick={() => removeTogetherBurnUser(user.id)}
-                          className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Total Together Burn */}
-                {togetherBurnUsers.length > 0 && (
-                  <div className="border-t border-purple-200 dark:border-purple-800 pt-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Total Together</span>
-                      <span className="text-2xl font-bold text-purple-600 dark:text-purple-400">{totalTogetherBurn} kcal</span>
+                {/* Together Burn Users */}
+                <div>
+                  <label className="block text-xs font-semibold uppercase text-gray-700 dark:text-gray-300 mb-3 tracking-wide">Add Friends</label>
+                  <div className="mb-3 p-3 bg-white dark:bg-neutral-800 rounded-lg border border-gray-200 dark:border-neutral-700">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <input
+                        type="text"
+                        placeholder="Friend's name"
+                        value={newUserName}
+                        onChange={(e) => setNewUserName(e.target.value)}
+                        className="px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-900 dark:text-white text-sm"
+                      />
+                      <input
+                        type="number"
+                        placeholder="Calories"
+                        value={newUserCalories}
+                        onChange={(e) => setNewUserCalories(e.target.value)}
+                        className="px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-900 dark:text-white text-sm"
+                      />
+                      <button
+                        onClick={addTogetherBurnUser}
+                        className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg font-medium text-sm transition-colors"
+                      >
+                        Add
+                      </button>
                     </div>
                   </div>
-                )}
+
+                  {/* Users List */}
+                  {togetherBurnUsers.length > 0 && (
+                    <div className="space-y-2">
+                      {togetherBurnUsers.map((user) => (
+                        <div key={user.id} className="flex items-center justify-between bg-white dark:bg-neutral-800 p-3 rounded-lg border border-gray-200 dark:border-neutral-700">
+                          <div>
+                            <p className="font-medium text-gray-900 dark:text-white text-sm">{user.name}</p>
+                            <p className="text-xs text-gray-600 dark:text-gray-400">{user.caloriesBurned} kcal</p>
+                          </div>
+                          <button
+                            onClick={() => removeTogetherBurnUser(user.id)}
+                            className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium text-sm"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Route Shape & Export */}
@@ -586,165 +578,163 @@ export default function HopinPage() {
                 </div>
               </div>
 
-              {/* Cue Sheet & Plans */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 shadow p-5">
-                  <div className="mb-3 flex items-center justify-between">
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                      Attention Cue Sheet
-                    </h2>
-                    <button
-                      onClick={async () => {
-                        const lines = (cueSheet || [])
-                          .map(
-                            (c: any, i: number) => `${i + 1}. ${c.text} — ${c.km.toFixed(2)} km`
-                          )
-                          .join("\n");
-                        try {
-                          await navigator.clipboard.writeText(lines);
-                          alert("Cue sheet copied!");
-                        } catch {
-                          alert("Copy failed");
-                        }
-                      }}
-                      className="rounded-lg bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      disabled={!cueSheet.length}
-                      title="Copy cue sheet to clipboard"
+              {/* Cue Sheet */}
+              <div className="rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 shadow p-5">
+                <div className="mb-3 flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Attention Cue Sheet
+                  </h2>
+                  <button
+                    onClick={async () => {
+                      const lines = (cueSheet || [])
+                        .map(
+                          (c: any, i: number) => `${i + 1}. ${c.text} — ${c.km.toFixed(2)} km`
+                        )
+                        .join("\n");
+                      try {
+                        await navigator.clipboard.writeText(lines);
+                        alert("Cue sheet copied!");
+                      } catch {
+                        alert("Copy failed");
+                      }
+                    }}
+                    className="rounded-lg bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={!cueSheet.length}
+                    title="Copy cue sheet to clipboard"
+                  >
+                    📋 Copy
+                  </button>
+                </div>
+                <p className="mb-3 text-sm text-gray-600 dark:text-gray-400">
+                  Rotate gentle cues along the route. Edit (comma separated), then copy to share.
+                </p>
+                <input
+                  value={cueSeed}
+                  onChange={(e) => setCueSeed(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-3 py-2 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-400"
+                  placeholder="sky,texture,quiet,edges,colors"
+                />
+                <div className="mt-3 grid gap-2 md:grid-cols-2">
+                  {cueSheet.map((c: any, i: number) => (
+                    <div
+                      key={i}
+                      className="rounded-lg border border-gray-200 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-900 p-3 text-sm"
                     >
-                      📋 Copy
-                    </button>
-                  </div>
-                  <p className="mb-3 text-sm text-gray-600 dark:text-gray-400">
-                    Rotate gentle cues along the route. Edit (comma separated), then copy to share.
-                  </p>
-                  <input
-                    value={cueSeed}
-                    onChange={(e) => setCueSeed(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-3 py-2 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-400"
-                    placeholder="sky,texture,quiet,edges,colors"
-                  />
-                  <div className="mt-3 grid gap-2 md:grid-cols-2">
-                    {cueSheet.map((c: any, i: number) => (
-                      <div
-                        key={i}
-                        className="rounded-lg border border-gray-200 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-900 p-3 text-sm"
-                      >
-                        <div className="font-medium text-gray-900 dark:text-white">
-                          {i + 1}. {c.text}
-                        </div>
-                        <div className="text-gray-600 dark:text-gray-400 text-xs mt-1">
-                          {c.km.toFixed(2)} km from start
-                        </div>
+                      <div className="font-medium text-gray-900 dark:text-white">
+                        {i + 1}. {c.text}
                       </div>
-                    ))}
-                    {!cueSheet.length && (
-                      <div className="text-sm text-gray-500 dark:text-gray-400 col-span-2 text-center py-4">
-                        Add points on the map to generate a cue sheet.
+                      <div className="text-gray-600 dark:text-gray-400 text-xs mt-1">
+                        {c.km.toFixed(2)} km from start
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  ))}
+                  {!cueSheet.length && (
+                    <div className="text-sm text-gray-500 dark:text-gray-400 col-span-2 text-center py-4">
+                      Add points on the map to generate a cue sheet.
+                    </div>
+                  )}
                 </div>
-
-                {/* PLAN BOARD */}
-                <div className="rounded-xl border border-gray-200 dark:border-neutral-700 bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-blue-950 dark:via-neutral-900 dark:to-purple-950 shadow p-0 overflow-hidden">
-                  <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-4">
-                    <h2 className="text-xl font-bold mb-2">
-                      📋 Plans & Cards
-                    </h2>
-                    <p className="text-blue-100 text-sm leading-relaxed">
-                      Organize your adventure! Create cards and track progress.
-                    </p>
-                  </div>
-
-                  <div className="planboard-skin px-6 pb-6 max-h-[60vh] overflow-auto">
-                    <PlanBoard currentWaypointCount={points} />
-                  </div>
-                </div>
-
-                {/* Style overrides for PlanBoard */}
-                <style jsx global>{`
-                  .planboard-skin {
-                    --pb-bg: #ffffff;
-                    --pb-muted: #6b7280;
-                    --pb-border: #e5e7eb;
-                    --pb-text: #111827;
-                    --pb-btn: #2563eb;
-                    --pb-btn-text: #ffffff;
-                  }
-                  .planboard-skin,
-                  .planboard-skin * {
-                    color: var(--pb-text);
-                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-                  }
-                  .planboard-skin input,
-                  .planboard-skin textarea,
-                  .planboard-skin select {
-                    background: #fff !important;
-                    color: var(--pb-text) !important;
-                    border: 1.5px solid var(--pb-border) !important;
-                    border-radius: 8px !important;
-                    padding: 10px 12px !important;
-                    font-size: 14px !important;
-                    transition: all 0.2s ease !important;
-                  }
-                  .planboard-skin input:focus,
-                  .planboard-skin textarea:focus,
-                  .planboard-skin select:focus {
-                    border-color: #2563eb !important;
-                    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1) !important;
-                    outline: none !important;
-                  }
-                  .planboard-skin button {
-                    border-radius: 8px !important;
-                    font-weight: 600 !important;
-                    transition: all 0.2s ease !important;
-                  }
-                  .planboard-skin .btn,
-                  .planboard-skin button:not(.ghost) {
-                    background: var(--pb-btn) !important;
-                    color: var(--pb-btn-text) !important;
-                    border: none !important;
-                    box-shadow: 0 2px 4px rgba(37, 99, 235, 0.15) !important;
-                  }
-                  .planboard-skin .btn:hover,
-                  .planboard-skin button:not(.ghost):hover {
-                    background: #1d4ed8 !important;
-                    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25) !important;
-                    transform: translateY(-1px) !important;
-                  }
-                  .planboard-skin .ghost,
-                  .planboard-skin .secondary {
-                    background: #f9fafb !important;
-                    color: var(--pb-text) !important;
-                    border: 1.5px solid var(--pb-border) !important;
-                  }
-                  .planboard-skin .ghost:hover,
-                  .planboard-skin .secondary:hover {
-                    background: #f3f4f6 !important;
-                    border-color: #d1d5db !important;
-                  }
-                  .planboard-skin .card,
-                  .planboard-skin .panel,
-                  .planboard-skin .group,
-                  .planboard-skin .box {
-                    background: #ffffff !important;
-                    border: 1.5px solid #e5e7eb !important;
-                    border-radius: 12px !important;
-                    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
-                  }
-                  .planboard-skin .card:hover,
-                  .planboard-skin .panel:hover {
-                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
-                    border-color: #d1d5db !important;
-                  }
-                  .planboard-skin .muted,
-                  .planboard-skin .hint,
-                  .planboard-skin .help {
-                    color: var(--pb-muted) !important;
-                    font-size: 13px !important;
-                  }
-                `}</style>
               </div>
+
+              {/* PLAN BOARD - Full Width */}
+              <div className="rounded-xl border border-gray-200 dark:border-neutral-700 bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-blue-950 dark:via-neutral-900 dark:to-purple-950 shadow p-0 overflow-hidden">
+                <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-4">
+                  <h2 className="text-xl font-bold mb-2">
+                    Plans
+                  </h2>
+                  <p className="text-blue-100 text-sm leading-relaxed">
+                    Organize your adventure! Create cards and track progress.
+                  </p>
+                </div>
+
+                <div className="planboard-skin px-6 pb-6 max-h-[60vh] overflow-auto">
+                  <PlanBoard currentWaypointCount={points} />
+                </div>
+              </div>
+
+              {/* Style overrides for PlanBoard */}
+              <style jsx global>{`
+                .planboard-skin {
+                  --pb-bg: #ffffff;
+                  --pb-muted: #6b7280;
+                  --pb-border: #e5e7eb;
+                  --pb-text: #111827;
+                  --pb-btn: #2563eb;
+                  --pb-btn-text: #ffffff;
+                }
+                .planboard-skin,
+                .planboard-skin * {
+                  color: var(--pb-text);
+                  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+                }
+                .planboard-skin input,
+                .planboard-skin textarea,
+                .planboard-skin select {
+                  background: #fff !important;
+                  color: var(--pb-text) !important;
+                  border: 1.5px solid var(--pb-border) !important;
+                  border-radius: 8px !important;
+                  padding: 10px 12px !important;
+                  font-size: 14px !important;
+                  transition: all 0.2s ease !important;
+                }
+                .planboard-skin input:focus,
+                .planboard-skin textarea:focus,
+                .planboard-skin select:focus {
+                  border-color: #2563eb !important;
+                  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1) !important;
+                  outline: none !important;
+                }
+                .planboard-skin button {
+                  border-radius: 8px !important;
+                  font-weight: 600 !important;
+                  transition: all 0.2s ease !important;
+                }
+                .planboard-skin .btn,
+                .planboard-skin button:not(.ghost) {
+                  background: var(--pb-btn) !important;
+                  color: var(--pb-btn-text) !important;
+                  border: none !important;
+                  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.15) !important;
+                }
+                .planboard-skin .btn:hover,
+                .planboard-skin button:not(.ghost):hover {
+                  background: #1d4ed8 !important;
+                  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25) !important;
+                  transform: translateY(-1px) !important;
+                }
+                .planboard-skin .ghost,
+                .planboard-skin .secondary {
+                  background: #f9fafb !important;
+                  color: var(--pb-text) !important;
+                  border: 1.5px solid var(--pb-border) !important;
+                }
+                .planboard-skin .ghost:hover,
+                .planboard-skin .secondary:hover {
+                  background: #f3f4f6 !important;
+                  border-color: #d1d5db !important;
+                }
+                .planboard-skin .card,
+                .planboard-skin .panel,
+                .planboard-skin .group,
+                .planboard-skin .box {
+                  background: #ffffff !important;
+                  border: 1.5px solid #e5e7eb !important;
+                  border-radius: 12px !important;
+                  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+                }
+                .planboard-skin .card:hover,
+                .planboard-skin .panel:hover {
+                  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+                  border-color: #d1d5db !important;
+                }
+                .planboard-skin .muted,
+                .planboard-skin .hint,
+                .planboard-skin .help {
+                  color: var(--pb-muted) !important;
+                  font-size: 13px !important;
+                }
+              `}</style>
             </div>
           </div>
         </div>

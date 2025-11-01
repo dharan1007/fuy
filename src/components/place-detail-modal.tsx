@@ -105,8 +105,8 @@ export default function PlaceDetailModal({
   }, [osmId, placeName, category, lat, lng, rating, reviewText, photos]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="w-full max-w-2xl max-h-[90vh] overflow-hidden rounded-2xl bg-white shadow-2xl flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="w-full max-w-2xl max-h-[90vh] overflow-hidden rounded-2xl bg-white shadow-2xl flex flex-col" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-6 flex items-start justify-between">
           <div>
