@@ -160,9 +160,9 @@ export default function ShopPage() {
 
   const renderProductCard = (product: Product) => (
     <Link key={product.id} href={`/shop/product/${product.id}`}>
-      <div className="bg-white rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 cursor-pointer h-full">
+      <div className="bg-white dark:bg-neutral-800 rounded-lg overflow-hidden shadow-md dark:shadow-lg hover:shadow-xl dark:hover:shadow-xl transition-all duration-300 cursor-pointer h-full border border-gray-200 dark:border-neutral-700">
         {/* Product Image */}
-        <div className="relative w-full aspect-square bg-gray-200 overflow-hidden">
+        <div className="relative w-full aspect-square bg-gray-200 dark:bg-neutral-700 overflow-hidden">
           {product.images?.[0] ? (
             <img
               src={product.images[0]}
@@ -170,7 +170,7 @@ export default function ShopPage() {
               className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-gray-400 bg-gray-100">
+            <div className="w-full h-full flex items-center justify-center text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-neutral-700">
               No Image
             </div>
           )}
@@ -183,16 +183,16 @@ export default function ShopPage() {
 
         {/* Product Info */}
         <div className="p-4">
-          <p className="text-xs text-gray-500 mb-1 font-medium">{product.brand?.name}</p>
-          <h3 className="font-semibold text-sm text-gray-900 line-clamp-2 mb-3">{product.name}</h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1 font-medium">{product.brand?.name}</p>
+          <h3 className="font-semibold text-sm text-gray-900 dark:text-white line-clamp-2 mb-3">{product.name}</h3>
 
           {/* Price */}
           <div className="flex items-baseline gap-2">
-            <span className="text-lg font-bold text-gray-900">
+            <span className="text-lg font-bold text-gray-900 dark:text-white">
               ${(product.discountPrice || product.price).toFixed(2)}
             </span>
             {product.discountPrice && (
-              <span className="text-xs text-gray-500 line-through">${product.price.toFixed(2)}</span>
+              <span className="text-xs text-gray-500 dark:text-gray-400 line-through">${product.price.toFixed(2)}</span>
             )}
           </div>
         </div>
@@ -201,15 +201,15 @@ export default function ShopPage() {
   );
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white dark:bg-neutral-900">
       <AppHeader title="Shop" />
 
       {/* Main Hero Section */}
-      <div className="relative w-full bg-black text-white overflow-hidden pt-4 sm:pt-6">
+      <div className="relative w-full bg-black dark:bg-neutral-950 text-white overflow-hidden pt-4 sm:pt-6">
         <div className="max-w-7xl mx-auto px-4 py-16 flex items-center justify-between">
           <div className="flex-1">
             <h1 className="text-5xl font-bold mb-4">YOUR STYLE IS HERE!</h1>
-            <p className="text-lg text-gray-300 mb-8">Discover the latest fashion trends and exclusive collections</p>
+            <p className="text-lg text-gray-300 dark:text-gray-400 mb-8">Discover the latest fashion trends and exclusive collections</p>
             <div className="flex gap-4">
               <button className="px-6 py-2 bg-yellow-500 text-black font-bold rounded hover:bg-yellow-600 transition">
                 New Year Collection
@@ -222,15 +222,15 @@ export default function ShopPage() {
               <div className="flex items-center gap-2">
                 <span className="font-bold">New Year Collection</span>
               </div>
-              <span className="text-gray-400">×</span>
+              <span className="text-gray-400 dark:text-gray-500">×</span>
               <div className="flex items-center gap-2">
                 <span className="font-bold">Discount Up to 25%</span>
               </div>
-              <span className="text-gray-400">×</span>
+              <span className="text-gray-400 dark:text-gray-500">×</span>
               <div className="flex items-center gap-2">
                 <span className="font-bold">Best Fashion in 2024</span>
               </div>
-              <span className="text-gray-400">×</span>
+              <span className="text-gray-400 dark:text-gray-500">×</span>
               <div className="flex items-center gap-2">
                 <span className="font-bold">End Year Sale</span>
               </div>
@@ -249,8 +249,8 @@ export default function ShopPage() {
       {/* Side Banners Section */}
       <div className="max-w-7xl mx-auto px-4 py-8 grid grid-cols-3 gap-6">
         {/* End Year Big Sale Banner */}
-        <div className="col-span-1 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg overflow-hidden">
-          <div className="relative h-96 bg-gray-300 flex items-end justify-between p-6">
+        <div className="col-span-1 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-neutral-800 dark:to-neutral-700 rounded-lg overflow-hidden">
+          <div className="relative h-96 bg-gray-300 dark:bg-neutral-700 flex items-end justify-between p-6">
             <img
               src="https://images.unsplash.com/photo-1495386794519-c21d9a3a8d6d?w=300&h=400&fit=crop"
               alt="Model"
@@ -268,10 +268,10 @@ export default function ShopPage() {
 
         {/* Stay up to date banner */}
         <div className="col-span-2 grid grid-cols-2 gap-6">
-          <div className="bg-gray-900 text-white rounded-lg p-6 flex flex-col justify-between">
+          <div className="bg-gray-900 dark:bg-neutral-800 text-white rounded-lg p-6 flex flex-col justify-between border border-gray-800 dark:border-neutral-700">
             <div>
               <h3 className="text-2xl font-bold mb-2">STAY UP TO DATE BY JOINING OUR NEWSLETTER</h3>
-              <p className="text-sm text-gray-300">Get the latest collection & exclusive vouchers</p>
+              <p className="text-sm text-gray-300 dark:text-gray-400">Get the latest collection & exclusive vouchers</p>
             </div>
             <button className="px-6 py-2 border border-white text-white font-bold rounded w-fit hover:bg-white hover:text-black transition mt-4">
               Join Now
@@ -279,12 +279,12 @@ export default function ShopPage() {
           </div>
 
           {/* Featured Collection Banner */}
-          <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg p-6 text-white flex flex-col justify-between">
+          <div className="bg-gradient-to-r from-blue-500 to-purple-600 dark:from-blue-700 dark:to-purple-800 rounded-lg p-6 text-white flex flex-col justify-between">
             <div>
               <p className="text-sm font-semibold mb-2">NEW COLLECTION</p>
               <h3 className="text-2xl font-bold">SUMMER VIBES</h3>
             </div>
-            <button className="px-6 py-2 bg-white text-blue-600 font-bold rounded w-fit hover:bg-gray-100 transition mt-4">
+            <button className="px-6 py-2 bg-white dark:bg-gray-200 text-blue-600 dark:text-blue-700 font-bold rounded w-fit hover:bg-gray-100 dark:hover:bg-gray-300 transition mt-4">
               Explore
             </button>
           </div>
@@ -293,14 +293,14 @@ export default function ShopPage() {
 
       {/* Hot Deals Section */}
       <div className="max-w-7xl mx-auto px-4 py-12">
-        <h2 className="text-2xl font-bold mb-8 text-gray-900">🔥 Hot Deals from Brands</h2>
+        <h2 className="text-2xl font-bold mb-8 text-gray-900 dark:text-white">🔥 Hot Deals from Brands</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {DUMMY_DEALS.map((deal) => (
-            <div key={deal.id} className="bg-gradient-to-br from-blue-600 to-purple-600 text-white rounded-lg p-6 text-center">
+            <div key={deal.id} className="bg-gradient-to-br from-blue-600 to-purple-600 dark:from-blue-700 dark:to-purple-800 text-white rounded-lg p-6 text-center">
               <p className="text-sm font-medium mb-2">{deal.title}</p>
               <div className="text-4xl font-bold mb-4">{deal.discountValue}% OFF</div>
-              <p className="text-sm text-blue-100 mb-4">{deal.description}</p>
-              <button className="w-full bg-yellow-400 text-gray-900 py-2 rounded font-bold hover:bg-yellow-500 transition">
+              <p className="text-sm text-blue-100 dark:text-blue-200 mb-4">{deal.description}</p>
+              <button className="w-full bg-yellow-400 dark:bg-yellow-500 text-gray-900 dark:text-black py-2 rounded font-bold hover:bg-yellow-500 dark:hover:bg-yellow-600 transition">
                 Shop Now
               </button>
             </div>
@@ -309,10 +309,10 @@ export default function ShopPage() {
       </div>
 
       {/* New Arrivals Section */}
-      <div className="max-w-7xl mx-auto px-4 py-12 border-t border-gray-200">
+      <div className="max-w-7xl mx-auto px-4 py-12 border-t border-gray-200 dark:border-neutral-700">
         <div className="flex justify-between items-center mb-8">
-          <h2 className="text-2xl font-bold text-gray-900">📦 NEW ARRIVALS</h2>
-          <Link href="/shop/new" className="text-blue-600 hover:text-blue-700 font-semibold text-sm">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">📦 NEW ARRIVALS</h2>
+          <Link href="/shop/new" className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-semibold text-sm">
             View All →
           </Link>
         </div>
@@ -322,10 +322,10 @@ export default function ShopPage() {
       </div>
 
       {/* Trending Products Section */}
-      <div className="max-w-7xl mx-auto px-4 py-12 border-t border-gray-200">
+      <div className="max-w-7xl mx-auto px-4 py-12 border-t border-gray-200 dark:border-neutral-700">
         <div className="flex justify-between items-center mb-8">
-          <h2 className="text-2xl font-bold text-gray-900">⭐ TRENDING</h2>
-          <Link href="/shop/trending" className="text-blue-600 hover:text-blue-700 font-semibold text-sm">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">⭐ TRENDING</h2>
+          <Link href="/shop/trending" className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-semibold text-sm">
             View All →
           </Link>
         </div>
@@ -335,16 +335,16 @@ export default function ShopPage() {
       </div>
 
       {/* Brands Section */}
-      <div className="max-w-7xl mx-auto px-4 py-12 border-t border-gray-200">
-        <h2 className="text-2xl font-bold mb-8 text-gray-900">🏢 FEATURED BRANDS</h2>
+      <div className="max-w-7xl mx-auto px-4 py-12 border-t border-gray-200 dark:border-neutral-700">
+        <h2 className="text-2xl font-bold mb-8 text-gray-900 dark:text-white">🏢 FEATURED BRANDS</h2>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           {DUMMY_BRANDS.map((brand) => (
             <Link key={brand.id} href={`/shop/brand/${brand.slug}`}>
-              <div className="bg-white rounded-lg p-6 text-center hover:shadow-lg transition-shadow cursor-pointer border border-gray-200">
-                <div className="w-full h-20 bg-gray-100 rounded flex items-center justify-center mb-3">
-                  <span className="text-sm font-semibold text-gray-600">{brand.name}</span>
+              <div className="bg-white dark:bg-neutral-800 rounded-lg p-6 text-center hover:shadow-lg dark:hover:shadow-xl transition-shadow cursor-pointer border border-gray-200 dark:border-neutral-700">
+                <div className="w-full h-20 bg-gray-100 dark:bg-neutral-700 rounded flex items-center justify-center mb-3">
+                  <span className="text-sm font-semibold text-gray-600 dark:text-gray-300">{brand.name}</span>
                 </div>
-                <p className="font-semibold text-sm text-gray-900">{brand.name}</p>
+                <p className="font-semibold text-sm text-gray-900 dark:text-white">{brand.name}</p>
               </div>
             </Link>
           ))}
@@ -352,21 +352,21 @@ export default function ShopPage() {
       </div>
 
       {/* Seller CTA Section */}
-      <div className="bg-blue-600 text-white py-16 mt-12">
+      <div className="bg-blue-600 dark:bg-blue-700 text-white py-16 mt-12">
         <div className="max-w-4xl mx-auto text-center px-4">
           <h2 className="text-4xl font-bold mb-4">Start Selling Today</h2>
-          <p className="text-lg mb-8 text-blue-100">Join thousands of sellers and reach millions of customers</p>
+          <p className="text-lg mb-8 text-blue-100 dark:text-blue-200">Join thousands of sellers and reach millions of customers</p>
           {session ? (
             <Link
               href="/seller/create-brand"
-              className="inline-block bg-yellow-400 text-gray-900 px-8 py-3 rounded-lg font-bold hover:bg-yellow-500 transition-colors"
+              className="inline-block bg-yellow-400 dark:bg-yellow-500 text-gray-900 dark:text-black px-8 py-3 rounded-lg font-bold hover:bg-yellow-500 dark:hover:bg-yellow-600 transition-colors"
             >
               Create Your Brand Now →
             </Link>
           ) : (
             <Link
               href="/login"
-              className="inline-block bg-yellow-400 text-gray-900 px-8 py-3 rounded-lg font-bold hover:bg-yellow-500 transition-colors"
+              className="inline-block bg-yellow-400 dark:bg-yellow-500 text-gray-900 dark:text-black px-8 py-3 rounded-lg font-bold hover:bg-yellow-500 dark:hover:bg-yellow-600 transition-colors"
             >
               Sign in to Start Selling →
             </Link>

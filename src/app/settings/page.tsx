@@ -4,11 +4,12 @@ import { useState } from "react";
 import { signOut, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import AppHeader from "@/components/AppHeader";
+import { AppearanceSettings } from "./_AppearanceSettings";
 
 export default function SettingsPage() {
   const { data: session } = useSession();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"account" | "privacy" | "notifications">("account");
+  const [activeTab, setActiveTab] = useState<"account" | "privacy" | "notifications" | "appearance">("account");
 
   // Change email state
   const [showEmailDialog, setShowEmailDialog] = useState(false);
@@ -115,43 +116,53 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-neutral-900 dark:text-white">
       <AppHeader title="Settings" showBackButton />
 
       <div className="max-w-4xl mx-auto px-4 py-8">
         {/* Tabs */}
-        <div className="bg-white rounded-lg shadow-sm mb-6">
-          <div className="border-b border-gray-200">
-            <nav className="flex -mb-px">
+        <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm mb-6">
+          <div className="border-b border-gray-200 dark:border-neutral-700">
+            <nav className="flex -mb-px overflow-x-auto">
               <button
                 onClick={() => setActiveTab("account")}
-                className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === "account"
-                    ? "border-blue-600 text-blue-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                    ? "border-blue-600 text-blue-600 dark:text-blue-400"
+                    : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-neutral-600"
                 }`}
               >
                 Account
               </button>
               <button
                 onClick={() => setActiveTab("privacy")}
-                className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === "privacy"
-                    ? "border-blue-600 text-blue-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                    ? "border-blue-600 text-blue-600 dark:text-blue-400"
+                    : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-neutral-600"
                 }`}
               >
                 Privacy
               </button>
               <button
                 onClick={() => setActiveTab("notifications")}
-                className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === "notifications"
-                    ? "border-blue-600 text-blue-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                    ? "border-blue-600 text-blue-600 dark:text-blue-400"
+                    : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-neutral-600"
                 }`}
               >
                 Notifications
+              </button>
+              <button
+                onClick={() => setActiveTab("appearance")}
+                className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                  activeTab === "appearance"
+                    ? "border-blue-600 text-blue-600 dark:text-blue-400"
+                    : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-neutral-600"
+                }`}
+              >
+                Appearance
               </button>
             </nav>
           </div>
@@ -274,65 +285,67 @@ export default function SettingsPage() {
             {activeTab === "notifications" && (
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-lg font-semibold mb-4">Notification Preferences</h3>
+                  <h3 className="text-lg font-semibold mb-4 dark:text-white">Notification Preferences</h3>
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between py-3">
+                    <div className="flex items-center justify-between py-3 dark:border-neutral-700 border-b dark:border-b">
                       <div>
-                        <p className="font-medium">Email Notifications</p>
-                        <p className="text-sm text-gray-500">Receive updates via email</p>
+                        <p className="font-medium dark:text-white">Email Notifications</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Receive updates via email</p>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input type="checkbox" className="sr-only peer" defaultChecked />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        <div className="w-11 h-6 bg-gray-200 dark:bg-neutral-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 dark:after:border-neutral-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                       </label>
                     </div>
 
-                    <div className="flex items-center justify-between py-3">
+                    <div className="flex items-center justify-between py-3 dark:border-neutral-700 border-b dark:border-b">
                       <div>
-                        <p className="font-medium">Push Notifications</p>
-                        <p className="text-sm text-gray-500">Receive push notifications</p>
+                        <p className="font-medium dark:text-white">Push Notifications</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Receive push notifications</p>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input type="checkbox" className="sr-only peer" />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        <div className="w-11 h-6 bg-gray-200 dark:bg-neutral-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 dark:after:border-neutral-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                      </label>
+                    </div>
+
+                    <div className="flex items-center justify-between py-3 dark:border-neutral-700 border-b dark:border-b">
+                      <div>
+                        <p className="font-medium dark:text-white">Friend Requests</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Notify when someone sends a friend request</p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" className="sr-only peer" defaultChecked />
+                        <div className="w-11 h-6 bg-gray-200 dark:bg-neutral-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 dark:after:border-neutral-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                       </label>
                     </div>
 
                     <div className="flex items-center justify-between py-3">
                       <div>
-                        <p className="font-medium">Friend Requests</p>
-                        <p className="text-sm text-gray-500">Notify when someone sends a friend request</p>
+                        <p className="font-medium dark:text-white">Post Interactions</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Notify when someone likes or comments</p>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input type="checkbox" className="sr-only peer" defaultChecked />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                      </label>
-                    </div>
-
-                    <div className="flex items-center justify-between py-3">
-                      <div>
-                        <p className="font-medium">Post Interactions</p>
-                        <p className="text-sm text-gray-500">Notify when someone likes or comments</p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" className="sr-only peer" defaultChecked />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        <div className="w-11 h-6 bg-gray-200 dark:bg-neutral-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 dark:after:border-neutral-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                       </label>
                     </div>
                   </div>
                 </div>
               </div>
             )}
+
+            {activeTab === "appearance" && <AppearanceSettings />}
           </div>
         </div>
 
         {/* App Info */}
-        <div className="bg-white rounded-lg shadow-sm p-6 text-center text-sm text-gray-500">
+        <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-sm p-6 text-center text-sm text-gray-500 dark:text-gray-400">
           <p>Fuy v1.0.0</p>
           <p className="mt-2">
-            <a href="#" className="text-blue-600 hover:underline">Privacy Policy</a>
+            <a href="#" className="text-blue-600 dark:text-blue-400 hover:underline">Privacy Policy</a>
             {" • "}
-            <a href="#" className="text-blue-600 hover:underline">Terms of Service</a>
+            <a href="#" className="text-blue-600 dark:text-blue-400 hover:underline">Terms of Service</a>
           </p>
         </div>
       </div>
@@ -340,8 +353,8 @@ export default function SettingsPage() {
       {/* Change Email Dialog */}
       {showEmailDialog && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-            <h3 className="text-lg font-semibold mb-4">Change Email</h3>
+          <div className="bg-white dark:bg-neutral-800 rounded-lg shadow-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold mb-4 dark:text-white">Change Email</h3>
             <form onSubmit={handleChangeEmail} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">

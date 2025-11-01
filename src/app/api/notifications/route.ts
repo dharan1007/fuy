@@ -1,7 +1,7 @@
 // src/app/api/notifications/route.ts
 import { NextResponse } from "next/server";
 import { logger } from "@/lib/logger";
-import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
 
 // Get all notifications for current user

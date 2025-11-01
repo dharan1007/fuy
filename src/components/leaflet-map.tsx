@@ -38,15 +38,16 @@ function setPts(pts: LatLng[]) {
 }
 
 function basemap(style: "dark" | "light" | "sepia") {
+  const apiKey = process.env.NEXT_PUBLIC_STADIA_MAPS_API_KEY;
   switch (style) {
     case "dark":
       return {
-        url: "https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png",
+        url: `https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png?api_key=${apiKey}`,
         attr: "&copy; Stadia Maps, &copy; OpenMapTiles, &copy; OSM",
       };
     case "sepia":
       return {
-        url: "https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png",
+        url: `https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png?api_key=${apiKey}`,
         attr: "&copy; Stadia Maps, &copy; OpenMapTiles, &copy; OSM",
       };
     default:

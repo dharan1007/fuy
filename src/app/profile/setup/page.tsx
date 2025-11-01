@@ -40,7 +40,10 @@ export default function ProfileSetupPage() {
         return;
       }
 
-      router.push("/");
+      // Give the database a moment to finalize the write, then redirect
+      setTimeout(() => {
+        router.push("/dashboard");
+      }, 300);
     } catch (err) {
       setError("Something went wrong. Please try again.");
       setLoading(false);
@@ -48,7 +51,7 @@ export default function ProfileSetupPage() {
   }
 
   async function handleSkip() {
-    router.push("/");
+    router.push("/dashboard");
   }
 
   if (status === "loading") {

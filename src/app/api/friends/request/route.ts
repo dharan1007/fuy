@@ -1,7 +1,7 @@
 import { logger } from "@/lib/logger";
 // src/app/api/friends/request/route.ts
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
 
 // Get pending friend requests
