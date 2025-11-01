@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
+import { logger } from "@/lib/logger";
 
 // Get all conversations for the current user
 export async function GET(req: Request) {
@@ -57,7 +58,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ conversations });
   } catch (error: any) {
-    console.error("Get conversations error:", error);
+    logger.error("Get conversations error:", error);
     if (error?.message === "UNAUTHENTICATED") {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
@@ -75,7 +76,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { friendId } = body;
 
-    console.log("[POST /api/chat/conversations] userId:", userId, "friendId:", friendId);
+    logger.debug("[POST /api/chat/conversations] userId and friendId received");
 
     if (!friendId) {
       return NextResponse.json(
@@ -95,7 +96,7 @@ export async function POST(req: Request) {
     const userExists = await prisma.user.findUnique({ where: { id: userId } });
     const friendExists = await prisma.user.findUnique({ where: { id: friendId } });
 
-    console.log("[POST /api/chat/conversations] userExists:", !!userExists, "friendExists:", !!friendExists);
+    logger.debug("[POST /api/chat/conversations] User validation completed");
 
     if (!userExists || !friendExists) {
       return NextResponse.json(
@@ -178,7 +179,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ conversation });
   } catch (error: any) {
-    console.error("Create conversation error:", error);
+    logger.error("Create conversation error:", error);
     if (error?.message === "UNAUTHENTICATED") {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }

@@ -17,15 +17,15 @@ export async function GET(req: NextRequest) {
   const users = await prisma.user.findMany({
     where: {
       OR: [
-        { email: { contains: q, mode: "insensitive" } },
-        { profile: { displayName: { contains: q, mode: "insensitive" } } },
+        { email: { contains: q } },
+        { name: { contains: q } },
       ],
       NOT: { id: userId },
     },
     select: {
       id: true,
       email: true,
-      profile: { select: { displayName: true, avatarUrl: true } },
+      name: true,
     },
     take: 10,
   });
@@ -33,8 +33,8 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(
     users.map((u) => ({
       id: u.id,
-      displayName: u.profile?.displayName || u.email || "User",
-      avatarUrl: u.profile?.avatarUrl,
+      displayName: u.name || u.email || "User",
+      avatarUrl: null,
     }))
   );
 }

@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { getServerSession } from "next-auth/next";
 import { NextResponse } from "next/server";
 import { authOptions } from "@/lib/auth";
@@ -31,7 +32,7 @@ export async function GET(req: Request, { params }: { params: { essenzId: string
 
     return NextResponse.json({ items });
   } catch (error) {
-    console.error("[Watchlist GET]", error);
+    logger.error("[Watchlist GET]", error);
     return NextResponse.json({ error: "Failed to fetch watchlist" }, { status: 500 });
   }
 }
@@ -89,7 +90,7 @@ export async function POST(req: Request, { params }: { params: { essenzId: strin
 
     return NextResponse.json({ item }, { status: 201 });
   } catch (error) {
-    console.error("[Watchlist POST]", error);
+    logger.error("[Watchlist POST]", error);
     return NextResponse.json({ error: "Failed to add to watchlist" }, { status: 500 });
   }
 }

@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 // src/app/api/collaboration/invite/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
@@ -95,7 +96,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ participant }, { status: 201 });
   } catch (error: any) {
-    console.error("Send invite error:", error);
+    logger.error("Send invite error:", error);
     if (error?.message === "UNAUTHENTICATED") {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
@@ -159,7 +160,7 @@ export async function PATCH(req: Request) {
       { status: 400 }
     );
   } catch (error: any) {
-    console.error("Handle invite error:", error);
+    logger.error("Handle invite error:", error);
     if (error?.message === "UNAUTHENTICATED") {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }

@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 // src/app/api/friends/request/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
@@ -47,7 +48,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ requests });
   } catch (error: any) {
-    console.error("Get friend requests error:", error);
+    logger.error("Get friend requests error:", error);
     if (error?.message === "UNAUTHENTICATED") {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
@@ -162,7 +163,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ friendship, autoAccepted: isTargetDemoUser });
   } catch (error: any) {
-    console.error("Send friend request error:", error);
+    logger.error("Send friend request error:", error);
     if (error?.message === "UNAUTHENTICATED") {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
@@ -240,7 +241,7 @@ export async function PATCH(req: Request) {
       );
     }
   } catch (error: any) {
-    console.error("Handle friend request error:", error);
+    logger.error("Handle friend request error:", error);
     if (error?.message === "UNAUTHENTICATED") {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
@@ -290,7 +291,7 @@ export async function DELETE(req: Request) {
 
     return NextResponse.json({ message: "Friend removed successfully" });
   } catch (error: any) {
-    console.error("Remove friend error:", error);
+    logger.error("Remove friend error:", error);
     if (error?.message === "UNAUTHENTICATED") {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }

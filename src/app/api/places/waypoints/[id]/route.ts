@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
@@ -25,7 +26,7 @@ export async function GET(
 
     return NextResponse.json(waypoint);
   } catch (error) {
-    console.error("Failed to fetch waypoint:", error);
+    logger.error("Failed to fetch waypoint:", error);
     return NextResponse.json(
       { error: "Failed to fetch waypoint" },
       { status: 500 }
@@ -83,7 +84,7 @@ export async function PUT(
 
     return NextResponse.json(updated);
   } catch (error) {
-    console.error("Failed to update waypoint:", error);
+    logger.error("Failed to update waypoint:", error);
     return NextResponse.json(
       { error: "Failed to update waypoint" },
       { status: 500 }
@@ -130,7 +131,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Failed to delete waypoint:", error);
+    logger.error("Failed to delete waypoint:", error);
     return NextResponse.json(
       { error: "Failed to delete waypoint" },
       { status: 500 }

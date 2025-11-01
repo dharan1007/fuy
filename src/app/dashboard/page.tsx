@@ -126,6 +126,7 @@ function useLSWatch<T>(
 export default function DashboardPage() {
   const { data: session } = useSession();
   const router = useRouter();
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [goals, setGoals] = useState<EssenzGoal[]>([]);
   const [stats, setStats] = useState<EssenzStats>({
     totalGoals: 0,
@@ -135,9 +136,8 @@ export default function DashboardPage() {
     diaryEntries: 0,
     resources: 0,
   });
+  const [plans, setPlans] = useState<ITPPlan[]>([]);
   const [selectedGoal, setSelectedGoal] = useState<string | null>(null);
-  const [microGoal, setMicroGoal] = useState("");
-  const [selectedValue, setSelectedValue] = useState<string>("");
 
   useEffect(() => {
     if (!session?.user?.id) return;
@@ -148,84 +148,53 @@ export default function DashboardPage() {
     try {
       const res = await fetch("/api/essenz");
       if (res.ok) {
-        const { goals: essenzGoals } = await res.json();
-        setGoals(essenzGoals);
-
-        let completedTodos = 0;
-        let totalTodos = 0;
-        let diaryCount = 0;
-        let resourceCount = 0;
-
-        for (const goal of essenzGoals) {
-          const todosRes = await fetch(`/api/essenz/${goal.id}/todos`);
-          const diaryRes = await fetch(`/api/essenz/${goal.id}/diary`);
-          const resourcesRes = await fetch(`/api/essenz/${goal.id}/resources`);
-
-          if (todosRes.ok) {
-            const { todos } = await todosRes.json();
-            totalTodos += todos.length;
-            completedTodos += todos.filter((t: any) => t.completed).length;
-          }
-          if (diaryRes.ok) {
-            const { entries } = await diaryRes.json();
-            diaryCount += entries.length;
-          }
-          if (resourcesRes.ok) {
-            const { resources } = await resourcesRes.json();
-            resourceCount += resources.length;
-          }
-        }
-
-        const activeGoals = essenzGoals.filter((g: EssenzGoal) => g.status === "ACTIVE").length;
-
+        const data = await res.json();
+        setGoals(data.essenzNodes || []);
         setStats({
-          totalGoals: essenzGoals.length,
-          activeGoals,
-          completedTodos,
-          totalTodos,
-          diaryEntries: diaryCount,
-          resources: resourceCount,
+          totalGoals: data.essenzNodes?.length || 0,
+          activeGoals: data.essenzNodes?.filter((g: EssenzGoal) => g.status === "ACTIVE").length || 0,
+          completedTodos: data.completedTodos || 0,
+          totalTodos: data.totalTodos || 0,
+          diaryEntries: data.diaryEntries || 0,
+          resources: data.resources || 0,
         });
       }
     } catch (err) {
       console.error("Failed to load dashboard data:", err);
     }
-  };
 
-  const handleCommit = async () => {
-    if (!microGoal.trim() || !selectedValue) return;
-
-    try {
-      await fetch("/api/essenz", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: microGoal.trim(),
-          goal: microGoal.trim(),
-          codename: selectedValue,
-        }),
-      });
-
-      setMicroGoal("");
-      setSelectedValue("");
-      await loadDashboardData();
-    } catch (err) {
-      console.error("Failed to commit goal:", err);
+    // Load ITP plans
+    if (typeof window !== "undefined") {
+      try {
+        const raw = localStorage.getItem(ITP_LS_KEY);
+        if (raw) setPlans(JSON.parse(raw));
+      } catch {}
     }
   };
 
-  const values = ["Growth", "Health", "Kindness", "Courage", "Creativity", "Connection"];
+  useLSWatch<ITPPlan[]>(
+    ITP_LS_KEY,
+    () => {
+      const raw = localStorage.getItem(ITP_LS_KEY);
+      return raw ? (JSON.parse(raw) as ITPPlan[]) : [];
+    },
+    (v) => setPlans(v ?? [])
+  );
+
+  const doneCount = useMemo(() => plans.filter((p) => p.doneToday).length, [plans]);
+  const progressPercent = plans.length > 0 ? Math.round((doneCount / plans.length) * 100) : 0;
 
   if (!session) {
     return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center px-4">
+      <div className="min-h-screen flex items-center justify-center px-4" style={{ backgroundColor: "#0a0a0a" }}>
         <div className="text-center">
           <p className="text-6xl mb-4">✨</p>
           <h1 className="text-4xl font-bold text-white mb-2">Dashboard</h1>
-          <p className="text-slate-400 mb-8">Please log in</p>
+          <p className="text-gray-400 mb-8">Please log in</p>
           <Link
             href="/login"
-            className="inline-block bg-blue-600 text-white px-8 py-3 rounded-lg font-bold hover:bg-blue-700"
+            className="inline-block text-white px-8 py-3 rounded-lg font-bold hover:opacity-90"
+            style={{ backgroundColor: "#1a1a1a", border: "1px solid #333" }}
           >
             Login
           </Link>
@@ -234,176 +203,552 @@ export default function DashboardPage() {
     );
   }
 
+  const navItems = [
+    { label: "[DASHBOARD]", active: true },
+    { label: "[GOALS]" },
+    { label: "[WELLNESS]" },
+    { label: "[CALENDAR]" },
+    { label: "[SETTINGS]" },
+  ];
+
+  const sidebarItems = [
+    { label: "[GOALS]", icon: "[GOAL]" },
+    { label: "[WELLNESS]", icon: "[HEALTH]" },
+    { label: "[TRACKING]", icon: "[TRACK]" },
+    { label: "[INSIGHTS]", icon: "[INSIGHT]" },
+  ];
+
   return (
-    <div className="min-h-screen bg-slate-900">
-      {/* Header */}
-      <div className="bg-slate-800 border-b border-slate-700 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="text-3xl">✨</div>
-            <div>
-              <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-              <p className="text-xs text-slate-400">Goal orchestration & wellness</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/essenz"
-              className="px-4 py-2 text-sm font-semibold text-blue-400 bg-slate-700 rounded-lg hover:bg-slate-600"
-            >
-              Essenz
-            </Link>
-            <Link
-              href="/profile"
-              className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold"
+    <div className="flex min-h-screen" style={{ backgroundColor: "#0a0a0a" }}>
+      {/* SIDEBAR */}
+      <div
+        className={`transition-all duration-300 border-r flex flex-col ${
+          sidebarOpen ? "w-72" : "w-20"
+        }`}
+        style={{
+          backgroundColor: "#1a1a1a",
+          borderColor: "rgba(255, 255, 255, 0.1)",
+        }}
+      >
+        {/* Logo */}
+        <div className="p-4 border-b" style={{ borderColor: "rgba(255, 255, 255, 0.1)" }}>
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="w-full text-left font-bold"
+            style={{ color: "#e8d4c0" }}
+          >
+            {sidebarOpen ? "[FUY]" : "[F]"}
+          </button>
+        </div>
+
+        {/* User Profile */}
+        {sidebarOpen && (
+          <div
+            className="p-4 border-b space-y-3"
+            style={{ borderColor: "rgba(255, 255, 255, 0.1)" }}
+          >
+            <div
+              className="w-full h-32 rounded-lg flex items-center justify-center text-3xl font-bold text-black"
+              style={{ backgroundColor: "#e8d4c0" }}
             >
               {session.user?.name?.charAt(0) || "U"}
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-6 py-8 space-y-8">
-        {/* Essenz Section */}
-        <div className="bg-slate-800 rounded-lg p-8 border border-slate-700">
-          <h2 className="text-xl font-bold text-white mb-6">Essenz Orchestration</h2>
-
-          <div className="grid grid-cols-3 gap-6 mb-8">
-            <div className="bg-slate-700 rounded-lg p-6">
-              <h3 className="text-sm font-bold text-slate-300 uppercase mb-3">Goals</h3>
-              <p className="text-white text-3xl font-bold">{stats.totalGoals}</p>
             </div>
-            <div className="bg-slate-700 rounded-lg p-6">
-              <h3 className="text-sm font-bold text-slate-300 uppercase mb-3">Active</h3>
-              <p className="text-white text-3xl font-bold">{stats.activeGoals}</p>
+            <div>
+              <p className="font-bold text-white">{session.user?.name || "User"}</p>
+              <p className="text-xs" style={{ color: "rgba(255, 255, 255, 0.6)" }}>
+                {session.user?.email}
+              </p>
             </div>
-            <div className="bg-slate-700 rounded-lg p-6">
-              <h3 className="text-sm font-bold text-slate-300 uppercase mb-3">Progress</h3>
-              <p className="text-white text-3xl font-bold">{stats.completedTodos}/{stats.totalTodos}</p>
-            </div>
-          </div>
-
-          <div className="pt-8 border-t border-slate-700">
-            <h3 className="text-lg font-bold text-white mb-4">Create Goal</h3>
-            <div className="space-y-4">
-              <textarea
-                value={microGoal}
-                onChange={(e) => setMicroGoal(e.target.value)}
-                placeholder="Describe your goal..."
-                className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400"
-                rows={2}
-              />
-
-              <div className="flex flex-wrap gap-2">
-                {values.map((value) => (
-                  <button
-                    key={value}
-                    onClick={() => setSelectedValue(selectedValue === value ? "" : value)}
-                    className={`px-4 py-2 rounded-lg font-medium text-sm ${
-                      selectedValue === value
-                        ? "bg-blue-600 text-white"
-                        : "bg-slate-700 text-slate-300 hover:bg-slate-600"
-                    }`}
-                  >
-                    {value}
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex justify-end">
-                <button
-                  onClick={handleCommit}
-                  disabled={!microGoal.trim() || !selectedValue}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50"
-                >
-                  Commit
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
-          <h3 className="text-lg font-bold text-white mb-4">Active Goals ({stats.activeGoals})</h3>
-          <div className="space-y-3">
-            {goals
-              .filter((g: EssenzGoal) => g.status === "ACTIVE")
-              .map((goal) => (
-                <div
-                  key={goal.id}
-                  className="p-4 bg-slate-700 rounded-lg cursor-pointer hover:bg-slate-600"
-                  onClick={() => setSelectedGoal(goal.id)}
-                >
-                  <p className="font-semibold text-white">{goal.codename || goal.title}</p>
-                  <p className="text-sm text-slate-400 mt-1">{goal.goal}</p>
-                </div>
-              ))}
-            {stats.activeGoals === 0 && (
-              <p className="text-slate-400 text-center py-8">No active goals</p>
-            )}
-          </div>
-        </div>
-
-        {selectedGoal && (
-          <div className="mt-8 bg-slate-800 rounded-lg p-6 border border-slate-700">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-white">Goal Details</h3>
-              <button
-                onClick={() => setSelectedGoal(null)}
-                className="text-slate-400 hover:text-white text-xl"
-              >
-                ✕
-              </button>
-            </div>
-
-            {goals
-              .filter((g: EssenzGoal) => g.id === selectedGoal)
-              .map((goal) => (
-                <div key={goal.id} className="space-y-4">
-                  <div>
-                    <p className="text-sm text-slate-400 mb-1">Goal</p>
-                    <p className="text-white font-semibold">{goal.goal}</p>
-                  </div>
-
-                  {goal.plan && goal.plan.length > 0 && (
-                    <div>
-                      <p className="text-sm text-slate-400 mb-3">AI Plan</p>
-                      <div className="grid grid-cols-3 gap-4">
-                        {goal.plan.map((phase, idx) => (
-                          <div key={idx} className="p-3 bg-slate-700 rounded-lg">
-                            <p className="font-semibold text-white mb-2">{phase.title}</p>
-                            <ul className="space-y-1">
-                              {phase.steps.map((step, sidx) => (
-                                <li key={sidx} className="text-xs text-slate-300">• {step}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <Link
-                    href={`/essenz?goal=${goal.id}`}
-                    className="inline-block mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700"
-                  >
-                    View Essenz →
-                  </Link>
-                </div>
-              ))}
           </div>
         )}
 
-        {/* Wellness Features Section */}
-        <div>
-          <h2 className="text-2xl font-bold text-white mb-6">Wellness Tracking</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <ITPPreview />
-            <BreathingPreview />
-            <ThoughtsPreview />
-            <GroundingPreview />
-            <SelfCompassionPreview />
-            <PomodoroPreview />
+        {/* Navigation Items */}
+        {sidebarOpen && (
+          <div className="flex-1 p-4 space-y-3 overflow-y-auto">
+            {sidebarItems.map((item, idx) => (
+              <div
+                key={idx}
+                className="p-3 rounded-lg cursor-pointer transition-colors"
+                style={{
+                  backgroundColor: "rgba(232, 212, 192, 0.1)",
+                  border: "1px solid rgba(232, 212, 192, 0.2)",
+                }}
+              >
+                <p className="text-xs font-bold" style={{ color: "#e8d4c0" }}>
+                  {item.icon} {item.label}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Footer */}
+        {sidebarOpen && (
+          <div
+            className="p-4 border-t text-xs"
+            style={{
+              borderColor: "rgba(255, 255, 255, 0.1)",
+              color: "rgba(255, 255, 255, 0.6)",
+            }}
+          >
+            <p>[STATUS] Active</p>
+          </div>
+        )}
+      </div>
+
+      {/* MAIN CONTENT */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* TOP NAVBAR */}
+        <div
+          className="border-b p-4"
+          style={{
+            backgroundColor: "#1a1a1a",
+            borderColor: "rgba(255, 255, 255, 0.1)",
+          }}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex gap-6">
+              {navItems.map((item, idx) => (
+                <button
+                  key={idx}
+                  className="text-sm font-bold transition-colors"
+                  style={{
+                    color: item.active ? "#e8d4c0" : "rgba(255, 255, 255, 0.5)",
+                  }}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+            <Link
+              href="/essenz"
+              className="px-4 py-2 rounded text-sm font-bold"
+              style={{
+                backgroundColor: "rgba(232, 212, 192, 0.1)",
+                color: "#e8d4c0",
+                border: "1px solid rgba(232, 212, 192, 0.3)",
+              }}
+            >
+              [ESSENZ] →
+            </Link>
+          </div>
+        </div>
+
+        {/* CONTENT AREA */}
+        <div className="flex-1 overflow-y-auto p-8">
+          <div className="max-w-7xl mx-auto space-y-8">
+            {/* WELCOME */}
+            <div className="flex items-end justify-between">
+              <div>
+                <h1
+                  className="text-5xl font-bold mb-2"
+                  style={{ color: "#e8d4c0" }}
+                >
+                  Welcome in, {session.user?.name?.split(" ")[0] || "User"}
+                </h1>
+                <div className="flex gap-3 text-xs font-bold" style={{ color: "rgba(255, 255, 255, 0.6)" }}>
+                  <span>[INTERVIEWS]</span>
+                  <span>[HIRED]</span>
+                  <span>[ACE]</span>
+                </div>
+              </div>
+              <div className="flex gap-8">
+                <div className="text-right">
+                  <p className="text-xs" style={{ color: "rgba(255, 255, 255, 0.6)" }}>
+                    [EMPLOYEES]
+                  </p>
+                  <p className="text-4xl font-bold text-white">78</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs" style={{ color: "rgba(255, 255, 255, 0.6)" }}>
+                    [HOURS]
+                  </p>
+                  <p className="text-4xl font-bold text-white">56</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs" style={{ color: "rgba(255, 255, 255, 0.6)" }}>
+                    [PROJECTS]
+                  </p>
+                  <p className="text-4xl font-bold text-white">{stats.totalGoals || 0}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* MAIN GRID */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* LEFT COLUMN */}
+              <div className="space-y-6">
+                {/* PROFILE CARD */}
+                <div
+                  className="rounded-lg p-6 border"
+                  style={{
+                    backgroundColor: "#1a1a1a",
+                    borderColor: "rgba(255, 255, 255, 0.1)",
+                  }}
+                >
+                  <div className="flex items-center gap-4 mb-4">
+                    <div
+                      className="w-16 h-16 rounded-lg flex items-center justify-center text-2xl font-bold text-black"
+                      style={{ backgroundColor: "#e8d4c0" }}
+                    >
+                      {session.user?.name?.charAt(0) || "U"}
+                    </div>
+                    <div>
+                      <p className="font-bold text-white">{session.user?.name || "User"}</p>
+                      <p className="text-xs" style={{ color: "rgba(255, 255, 255, 0.5)" }}>
+                        UX/UI Designer
+                      </p>
+                    </div>
+                  </div>
+                  <div
+                    className="px-3 py-2 rounded text-xs font-bold text-center"
+                    style={{
+                      backgroundColor: "rgba(232, 212, 192, 0.1)",
+                      color: "#e8d4c0",
+                    }}
+                  >
+                    $1,200
+                  </div>
+                </div>
+
+                {/* PENSION CONTRIBUTIONS */}
+                <div
+                  className="rounded-lg p-6 border"
+                  style={{
+                    backgroundColor: "#1a1a1a",
+                    borderColor: "rgba(255, 255, 255, 0.1)",
+                  }}
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-bold text-white">[CONTRIBUTIONS]</h3>
+                    <button className="text-xs" style={{ color: "#e8d4c0" }}>
+                      ↗
+                    </button>
+                  </div>
+                  <div className="space-y-2 text-xs">
+                    <div
+                      className="p-3 rounded flex items-center gap-2"
+                      style={{ backgroundColor: "rgba(232, 212, 192, 0.1)" }}
+                    >
+                      <div
+                        className="w-4 h-4 rounded"
+                        style={{ backgroundColor: "#e8d4c0" }}
+                      />
+                      <span className="text-white">Macbook Air</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* DEVICES */}
+                <div
+                  className="rounded-lg p-6 border"
+                  style={{
+                    backgroundColor: "#1a1a1a",
+                    borderColor: "rgba(255, 255, 255, 0.1)",
+                  }}
+                >
+                  <h3 className="font-bold text-white mb-4">[DEVICES]</h3>
+                  <div className="space-y-2 text-xs">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-10 h-10 rounded"
+                        style={{ backgroundColor: "rgba(232, 212, 192, 0.2)" }}
+                      />
+                      <div>
+                        <p className="font-bold text-white">Macbook Air</p>
+                        <p style={{ color: "rgba(255, 255, 255, 0.5)" }}>M3</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* COMPENSATION SUMMARY */}
+                <div
+                  className="rounded-lg p-6 border"
+                  style={{
+                    backgroundColor: "#1a1a1a",
+                    borderColor: "rgba(255, 255, 255, 0.1)",
+                  }}
+                >
+                  <h3 className="font-bold text-white mb-4">[COMPENSATION]</h3>
+                  <p className="text-xs" style={{ color: "rgba(255, 255, 255, 0.6)" }}>
+                    View details
+                  </p>
+                </div>
+
+                {/* EMPLOYEE BENEFITS */}
+                <div
+                  className="rounded-lg p-6 border"
+                  style={{
+                    backgroundColor: "#1a1a1a",
+                    borderColor: "rgba(255, 255, 255, 0.1)",
+                  }}
+                >
+                  <h3 className="font-bold text-white mb-4">[BENEFITS]</h3>
+                  <p className="text-xs" style={{ color: "rgba(255, 255, 255, 0.6)" }}>
+                    Expand section
+                  </p>
+                </div>
+              </div>
+
+              {/* CENTER COLUMN */}
+              <div className="space-y-6">
+                {/* PROGRESS CARD */}
+                <div
+                  className="rounded-lg p-6 border"
+                  style={{
+                    backgroundColor: "#1a1a1a",
+                    borderColor: "rgba(255, 255, 255, 0.1)",
+                  }}
+                >
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="font-bold text-white">[PROGRESS]</h3>
+                    <button className="text-xs" style={{ color: "#e8d4c0" }}>
+                      ↗
+                    </button>
+                  </div>
+                  <p className="text-3xl font-bold text-white mb-2">
+                    {doneCount}h
+                  </p>
+                  <p className="text-xs mb-4" style={{ color: "rgba(255, 255, 255, 0.6)" }}>
+                    [WORKTIME] This week
+                  </p>
+                  <div className="flex gap-1 items-end h-16">
+                    {[4, 3, 5, 2, 6, 4, 3].map((h, i) => (
+                      <div
+                        key={i}
+                        className="flex-1 rounded-t"
+                        style={{
+                          height: `${(h / 6) * 100}%`,
+                          backgroundColor: "rgba(232, 212, 192, 0.3)",
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* TIME TRACKER CARD */}
+                <div
+                  className="rounded-lg p-6 border"
+                  style={{
+                    backgroundColor: "#1a1a1a",
+                    borderColor: "rgba(255, 255, 255, 0.1)",
+                  }}
+                >
+                  <h3 className="font-bold text-white mb-6">[TIME TRACKER]</h3>
+                  <div className="flex justify-center mb-6">
+                    <div className="relative w-32 h-32 flex items-center justify-center">
+                      <svg className="w-full h-full" viewBox="0 0 100 100">
+                        <circle
+                          cx="50"
+                          cy="50"
+                          r="40"
+                          fill="none"
+                          stroke="rgba(232, 212, 192, 0.2)"
+                          strokeWidth="2"
+                        />
+                        <circle
+                          cx="50"
+                          cy="50"
+                          r="40"
+                          fill="none"
+                          stroke="#e8d4c0"
+                          strokeWidth="3"
+                          strokeDasharray={`${(progressPercent / 100) * 251} 251`}
+                          strokeLinecap="round"
+                          transform="rotate(-90 50 50)"
+                        />
+                      </svg>
+                      <div className="absolute text-center">
+                        <p className="text-sm font-bold text-white">02:35</p>
+                        <p className="text-xs" style={{ color: "rgba(255, 255, 255, 0.6)" }}>
+                          [WORKTIME]
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <button
+                      className="px-4 py-2 rounded text-xs font-bold"
+                      style={{
+                        backgroundColor: "rgba(232, 212, 192, 0.1)",
+                        color: "#e8d4c0",
+                        border: "1px solid rgba(232, 212, 192, 0.3)",
+                      }}
+                    >
+                      ⏸ PAUSE
+                    </button>
+                  </div>
+                </div>
+
+                {/* CALENDAR PLACEHOLDER */}
+                <div
+                  className="rounded-lg p-6 border"
+                  style={{
+                    backgroundColor: "#1a1a1a",
+                    borderColor: "rgba(255, 255, 255, 0.1)",
+                  }}
+                >
+                  <h3 className="font-bold text-white mb-4">[CALENDAR]</h3>
+                  <div className="grid grid-cols-7 gap-2 text-xs text-center mb-4">
+                    {["S", "M", "T", "W", "T", "F", "S"].map((d) => (
+                      <div key={d} style={{ color: "rgba(255, 255, 255, 0.6)" }}>
+                        {d}
+                      </div>
+                    ))}
+                  </div>
+                  <div
+                    className="grid grid-cols-7 gap-2 text-xs"
+                    style={{ color: "rgba(255, 255, 255, 0.6)" }}
+                  >
+                    {Array.from({ length: 35 }, (_, i) => i + 1).map((n) => (
+                      <div key={n} className="text-center p-2">
+                        {n <= 31 ? n : ""}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* RIGHT COLUMN */}
+              <div className="space-y-6">
+                {/* ONBOARDING CARD */}
+                <div
+                  className="rounded-lg p-6 border"
+                  style={{
+                    backgroundColor: "#1a1a1a",
+                    borderColor: "rgba(255, 255, 255, 0.1)",
+                  }}
+                >
+                  <div className="flex items-start justify-between mb-6">
+                    <div>
+                      <h3 className="font-bold text-white mb-1">[ONBOARDING]</h3>
+                      <p className="text-xs" style={{ color: "rgba(255, 255, 255, 0.6)" }}>
+                        18%
+                      </p>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-2 rounded-full" style={{ backgroundColor: "rgba(232, 212, 192, 0.2)" }}>
+                        <div
+                          className="h-full rounded-full"
+                          style={{ width: "30%", backgroundColor: "#e8d4c0" }}
+                        />
+                      </div>
+                      <span className="text-xs font-bold" style={{ color: "#e8d4c0" }}>
+                        30%
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-2 rounded-full" style={{ backgroundColor: "rgba(232, 212, 192, 0.2)" }}>
+                        <div
+                          className="h-full rounded-full"
+                          style={{ width: "25%", backgroundColor: "rgba(232, 212, 192, 0.3)" }}
+                        />
+                      </div>
+                      <span className="text-xs" style={{ color: "rgba(255, 255, 255, 0.6)" }}>
+                        25%
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-2 rounded-full" style={{ backgroundColor: "rgba(232, 212, 192, 0.2)" }}>
+                        <div
+                          className="h-full rounded-full"
+                          style={{ width: "0%", backgroundColor: "rgba(232, 212, 192, 0.3)" }}
+                        />
+                      </div>
+                      <span className="text-xs" style={{ color: "rgba(255, 255, 255, 0.6)" }}>
+                        0%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* STATS CARD */}
+                <div
+                  className="rounded-lg p-6 border"
+                  style={{
+                    backgroundColor: "#1a1a1a",
+                    borderColor: "rgba(255, 255, 255, 0.1)",
+                  }}
+                >
+                  <h3 className="font-bold text-white mb-4">[TASKS]</h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs" style={{ color: "rgba(255, 255, 255, 0.6)" }}>
+                        [COMPLETED]
+                      </span>
+                      <span className="text-lg font-bold text-white">
+                        {stats.completedTodos}/{stats.totalTodos}
+                      </span>
+                    </div>
+                    <div className="w-full h-1 rounded-full" style={{ backgroundColor: "rgba(232, 212, 192, 0.2)" }}>
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{
+                          width: `${
+                            stats.totalTodos > 0
+                              ? (stats.completedTodos / stats.totalTodos) * 100
+                              : 0
+                          }%`,
+                          backgroundColor: "#e8d4c0",
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* ONBOARDING TASK LIST */}
+                <div
+                  className="rounded-lg p-6 border"
+                  style={{
+                    backgroundColor: "#0a0a0a",
+                    borderColor: "rgba(255, 255, 255, 0.1)",
+                  }}
+                >
+                  <h3 className="font-bold text-white mb-4">[ONBOARDING TASKS] 2/8</h3>
+                  <div className="space-y-3">
+                    {[
+                      { task: "[INTERVIEW]", date: "Sep 15, 10:30" },
+                      { task: "[TEAM MEETING]", date: "Sep 16, 10:30" },
+                      { task: "[PROJECT UPDATE]", date: "Sep 17" },
+                    ].map((item, idx) => (
+                      <div key={idx} className="flex items-center gap-3 pb-3 border-b" style={{ borderColor: "rgba(255, 255, 255, 0.1)" }}>
+                        <div
+                          className="w-6 h-6 rounded flex items-center justify-center text-xs"
+                          style={{
+                            backgroundColor: "rgba(232, 212, 192, 0.2)",
+                            color: "#e8d4c0",
+                          }}
+                        >
+                          ●
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-xs font-bold text-white">{item.task}</p>
+                          <p className="text-xs" style={{ color: "rgba(255, 255, 255, 0.5)" }}>
+                            {item.date}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* WELLNESS SECTION */}
+            <div>
+              <h2 className="text-2xl font-bold text-white mb-6">[WELLNESS TRACKING]</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <ITPPreview />
+                <BreathingPreview />
+                <ThoughtsPreview />
+                <GroundingPreview />
+                <SelfCompassionPreview />
+                <PomodoroPreview />
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -442,21 +787,33 @@ function ITPPreview() {
   const pendingCount = Math.max(0, plans.length - doneCount);
 
   return (
-    <div className="bg-slate-800 rounded-lg p-6 border border-slate-700 hover:border-slate-600 transition-colors cursor-pointer" onClick={() => router.push("/itp")}>
-      <h3 className="text-lg font-bold text-white mb-4">ITP — Plan Tracker</h3>
+    <div
+      className="rounded-lg p-6 border hover:border-opacity-100 transition-colors cursor-pointer"
+      style={{
+        backgroundColor: "#1a1a1a",
+        borderColor: "rgba(255, 255, 255, 0.1)",
+      }}
+      onClick={() => router.push("/itp")}
+    >
+      <h3 className="text-lg font-bold text-white mb-4">[ITP] — Plan Tracker</h3>
       <div className="space-y-3">
         <div className="flex justify-between items-center">
-          <span className="text-slate-400">Done</span>
+          <span style={{ color: "rgba(255, 255, 255, 0.6)" }}>[DONE]</span>
           <span className="text-white font-semibold">{doneCount}/{plans.length}</span>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-slate-400">Pending</span>
+          <span style={{ color: "rgba(255, 255, 255, 0.6)" }}>[PENDING]</span>
           <span className="text-white font-semibold">{pendingCount}</span>
         </div>
-        <div className="w-full bg-slate-700 rounded-full h-2 overflow-hidden">
-          <div className="bg-blue-500 h-full transition-all" style={{ width: `${percent}%` }} />
+        <div className="w-full h-2 rounded-full overflow-hidden" style={{ backgroundColor: "rgba(232, 212, 192, 0.2)" }}>
+          <div
+            className="h-full transition-all"
+            style={{ width: `${percent}%`, backgroundColor: "#e8d4c0" }}
+          />
         </div>
-        <p className="text-xs text-slate-500 mt-2">Click to manage plans</p>
+        <p className="text-xs mt-2" style={{ color: "rgba(255, 255, 255, 0.5)" }}>
+          [CLICK] to manage plans
+        </p>
       </div>
     </div>
   );
@@ -491,21 +848,33 @@ function BreathingPreview() {
   const pct = Math.min(100, Math.round((Math.min(12, cycles) / 12) * 100));
 
   return (
-    <div className="bg-slate-800 rounded-lg p-6 border border-slate-700 hover:border-slate-600 transition-colors cursor-pointer" onClick={() => router.push("/breathing")}>
-      <h3 className="text-lg font-bold text-white mb-4">Breathing Exercises</h3>
+    <div
+      className="rounded-lg p-6 border hover:border-opacity-100 transition-colors cursor-pointer"
+      style={{
+        backgroundColor: "#1a1a1a",
+        borderColor: "rgba(255, 255, 255, 0.1)",
+      }}
+      onClick={() => router.push("/breathing")}
+    >
+      <h3 className="text-lg font-bold text-white mb-4">[BREATHING] Exercises</h3>
       <div className="space-y-3">
         <div className="flex justify-between items-center">
-          <span className="text-slate-400">Preset</span>
+          <span style={{ color: "rgba(255, 255, 255, 0.6)" }}>[PRESET]</span>
           <span className="text-white font-semibold">{info?.preset || "—"}</span>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-slate-400">Cycles</span>
-          <span className="text-white font-semibold">{cycles || "—"}</span>
+          <span style={{ color: "rgba(255, 255, 255, 0.6)" }}>[CYCLES]</span>
+          <span className="text-white font-semibold">{cycles}/12</span>
         </div>
-        <div className="w-full bg-slate-700 rounded-full h-2 overflow-hidden">
-          <div className="bg-green-500 h-full transition-all" style={{ width: `${pct}%` }} />
+        <div className="w-full h-2 rounded-full overflow-hidden" style={{ backgroundColor: "rgba(232, 212, 192, 0.2)" }}>
+          <div
+            className="h-full transition-all"
+            style={{ width: `${pct}%`, backgroundColor: "#e8d4c0" }}
+          />
         </div>
-        <p className="text-xs text-slate-500 mt-2">Click to practice</p>
+        <p className="text-xs mt-2" style={{ color: "rgba(255, 255, 255, 0.5)" }}>
+          [CLICK] to start exercise
+        </p>
       </div>
     </div>
   );
@@ -517,17 +886,13 @@ function BreathingPreview() {
 
 function ThoughtsPreview() {
   const router = useRouter();
-  const [count, setCount] = useState<number>(0);
+  const [thoughts, setThoughts] = useState(0);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
       const raw = localStorage.getItem(THOUGHTS_TODAY);
-      if (raw) {
-        const d = JSON.parse(raw) as { date: string; count: number };
-        const today = new Date().toISOString().slice(0, 10);
-        setCount(d.date === today ? d.count : 0);
-      }
+      if (raw) setThoughts(JSON.parse(raw).length || 0);
     } catch {}
   }, []);
 
@@ -535,29 +900,29 @@ function ThoughtsPreview() {
     THOUGHTS_TODAY,
     () => {
       const raw = localStorage.getItem(THOUGHTS_TODAY);
-      if (!raw) return 0;
-      const d = JSON.parse(raw) as { date: string; count: number };
-      const today = new Date().toISOString().slice(0, 10);
-      return d.date === today ? d.count : 0;
+      return raw ? JSON.parse(raw) : [];
     },
-    (v) => setCount(v ?? 0)
+    (v) => setThoughts(v?.length || 0)
   );
 
-  const cap = Math.max(5, Math.min(12, count + 4));
-  const pct = Math.round((count / cap) * 100);
-
   return (
-    <div className="bg-slate-800 rounded-lg p-6 border border-slate-700 hover:border-slate-600 transition-colors cursor-pointer" onClick={() => router.push("/thoughts")}>
-      <h3 className="text-lg font-bold text-white mb-4">Thought Labeling</h3>
+    <div
+      className="rounded-lg p-6 border hover:border-opacity-100 transition-colors cursor-pointer"
+      style={{
+        backgroundColor: "#1a1a1a",
+        borderColor: "rgba(255, 255, 255, 0.1)",
+      }}
+      onClick={() => router.push("/thoughts")}
+    >
+      <h3 className="text-lg font-bold text-white mb-4">[THOUGHTS] Today</h3>
       <div className="space-y-3">
         <div className="flex justify-between items-center">
-          <span className="text-slate-400">Entries Today</span>
-          <span className="text-white font-semibold">{count}</span>
+          <span style={{ color: "rgba(255, 255, 255, 0.6)" }}>[RECORDED]</span>
+          <span className="text-white font-semibold">{thoughts}</span>
         </div>
-        <div className="w-full bg-slate-700 rounded-full h-2 overflow-hidden">
-          <div className="bg-purple-500 h-full transition-all" style={{ width: `${pct}%` }} />
-        </div>
-        <p className="text-xs text-slate-500 mt-2">Click to label thoughts</p>
+        <p className="text-xs mt-2" style={{ color: "rgba(255, 255, 255, 0.5)" }}>
+          [CLICK] to log thoughts
+        </p>
       </div>
     </div>
   );
@@ -569,13 +934,13 @@ function ThoughtsPreview() {
 
 function GroundingPreview() {
   const router = useRouter();
-  const [delta, setDelta] = useState<number | null>(null);
+  const [info, setInfo] = useState<any>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
       const raw = localStorage.getItem(GROUND_LS_LAST);
-      if (raw) setDelta((JSON.parse(raw) as any).delta);
+      if (raw) setInfo(JSON.parse(raw));
     } catch {}
   }, []);
 
@@ -583,29 +948,28 @@ function GroundingPreview() {
     GROUND_LS_LAST,
     () => {
       const raw = localStorage.getItem(GROUND_LS_LAST);
-      if (!raw) return null;
-      const obj = JSON.parse(raw) as any;
-      return typeof obj?.delta === "number" ? obj.delta : null;
+      return raw ? JSON.parse(raw) : null;
     },
-    (v) => setDelta(v)
+    (v) => setInfo(v)
   );
 
-  const display = delta === null ? "—" : delta > 0 ? `-${delta}` : `${delta}`;
-  const mag = delta === null ? 0 : Math.min(10, Math.abs(delta));
-  const pct = Math.round((mag / 10) * 100);
-
   return (
-    <div className="bg-slate-800 rounded-lg p-6 border border-slate-700 hover:border-slate-600 transition-colors cursor-pointer" onClick={() => router.push("/grounding")}>
-      <h3 className="text-lg font-bold text-white mb-4">Grounding Exercises</h3>
+    <div
+      className="rounded-lg p-6 border hover:border-opacity-100 transition-colors cursor-pointer"
+      style={{
+        backgroundColor: "#1a1a1a",
+        borderColor: "rgba(255, 255, 255, 0.1)",
+      }}
+      onClick={() => router.push("/grounding")}
+    >
+      <h3 className="text-lg font-bold text-white mb-4">[GROUNDING] 5-4-3-2-1</h3>
       <div className="space-y-3">
-        <div className="flex justify-between items-center">
-          <span className="text-slate-400">SUDS Change</span>
-          <span className="text-white font-semibold">{display}</span>
-        </div>
-        <div className="w-full bg-slate-700 rounded-full h-2 overflow-hidden">
-          <div className="bg-orange-500 h-full transition-all" style={{ width: `${pct}%` }} />
-        </div>
-        <p className="text-xs text-slate-500 mt-2">Lower = more grounded</p>
+        <p className="text-xs" style={{ color: "rgba(255, 255, 255, 0.6)" }}>
+          {info ? "[COMPLETED]" : "[NO DATA]"}
+        </p>
+        <p className="text-xs mt-2" style={{ color: "rgba(255, 255, 255, 0.5)" }}>
+          [CLICK] to practice
+        </p>
       </div>
     </div>
   );
@@ -617,13 +981,13 @@ function GroundingPreview() {
 
 function SelfCompassionPreview() {
   const router = useRouter();
-  const [soothe, setSoothe] = useState<number | null>(null);
+  const [info, setInfo] = useState<any>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
       const raw = localStorage.getItem(SC_LS_LAST);
-      if (raw) setSoothe((JSON.parse(raw) as any).soothe);
+      if (raw) setInfo(JSON.parse(raw));
     } catch {}
   }, []);
 
@@ -631,28 +995,28 @@ function SelfCompassionPreview() {
     SC_LS_LAST,
     () => {
       const raw = localStorage.getItem(SC_LS_LAST);
-      if (!raw) return null;
-      const obj = JSON.parse(raw) as any;
-      return typeof obj?.soothe === "number" ? obj.soothe : null;
+      return raw ? JSON.parse(raw) : null;
     },
-    (v) => setSoothe(v)
+    (v) => setInfo(v)
   );
 
-  const val = soothe ?? 0;
-  const pct = Math.round((Math.min(10, Math.max(0, val)) / 10) * 100);
-
   return (
-    <div className="bg-slate-800 rounded-lg p-6 border border-slate-700 hover:border-slate-600 transition-colors cursor-pointer" onClick={() => router.push("/self-compassion")}>
-      <h3 className="text-lg font-bold text-white mb-4">Self-Compassion</h3>
+    <div
+      className="rounded-lg p-6 border hover:border-opacity-100 transition-colors cursor-pointer"
+      style={{
+        backgroundColor: "#1a1a1a",
+        borderColor: "rgba(255, 255, 255, 0.1)",
+      }}
+      onClick={() => router.push("/self-compassion")}
+    >
+      <h3 className="text-lg font-bold text-white mb-4">[COMPASSION] Self-Talk</h3>
       <div className="space-y-3">
-        <div className="flex justify-between items-center">
-          <span className="text-slate-400">Soothe Level</span>
-          <span className="text-white font-semibold">{soothe === null ? "—" : val}</span>
-        </div>
-        <div className="w-full bg-slate-700 rounded-full h-2 overflow-hidden">
-          <div className="bg-pink-500 h-full transition-all" style={{ width: `${pct}%` }} />
-        </div>
-        <p className="text-xs text-slate-500 mt-2">Higher = more soothed</p>
+        <p className="text-xs" style={{ color: "rgba(255, 255, 255, 0.6)" }}>
+          {info ? "[COMPLETED]" : "[NO DATA]"}
+        </p>
+        <p className="text-xs mt-2" style={{ color: "rgba(255, 255, 255, 0.5)" }}>
+          [CLICK] to practice
+        </p>
       </div>
     </div>
   );
@@ -664,17 +1028,18 @@ function SelfCompassionPreview() {
 
 function PomodoroPreview() {
   const router = useRouter();
-  const [state, setState] = useState<{ completedToday: number; targetPerDay: number } | null>(null);
+  const [stats, setStats] = useState<{ sessions: number; today: number } | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
       const raw = localStorage.getItem(POMO_LS_KEY);
       if (raw) {
-        const s = JSON.parse(raw) as any;
-        const today = new Date().toISOString().slice(0, 10);
-        if (s.lastResetDate !== today) s.completedToday = 0;
-        setState({ completedToday: s.completedToday ?? 0, targetPerDay: s.targetPerDay ?? 4 });
+        const data = JSON.parse(raw);
+        setStats({
+          sessions: data.sessions?.length || 0,
+          today: data.sessions?.filter((s: any) => new Date(s.startTime).toDateString() === new Date().toDateString()).length || 0,
+        });
       }
     } catch {}
   }, []);
@@ -683,31 +1048,40 @@ function PomodoroPreview() {
     POMO_LS_KEY,
     () => {
       const raw = localStorage.getItem(POMO_LS_KEY);
-      if (!raw) return null;
-      const s = JSON.parse(raw) as any;
-      const today = new Date().toISOString().slice(0, 10);
-      if (s.lastResetDate !== today) s.completedToday = 0;
-      return { completedToday: s.completedToday ?? 0, targetPerDay: s.targetPerDay ?? 4 };
+      return raw ? JSON.parse(raw) : null;
     },
-    (v) => setState(v)
+    (v) => {
+      if (v) {
+        setStats({
+          sessions: v.sessions?.length || 0,
+          today: v.sessions?.filter((s: any) => new Date(s.startTime).toDateString() === new Date().toDateString()).length || 0,
+        });
+      }
+    }
   );
 
-  const done = state?.completedToday ?? 0;
-  const target = state?.targetPerDay ?? 4;
-  const pct = Math.max(0, Math.min(100, Math.round((done / Math.max(1, target)) * 100)));
-
   return (
-    <div className="bg-slate-800 rounded-lg p-6 border border-slate-700 hover:border-slate-600 transition-colors cursor-pointer" onClick={() => router.push("/pomodoro")}>
-      <h3 className="text-lg font-bold text-white mb-4">Pomodoro Sessions</h3>
+    <div
+      className="rounded-lg p-6 border hover:border-opacity-100 transition-colors cursor-pointer"
+      style={{
+        backgroundColor: "#1a1a1a",
+        borderColor: "rgba(255, 255, 255, 0.1)",
+      }}
+      onClick={() => router.push("/pomodoro")}
+    >
+      <h3 className="text-lg font-bold text-white mb-4">[POMODORO] Timer</h3>
       <div className="space-y-3">
         <div className="flex justify-between items-center">
-          <span className="text-slate-400">Sessions</span>
-          <span className="text-white font-semibold">{done}/{target}</span>
+          <span style={{ color: "rgba(255, 255, 255, 0.6)" }}>[TODAY]</span>
+          <span className="text-white font-semibold">{stats?.today || 0}</span>
         </div>
-        <div className="w-full bg-slate-700 rounded-full h-2 overflow-hidden">
-          <div className="bg-red-500 h-full transition-all" style={{ width: `${pct}%` }} />
+        <div className="flex justify-between items-center">
+          <span style={{ color: "rgba(255, 255, 255, 0.6)" }}>[TOTAL]</span>
+          <span className="text-white font-semibold">{stats?.sessions || 0}</span>
         </div>
-        <p className="text-xs text-slate-500 mt-2">Click to start session</p>
+        <p className="text-xs mt-2" style={{ color: "rgba(255, 255, 255, 0.5)" }}>
+          [CLICK] to start timer
+        </p>
       </div>
     </div>
   );

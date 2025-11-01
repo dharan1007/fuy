@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { getServerSession } from "next-auth/next";
 import { NextResponse } from "next/server";
 import { authOptions } from "@/lib/auth";
@@ -31,7 +32,7 @@ export async function GET(req: Request, { params }: { params: { essenzId: string
 
     return NextResponse.json({ todos });
   } catch (error) {
-    console.error("[Todos GET]", error);
+    logger.error("[Todos GET]", error);
     return NextResponse.json({ error: "Failed to fetch todos" }, { status: 500 });
   }
 }
@@ -87,7 +88,7 @@ export async function POST(req: Request, { params }: { params: { essenzId: strin
 
     return NextResponse.json({ todo }, { status: 201 });
   } catch (error) {
-    console.error("[Todos POST]", error);
+    logger.error("[Todos POST]", error);
     return NextResponse.json({ error: "Failed to create todo" }, { status: 500 });
   }
 }

@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 // src/app/api/friends/invite/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "../../../../lib/db";
@@ -80,7 +81,7 @@ export async function POST(req: Request) {
       try {
         await sendMail({ to: email, subject, html, text });
       } catch (emailError: any) {
-        console.error("Failed to send invite email:", emailError?.message);
+        logger.error("Failed to send invite email:", emailError?.message);
         // Continue anyway - invite is created, user can use the link
       }
     }

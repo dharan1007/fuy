@@ -458,6 +458,11 @@ export default function EssenzPage() {
   const [panX, setPanX] = useState(0);
   const [panY, setPanY] = useState(0);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [drawingMode, setDrawingMode] = useState(false);
+  const [connectionFrom, setConnectionFrom] = useState<string | null>(null);
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStartPos, setPanStartPos] = useState({ x: 0, y: 0 });
   const canvasRef = useRef<HTMLDivElement>(null);
 
   const [nodes, setNodes] = useState<EssenzNodeData[]>([
@@ -465,7 +470,7 @@ export default function EssenzPage() {
       id: "goal",
       type: "goal",
       title: "What's Your Goal?",
-      icon: "🎯",
+      icon: "[GOAL]",
       position: { x: 10, y: 10 },
       expanded: false,
       data: {} as GoalData,
@@ -475,7 +480,7 @@ export default function EssenzPage() {
       id: "steps",
       type: "steps",
       title: "Break It Down",
-      icon: "🪜",
+      icon: "[STEPS]",
       position: { x: 40, y: 10 },
       expanded: false,
       data: {} as StepData,
@@ -485,7 +490,7 @@ export default function EssenzPage() {
       id: "priorities",
       type: "prioritize",
       title: "Prioritize",
-      icon: "📊",
+      icon: "[PRIORITY]",
       position: { x: 70, y: 10 },
       expanded: false,
       data: {} as PriorityData,
@@ -495,7 +500,7 @@ export default function EssenzPage() {
       id: "todo",
       type: "todo",
       title: "Today's Tasks",
-      icon: "✅",
+      icon: "[TODO]",
       position: { x: 10, y: 50 },
       expanded: false,
       data: {} as TodoData,
@@ -505,7 +510,7 @@ export default function EssenzPage() {
       id: "diary",
       type: "diary",
       title: "My Diary",
-      icon: "📔",
+      icon: "[DIARY]",
       position: { x: 40, y: 50 },
       expanded: false,
       data: {} as DiaryData,
@@ -515,7 +520,7 @@ export default function EssenzPage() {
       id: "resources",
       type: "resources",
       title: "Tools & Resources",
-      icon: "🔧",
+      icon: "[TOOLS]",
       position: { x: 70, y: 50 },
       expanded: false,
       data: {} as ResourceData,
@@ -525,7 +530,7 @@ export default function EssenzPage() {
       id: "watchlist",
       type: "watchlist",
       title: "Watch Together",
-      icon: "🎬",
+      icon: "[WATCH]",
       position: { x: 10, y: 90 },
       expanded: false,
       data: {} as WatchlistData,
@@ -535,7 +540,7 @@ export default function EssenzPage() {
       id: "hopin",
       type: "hopin",
       title: "This Week",
-      icon: "📅",
+      icon: "[WEEK]",
       position: { x: 40, y: 90 },
       expanded: false,
       data: {} as HopinData,
@@ -544,14 +549,14 @@ export default function EssenzPage() {
   ]);
 
   const categories = [
-    { id: "goals", label: "Goals", icon: "🎯" },
-    { id: "steps", label: "Steps", icon: "🪜" },
-    { id: "priorities", label: "Priorities", icon: "📊" },
-    { id: "todos", label: "Todos", icon: "✅" },
-    { id: "diary", label: "Diary", icon: "📔" },
-    { id: "resources", label: "Resources", icon: "🔧" },
-    { id: "watchlist", label: "Watchlist", icon: "🎬" },
-    { id: "hopin", label: "This Week", icon: "📅" },
+    { id: "goals", label: "Goals", icon: "[GOAL]", nodeId: "goal" },
+    { id: "steps", label: "Steps", icon: "[STEPS]", nodeId: "steps" },
+    { id: "priorities", label: "Priorities", icon: "[PRIORITY]", nodeId: "priorities" },
+    { id: "todos", label: "Todos", icon: "[TODO]", nodeId: "todo" },
+    { id: "diary", label: "Diary", icon: "[DIARY]", nodeId: "diary" },
+    { id: "resources", label: "Resources", icon: "[TOOLS]", nodeId: "resources" },
+    { id: "watchlist", label: "Watchlist", icon: "[WATCH]", nodeId: "watchlist" },
+    { id: "hopin", label: "This Week", icon: "[WEEK]", nodeId: "hopin" },
   ];
 
   const nodeHasData = (node: EssenzNodeData) => {
@@ -639,20 +644,156 @@ export default function EssenzPage() {
 
   const getSuggestions = () => {
     const suggestions: string[] = [];
+    const historyByCategory = new Map<string, number>();
+
+    // Analyze history frequency
+    history.forEach((entry) => {
+      historyByCategory.set(
+        entry.category,
+        (historyByCategory.get(entry.category) || 0) + 1
+      );
+    });
+
+    // Based on past activity
+    if (history.length === 0) {
+      suggestions.push("[NEW] Start with your first goal");
+    } else {
+      const mostActive = [...historyByCategory.entries()].sort((a, b) => b[1] - a[1])[0];
+      if (mostActive) {
+        suggestions.push(`[ACTIVE] Most work on ${mostActive[0]}: ${mostActive[1]} changes`);
+      }
+    }
+
+    // Node-specific suggestions
     nodes.forEach((node) => {
       if (node.type === "goal" && nodeHasData(node)) {
-        suggestions.push("📌 Complete goal definition");
+        const goalNode = node.data as GoalData;
+        if (!goalNode.codename) {
+          suggestions.push("[GOAL] Give your goal a codename");
+        }
+        if (!goalNode.plan || goalNode.plan.length === 0) {
+          suggestions.push("[GOAL] Generate a plan using AI");
+        }
       }
+
       if (node.type === "steps" && node.data.steps?.length > 0) {
-        const uncompleted = node.data.steps.filter((s: any) => !s.completed).length;
-        if (uncompleted > 0) suggestions.push(`📝 ${uncompleted} steps remaining`);
+        const steps = node.data.steps as any[];
+        const uncompleted = steps.filter((s) => !s.completed).length;
+        const completed = steps.filter((s) => s.completed).length;
+        if (uncompleted > 0) {
+          suggestions.push(`[STEPS] ${completed}/${steps.length} complete`);
+        }
       }
+
+      if (node.type === "prioritize" && node.data.tasks?.length > 0) {
+        const tasks = node.data.tasks as any[];
+        const critical = tasks.filter((t) => t.priority === "CRITICAL").length;
+        if (critical > 0) {
+          suggestions.push(`[PRIORITY] ${critical} critical tasks`);
+        }
+      }
+
       if (node.type === "todo" && node.data.todos?.length > 0) {
-        const pending = getPendingCount();
-        if (pending > 0) suggestions.push(`✅ ${pending} tasks pending`);
+        const todos = node.data.todos as any[];
+        const pending = todos.filter((t) => !t.completed).length;
+        const postponed = todos.filter((t) => (t.postponed ?? 0) > 0).length;
+        if (pending > 0) {
+          suggestions.push(`[TODO] ${pending} tasks to complete`);
+        }
+        if (postponed > 0) {
+          suggestions.push(`[TODO] ${postponed} tasks postponed`);
+        }
+      }
+
+      if (node.type === "diary" && node.data.entries?.length > 0) {
+        const entries = node.data.entries as any[];
+        if (entries.length < 7) {
+          suggestions.push(`[DIARY] Write ${7 - entries.length} more for full week`);
+        }
+      }
+
+      if (node.type === "resources" && node.data.resources?.length > 0) {
+        const resources = node.data.resources as any[];
+        const unread = resources.filter((r) => !r.url).length;
+        if (unread > 0) {
+          suggestions.push(`[TOOLS] Add links to ${unread} resources`);
+        }
+      }
+
+      if (node.type === "watchlist" && node.data.items?.length > 0) {
+        const items = node.data.items as any[];
+        const planning = items.filter((i) => i.status === "PLANNING").length;
+        if (planning > 0) {
+          suggestions.push(`[WATCH] Start ${planning} planned items`);
+        }
+      }
+
+      if (node.type === "hopin" && node.data.plans?.length > 0) {
+        const plans = node.data.plans as any[];
+        const completed = plans.filter((p) => p.completed).length;
+        suggestions.push(`[WEEK] ${completed}/${plans.length} week goals done`);
       }
     });
-    return suggestions;
+
+    return suggestions.slice(0, 5); // Return max 5 suggestions
+  };
+
+  const handleNodeClick = (nodeId: string) => {
+    if (!drawingMode) return;
+
+    if (!connectionFrom) {
+      // Start new connection
+      setConnectionFrom(nodeId);
+    } else if (connectionFrom === nodeId) {
+      // Cancel connection if clicking same node
+      setConnectionFrom(null);
+    } else {
+      // Complete connection
+      setNodes((prev) =>
+        prev.map((n) =>
+          n.id === connectionFrom
+            ? {
+                ...n,
+                connections: n.connections.includes(nodeId)
+                  ? n.connections
+                  : [...n.connections, nodeId],
+              }
+            : n
+        )
+      );
+      addHistory(nodes.find((n) => n.id === connectionFrom)?.type || "", "connected");
+      setConnectionFrom(null);
+    }
+  };
+
+  const handleCanvasMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (drawingMode && connectionFrom && canvasRef.current) {
+      const containerRect = canvasRef.current.getBoundingClientRect();
+      setMousePos({
+        x: e.clientX - containerRect.left,
+        y: e.clientY - containerRect.top,
+      });
+    }
+
+    if (isPanning) {
+      const deltaX = e.clientX - panStartPos.x;
+      const deltaY = e.clientY - panStartPos.y;
+      setPanX((prev) => prev + deltaX / zoom);
+      setPanY((prev) => prev + deltaY / zoom);
+      setPanStartPos({ x: e.clientX, y: e.clientY });
+    }
+  };
+
+  const handleCanvasMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.button === 2 || (e.button === 0 && e.ctrlKey)) {
+      // Right click or Ctrl+Left click for panning
+      setIsPanning(true);
+      setPanStartPos({ x: e.clientX, y: e.clientY });
+    }
+  };
+
+  const handleCanvasMouseUp = () => {
+    setIsPanning(false);
   };
 
   if (!session) {
@@ -710,7 +851,7 @@ export default function EssenzPage() {
         >
           <div className="p-3 border-b" style={{ borderColor: "rgba(59, 130, 246, 0.1)" }}>
             <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2" style={{ color: "#60a5fa" }}>
-              ☰
+              [MENU]
             </button>
           </div>
 
@@ -718,10 +859,14 @@ export default function EssenzPage() {
             <div className="flex-1 overflow-y-auto p-3 space-y-3">
               {/* Suggestions */}
               <div className="p-3 rounded-lg" style={{ backgroundColor: "rgba(96, 165, 250, 0.1)" }}>
-                <h3 className="text-xs font-bold mb-2" style={{ color: "#60a5fa" }}>💡 Suggestions</h3>
+                <h3 className="text-xs font-bold mb-2" style={{ color: "#60a5fa" }}>[INSIGHT] AI Suggestions</h3>
                 <div className="space-y-1 text-xs" style={{ color: "rgba(226, 232, 240, 0.7)" }}>
                   {getSuggestions().length > 0 ? (
-                    getSuggestions().map((s, i) => <div key={i}>{s}</div>)
+                    getSuggestions().map((s, i) => (
+                      <div key={i} className="p-1 rounded" style={{ backgroundColor: "rgba(96, 165, 250, 0.05)" }}>
+                        {s}
+                      </div>
+                    ))
                   ) : (
                     <p className="opacity-50">Start adding content...</p>
                   )}
@@ -730,40 +875,69 @@ export default function EssenzPage() {
 
               {/* Status Indicators */}
               <div className="p-3 rounded-lg" style={{ backgroundColor: "rgba(96, 165, 250, 0.1)" }}>
-                <h3 className="text-xs font-bold mb-2" style={{ color: "#60a5fa" }}>📊 Status</h3>
+                <h3 className="text-xs font-bold mb-2" style={{ color: "#60a5fa" }}>[STATUS] Overview</h3>
                 <div className="space-y-1 text-xs" style={{ color: "rgba(226, 232, 240, 0.7)" }}>
-                  <div>⏱️ Postponed: {getPostponedCount()}</div>
-                  <div>⏳ Pending: {getPendingCount()}</div>
+                  <div className="flex justify-between">
+                    <span>[PENDING]</span>
+                    <span style={{ color: "#60a5fa" }}>{getPendingCount()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>[POSTPONED]</span>
+                    <span style={{ color: "#fbbf24" }}>{getPostponedCount()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>[HISTORY]</span>
+                    <span style={{ color: "#a78bfa" }}>{history.length} events</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Stats */}
+              <div className="p-3 rounded-lg" style={{ backgroundColor: "rgba(96, 165, 250, 0.1)" }}>
+                <h3 className="text-xs font-bold mb-2" style={{ color: "#60a5fa" }}>[STATS] Activity</h3>
+                <div className="space-y-1 text-xs" style={{ color: "rgba(226, 232, 240, 0.7)" }}>
+                  <div className="flex justify-between">
+                    <span>[NODES]</span>
+                    <span style={{ color: "#60a5fa" }}>{nodes.filter((n) => nodeHasData(n)).length}/8</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>[CONNECTIONS]</span>
+                    <span style={{ color: "#a78bfa" }}>
+                      {nodes.reduce((sum, n) => sum + n.connections.length, 0)}
+                    </span>
+                  </div>
                 </div>
               </div>
 
               {/* Categories */}
               <div>
-                <div className="text-xs font-bold text-gray-600 px-2 mb-2">CATEGORIES</div>
+                <div className="text-xs font-bold text-gray-600 px-2 mb-2">[CATEGORIES]</div>
                 {categories.map((cat) => {
-                  const catNode = nodes.find((n) => n.id === cat.id.slice(0, -1) || n.id === cat.id);
+                  const catNode = nodes.find((n) => n.id === cat.nodeId);
                   const hasData = catNode && nodeHasData(catNode);
+                  const historyCount = history.filter((h) => h.category === cat.id).length;
                   return (
                     <div key={cat.id} className="space-y-1">
                       <button
                         onClick={() => {
-                          const node = nodes.find((n) => n.type === (cat.id as any));
-                          if (node) toggleNode(node.id);
+                          if (catNode) toggleNode(catNode.id);
                         }}
                         className="w-full text-left px-3 py-2 rounded text-sm transition-all hover:bg-opacity-20"
                         style={{ color: hasData ? "#60a5fa" : "rgba(226, 232, 240, 0.7)" }}
                       >
-                        <span className="mr-2">{cat.icon}</span>
+                        <span className="mr-2 font-bold">{cat.icon}</span>
                         {cat.label}
-                        {hasData && <span className="ml-1 text-xs">✓</span>}
+                        {hasData && <span className="ml-1 text-xs" style={{ color: "#10b981" }}>[DATA]</span>}
                       </button>
-                      <Link
-                        href={`/essenz/history/${cat.id}`}
-                        className="text-xs px-3 py-1 rounded ml-3 block transition-all hover:bg-opacity-20"
-                        style={{ color: "rgba(226, 232, 240, 0.5)" }}
-                      >
-                        📜 History
-                      </Link>
+                      <div className="text-xs px-3 space-y-1" style={{ color: "rgba(226, 232, 240, 0.5)" }}>
+                        <Link
+                          href={`/essenz/history/${cat.id}`}
+                          className="block px-2 py-1 rounded transition-all hover:bg-opacity-20"
+                          style={{ color: "rgba(226, 232, 240, 0.5)" }}
+                        >
+                          [HISTORY] {historyCount} changes
+                        </Link>
+                      </div>
                     </div>
                   );
                 })}
@@ -819,10 +993,15 @@ export default function EssenzPage() {
               backgroundImage: `radial-gradient(circle, rgba(96, 165, 250, 0.08) 1px, transparent 1px)`,
               backgroundSize: `${20 * zoom}px ${20 * zoom}px`,
               backgroundColor: "#000",
-              cursor: "grab",
+              cursor: isPanning ? "grabbing" : drawingMode ? "crosshair" : "grab",
             }}
             onDragOver={(e) => e.preventDefault()}
             onDrop={handleNodeDrop}
+            onMouseMove={handleCanvasMouseMove}
+            onMouseDown={handleCanvasMouseDown}
+            onMouseUp={handleCanvasMouseUp}
+            onMouseLeave={handleCanvasMouseUp}
+            onContextMenu={(e) => e.preventDefault()}
           >
             <div
               style={{
@@ -835,6 +1014,7 @@ export default function EssenzPage() {
             >
               {/* Connection SVG */}
               <svg className="absolute inset-0 pointer-events-none" style={{ width: "100%", height: "100%" }}>
+                {/* Existing connections */}
                 {nodes.map((node) =>
                   node.connections.map((connId) => {
                     const targetNode = nodes.find((n) => n.id === connId);
@@ -857,28 +1037,60 @@ export default function EssenzPage() {
                     );
                   })
                 )}
+
+                {/* Drawing connection line */}
+                {drawingMode && connectionFrom && (
+                  <>
+                    {(() => {
+                      const sourceNode = nodes.find((n) => n.id === connectionFrom);
+                      if (!sourceNode) return null;
+                      const x1 = sourceNode.position.x * 10 + 160;
+                      const y1 = sourceNode.position.y * 10 + 50;
+                      return (
+                        <line
+                          x1={x1}
+                          y1={y1}
+                          x2={mousePos.x}
+                          y2={mousePos.y}
+                          stroke="#fbbf24"
+                          strokeWidth="2"
+                          opacity="0.7"
+                          strokeDasharray="5,5"
+                        />
+                      );
+                    })()}
+                  </>
+                )}
               </svg>
 
               {/* Nodes */}
               {nodes
                 .filter((node) => node.expanded || nodeHasData(node))
-                .map((node) => (
-                  <div
-                    key={node.id}
-                    draggable
-                    onDragStart={(e) => handleNodeDragStart(e, node.id)}
-                    className="absolute transition-all duration-200 rounded-lg border overflow-hidden"
-                    style={{
-                      width: "320px",
-                      left: `${node.position.x * 10}px`,
-                      top: `${node.position.y * 10}px`,
-                      backgroundColor: "rgba(15, 20, 25, 0.7)",
-                      borderColor: "rgba(59, 130, 246, 0.3)",
-                      backdropFilter: "blur(10px)",
-                      boxShadow: draggedNode === node.id ? "0 0 20px rgba(96, 165, 250, 0.4)" : "0 4px 12px rgba(0, 0, 0, 0.3)",
-                      cursor: "grab",
-                    }}
-                  >
+                .map((node) => {
+                  const isSourceNode = drawingMode && connectionFrom === node.id;
+                  return (
+                    <div
+                      key={node.id}
+                      draggable={!drawingMode || !connectionFrom}
+                      onClick={() => handleNodeClick(node.id)}
+                      onDragStart={(e) => !drawingMode && handleNodeDragStart(e, node.id)}
+                      className="absolute transition-all duration-200 rounded-lg border overflow-hidden"
+                      style={{
+                        width: "320px",
+                        left: `${node.position.x * 10}px`,
+                        top: `${node.position.y * 10}px`,
+                        backgroundColor: isSourceNode ? "rgba(251, 191, 36, 0.1)" : "rgba(15, 20, 25, 0.7)",
+                        borderColor: isSourceNode ? "rgba(251, 191, 36, 0.5)" : "rgba(59, 130, 246, 0.3)",
+                        backdropFilter: "blur(10px)",
+                        boxShadow:
+                          isSourceNode
+                            ? "0 0 20px rgba(251, 191, 36, 0.6)"
+                            : draggedNode === node.id
+                              ? "0 0 20px rgba(96, 165, 250, 0.4)"
+                              : "0 4px 12px rgba(0, 0, 0, 0.3)",
+                        cursor: drawingMode ? (isSourceNode ? "grabbing" : "pointer") : "grab",
+                      }}
+                    >
                     {/* Card Header */}
                     <div
                       className="px-4 py-3 border-b flex items-center justify-between"
@@ -896,17 +1108,17 @@ export default function EssenzPage() {
                       <div className="flex items-center gap-1">
                         <button
                           onClick={() => toggleNode(node.id)}
-                          className="p-1 rounded transition-all text-xs"
+                          className="p-1 rounded transition-all text-xs font-bold"
                           style={{ color: "#60a5fa" }}
                         >
-                          {node.expanded ? "▼" : "▶"}
+                          {node.expanded ? "[-]" : "[+]"}
                         </button>
                         <button
                           onClick={() => removeNode(node.id)}
-                          className="p-1 rounded transition-all text-xs"
+                          className="p-1 rounded transition-all text-xs font-bold"
                           style={{ color: "#ff6b6b" }}
                         >
-                          ✕
+                          [X]
                         </button>
                       </div>
                     </div>
@@ -925,7 +1137,8 @@ export default function EssenzPage() {
                       </div>
                     )}
                   </div>
-                ))}
+                  );
+                })}
             </div>
           </div>
         </div>
@@ -941,21 +1154,55 @@ export default function EssenzPage() {
           <div className="space-y-4 flex-1">
             <div className="rounded-lg p-3" style={{ backgroundColor: "rgba(59, 130, 246, 0.1)" }}>
               <h3 className="text-sm font-semibold mb-2" style={{ color: "#60a5fa" }}>
-                Canvas
+                [CANVAS]
               </h3>
               <div className="space-y-1 text-xs" style={{ color: "rgba(226, 232, 240, 0.6)" }}>
-                <div>Zoom: {Math.round(zoom * 100)}%</div>
-                <div>Nodes: {nodes.filter((n) => n.expanded || nodeHasData(n)).length}</div>
-                <div>History: {history.length} events</div>
+                <div className="flex justify-between">
+                  <span>[ZOOM]</span>
+                  <span style={{ color: "#60a5fa" }}>{Math.round(zoom * 100)}%</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>[ACTIVE]</span>
+                  <span style={{ color: "#60a5fa" }}>{nodes.filter((n) => n.expanded || nodeHasData(n)).length}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>[CHANGES]</span>
+                  <span style={{ color: "#a78bfa" }}>{history.length}</span>
+                </div>
               </div>
+            </div>
+
+            <div className="rounded-lg p-3" style={{ backgroundColor: drawingMode ? "rgba(251, 191, 36, 0.15)" : "rgba(59, 130, 246, 0.1)" }}>
+              <h3 className="text-sm font-semibold mb-2" style={{ color: drawingMode ? "#fbbf24" : "#60a5fa" }}>
+                [CONNECT]
+              </h3>
+              <button
+                onClick={() => {
+                  setDrawingMode(!drawingMode);
+                  setConnectionFrom(null);
+                }}
+                className="w-full py-2 rounded text-xs font-bold transition-all mb-2"
+                style={{
+                  backgroundColor: drawingMode ? "rgba(251, 191, 36, 0.3)" : "rgba(59, 130, 246, 0.2)",
+                  color: drawingMode ? "#fbbf24" : "#60a5fa",
+                  border: drawingMode ? "1px solid rgba(251, 191, 36, 0.5)" : "1px solid rgba(59, 130, 246, 0.3)",
+                }}
+              >
+                {drawingMode ? "[DRAWING] ON" : "[ENABLE] DRAW"}
+              </button>
+              <p className="text-xs" style={{ color: "rgba(226, 232, 240, 0.6)" }}>
+                {drawingMode
+                  ? "Click two nodes to connect. Right-click or Ctrl+drag to pan."
+                  : "Enable drawing to create connections between nodes."}
+              </p>
             </div>
 
             <div className="rounded-lg p-3" style={{ backgroundColor: "rgba(59, 130, 246, 0.1)" }}>
               <h3 className="text-sm font-semibold mb-2" style={{ color: "#60a5fa" }}>
-                Tips
+                [GUIDE]
               </h3>
               <p className="text-xs" style={{ color: "rgba(226, 232, 240, 0.6)" }}>
-                Drag cards freely. Zoom with buttons. Remove nodes with ✕. Click History to see past entries.
+                [DRAG] Move cards. [SCROLL] Zoom. [RCLICK] Pan canvas. [REMOVE] Delete nodes. [HISTORY] View changes.
               </p>
             </div>
           </div>

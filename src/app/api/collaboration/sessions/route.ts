@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 // src/app/api/collaboration/sessions/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
@@ -50,7 +51,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ sessions });
   } catch (error: any) {
-    console.error("Get sessions error:", error);
+    logger.error("Get sessions error:", error);
     if (error?.message === "UNAUTHENTICATED") {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
@@ -123,7 +124,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ session }, { status: 201 });
   } catch (error: any) {
-    console.error("Create session error:", error);
+    logger.error("Create session error:", error);
     if (error?.message === "UNAUTHENTICATED") {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }

@@ -1,4 +1,5 @@
 import { getServerSession } from "next-auth/next";
+import { logger } from "@/lib/logger";
 import { NextResponse } from "next/server";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -19,7 +20,7 @@ export async function GET() {
 
     return NextResponse.json({ goals: essenzGoals });
   } catch (error) {
-    console.error("[Essenz GET]", error);
+    logger.error("[Essenz GET]", error);
     return NextResponse.json({ error: "Failed to fetch essenz goals" }, { status: 500 });
   }
 }
@@ -49,7 +50,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ goal: essenz }, { status: 201 });
   } catch (error) {
-    console.error("[Essenz POST]", error);
+    logger.error("[Essenz POST]", error);
     return NextResponse.json({ error: "Failed to create essenz goal" }, { status: 500 });
   }
 }

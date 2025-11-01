@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 // src/app/api/auth/signup/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
@@ -53,7 +54,7 @@ export async function POST(req: Request) {
       { status: 201 }
     );
   } catch (error: any) {
-    console.error("Signup error:", error);
+    logger.error("Signup error:", error);
     return NextResponse.json(
       { error: "Failed to create account" },
       { status: 500 }

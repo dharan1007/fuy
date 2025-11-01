@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
 
   const groups = await prisma.group.findMany({
     where: {
-      name: { contains: q, mode: "insensitive" },
+      name: { contains: q },
     },
     select: {
       id: true,

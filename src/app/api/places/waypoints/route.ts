@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
@@ -35,7 +36,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(waypoints);
   } catch (error) {
-    console.error("Failed to fetch waypoints:", error);
+    logger.error("Failed to fetch waypoints:", error);
     return NextResponse.json(
       { error: "Failed to fetch waypoints" },
       { status: 500 }
@@ -85,7 +86,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(waypoint, { status: 201 });
   } catch (error) {
-    console.error("Failed to create waypoint:", error);
+    logger.error("Failed to create waypoint:", error);
     return NextResponse.json(
       { error: "Failed to create waypoint" },
       { status: 500 }

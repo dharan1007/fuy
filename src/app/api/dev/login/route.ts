@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 // src/app/api/dev/login/route.ts
 // Development-only endpoint to quickly login as a demo user
 import { NextResponse } from "next/server";
@@ -58,7 +59,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ loginToken, userId: user.id, email: user.email });
   } catch (error: any) {
-    console.error("Dev login error:", error);
+    logger.error("Dev login error:", error);
     return NextResponse.json(
       { error: "Login failed" },
       { status: 500 }

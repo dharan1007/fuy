@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { logger } from "@/lib/logger";
 
 export async function POST(
   req: NextRequest,
@@ -104,7 +105,7 @@ export async function POST(
 
     return NextResponse.json({ success: true, shares });
   } catch (error) {
-    console.error("Failed to share photo:", error);
+    logger.error("Failed to share photo:", error);
     return NextResponse.json(
       { error: "Failed to share photo" },
       { status: 500 }
@@ -159,7 +160,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Failed to unshare photo:", error);
+    logger.error("Failed to unshare photo:", error);
     return NextResponse.json(
       { error: "Failed to unshare photo" },
       { status: 500 }

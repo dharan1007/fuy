@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 // src/app/api/auth/change-email/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
@@ -41,7 +42,7 @@ export async function POST(req: Request) {
       message: "Email updated successfully. Please verify your new email.",
     });
   } catch (error: any) {
-    console.error("Change email error:", error);
+    logger.error("Change email error:", error);
     if (error?.message === "UNAUTHENTICATED") {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }

@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { logger } from "@/lib/logger";
 
 export async function GET(req: NextRequest) {
   try {
@@ -63,11 +64,6 @@ export async function GET(req: NextRequest) {
           select: {
             id: true,
             name: true,
-            profile: {
-              select: {
-                avatarUrl: true,
-              },
-            },
           },
         },
       },
@@ -76,7 +72,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(photos);
   } catch (error) {
-    console.error("Failed to fetch photos:", error);
+    logger.error("Failed to fetch photos:", error);
     return NextResponse.json(
       { error: "Failed to fetch photos" },
       { status: 500 }
@@ -147,7 +143,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(photo, { status: 201 });
   } catch (error) {
-    console.error("Failed to create photo:", error);
+    logger.error("Failed to create photo:", error);
     return NextResponse.json(
       { error: "Failed to create photo" },
       { status: 500 }

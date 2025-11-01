@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { getServerSession } from "next-auth/next";
 import { NextResponse } from "next/server";
 import { authOptions } from "@/lib/auth";
@@ -31,7 +32,7 @@ export async function GET(req: Request, { params }: { params: { essenzId: string
 
     return NextResponse.json({ entries });
   } catch (error) {
-    console.error("[Diary GET]", error);
+    logger.error("[Diary GET]", error);
     return NextResponse.json({ error: "Failed to fetch diary entries" }, { status: 500 });
   }
 }
@@ -88,7 +89,7 @@ export async function POST(req: Request, { params }: { params: { essenzId: strin
 
     return NextResponse.json({ entry }, { status: 201 });
   } catch (error) {
-    console.error("[Diary POST]", error);
+    logger.error("[Diary POST]", error);
     return NextResponse.json({ error: "Failed to create diary entry" }, { status: 500 });
   }
 }

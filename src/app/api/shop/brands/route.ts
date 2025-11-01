@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
@@ -27,7 +28,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ brands });
   } catch (error: any) {
-    console.error("Get brands error:", error);
+    logger.error("Get brands error:", error);
     return NextResponse.json(
       { error: "Failed to fetch brands" },
       { status: 500 }
@@ -71,7 +72,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ brand }, { status: 201 });
   } catch (error: any) {
-    console.error("Create brand error:", error);
+    logger.error("Create brand error:", error);
     return NextResponse.json(
       { error: "Failed to create brand" },
       { status: 500 }

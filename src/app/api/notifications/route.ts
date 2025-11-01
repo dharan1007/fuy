@@ -1,5 +1,6 @@
 // src/app/api/notifications/route.ts
 import { NextResponse } from "next/server";
+import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/db";
 import { requireUserId } from "@/lib/session";
 
@@ -80,7 +81,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ notifications: enrichedNotifications });
   } catch (error: any) {
-    console.error("Get notifications error:", error);
+    logger.error("Get notifications error:", error);
     if (error?.message === "UNAUTHENTICATED") {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
@@ -132,7 +133,7 @@ export async function PATCH(req: Request) {
 
     return NextResponse.json({ notification: updated });
   } catch (error: any) {
-    console.error("Mark notification read error:", error);
+    logger.error("Mark notification read error:", error);
     if (error?.message === "UNAUTHENTICATED") {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
@@ -174,7 +175,7 @@ export async function DELETE(req: Request) {
 
     return NextResponse.json({ message: "Notification deleted" });
   } catch (error: any) {
-    console.error("Delete notification error:", error);
+    logger.error("Delete notification error:", error);
     if (error?.message === "UNAUTHENTICATED") {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }

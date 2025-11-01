@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 // src/app/api/users/search/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
@@ -40,7 +41,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ users });
   } catch (error: any) {
-    console.error("Search users error:", error);
+    logger.error("Search users error:", error);
     if (error?.message === "UNAUTHENTICATED") {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }

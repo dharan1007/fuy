@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
@@ -35,7 +36,7 @@ export async function GET(
 
     return NextResponse.json(review);
   } catch (error) {
-    console.error("Failed to fetch review:", error);
+    logger.error("Failed to fetch review:", error);
     return NextResponse.json(
       { error: "Failed to fetch review" },
       { status: 500 }
@@ -93,7 +94,7 @@ export async function PUT(
 
     return NextResponse.json(updated);
   } catch (error) {
-    console.error("Failed to update review:", error);
+    logger.error("Failed to update review:", error);
     return NextResponse.json(
       { error: "Failed to update review" },
       { status: 500 }
@@ -140,7 +141,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Failed to delete review:", error);
+    logger.error("Failed to delete review:", error);
     return NextResponse.json(
       { error: "Failed to delete review" },
       { status: 500 }

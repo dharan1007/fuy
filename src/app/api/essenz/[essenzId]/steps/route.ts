@@ -1,10 +1,11 @@
+import { logger } from "@/lib/logger";
 import { getServerSession } from "next-auth/next";
 import { NextResponse } from "next/server";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 // GET /api/essenz/[essenzId]/steps
-export async function GET(req: Request, { params }: { params: { essenzId: string } }) {
+export async function GET(_req: Request, { params }: { params: { essenzId: string } }) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
@@ -31,7 +32,7 @@ export async function GET(req: Request, { params }: { params: { essenzId: string
 
     return NextResponse.json({ steps });
   } catch (error) {
-    console.error("[Steps GET]", error);
+    logger.error("[Steps GET]", error);
     return NextResponse.json({ error: "Failed to fetch steps" }, { status: 500 });
   }
 }
@@ -80,19 +81,21 @@ export async function POST(req: Request, { params }: { params: { essenzId: strin
       _max: { order: true },
     });
 
+    const stepNumber = (maxOrder._max.order || -1) + 1;
     const step = await prisma.stepBreakdown.create({
       data: {
         nodeId: stepsNode.id,
         title,
         duration: duration || undefined,
         difficulty: difficulty || "MEDIUM",
-        order: (maxOrder._max.order || -1) + 1,
+        stepNumber,
+        order: stepNumber,
       },
     });
 
     return NextResponse.json({ step }, { status: 201 });
   } catch (error) {
-    console.error("[Steps POST]", error);
+    logger.error("[Steps POST]", error);
     return NextResponse.json({ error: "Failed to create step" }, { status: 500 });
   }
 }

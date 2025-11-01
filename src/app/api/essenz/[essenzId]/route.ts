@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { getServerSession } from "next-auth/next";
 import { NextResponse } from "next/server";
 import { authOptions } from "@/lib/auth";
@@ -35,7 +36,7 @@ export async function PATCH(req: Request, { params }: { params: { essenzId: stri
 
     return NextResponse.json({ goal: updated });
   } catch (error) {
-    console.error("[Essenz PATCH]", error);
+    logger.error("[Essenz PATCH]", error);
     return NextResponse.json({ error: "Failed to update essenz goal" }, { status: 500 });
   }
 }
@@ -65,7 +66,7 @@ export async function DELETE(req: Request, { params }: { params: { essenzId: str
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("[Essenz DELETE]", error);
+    logger.error("[Essenz DELETE]", error);
     return NextResponse.json({ error: "Failed to delete essenz goal" }, { status: 500 });
   }
 }

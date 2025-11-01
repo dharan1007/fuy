@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { getServerSession } from "next-auth/next";
 import { NextResponse } from "next/server";
 import { authOptions } from "@/lib/auth";
@@ -31,7 +32,7 @@ export async function GET(req: Request, { params }: { params: { essenzId: string
 
     return NextResponse.json({ resources });
   } catch (error) {
-    console.error("[Resources GET]", error);
+    logger.error("[Resources GET]", error);
     return NextResponse.json({ error: "Failed to fetch resources" }, { status: 500 });
   }
 }
@@ -87,7 +88,7 @@ export async function POST(req: Request, { params }: { params: { essenzId: strin
 
     return NextResponse.json({ resource }, { status: 201 });
   } catch (error) {
-    console.error("[Resources POST]", error);
+    logger.error("[Resources POST]", error);
     return NextResponse.json({ error: "Failed to create resource" }, { status: 500 });
   }
 }

@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 // src/app/api/auth/change-password/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
@@ -56,7 +57,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ message: "Password updated successfully" });
   } catch (error: any) {
-    console.error("Change password error:", error);
+    logger.error("Change password error:", error);
     if (error?.message === "UNAUTHENTICATED") {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }

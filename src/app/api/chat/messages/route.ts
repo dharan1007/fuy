@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 // src/app/api/chat/messages/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
@@ -72,7 +73,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ messages });
   } catch (error: any) {
-    console.error("Get messages error:", error);
+    logger.error("Get messages error:", error);
     if (error?.message === "UNAUTHENTICATED") {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
@@ -171,7 +172,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ message }, { status: 201 });
   } catch (error: any) {
-    console.error("Send message error:", error);
+    logger.error("Send message error:", error);
     if (error?.message === "UNAUTHENTICATED") {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }

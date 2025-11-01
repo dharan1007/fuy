@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
@@ -19,7 +20,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ deals });
   } catch (error: any) {
-    console.error("Get deals error:", error);
+    logger.error("Get deals error:", error);
     return NextResponse.json(
       { error: "Failed to fetch deals" },
       { status: 500 }

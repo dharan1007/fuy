@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useCartStore } from "@/lib/cartStore";
+import AppHeader from "@/components/AppHeader";
 
 interface Product {
   id: string;
@@ -195,25 +196,10 @@ export default function ProductDetailPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header Navigation */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <Link href="/shop" className="hover:text-gray-900">
-              Shop
-            </Link>
-            <span>/</span>
-            <Link href={`/shop?brand=${product.brand.slug}`} className="hover:text-gray-900">
-              {product.brand.name}
-            </Link>
-            <span>/</span>
-            <span className="text-gray-900 font-medium">{product.name}</span>
-          </div>
-        </div>
-      </div>
+      <AppHeader title={product.name} showBackButton />
 
       {/* Main Product Section */}
-      <div className="max-w-7xl mx-auto px-4 py-12">
+      <div className="max-w-7xl mx-auto px-4 py-12 pt-4 sm:pt-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
           {/* Product Image */}
           <div className="flex flex-col gap-4">

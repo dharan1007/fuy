@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { logger } from "@/lib/logger";
 
 export async function GET(
   req: NextRequest,
@@ -56,7 +57,6 @@ export async function GET(
           select: {
             id: true,
             name: true,
-            profile: { select: { avatarUrl: true } },
           },
         },
       },
@@ -65,7 +65,7 @@ export async function GET(
 
     return NextResponse.json(photos);
   } catch (error) {
-    console.error("Failed to fetch waypoint photos:", error);
+    logger.error("Failed to fetch waypoint photos:", error);
     return NextResponse.json(
       { error: "Failed to fetch photos" },
       { status: 500 }
@@ -138,7 +138,7 @@ export async function POST(
 
     return NextResponse.json(photo, { status: 201 });
   } catch (error) {
-    console.error("Failed to create waypoint photo:", error);
+    logger.error("Failed to create waypoint photo:", error);
     return NextResponse.json(
       { error: "Failed to create photo" },
       { status: 500 }

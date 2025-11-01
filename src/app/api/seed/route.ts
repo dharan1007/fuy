@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 
@@ -56,7 +57,7 @@ export async function POST(req: Request) {
 
         created.push(userData.email);
       } catch (error) {
-        console.error(`Error creating user ${userData.email}:`, error);
+        logger.error(`Error creating user ${userData.email}:`, error);
       }
     }
 
@@ -69,7 +70,7 @@ export async function POST(req: Request) {
       { status: 200 }
     );
   } catch (error: any) {
-    console.error("Seeding error:", error);
+    logger.error("Seeding error:", error);
     return NextResponse.json(
       { error: "Failed to seed database", details: error.message },
       { status: 500 }
