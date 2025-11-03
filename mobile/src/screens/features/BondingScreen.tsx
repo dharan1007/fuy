@@ -14,50 +14,6 @@ const COLORS = {
   textMuted: 'rgba(232, 232, 240, 0.6)',
 };
 
-interface Connection {
-  id: string;
-  name: string;
-  status: 'close' | 'friend' | 'acquaintance';
-  sharedMoments: number;
-  lastInteraction: string;
-  vibe: string;
-}
-
-const MOCK_CONNECTIONS: Connection[] = [
-  {
-    id: '1',
-    name: 'Alex Chen',
-    status: 'close',
-    sharedMoments: 45,
-    lastInteraction: '2 hours ago',
-    vibe: '✨ Creative Energy',
-  },
-  {
-    id: '2',
-    name: 'Jordan Smith',
-    status: 'friend',
-    sharedMoments: 23,
-    lastInteraction: '1 day ago',
-    vibe: '🧘 Zen Vibes',
-  },
-  {
-    id: '3',
-    name: 'Sam Taylor',
-    status: 'friend',
-    sharedMoments: 18,
-    lastInteraction: '3 days ago',
-    vibe: '🚀 Adventure Seeker',
-  },
-  {
-    id: '4',
-    name: 'Morgan Lee',
-    status: 'acquaintance',
-    sharedMoments: 7,
-    lastInteraction: '1 week ago',
-    vibe: '🎨 Artist',
-  },
-];
-
 export default function BondingScreen() {
   const { connections, loading, error, loadConnections } = useBonding();
   const [selectedTab, setSelectedTab] = useState<'all' | 'close' | 'friends'>('all');

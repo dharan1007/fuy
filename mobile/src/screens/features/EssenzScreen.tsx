@@ -14,65 +14,6 @@ const COLORS = {
   textMuted: 'rgba(232, 232, 240, 0.6)',
 };
 
-interface Challenge {
-  id: string;
-  name: string;
-  description: string;
-  category: string;
-  progress: number;
-  totalSteps: number;
-  daysLeft: number;
-  difficulty: 'easy' | 'medium' | 'hard';
-  reward: number;
-}
-
-const MOCK_CHALLENGES: Challenge[] = [
-  {
-    id: '1',
-    name: '30-Day Meditation',
-    description: 'Meditate for 10 minutes every day',
-    category: 'Wellness',
-    progress: 18,
-    totalSteps: 30,
-    daysLeft: 12,
-    difficulty: 'medium',
-    reward: 500,
-  },
-  {
-    id: '2',
-    name: 'Daily Gratitude',
-    description: 'Write 3 things you\'re grateful for',
-    category: 'Mindfulness',
-    progress: 25,
-    totalSteps: 30,
-    daysLeft: 5,
-    difficulty: 'easy',
-    reward: 300,
-  },
-  {
-    id: '3',
-    name: 'Creative Writing Sprint',
-    description: 'Write 1000 words per day',
-    category: 'Creativity',
-    progress: 5,
-    totalSteps: 14,
-    daysLeft: 9,
-    difficulty: 'hard',
-    reward: 750,
-  },
-  {
-    id: '4',
-    name: 'Fitness Streak',
-    description: 'Exercise for 30 minutes daily',
-    category: 'Health',
-    progress: 12,
-    totalSteps: 21,
-    daysLeft: 9,
-    difficulty: 'medium',
-    reward: 600,
-  },
-];
-
 export default function EssenzScreen() {
   const { challenges, loading, error, loadChallenges } = useEssenz();
   const [activeTab, setActiveTab] = useState<'active' | 'completed'>('active');

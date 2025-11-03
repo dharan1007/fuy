@@ -135,7 +135,7 @@ export default function HoplnScreen() {
                 <View style={styles.routeInfo}>
                   <Text style={styles.routeName}>{item.name}</Text>
                   <Text style={styles.routeDate}>
-                    {item.startedAt ? new Date(item.startedAt).toLocaleDateString() : 'Not started'}
+                    {item.startedAt || 'Not started'}
                   </Text>
                 </View>
               </View>

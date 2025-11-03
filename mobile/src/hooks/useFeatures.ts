@@ -1,6 +1,14 @@
 import { useState, useCallback } from 'react';
 import { useFeaturesStore } from '../store/featuresStore';
 import { apiService } from '../services/apiService';
+import {
+  MOCK_ROUTES,
+  MOCK_CHALLENGES,
+  MOCK_CONNECTIONS,
+  MOCK_LEADERBOARD,
+  MOCK_SHOP_ITEMS,
+  MOCK_USER_RANK,
+} from '../constants/dummyData';
 
 export function useHopln() {
   const { routes, loading, error, setRoutes, addRoute, updateRoute, deleteRoute, setLoading, setError } =
@@ -11,9 +19,11 @@ export function useHopln() {
     setError(null);
     try {
       const data = await apiService.getRoutes(1);
-      setRoutes(data.routes || []);
+      setRoutes(data.routes || MOCK_ROUTES);
     } catch (err: any) {
-      setError(err.message || 'Failed to load routes');
+      // Use mock data as fallback
+      setRoutes(MOCK_ROUTES);
+      console.warn('Using mock routes data:', err.message);
     } finally {
       setLoading(false);
     }
@@ -56,9 +66,11 @@ export function useEssenz() {
     setError(null);
     try {
       const data = await apiService.getChallenges(1);
-      setChallenges(data.challenges || []);
+      setChallenges(data.challenges || MOCK_CHALLENGES);
     } catch (err: any) {
-      setError(err.message || 'Failed to load challenges');
+      // Use mock data as fallback
+      setChallenges(MOCK_CHALLENGES);
+      console.warn('Using mock challenges data:', err.message);
     } finally {
       setLoading(false);
     }
@@ -109,9 +121,11 @@ export function useBonding() {
     setError(null);
     try {
       const data = await apiService.getConnections(1);
-      setConnections(data.connections || []);
+      setConnections(data.connections || MOCK_CONNECTIONS);
     } catch (err: any) {
-      setError(err.message || 'Failed to load connections');
+      // Use mock data as fallback
+      setConnections(MOCK_CONNECTIONS);
+      console.warn('Using mock connections data:', err.message);
     } finally {
       setLoading(false);
     }
@@ -149,9 +163,11 @@ export function useRanking() {
     setError(null);
     try {
       const data = await apiService.getLeaderboard(type);
-      setLeaderboard(data.leaderboard || []);
+      setLeaderboard(data.leaderboard || MOCK_LEADERBOARD);
     } catch (err: any) {
-      setError(err.message || 'Failed to load leaderboard');
+      // Use mock data as fallback
+      setLeaderboard(MOCK_LEADERBOARD);
+      console.warn('Using mock leaderboard data:', err.message);
     } finally {
       setLoading(false);
     }
@@ -161,9 +177,11 @@ export function useRanking() {
     setError(null);
     try {
       const data = await apiService.getUserRank();
-      setUserRank(data);
+      setUserRank(data || MOCK_USER_RANK);
     } catch (err: any) {
-      setError(err.message || 'Failed to load user rank');
+      // Use mock data as fallback
+      setUserRank(MOCK_USER_RANK);
+      console.warn('Using mock user rank data:', err.message);
     }
   }, [setUserRank, setError]);
 
@@ -179,9 +197,11 @@ export function useShop() {
     setError(null);
     try {
       const data = await apiService.getShopItems(1);
-      setShopItems(data.items || []);
+      setShopItems(data.items || MOCK_SHOP_ITEMS);
     } catch (err: any) {
-      setError(err.message || 'Failed to load shop items');
+      // Use mock data as fallback
+      setShopItems(MOCK_SHOP_ITEMS);
+      console.warn('Using mock shop items data:', err.message);
     } finally {
       setLoading(false);
     }

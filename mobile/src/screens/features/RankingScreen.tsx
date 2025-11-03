@@ -14,23 +14,6 @@ const COLORS = {
   textMuted: 'rgba(232, 232, 240, 0.6)',
 };
 
-interface LeaderboardEntry {
-  rank: number;
-  name: string;
-  score: number;
-  trend: 'up' | 'down' | 'stable';
-  badges: string;
-}
-
-const MOCK_LEADERBOARD: LeaderboardEntry[] = [
-  { rank: 1, name: 'Alex Chen', score: 8450, trend: 'up', badges: '🏆🎨✨' },
-  { rank: 2, name: 'Jordan Smith', score: 7820, trend: 'stable', badges: '🥈🧘' },
-  { rank: 3, name: 'You', score: 6540, trend: 'up', badges: '🥉🚀' },
-  { rank: 4, name: 'Sam Taylor', score: 5120, trend: 'down', badges: '🎨💪' },
-  { rank: 5, name: 'Morgan Lee', score: 4890, trend: 'up', badges: '✨🌟' },
-  { rank: 6, name: 'Casey Kim', score: 3450, trend: 'stable', badges: '🎯' },
-];
-
 export default function RankingScreen() {
   const { leaderboard, loading, error, loadLeaderboard, userRank } = useRanking();
   const [selectedTab, setSelectedTab] = useState<'global' | 'friends' | 'weekly'>('global');
