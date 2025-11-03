@@ -3,7 +3,8 @@
     "allow": [
       "Bash(npx prisma migrate:*)",
       "Bash(npx prisma db push:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(powershell:*)"
     ],
     "deny": [],
     "ask": []

@@ -1,5 +1,7 @@
 // src/app/layout.tsx
 import "./globals.css";
+import "@/styles/global.css";
+import "@/styles/atrium.css";
 import type { Metadata } from "next";
 import RouteProgress from "@/components/RouteProgress";
 import { Providers } from "@/components/Providers";

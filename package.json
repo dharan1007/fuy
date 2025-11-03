@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3000",
+    "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "next start -p $PORT",
     "lint": "eslint . --ext .ts,.tsx",

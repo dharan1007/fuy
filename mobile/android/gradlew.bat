@@ -35,9 +35,12 @@ for %%i in ("%APP_HOME%") do set APP_HOME=%%~fi
 @rem Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
 set DEFAULT_JVM_OPTS="-Xmx64m" "-Xms64m"
 
+@rem CRITICAL: Force JDK 17 for Android Gradle Plugin 8.1.1 compatibility
+@rem AGP 8.1.1 is incompatible with JDK 21. Always use JDK 17 for Android builds.
+set JAVA_HOME=C:\Users\dhara\AppData\Local\Programs\Eclipse Adoptium\jdk-17.0.17.10-hotspot
+set PATH=C:\Users\dhara\AppData\Local\Programs\Eclipse Adoptium\jdk-17.0.17.10-hotspot\bin;%PATH:C:\Program Files\Eclipse Adoptium\jdk-21.0.5.11-hotspot\bin;=%
+
 @rem Find java.exe
-@rem Force JDK 17 for Android Gradle Plugin 8.1.1 compatibility
-if not defined JAVA_HOME set JAVA_HOME=C:\Users\dhara\AppData\Local\Programs\Eclipse Adoptium\jdk-17.0.17.10-hotspot
 if defined JAVA_HOME goto findJavaFromJavaHome
 
 set JAVA_EXE=java.exe
