@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "FUY",
+    "slug": "fuy-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": { "bundleIdentifier": "com.fuy.mobile" },
+    "android": { "package": "com.fuy.mobile" },
+    "extra": {
+      "USE_EMULATOR": "false",
+      "EXPO_PUBLIC_API_URL": "",
+      "eas": {
+        "projectId": "YOUR_EAS_PROJECT_ID"
+      },
+      "ONESIGNAL_APP_ID": "YOUR_ONESIGNAL_APP_ID",
+      "ONESIGNAL_REST_API_KEY": "YOUR_ONESIGNAL_REST_API_KEY"
+    },
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
+    ]
+  }
+}
