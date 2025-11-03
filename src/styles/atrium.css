@@ -1,0 +1,287 @@
+/* ATRIUM - Advanced Thoughtful Response Interface User Module */
+/* This CSS provides styling for the Atrium experience within Fuy */
+
+/* Atrium Container */
+.atrium-container {
+  position: relative;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+/* Atrium Main Content */
+.atrium-content {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2rem;
+  animation: fadeIn 0.3s ease-in;
+}
+
+@media (min-width: 768px) {
+  .atrium-content {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Atrium Cards */
+.atrium-card {
+  background: linear-gradient(135deg, rgba(106, 168, 255, 0.1), rgba(184, 143, 255, 0.1));
+  border: 1px solid rgba(106, 168, 255, 0.2);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+}
+
+.atrium-card:hover {
+  border-color: rgba(106, 168, 255, 0.4);
+  box-shadow: 0 8px 24px rgba(106, 168, 255, 0.15);
+  transform: translateY(-4px);
+}
+
+/* Atrium Header */
+.atrium-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid rgba(106, 168, 255, 0.2);
+}
+
+.atrium-icon {
+  font-size: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  background: rgba(106, 168, 255, 0.15);
+  border-radius: 0.75rem;
+}
+
+.atrium-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-dark-text);
+}
+
+html.dark .atrium-title {
+  color: var(--color-dark-text);
+}
+
+/* Atrium Features */
+.atrium-features {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.atrium-feature {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.atrium-feature-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+  margin-top: 0.25rem;
+}
+
+.atrium-feature-content {
+  flex: 1;
+}
+
+.atrium-feature-title {
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+  font-size: 1rem;
+}
+
+.atrium-feature-description {
+  font-size: 0.9rem;
+  opacity: 0.8;
+  line-height: 1.5;
+}
+
+/* Atrium Button */
+.atrium-button {
+  background: linear-gradient(135deg, #6aa8ff, #b88fff);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 1rem;
+}
+
+.atrium-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(106, 168, 255, 0.3);
+}
+
+.atrium-button:active {
+  transform: translateY(0);
+}
+
+.atrium-button-secondary {
+  background: rgba(106, 168, 255, 0.2);
+  color: var(--color-primary);
+  border: 1px solid rgba(106, 168, 255, 0.4);
+}
+
+.atrium-button-secondary:hover {
+  background: rgba(106, 168, 255, 0.3);
+  border-color: rgba(106, 168, 255, 0.6);
+}
+
+/* Atrium Grid */
+.atrium-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+/* Atrium Badge */
+.atrium-badge {
+  display: inline-block;
+  background: rgba(56, 214, 122, 0.2);
+  color: #38d67a;
+  padding: 0.25rem 0.75rem;
+  border-radius: 2rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: 1px solid rgba(56, 214, 122, 0.4);
+}
+
+.atrium-badge.accent {
+  background: rgba(255, 179, 102, 0.2);
+  color: #ffb366;
+  border-color: rgba(255, 179, 102, 0.4);
+}
+
+.atrium-badge.primary {
+  background: rgba(106, 168, 255, 0.2);
+  color: #6aa8ff;
+  border-color: rgba(106, 168, 255, 0.4);
+}
+
+.atrium-badge.secondary {
+  background: rgba(184, 143, 255, 0.2);
+  color: #b88fff;
+  border-color: rgba(184, 143, 255, 0.4);
+}
+
+/* Atrium Section */
+.atrium-section {
+  margin: 2rem 0;
+  padding: 2rem;
+  background: rgba(106, 168, 255, 0.05);
+  border-radius: 1rem;
+  border-left: 4px solid var(--color-primary);
+}
+
+.atrium-section-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+}
+
+.atrium-section-content {
+  line-height: 1.8;
+  opacity: 0.9;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.atrium-animate-in {
+  animation: fadeIn 0.3s ease-in;
+}
+
+.atrium-animate-pulse {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .atrium-container {
+    padding: 1rem;
+  }
+
+  .atrium-grid {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+
+  .atrium-section {
+    padding: 1.5rem;
+  }
+
+  .atrium-title {
+    font-size: 1.25rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .atrium-container {
+    padding: 1rem;
+  }
+
+  .atrium-card {
+    padding: 1rem;
+  }
+
+  .atrium-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .atrium-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
