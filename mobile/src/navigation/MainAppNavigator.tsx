@@ -14,6 +14,19 @@ import HoplnScreen from '../screens/features/HoplnScreen';
 import EssenzScreen from '../screens/features/EssenzScreen';
 import ShopScreen from '../screens/features/ShopScreen';
 
+// Import custom icons
+import {
+  HomeIcon,
+  MessagesIcon,
+  DiscoverIcon,
+  ProfileIcon,
+  NotificationIcon,
+  CanvasIcon,
+  HoplnIcon,
+  EssenzIcon,
+  ShopIcon,
+} from '../components/CustomIcons';
+
 // Colors
 const COLORS = {
   primary: '#6AA8FF',
@@ -76,32 +89,37 @@ export function TopTabNavigator() {
               style={[styles.navIcon, topTab === 'home' && styles.navIconActive]}
               onPress={() => setTopTab('home')}
             >
-              <Text style={styles.navIconText}>🏠</Text>
+              <HomeIcon size={20} color={topTab === 'home' ? COLORS.primary : COLORS.textMuted} />
             </Pressable>
             <Pressable
               style={[styles.navIcon, topTab === 'messages' && styles.navIconActive]}
               onPress={() => setTopTab('messages')}
             >
-              <Text style={styles.navIconText}>💬</Text>
+              <MessagesIcon size={20} color={topTab === 'messages' ? COLORS.primary : COLORS.textMuted} />
             </Pressable>
             <Pressable
               style={[styles.navIcon, topTab === 'discover' && styles.navIconActive]}
               onPress={() => setTopTab('discover')}
             >
-              <Text style={styles.navIconText}>🔍</Text>
+              <DiscoverIcon size={20} color={topTab === 'discover' ? COLORS.primary : COLORS.textMuted} />
             </Pressable>
           </View>
 
           {/* App title/logo in center */}
           <Text style={styles.headerTitle}>fuy</Text>
 
-          {/* Profile icon - right */}
-          <Pressable
-            style={[styles.profileIcon, topTab === 'profile' && styles.profileIconActive]}
-            onPress={() => setTopTab('profile')}
-          >
-            <Text style={styles.profileIconText}>👤</Text>
-          </Pressable>
+          {/* Right side - Notification + Profile */}
+          <View style={styles.headerRight}>
+            <Pressable style={styles.notificationBtn}>
+              <NotificationIcon size={20} color={COLORS.textMuted} />
+            </Pressable>
+            <Pressable
+              style={[styles.profileIcon, topTab === 'profile' && styles.profileIconActive]}
+              onPress={() => setTopTab('profile')}
+            >
+              <ProfileIcon size={20} color={topTab === 'profile' ? COLORS.primary : COLORS.textMuted} />
+            </Pressable>
+          </View>
         </View>
       </SafeAreaView>
 
@@ -121,7 +139,7 @@ export function TopTabNavigator() {
               setTopTab('home');
             }}
           >
-            <Text style={styles.bottomTabIcon}>🎨</Text>
+            <CanvasIcon size={20} color={bottomTab === 'canvas' ? COLORS.primary : COLORS.textMuted} />
             <Text style={[styles.bottomTabLabel, bottomTab === 'canvas' && styles.bottomTabLabelActive]}>
               Canvas
             </Text>
@@ -134,7 +152,7 @@ export function TopTabNavigator() {
               setTopTab('home');
             }}
           >
-            <Text style={styles.bottomTabIcon}>🚀</Text>
+            <HoplnIcon size={20} color={bottomTab === 'hopln' ? COLORS.primary : COLORS.textMuted} />
             <Text style={[styles.bottomTabLabel, bottomTab === 'hopln' && styles.bottomTabLabelActive]}>
               Hopln
             </Text>
@@ -155,7 +173,7 @@ export function TopTabNavigator() {
               setTopTab('home');
             }}
           >
-            <Text style={styles.bottomTabIcon}>✨</Text>
+            <EssenzIcon size={20} color={bottomTab === 'essenz' ? COLORS.primary : COLORS.textMuted} />
             <Text style={[styles.bottomTabLabel, bottomTab === 'essenz' && styles.bottomTabLabelActive]}>
               Essenz
             </Text>
@@ -168,7 +186,7 @@ export function TopTabNavigator() {
               setTopTab('home');
             }}
           >
-            <Text style={styles.bottomTabIcon}>🛍️</Text>
+            <ShopIcon size={20} color={bottomTab === 'shop' ? COLORS.primary : COLORS.textMuted} />
             <Text style={[styles.bottomTabLabel, bottomTab === 'shop' && styles.bottomTabLabelActive]}>
               Shop
             </Text>
@@ -203,11 +221,24 @@ const styles = StyleSheet.create({
     gap: 12,
     alignItems: 'center',
   },
+  headerRight: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: COLORS.primary,
     letterSpacing: 1,
+  },
+  notificationBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
   },
   navIcon: {
     width: 40,
@@ -279,10 +310,6 @@ const styles = StyleSheet.create({
   },
   bottomTabActive: {
     backgroundColor: 'rgba(106, 168, 255, 0.15)',
-  },
-  bottomTabIcon: {
-    fontSize: 20,
-    marginBottom: 2,
   },
   bottomTabLabel: {
     fontSize: 10,
