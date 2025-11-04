@@ -1,26 +1,18 @@
 import React from 'react';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, StyleSheet, Pressable, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// Import top tab screens
+// Import screens
 import HomeScreen from '../screens/HomeScreen';
-import ComponentsHubScreen from '../screens/ComponentsHubScreen';
 import MessagesScreen from '../screens/MessagesScreen';
 import DiscoverScreen from '../screens/DiscoverScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 
-// Import bottom tab screens (features)
+// Import feature screens
 import CanvasScreen from '../screens/features/CanvasScreen';
 import HoplnScreen from '../screens/features/HoplnScreen';
 import EssenzScreen from '../screens/features/EssenzScreen';
-import BondingScreen from '../screens/features/BondingScreen';
-import RankingScreen from '../screens/features/RankingScreen';
 import ShopScreen from '../screens/features/ShopScreen';
-
-const Stack = createNativeStackNavigator();
-const Tab = createBottomTabNavigator();
 
 // Colors
 const COLORS = {
@@ -32,20 +24,17 @@ const COLORS = {
   surface: '#1A1A22',
   text: '#E8E8F0',
   textMuted: 'rgba(232, 232, 240, 0.6)',
+  border: 'rgba(255, 255, 255, 0.08)',
 };
 
-/**
- * TOP HEADER NAVIGATION (5 Main Tabs)
- */
 export function TopTabNavigator() {
-  const [activeTab, setActiveTab] = React.useState<'home' | 'components' | 'messages' | 'discover' | 'profile'>('home');
+  const [topTab, setTopTab] = React.useState<'home' | 'messages' | 'discover' | 'profile'>('home');
+  const [bottomTab, setBottomTab] = React.useState<'canvas' | 'hopln' | 'essenz' | 'shop'>('canvas');
 
-  const renderContent = () => {
-    switch (activeTab) {
+  const renderTopContent = () => {
+    switch (topTab) {
       case 'home':
         return <HomeScreen />;
-      case 'components':
-        return <ComponentsHubScreen />;
       case 'messages':
         return <MessagesScreen />;
       case 'discover':
@@ -57,48 +46,14 @@ export function TopTabNavigator() {
     }
   };
 
-  return (
-    <View style={styles.container}>
-      {/* Top Header with SafeAreaView to prevent status bar overlap */}
-      <SafeAreaView style={styles.safeTopHeader} edges={['top']}>
-        <View style={styles.topHeader}>
-          <TabButton label="Home" isActive={activeTab === 'home'} onPress={() => setActiveTab('home')} />
-          <TabButton label="Components" isActive={activeTab === 'components'} onPress={() => setActiveTab('components')} />
-          <TabButton label="Messages" isActive={activeTab === 'messages'} onPress={() => setActiveTab('messages')} />
-          <TabButton label="Discover" isActive={activeTab === 'discover'} onPress={() => setActiveTab('discover')} />
-          <TabButton label="Profile" isActive={activeTab === 'profile'} onPress={() => setActiveTab('profile')} />
-        </View>
-      </SafeAreaView>
-
-      {/* Content Area */}
-      <View style={styles.contentArea}>
-        {renderContent()}
-      </View>
-
-      {/* Bottom Feature Tabs */}
-      <FeatureTabBar />
-    </View>
-  );
-}
-
-/**
- * BOTTOM FEATURE TABS (6 Bottom Navigation Tabs)
- */
-function FeatureTabBar() {
-  const [activeFeature, setActiveFeature] = React.useState<'canvas' | 'hopln' | 'essenz' | 'bonding' | 'ranking' | 'shop'>('canvas');
-
-  const renderFeatureContent = () => {
-    switch (activeFeature) {
+  const renderBottomContent = () => {
+    switch (bottomTab) {
       case 'canvas':
         return <CanvasScreen />;
       case 'hopln':
         return <HoplnScreen />;
       case 'essenz':
         return <EssenzScreen />;
-      case 'bonding':
-        return <BondingScreen />;
-      case 'ranking':
-        return <RankingScreen />;
       case 'shop':
         return <ShopScreen />;
       default:
@@ -106,55 +61,121 @@ function FeatureTabBar() {
     }
   };
 
-  const features = [
-    { id: 'canvas', label: 'Canvas', icon: '🎨' },
-    { id: 'hopln', label: 'Hopln', icon: '🚀' },
-    { id: 'essenz', label: 'Essenz', icon: '✨' },
-    { id: 'bonding', label: 'Bonding', icon: '🔗' },
-    { id: 'ranking', label: 'Ranking', icon: '🏆' },
-    { id: 'shop', label: 'Shop', icon: '🛍️' },
-  ];
+  // Determine which content to show based on active tabs
+  const isTopTabActive = topTab !== 'home';
+  const activeScreen = isTopTabActive ? renderTopContent() : renderBottomContent();
 
   return (
-    <View style={styles.featureContainer}>
-      {/* Feature Content */}
-      <View style={styles.featureContent}>
-        {renderFeatureContent()}
+    <View style={styles.container}>
+      {/* TOP HEADER - PROFESSIONAL MINIMALISTIC */}
+      <SafeAreaView style={styles.headerSafeArea} edges={['top']}>
+        <View style={styles.header}>
+          {/* Left navigation icons */}
+          <View style={styles.headerLeft}>
+            <Pressable
+              style={[styles.navIcon, topTab === 'home' && styles.navIconActive]}
+              onPress={() => setTopTab('home')}
+            >
+              <Text style={styles.navIconText}>🏠</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.navIcon, topTab === 'messages' && styles.navIconActive]}
+              onPress={() => setTopTab('messages')}
+            >
+              <Text style={styles.navIconText}>💬</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.navIcon, topTab === 'discover' && styles.navIconActive]}
+              onPress={() => setTopTab('discover')}
+            >
+              <Text style={styles.navIconText}>🔍</Text>
+            </Pressable>
+          </View>
+
+          {/* App title/logo in center */}
+          <Text style={styles.headerTitle}>fuy</Text>
+
+          {/* Profile icon - right */}
+          <Pressable
+            style={[styles.profileIcon, topTab === 'profile' && styles.profileIconActive]}
+            onPress={() => setTopTab('profile')}
+          >
+            <Text style={styles.profileIconText}>👤</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+
+      {/* MAIN CONTENT AREA */}
+      <View style={styles.contentContainer}>
+        {activeScreen}
       </View>
 
-      {/* Feature Tabs */}
-      <View style={styles.bottomTabs}>
-        {features.map((feature) => (
+      {/* BOTTOM NAVIGATION BAR - PROFESSIONAL WITH CREATE BUTTON */}
+      <View style={styles.bottomBar}>
+        {/* Left tabs */}
+        <View style={styles.bottomLeftTabs}>
           <Pressable
-            key={feature.id}
-            style={[styles.featureTab, activeFeature === feature.id && styles.featureTabActive]}
-            onPress={() => setActiveFeature(feature.id as any)}
+            style={[styles.bottomTab, bottomTab === 'canvas' && styles.bottomTabActive]}
+            onPress={() => {
+              setBottomTab('canvas');
+              setTopTab('home');
+            }}
           >
-            <Text style={styles.featureIcon}>{feature.icon}</Text>
-            {activeFeature === feature.id && (
-              <Text style={styles.featureLabel}>{feature.label}</Text>
-            )}
+            <Text style={styles.bottomTabIcon}>🎨</Text>
+            <Text style={[styles.bottomTabLabel, bottomTab === 'canvas' && styles.bottomTabLabelActive]}>
+              Canvas
+            </Text>
           </Pressable>
-        ))}
+
+          <Pressable
+            style={[styles.bottomTab, bottomTab === 'hopln' && styles.bottomTabActive]}
+            onPress={() => {
+              setBottomTab('hopln');
+              setTopTab('home');
+            }}
+          >
+            <Text style={styles.bottomTabIcon}>🚀</Text>
+            <Text style={[styles.bottomTabLabel, bottomTab === 'hopln' && styles.bottomTabLabelActive]}>
+              Hopln
+            </Text>
+          </Pressable>
+        </View>
+
+        {/* Center Create Button */}
+        <Pressable style={styles.createButton}>
+          <Text style={styles.createButtonText}>+</Text>
+        </Pressable>
+
+        {/* Right tabs */}
+        <View style={styles.bottomRightTabs}>
+          <Pressable
+            style={[styles.bottomTab, bottomTab === 'essenz' && styles.bottomTabActive]}
+            onPress={() => {
+              setBottomTab('essenz');
+              setTopTab('home');
+            }}
+          >
+            <Text style={styles.bottomTabIcon}>✨</Text>
+            <Text style={[styles.bottomTabLabel, bottomTab === 'essenz' && styles.bottomTabLabelActive]}>
+              Essenz
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.bottomTab, bottomTab === 'shop' && styles.bottomTabActive]}
+            onPress={() => {
+              setBottomTab('shop');
+              setTopTab('home');
+            }}
+          >
+            <Text style={styles.bottomTabIcon}>🛍️</Text>
+            <Text style={[styles.bottomTabLabel, bottomTab === 'shop' && styles.bottomTabLabelActive]}>
+              Shop
+            </Text>
+          </Pressable>
+        </View>
       </View>
     </View>
-  );
-}
-
-/**
- * Top Tab Button Component
- */
-function TabButton({ label, isActive, onPress }: { label: string; isActive: boolean; onPress: () => void }) {
-  return (
-    <Pressable
-      style={[styles.topTabButton, isActive && styles.topTabButtonActive]}
-      onPress={onPress}
-    >
-      <Text style={[styles.topTabText, isActive && styles.topTabTextActive]}>
-        {label}
-      </Text>
-      {isActive && <View style={styles.topTabIndicator} />}
-    </Pressable>
   );
 }
 
@@ -163,87 +184,136 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.base,
   },
-  safeTopHeader: {
-    backgroundColor: 'rgba(26, 26, 34, 0.8)',
+
+  // HEADER STYLES
+  headerSafeArea: {
+    backgroundColor: COLORS.surface,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    borderBottomColor: COLORS.border,
   },
-  topHeader: {
+  header: {
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.primary,
+    letterSpacing: 1,
+  },
+  navIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+  },
+  navIconActive: {
+    backgroundColor: 'rgba(106, 168, 255, 0.15)',
+  },
+  navIconText: {
+    fontSize: 18,
+  },
+  profileIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+  },
+  profileIconActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  profileIconText: {
+    fontSize: 18,
+  },
+
+  // CONTENT AREA
+  contentContainer: {
+    flex: 1,
+    overflow: 'hidden',
+  },
+
+  // BOTTOM NAV STYLES
+  bottomBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 8,
     paddingVertical: 12,
-    justifyContent: 'space-around',
-  },
-  topTabButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    position: 'relative',
-  },
-  topTabButtonActive: {
-    // Active state
-  },
-  topTabText: {
-    fontSize: 13,
-    color: 'rgba(232, 232, 240, 0.6)',
-    fontWeight: '500',
-  },
-  topTabTextActive: {
-    color: COLORS.primary,
-    fontWeight: '600',
-  },
-  topTabIndicator: {
-    position: 'absolute',
-    bottom: 0,
-    left: 12,
-    right: 12,
-    height: 2,
-    backgroundColor: COLORS.primary,
-    borderRadius: 1,
-  },
-  contentArea: {
-    flex: 1,
-    overflow: 'hidden',
-  },
-  featureContainer: {
-    flex: 1,
-    overflow: 'hidden',
-  },
-  featureContent: {
-    flex: 1,
-    overflow: 'hidden',
-  },
-  bottomTabs: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(26, 26, 34, 0.8)',
+    backgroundColor: COLORS.surface,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-    justifyContent: 'space-around',
-    height: 65,
+    borderTopColor: COLORS.border,
+    height: 80,
   },
-  featureTab: {
+  bottomLeftTabs: {
+    flexDirection: 'row',
+    flex: 1,
+    gap: 4,
+  },
+  bottomRightTabs: {
+    flexDirection: 'row',
+    flex: 1,
+    justifyContent: 'flex-end',
+    gap: 4,
+  },
+  bottomTab: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 8,
     borderRadius: 12,
-    marginHorizontal: 4,
   },
-  featureTabActive: {
+  bottomTabActive: {
     backgroundColor: 'rgba(106, 168, 255, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(106, 168, 255, 0.3)',
   },
-  featureIcon: {
-    fontSize: 24,
-    marginBottom: 4,
+  bottomTabIcon: {
+    fontSize: 20,
+    marginBottom: 2,
   },
-  featureLabel: {
+  bottomTabLabel: {
     fontSize: 10,
+    color: COLORS.textMuted,
+    fontWeight: '500',
+  },
+  bottomTabLabelActive: {
     color: COLORS.primary,
-    fontWeight: '600',
-    textAlign: 'center',
+    fontWeight: '700',
+  },
+
+  // CREATE BUTTON (CENTER)
+  createButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    marginHorizontal: 8,
+  },
+  createButtonText: {
+    fontSize: 32,
+    color: '#000',
+    fontWeight: '700',
+    lineHeight: 36,
   },
 });
 
