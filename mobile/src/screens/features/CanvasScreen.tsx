@@ -122,7 +122,7 @@ export default function CanvasScreen() {
                 </View>
                 <View style={styles.entryMeta}>
                   <Text style={styles.entryTitle}>{item.title}</Text>
-                  <Text style={styles.entryDate}>{new Date(item.createdAt).toLocaleDateString()}</Text>
+                  <Text style={styles.entryDate}>{item.createdAt || 'Unknown date'}</Text>
                 </View>
                 <Pressable
                   style={styles.deleteButton}

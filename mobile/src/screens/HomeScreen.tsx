@@ -55,7 +55,7 @@ export default function HomeScreen() {
               <View style={styles.postMeta}>
                 <Text style={styles.author}>{item.author}</Text>
                 <Text style={styles.postTime}>
-                  {new Date(item.timestamp).toLocaleDateString()}
+                  {item.timestamp || 'Unknown date'}
                 </Text>
               </View>
             </View>

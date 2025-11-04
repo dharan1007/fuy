@@ -1,5 +1,15 @@
 import axios, { AxiosInstance } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  MOCK_CANVAS_ENTRIES,
+  MOCK_SHOP_ITEMS,
+  MOCK_ROUTES,
+  MOCK_CHALLENGES,
+  MOCK_CONNECTIONS,
+  MOCK_LEADERBOARD,
+  MOCK_FEED_POSTS,
+  MOCK_WALLET,
+} from '../constants/dummyData';
 
 const API_BASE_URL = 'http://localhost:3000/api';
 
@@ -38,10 +48,21 @@ class ApiService {
 
   // ===== FEED ENDPOINTS =====
   async getFeed(page: number = 1, limit: number = 10) {
-    const response = await this.axiosInstance.get('/feed', {
-      params: { page, limit },
-    });
-    return response.data;
+    try {
+      const response = await this.axiosInstance.get('/feed', {
+        params: { page, limit },
+      });
+      return response.data;
+    } catch (error) {
+      // Fallback to mock data when API is unavailable
+      return {
+        posts: MOCK_FEED_POSTS,
+        totalCount: MOCK_FEED_POSTS.length,
+        page,
+        limit,
+        hasMore: false,
+      };
+    }
   }
 
   async createPost(data: { content: string; mood?: string }) {
@@ -88,10 +109,20 @@ class ApiService {
 
   // ===== CANVAS (JOURNAL) ENDPOINTS =====
   async getJournalEntries(page: number = 1, limit: number = 10) {
-    const response = await this.axiosInstance.get('/canvas', {
-      params: { page, limit },
-    });
-    return response.data;
+    try {
+      const response = await this.axiosInstance.get('/canvas', {
+        params: { page, limit },
+      });
+      return response.data;
+    } catch (error) {
+      // Fallback to mock data when API is unavailable
+      return {
+        entries: MOCK_CANVAS_ENTRIES,
+        totalCount: MOCK_CANVAS_ENTRIES.length,
+        page,
+        limit,
+      };
+    }
   }
 
   async createJournalEntry(data: {
@@ -205,8 +236,17 @@ class ApiService {
 
   // ===== SHOP ENDPOINTS =====
   async getShopItems(page: number = 1) {
-    const response = await this.axiosInstance.get('/shop', { params: { page } });
-    return response.data;
+    try {
+      const response = await this.axiosInstance.get('/shop', { params: { page } });
+      return response.data;
+    } catch (error) {
+      // Fallback to mock data when API is unavailable
+      return {
+        items: MOCK_SHOP_ITEMS,
+        totalCount: MOCK_SHOP_ITEMS.length,
+        page,
+      };
+    }
   }
 
   async purchaseItem(itemId: string) {
@@ -215,8 +255,18 @@ class ApiService {
   }
 
   async getWalletBalance() {
-    const response = await this.axiosInstance.get('/shop/wallet');
-    return response.data;
+    try {
+      const response = await this.axiosInstance.get('/shop/wallet');
+      return response.data;
+    } catch (error) {
+      // Fallback to mock data when API is unavailable
+      return {
+        balance: MOCK_WALLET.balance,
+        totalEarned: MOCK_WALLET.totalEarned,
+        totalSpent: MOCK_WALLET.totalSpent,
+        currency: MOCK_WALLET.currency,
+      };
+    }
   }
 
   async addWalletBalance(amount: number) {

@@ -289,3 +289,51 @@ export const MOCK_CANVAS_ENTRIES = [
     likes: 19,
   },
 ];
+
+export const MOCK_FEED_POSTS = [
+  {
+    id: '1',
+    author: 'Alex Journey',
+    content: 'Just completed an amazing hiking trail! The views were absolutely breathtaking. Nature never ceases to amaze me 🏔️',
+    timestamp: '2 hours ago',
+    mood: 'joy',
+    reactions: 142,
+    comments: 23,
+  },
+  {
+    id: '2',
+    author: 'Sarah Mindful',
+    content: 'Finished my morning meditation session. Feeling calm and centered for the day ahead. 🧘',
+    timestamp: '5 hours ago',
+    mood: 'calm',
+    reactions: 87,
+    comments: 12,
+  },
+  {
+    id: '3',
+    author: 'Jordan Creative',
+    content: 'Started working on a new creative project! Super excited to see where this journey takes me 🎨',
+    timestamp: '1 day ago',
+    mood: 'joy',
+    reactions: 156,
+    comments: 34,
+  },
+  {
+    id: '4',
+    author: 'Casey Reflect',
+    content: 'Taking a moment to appreciate the little things in life. Gratitude is key ✨',
+    timestamp: '1 day ago',
+    mood: 'reflect',
+    reactions: 201,
+    comments: 45,
+  },
+  {
+    id: '5',
+    author: 'Morgan Active',
+    content: 'Crushed my workout goals today! 💪 Who else is on their fitness journey?',
+    timestamp: '2 days ago',
+    mood: 'joy',
+    reactions: 234,
+    comments: 56,
+  },
+];

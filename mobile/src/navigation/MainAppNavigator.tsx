@@ -2,6 +2,7 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, StyleSheet, Pressable, Text } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Import top tab screens
 import HomeScreen from '../screens/HomeScreen';
@@ -58,14 +59,16 @@ export function TopTabNavigator() {
 
   return (
     <View style={styles.container}>
-      {/* Top Header */}
-      <View style={styles.topHeader}>
-        <TabButton label="Home" isActive={activeTab === 'home'} onPress={() => setActiveTab('home')} />
-        <TabButton label="Components" isActive={activeTab === 'components'} onPress={() => setActiveTab('components')} />
-        <TabButton label="Messages" isActive={activeTab === 'messages'} onPress={() => setActiveTab('messages')} />
-        <TabButton label="Discover" isActive={activeTab === 'discover'} onPress={() => setActiveTab('discover')} />
-        <TabButton label="Profile" isActive={activeTab === 'profile'} onPress={() => setActiveTab('profile')} />
-      </View>
+      {/* Top Header with SafeAreaView to prevent status bar overlap */}
+      <SafeAreaView style={styles.safeTopHeader} edges={['top']}>
+        <View style={styles.topHeader}>
+          <TabButton label="Home" isActive={activeTab === 'home'} onPress={() => setActiveTab('home')} />
+          <TabButton label="Components" isActive={activeTab === 'components'} onPress={() => setActiveTab('components')} />
+          <TabButton label="Messages" isActive={activeTab === 'messages'} onPress={() => setActiveTab('messages')} />
+          <TabButton label="Discover" isActive={activeTab === 'discover'} onPress={() => setActiveTab('discover')} />
+          <TabButton label="Profile" isActive={activeTab === 'profile'} onPress={() => setActiveTab('profile')} />
+        </View>
+      </SafeAreaView>
 
       {/* Content Area */}
       <View style={styles.contentArea}>
@@ -160,11 +163,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.base,
   },
-  topHeader: {
-    flexDirection: 'row',
+  safeTopHeader: {
     backgroundColor: 'rgba(26, 26, 34, 0.8)',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  topHeader: {
+    flexDirection: 'row',
     paddingHorizontal: 8,
     paddingVertical: 12,
     justifyContent: 'space-around',
