@@ -296,68 +296,44 @@ export default function Home() {
           />
         </svg>
       </div>
-      {/* HEADER - Divided Modular Floating */}
+      {/* HEADER - Minimal Floating */}
       <header className="sticky top-0 z-40 px-6 py-4 pointer-events-none">
         <div className="flex items-center justify-between gap-4">
-          {/* Logo Module */}
+          {/* Logo/Explore Module */}
           <div className="bg-white/40 backdrop-blur-md border border-white/40 rounded-2xl px-6 py-3 shadow-sm pointer-events-auto hover:bg-white/50 transition-all">
-            <Link href="/" className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              FUY
+            <Link href="/" className="flex items-center gap-2">
+              <span className="text-2xl">◌</span>
+              <span className="text-sm font-semibold text-gray-700">Explore</span>
             </Link>
           </div>
 
-          {/* Navigation Module */}
-          <nav className="hidden md:flex items-center gap-3 bg-white/40 backdrop-blur-md border border-white/40 rounded-2xl px-2 py-2 shadow-sm pointer-events-auto">
-            <Link
-              href="/canvas"
-              className="flex items-center gap-2 px-4 py-2 rounded-xl hover:bg-white/60 transition-all group"
-            >
-              <span className="text-lg text-gray-700 group-hover:text-blue-600">▭</span>
-              <span className="font-semibold text-gray-700 group-hover:text-blue-600 text-sm">Canvas</span>
-            </Link>
-            <Link
-              href="/hopin"
-              className="flex items-center gap-2 px-4 py-2 rounded-xl hover:bg-white/60 transition-all group"
-            >
-              <span className="text-lg text-gray-700 group-hover:text-blue-600">⊞</span>
-              <span className="font-semibold text-gray-700 group-hover:text-blue-600 text-sm">Hopin</span>
-            </Link>
-            <Link
-              href="/essenz"
-              className="flex items-center gap-2 px-4 py-2 rounded-xl hover:bg-white/60 transition-all group"
-            >
-              <span className="text-lg text-gray-700 group-hover:text-blue-600">★</span>
-              <span className="font-semibold text-gray-700 group-hover:text-blue-600 text-sm">Essenz</span>
-            </Link>
-            <Link
-              href="/shop"
-              className="flex items-center gap-2 px-4 py-2 rounded-xl hover:bg-white/60 transition-all group"
-            >
-              <span className="text-lg text-gray-700 group-hover:text-blue-600">◆</span>
-              <span className="font-semibold text-gray-700 group-hover:text-blue-600 text-sm">Shop</span>
-            </Link>
-            <Link
-              href="/profile"
-              className="flex items-center gap-2 px-4 py-2 rounded-xl hover:bg-white/60 transition-all group"
-            >
-              <span className="text-lg text-gray-700 group-hover:text-blue-600">◎</span>
-              <span className="font-semibold text-gray-700 group-hover:text-blue-600 text-sm">Profile</span>
-            </Link>
-          </nav>
+          {/* Right Actions Module */}
+          <div className="bg-white/40 backdrop-blur-md border border-white/40 rounded-2xl px-4 py-2 shadow-sm pointer-events-auto hover:bg-white/50 transition-all flex items-center gap-4">
+            {/* Notifications */}
+            <button className="text-lg text-gray-700 hover:text-blue-600 transition-colors relative">
+              🔔
+              <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
+            </button>
 
-          {/* User Info Module */}
-          <div className="bg-white/40 backdrop-blur-md border border-white/40 rounded-2xl px-4 py-2 shadow-sm pointer-events-auto hover:bg-white/50 transition-all flex items-center gap-3">
-            {session?.user?.image && (
-              <img
-                src={session.user.image}
-                alt={session.user.name || 'User'}
-                className="w-10 h-10 rounded-full border-2 border-blue-400"
-              />
-            )}
-            <div className="hidden sm:flex flex-col">
-              <div className="text-sm font-semibold text-gray-800">{session?.user?.name || 'Guest'}</div>
-              <div className="text-xs text-green-600 font-medium">Online</div>
-            </div>
+            {/* Messages */}
+            <Link href="/messages" className="text-lg text-gray-700 hover:text-blue-600 transition-colors">
+              ◊
+            </Link>
+
+            {/* User Profile */}
+            <Link href="/profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+              {session?.user?.image && (
+                <img
+                  src={session.user.image}
+                  alt={session.user.name || 'User'}
+                  className="w-8 h-8 rounded-full border-2 border-blue-400"
+                />
+              )}
+              <div className="hidden sm:flex flex-col">
+                <div className="text-xs font-semibold text-gray-800">{session?.user?.name || 'Guest'}</div>
+                <div className="text-xs text-green-600 font-medium">Online</div>
+              </div>
+            </Link>
           </div>
         </div>
       </header>
@@ -702,6 +678,61 @@ export default function Home() {
           </div>
         </div>
       </footer>
+
+      {/* Bottom Floating Curved Nav Bar */}
+      <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 pointer-events-none">
+        <nav className="bg-white/40 backdrop-blur-md border border-white/40 rounded-full px-8 py-4 shadow-lg pointer-events-auto flex items-center gap-8 hover:bg-white/50 transition-all">
+          {/* Home */}
+          <Link
+            href="/"
+            className="text-2xl text-gray-700 hover:text-blue-600 transition-colors hover:scale-110 transform duration-200"
+            title="Home"
+          >
+            ◌
+          </Link>
+
+          {/* Create Post */}
+          <button
+            className="text-2xl text-gray-700 hover:text-blue-600 transition-colors hover:scale-110 transform duration-200"
+            title="Create Post"
+            onClick={() => {
+              // Can be connected to a create post modal
+            }}
+          >
+            ⊞
+          </button>
+
+          {/* Messages */}
+          <Link
+            href="/messages"
+            className="text-2xl text-gray-700 hover:text-blue-600 transition-colors hover:scale-110 transform duration-200 relative"
+            title="Messages"
+          >
+            ◊
+            <span className="absolute -top-2 -right-2 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+              3
+            </span>
+          </Link>
+
+          {/* Notifications */}
+          <button
+            className="text-2xl text-gray-700 hover:text-blue-600 transition-colors hover:scale-110 transform duration-200 relative"
+            title="Notifications"
+          >
+            ▸
+            <span className="absolute -top-2 -right-2 w-4 h-4 bg-orange-500 rounded-full animate-pulse"></span>
+          </button>
+
+          {/* Explore */}
+          <Link
+            href="/"
+            className="text-2xl text-gray-700 hover:text-blue-600 transition-colors hover:scale-110 transform duration-200"
+            title="Explore"
+          >
+            ★
+          </Link>
+        </nav>
+      </div>
     </div>
   );
 }
