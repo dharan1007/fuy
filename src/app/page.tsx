@@ -323,11 +323,6 @@ export default function Home() {
             <Link href="/shop" className="text-sm font-semibold text-gray-700 hover:text-blue-600 transition-colors">
               ◆
             </Link>
-
-            {/* Essenz */}
-            <Link href="/essenz" className="text-sm font-semibold text-gray-700 hover:text-blue-600 transition-colors">
-              ★
-            </Link>
           </div>
 
           {/* User Profile Module */}
@@ -701,7 +696,7 @@ export default function Home() {
               // Can be connected to a create post modal
             }}
           >
-            ⊞
+            +
           </button>
 
           {/* Messages */}
