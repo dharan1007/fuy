@@ -307,20 +307,31 @@ export default function Home() {
             </Link>
           </div>
 
-          {/* Right Actions Module */}
-          <div className="bg-white/40 backdrop-blur-md border border-white/40 rounded-2xl px-4 py-2 shadow-sm pointer-events-auto hover:bg-white/50 transition-all flex items-center gap-4">
-            {/* Notifications */}
-            <button className="text-lg text-gray-700 hover:text-blue-600 transition-colors relative">
-              🔔
-              <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
-            </button>
-
-            {/* Messages */}
-            <Link href="/messages" className="text-lg text-gray-700 hover:text-blue-600 transition-colors">
-              ◊
+          {/* Navigation Module */}
+          <div className="bg-white/40 backdrop-blur-md border border-white/40 rounded-2xl px-6 py-3 shadow-sm pointer-events-auto hover:bg-white/50 transition-all flex items-center gap-6">
+            {/* Canvas */}
+            <Link href="/canvas" className="text-sm font-semibold text-gray-700 hover:text-blue-600 transition-colors">
+              ▭
             </Link>
 
-            {/* User Profile */}
+            {/* Hopin */}
+            <Link href="/hopin" className="text-sm font-semibold text-gray-700 hover:text-blue-600 transition-colors">
+              ⊞
+            </Link>
+
+            {/* Shop */}
+            <Link href="/shop" className="text-sm font-semibold text-gray-700 hover:text-blue-600 transition-colors">
+              ◆
+            </Link>
+
+            {/* Essenz */}
+            <Link href="/essenz" className="text-sm font-semibold text-gray-700 hover:text-blue-600 transition-colors">
+              ★
+            </Link>
+          </div>
+
+          {/* User Profile Module */}
+          <div className="bg-white/40 backdrop-blur-md border border-white/40 rounded-2xl px-4 py-2 shadow-sm pointer-events-auto hover:bg-white/50 transition-all">
             <Link href="/profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
               {session?.user?.image && (
                 <img
@@ -682,15 +693,6 @@ export default function Home() {
       {/* Bottom Floating Curved Nav Bar */}
       <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 pointer-events-none">
         <nav className="bg-white/40 backdrop-blur-md border border-white/40 rounded-full px-8 py-4 shadow-lg pointer-events-auto flex items-center gap-8 hover:bg-white/50 transition-all">
-          {/* Home */}
-          <Link
-            href="/"
-            className="text-2xl text-gray-700 hover:text-blue-600 transition-colors hover:scale-110 transform duration-200"
-            title="Home"
-          >
-            ◌
-          </Link>
-
           {/* Create Post */}
           <button
             className="text-2xl text-gray-700 hover:text-blue-600 transition-colors hover:scale-110 transform duration-200"
@@ -714,20 +716,11 @@ export default function Home() {
             </span>
           </Link>
 
-          {/* Notifications */}
-          <button
-            className="text-2xl text-gray-700 hover:text-blue-600 transition-colors hover:scale-110 transform duration-200 relative"
-            title="Notifications"
-          >
-            ▸
-            <span className="absolute -top-2 -right-2 w-4 h-4 bg-orange-500 rounded-full animate-pulse"></span>
-          </button>
-
-          {/* Explore */}
+          {/* Essenz Dashboard */}
           <Link
-            href="/"
+            href="/essenz"
             className="text-2xl text-gray-700 hover:text-blue-600 transition-colors hover:scale-110 transform duration-200"
-            title="Explore"
+            title="Essenz Dashboard"
           >
             ★
           </Link>
