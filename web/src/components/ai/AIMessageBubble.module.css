@@ -1,0 +1,101 @@
+/**
+ * AI Message Bubble - Web Styles
+ */
+
+.bubble {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 85%;
+  margin: 4px 0;
+  word-wrap: break-word;
+  word-break: break-word;
+}
+
+/* User Messages */
+.userBubble {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.userBubble .content {
+  background: #FF7A5C;
+  color: #FFFFFF;
+  padding: 12px 16px;
+  border-radius: 16px 4px 16px 16px;
+  box-shadow: 0 2px 8px rgba(255, 122, 92, 0.2);
+}
+
+/* AI Messages */
+.aiBubble {
+  align-self: flex-start;
+  align-items: flex-start;
+}
+
+.aiBubble .content {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #000000;
+  padding: 12px 16px;
+  border-radius: 4px 16px 16px 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.aiBubble .content:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 122, 92, 0.3);
+}
+
+/* Content */
+.content {
+  font-size: 14px;
+  line-height: 1.5;
+  font-weight: 400;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+/* Timestamp */
+.timestamp {
+  font-size: 11px;
+  color: #999999;
+  margin: 0 4px;
+  font-weight: 400;
+}
+
+.userBubble .timestamp {
+  text-align: right;
+}
+
+.aiBubble .timestamp {
+  text-align: left;
+}
+
+/* Mobile Responsive */
+@media (max-width: 640px) {
+  .bubble {
+    max-width: 90%;
+  }
+
+  .content {
+    font-size: 13px;
+    padding: 10px 12px;
+  }
+}
+
+/* Animation for new messages */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.bubble {
+  animation: slideIn 0.3s ease-out;
+}
