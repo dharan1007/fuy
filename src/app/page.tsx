@@ -236,28 +236,63 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-white text-gray-900 flex flex-col relative overflow-hidden">
-      {/* Wave Background */}
-      <div className="absolute top-0 left-0 right-0 h-96 pointer-events-none">
-        <svg className="w-full h-full" viewBox="0 0 1200 400" preserveAspectRatio="none">
+      {/* Wave Background - Full Screen */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10">
+        <svg className="w-full h-full" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice">
           <defs>
-            <linearGradient id="waveGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" style={{ stopColor: '#3b82f6', stopOpacity: '0.08' }} />
-              <stop offset="100%" style={{ stopColor: '#8b5cf6', stopOpacity: '0.04' }} />
+            <linearGradient id="waveGradient1" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style={{ stopColor: '#3b82f6', stopOpacity: '0.12' }} />
+              <stop offset="100%" style={{ stopColor: '#8b5cf6', stopOpacity: '0.06' }} />
+            </linearGradient>
+            <linearGradient id="waveGradient2" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style={{ stopColor: '#60a5fa', stopOpacity: '0.08' }} />
+              <stop offset="100%" style={{ stopColor: '#a78bfa', stopOpacity: '0.04' }} />
             </linearGradient>
           </defs>
+
+          {/* Top waves */}
           <path
             d="M0,100 Q300,50 600,100 T1200,100 L1200,0 L0,0 Z"
-            fill="url(#waveGradient)"
+            fill="url(#waveGradient1)"
           />
           <path
             d="M0,150 Q300,120 600,150 T1200,150 L1200,50 Q600,100 0,50 Z"
-            fill="url(#waveGradient)"
-            opacity="0.5"
+            fill="url(#waveGradient1)"
+            opacity="0.6"
           />
           <path
             d="M0,200 Q300,170 600,200 T1200,200 L1200,100 Q600,150 0,100 Z"
-            fill="url(#waveGradient)"
+            fill="url(#waveGradient1)"
+            opacity="0.4"
+          />
+
+          {/* Middle waves */}
+          <path
+            d="M0,300 Q300,250 600,300 T1200,300 L1200,200 Q600,250 0,200 Z"
+            fill="url(#waveGradient2)"
+            opacity="0.5"
+          />
+          <path
+            d="M0,380 Q300,330 600,380 T1200,380 L1200,280 Q600,330 0,280 Z"
+            fill="url(#waveGradient2)"
+            opacity="0.35"
+          />
+
+          {/* Bottom waves */}
+          <path
+            d="M0,500 Q300,450 600,500 T1200,500 L1200,400 Q600,450 0,400 Z"
+            fill="url(#waveGradient1)"
             opacity="0.3"
+          />
+          <path
+            d="M0,600 Q300,550 600,600 T1200,600 L1200,500 Q600,550 0,500 Z"
+            fill="url(#waveGradient2)"
+            opacity="0.25"
+          />
+          <path
+            d="M0,750 Q300,700 600,750 T1200,750 L1200,650 Q600,700 0,650 Z"
+            fill="url(#waveGradient1)"
+            opacity="0.2"
           />
         </svg>
       </div>
