@@ -310,7 +310,7 @@ export default function Home() {
           {/* Navigation Module */}
           <div className="bg-white/40 backdrop-blur-md border border-white/40 rounded-2xl px-6 py-3 shadow-sm pointer-events-auto hover:bg-white/50 transition-all flex items-center gap-6">
             {/* Canvas */}
-            <Link href="/canvas" className="text-sm font-semibold text-gray-700 hover:text-blue-600 transition-colors">
+            <Link href="/journal" className="text-sm font-semibold text-gray-700 hover:text-blue-600 transition-colors">
               ▭
             </Link>
 
@@ -322,6 +322,11 @@ export default function Home() {
             {/* Shop */}
             <Link href="/shop" className="text-sm font-semibold text-gray-700 hover:text-blue-600 transition-colors">
               ◆
+            </Link>
+
+            {/* Dashboard */}
+            <Link href="/dashboard" className="text-sm font-semibold text-gray-700 hover:text-blue-600 transition-colors">
+              ⊕
             </Link>
           </div>
 
