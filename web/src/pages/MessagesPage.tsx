@@ -186,6 +186,58 @@ export default function MessagesPage() {
           </div>
         )}
       </div>
+
+      {/* Right Panel - Conversation Features */}
+      {selectedConversation && !showAIChat && (
+        <div className={styles.rightPanel}>
+          <div className={styles.panelHeader}>
+            <h3>Details</h3>
+          </div>
+
+          {/* Profile Section */}
+          <div className={styles.profileSection}>
+            <div className={styles.profileAvatar}>
+              {selectedConversation.participantName.charAt(0)}
+            </div>
+            <h4>{selectedConversation.participantName}</h4>
+            <p className={styles.status}>Active now</p>
+          </div>
+
+          {/* Actions */}
+          <div className={styles.panelActions}>
+            <button className={styles.panelActionBtn} title="Audio call">
+              <span>☎️</span> Audio call
+            </button>
+            <button className={styles.panelActionBtn} title="Video call">
+              <span>📹</span> Video call
+            </button>
+            <button className={styles.panelActionBtn} title="Share media">
+              <span>📎</span> Share media
+            </button>
+          </div>
+
+          {/* Conversation Info */}
+          <div className={styles.panelSection}>
+            <h5>Conversation</h5>
+            <div className={styles.infoItem}>
+              <span className={styles.infoLabel}>Created</span>
+              <span className={styles.infoValue}>Today</span>
+            </div>
+            <div className={styles.infoItem}>
+              <span className={styles.infoLabel}>Messages</span>
+              <span className={styles.infoValue}>12</span>
+            </div>
+          </div>
+
+          {/* More Options */}
+          <div className={styles.panelSection}>
+            <h5>Options</h5>
+            <button className={styles.optionBtn}>🔕 Mute notifications</button>
+            <button className={styles.optionBtn}>🚫 Block user</button>
+            <button className={styles.optionBtn} style={{ color: '#FF7A5C' }}>🗑️ Delete chat</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
