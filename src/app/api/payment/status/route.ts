@@ -1,7 +1,7 @@
 // src/app/api/payment/status/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/session";
-import prisma from "@/lib/prisma";
+import { getSessionUser } from "@/lib/session";
+import { prisma } from "@/lib/prisma";
 
 interface PaymentStatusRequest {
   paymentId?: string;
@@ -11,8 +11,8 @@ interface PaymentStatusRequest {
 export async function GET(req: NextRequest) {
   try {
     // Verify user is authenticated
-    const session = await getSession();
-    if (!session?.user?.id) {
+    const user = await getSessionUser();
+    if (!user?.id) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
     // Find payment
     let payment = await prisma.payment.findFirst({
       where: {
-        userId: session.user.id,
+        userId: user.id,
         ...(paymentId ? { id: paymentId } : { orderId: orderId || "" }),
       },
       include: {
@@ -138,8 +138,8 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const session = await getSession();
-    if (!session?.user?.id) {
+    const user = await getSessionUser();
+    if (!user?.id) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
@@ -158,7 +158,7 @@ export async function POST(req: NextRequest) {
     // Find payment
     const payment = await prisma.payment.findFirst({
       where: {
-        userId: session.user.id,
+        userId: user.id,
         ...(body.paymentId
           ? { id: body.paymentId }
           : { orderId: body.orderId || "" }),

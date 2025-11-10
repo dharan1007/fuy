@@ -1,7 +1,7 @@
 // src/app/api/payment/create-order/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/session";
-import prisma from "@/lib/prisma";
+import { getSessionUser } from "@/lib/session";
+import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
 
 interface CreateOrderRequest {
@@ -14,8 +14,8 @@ interface CreateOrderRequest {
 export async function POST(req: NextRequest) {
   try {
     // Verify user is authenticated
-    const session = await getSession();
-    if (!session?.user?.id) {
+    const user = await getSessionUser();
+    if (!user?.id) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
       receipt: body.receiptId || `receipt_${Date.now()}`,
       description: body.description || "Order Payment",
       notes: {
-        userId: session.user.id,
+        userId: user.id,
         ...body.notes,
       },
     };
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
     // Save order to database
     const payment = await prisma.payment.create({
       data: {
-        userId: session.user.id,
+        userId: user.id,
         orderId: razorpayOrder.id,
         amount: body.amount,
         currency: "INR",

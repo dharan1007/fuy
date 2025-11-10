@@ -1,7 +1,7 @@
 // src/app/api/payment/verify-payment/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/session";
-import prisma from "@/lib/prisma";
+import { getSessionUser } from "@/lib/session";
+import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
 
 interface VerifyPaymentRequest {
@@ -13,8 +13,8 @@ interface VerifyPaymentRequest {
 export async function POST(req: NextRequest) {
   try {
     // Verify user is authenticated
-    const session = await getSession();
-    if (!session?.user?.id) {
+    const user = await getSessionUser();
+    if (!user?.id) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Verify payment belongs to current user
-    if (payment.userId !== session.user.id) {
+    if (payment.userId !== user.id) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 403 }

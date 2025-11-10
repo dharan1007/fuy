@@ -1,6 +1,6 @@
 // src/app/api/payment/webhook/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
 
 /**
@@ -272,7 +272,7 @@ async function handleRefundCreated(payload: any) {
   console.log(`[Webhook] Processing refund.created: ${refundId}`);
 
   // Find payment by paymentId
-  const payment = await prisma.payment.findUnique({
+  const payment = await prisma.payment.findFirst({
     where: { paymentId },
   });
 
