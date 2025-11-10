@@ -57,8 +57,17 @@ export default function AppHeader({ title, showBackButton = false, showSettingsA
     <header className="sticky top-0 z-50 bg-white/80 dark:bg-neutral-800/80 backdrop-blur-lg border-b border-gray-200 dark:border-neutral-700">
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
         <div className="flex justify-between items-center h-14 sm:h-16">
-          {/* Left side - Back button and Title */}
+          {/* Left side - Brand + Back button and Title */}
           <div className="flex items-center gap-2 sm:gap-4">
+            {/* Fuy Brand */}
+            <div className="flex flex-col items-start gap-0">
+              <span className="text-lg sm:text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                fuy
+              </span>
+              <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 font-medium leading-none">
+                Find your joy
+              </span>
+            </div>
             {showBackButton && (
               <button
                 onClick={handleBack}
