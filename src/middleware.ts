@@ -12,7 +12,7 @@ export default withAuth(
       req.nextUrl.pathname.startsWith("/join") ||
       req.nextUrl.pathname.startsWith("/passkeys");
 
-    const isPublicPage = req.nextUrl.pathname === "/";
+    const isPublicPage = req.nextUrl.pathname === "/" || req.nextUrl.pathname.startsWith("/shop");
 
     // If user is on auth page and already logged in, redirect to home
     if (isAuthPage && isAuth) {
