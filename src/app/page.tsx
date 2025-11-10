@@ -306,9 +306,9 @@ export default function Home() {
       </header>
 
       {/* Main Grid Layout */}
-      <div className="grid grid-cols-12 gap-6 px-6 py-6 max-w-full flex-1 bg-white relative z-10">
+      <div className="grid grid-cols-12 gap-6 px-6 py-6 max-w-full flex-1 bg-white/5 relative z-10">
         {/* LEFT SIDEBAR */}
-        <aside className="col-span-3 rounded-2xl p-6 bg-white/50 backdrop-blur-sm border border-white/40 shadow-sm">
+        <aside className="col-span-3 rounded-2xl p-6 bg-white/30 backdrop-blur-sm border border-white/40 shadow-sm">
           {/* User Profile Card */}
           <div className="mb-8">
             <div className="relative w-full h-32 bg-gradient-to-r from-blue-400 to-purple-400 rounded-2xl mb-4" />
@@ -374,7 +374,7 @@ export default function Home() {
         </aside>
 
         {/* CENTER FEED */}
-        <main className="col-span-6 rounded-2xl p-6 bg-white/50 backdrop-blur-sm border border-white/40 shadow-sm">
+        <main className="col-span-6 rounded-2xl p-6 bg-white/30 backdrop-blur-sm border border-white/40 shadow-sm">
           {/* Users Scroll Bar */}
           <div className="mb-8 pb-6 border-b border-gray-200/50">
             <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
@@ -479,7 +479,7 @@ export default function Home() {
         </main>
 
         {/* RIGHT SIDEBAR */}
-        <aside className="col-span-3 rounded-2xl p-6 bg-white/50 backdrop-blur-sm border border-white/40 shadow-sm">
+        <aside className="col-span-3 rounded-2xl p-6 bg-white/30 backdrop-blur-sm border border-white/40 shadow-sm">
           <h3 className="font-bold text-xl mb-6 text-gray-800 border-b border-gray-200/50 pb-4">Activity Feed</h3>
 
           <div className="space-y-4">
@@ -543,7 +543,7 @@ export default function Home() {
       </div>
 
       {/* Footer */}
-      <footer className="border-t border-gray-200/50 bg-white/50 backdrop-blur-sm px-6 py-8 mt-8 relative z-10">
+      <footer className="border-t border-gray-200/50 bg-white/20 backdrop-blur-sm px-6 py-8 mt-8 relative z-10">
         <div className="max-w-full mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-8">
             {/* Company Links */}
