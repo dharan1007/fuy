@@ -187,57 +187,80 @@ export default function MessagesPage() {
         )}
       </div>
 
-      {/* Right Panel - Conversation Features */}
-      {selectedConversation && !showAIChat && (
-        <div className={styles.rightPanel}>
-          <div className={styles.panelHeader}>
-            <h3>Details</h3>
-          </div>
+      {/* Right Panel - Community Features */}
+      <div className={styles.rightPanel}>
+        <div className={styles.panelHeader}>
+          <h3>Features</h3>
+        </div>
 
-          {/* Profile Section */}
-          <div className={styles.profileSection}>
-            <div className={styles.profileAvatar}>
-              {selectedConversation.participantName.charAt(0)}
-            </div>
-            <h4>{selectedConversation.participantName}</h4>
-            <p className={styles.status}>Active now</p>
-          </div>
+        {/* Community Features Grid */}
+        <div className={styles.featuresGrid}>
+          {/* Canvas */}
+          <button className={styles.featureCard} title="Canvas - Create and sketch">
+            <div className={styles.featureIcon}>🎨</div>
+            <div className={styles.featureName}>Canvas</div>
+          </button>
 
-          {/* Actions */}
-          <div className={styles.panelActions}>
-            <button className={styles.panelActionBtn} title="Audio call">
-              <span>☎️</span> Audio call
-            </button>
-            <button className={styles.panelActionBtn} title="Video call">
-              <span>📹</span> Video call
-            </button>
-            <button className={styles.panelActionBtn} title="Share media">
-              <span>📎</span> Share media
-            </button>
-          </div>
+          {/* Hopin */}
+          <button className={styles.featureCard} title="Hopin - Connect with community">
+            <div className={styles.featureIcon}>🎉</div>
+            <div className={styles.featureName}>Hopin</div>
+          </button>
 
-          {/* Conversation Info */}
-          <div className={styles.panelSection}>
-            <h5>Conversation</h5>
-            <div className={styles.infoItem}>
-              <span className={styles.infoLabel}>Created</span>
-              <span className={styles.infoValue}>Today</span>
-            </div>
-            <div className={styles.infoItem}>
-              <span className={styles.infoLabel}>Messages</span>
-              <span className={styles.infoValue}>12</span>
-            </div>
-          </div>
+          {/* Bonding */}
+          <button className={styles.featureCard} title="Bonding - Build connections">
+            <div className={styles.featureIcon}>🤝</div>
+            <div className={styles.featureName}>Bonding</div>
+          </button>
 
-          {/* More Options */}
-          <div className={styles.panelSection}>
-            <h5>Options</h5>
-            <button className={styles.optionBtn}>🔕 Mute notifications</button>
-            <button className={styles.optionBtn}>🚫 Block user</button>
-            <button className={styles.optionBtn} style={{ color: '#FF7A5C' }}>🗑️ Delete chat</button>
+          {/* Grounding */}
+          <button className={styles.featureCard} title="Grounding - Stay centered">
+            <div className={styles.featureIcon}>🌍</div>
+            <div className={styles.featureName}>Grounding</div>
+          </button>
+
+          {/* Breathing */}
+          <button className={styles.featureCard} title="Breathing - Mindful moments">
+            <div className={styles.featureIcon}>🌬️</div>
+            <div className={styles.featureName}>Breathing</div>
+          </button>
+
+          {/* Plans */}
+          <button className={styles.featureCard} title="Plans - Organize your goals">
+            <div className={styles.featureIcon}>📋</div>
+            <div className={styles.featureName}>Plans</div>
+          </button>
+
+          {/* Essenz */}
+          <button className={styles.featureCard} title="Essenz - Your essence">
+            <div className={styles.featureIcon}>✨</div>
+            <div className={styles.featureName}>Essenz</div>
+          </button>
+
+          {/* Ranking */}
+          <button className={styles.featureCard} title="Ranking - Track progress">
+            <div className={styles.featureIcon}>🏆</div>
+            <div className={styles.featureName}>Ranking</div>
+          </button>
+        </div>
+
+        {/* Quick Stats */}
+        <div className={styles.statsSection}>
+          <h5>Your Activity</h5>
+          <div className={styles.statItem}>
+            <span className={styles.statLabel}>Messages</span>
+            <span className={styles.statValue}>24</span>
+          </div>
+          <div className={styles.statItem}>
+            <span className={styles.statLabel}>Connections</span>
+            <span className={styles.statValue}>8</span>
+          </div>
+          <div className={styles.statItem}>
+            <span className={styles.statLabel}>Streak</span>
+            <span className={styles.statValue}>12d</span>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
