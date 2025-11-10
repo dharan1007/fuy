@@ -608,34 +608,93 @@
 }
 
 /* Responsive */
+@media (max-width: 1400px) {
+  .sidebar {
+    width: 280px;
+  }
+
+  .rightPanel {
+    width: 260px;
+  }
+}
+
+@media (max-width: 1200px) {
+  .sidebar {
+    width: 260px;
+  }
+
+  .rightPanel {
+    width: 240px;
+    padding: 16px;
+  }
+
+  .rightPanel:gap {
+    gap: 16px;
+  }
+
+  .featureCard {
+    padding: 12px 8px;
+  }
+
+  .featureIcon {
+    font-size: 24px;
+  }
+
+  .featureName {
+    font-size: 11px;
+  }
+}
+
 @media (max-width: 1024px) {
   .rightPanel {
-    width: 280px;
+    width: 220px;
+    padding: 12px;
   }
 }
 
 @media (max-width: 768px) {
   .container {
-    flex-direction: column;
+    flex-direction: row;
   }
 
   .sidebar {
-    width: 100%;
-    max-height: 200px;
-  }
-
-  .mainContent {
-    flex: 1;
+    width: 240px;
   }
 
   .rightPanel {
-    display: none;
+    width: 200px;
+    padding: 12px;
+    gap: 12px;
+  }
+
+  .panelHeader h3 {
+    font-size: 16px;
+  }
+
+  .featureCard {
+    padding: 10px 6px;
+  }
+
+  .featureIcon {
+    font-size: 20px;
+  }
+
+  .featureName {
+    font-size: 10px;
+  }
+
+  .statsSection {
+    padding: 12px;
+  }
+
+  .statValue {
+    font-size: 14px;
   }
 }
 
 @media (max-width: 640px) {
   .sidebar {
-    display: none;
+    width: 200px;
   }
 
   .header h1 {
@@ -651,6 +710,7 @@
   }
 
   .rightPanel {
-    display: none;
+    width: 160px;
+    padding: 10px;
   }
 }
