@@ -219,299 +219,345 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="flex min-h-screen" style={{ backgroundColor: "#0a0a0a" }}>
+    <div className="flex min-h-screen" style={{ backgroundColor: "#f8f6fc" }}>
       {/* SIDEBAR */}
       <div
         className={`transition-all duration-300 border-r flex flex-col ${
-          sidebarOpen ? "w-72" : "w-20"
+          sidebarOpen ? "w-64" : "w-20"
         }`}
         style={{
-          backgroundColor: "#1a1a1a",
-          borderColor: "rgba(255, 255, 255, 0.1)",
+          backgroundColor: "#ffffff",
+          borderColor: "#e5e7eb",
         }}
       >
         {/* Logo */}
-        <div className="p-4 border-b" style={{ borderColor: "rgba(255, 255, 255, 0.1)" }}>
+        <div className="p-4 border-b flex items-center justify-center" style={{ borderColor: "#e5e7eb" }}>
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="w-full text-left font-bold"
-            style={{ color: "#e8d4c0" }}
+            className="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-lg"
+            style={{ backgroundColor: "#7c3aed", color: "#ffffff" }}
           >
-            {sidebarOpen ? "[FUY]" : "[F]"}
+            S
           </button>
         </div>
 
-        {/* User Profile */}
-        {sidebarOpen && (
-          <div
-            className="p-4 border-b space-y-3"
-            style={{ borderColor: "rgba(255, 255, 255, 0.1)" }}
-          >
-            <div
-              className="w-full h-32 rounded-lg flex items-center justify-center text-3xl font-bold text-black"
-              style={{ backgroundColor: "#e8d4c0" }}
-            >
-              {session.user?.name?.charAt(0) || "U"}
-            </div>
-            <div>
-              <p className="font-bold text-white">{session.user?.name || "User"}</p>
-              <p className="text-xs" style={{ color: "rgba(255, 255, 255, 0.6)" }}>
-                {session.user?.email}
-              </p>
-            </div>
-          </div>
-        )}
-
         {/* Navigation Items */}
-        {sidebarOpen && (
-          <div className="flex-1 p-4 space-y-3 overflow-y-auto">
-            {sidebarItems.map((item, idx) => (
-              <div
-                key={idx}
-                className="p-3 rounded-lg cursor-pointer transition-colors"
-                style={{
-                  backgroundColor: "rgba(232, 212, 192, 0.1)",
-                  border: "1px solid rgba(232, 212, 192, 0.2)",
-                }}
-              >
-                <p className="text-xs font-bold" style={{ color: "#e8d4c0" }}>
-                  {item.icon} {item.label}
-                </p>
-              </div>
-            ))}
-          </div>
-        )}
+        <div className="flex-1 p-4 space-y-2 overflow-y-auto">
+          {[
+            { label: "Overview", icon: "⊕" },
+            { label: "Campaigns", icon: "◈" },
+            { label: "Ad Group", icon: "▢" },
+            { label: "Keywords", icon: "◆" },
+          ].map((item, idx) => (
+            <div
+              key={idx}
+              className="p-3 rounded-lg cursor-pointer transition-colors flex items-center gap-3"
+              style={{
+                backgroundColor: idx === 0 ? "#ede9fe" : "transparent",
+                color: idx === 0 ? "#7c3aed" : "#6b7280",
+              }}
+            >
+              <span className="text-lg">{item.icon}</span>
+              {sidebarOpen && <span className="text-sm font-medium">{item.label}</span>}
+            </div>
+          ))}
+        </div>
 
         {/* Footer */}
-        {sidebarOpen && (
-          <div
-            className="p-4 border-t text-xs"
-            style={{
-              borderColor: "rgba(255, 255, 255, 0.1)",
-              color: "rgba(255, 255, 255, 0.6)",
-            }}
-          >
-            <p>[STATUS] Active</p>
+        <div className="p-4 border-t flex items-center justify-center gap-3" style={{ borderColor: "#e5e7eb" }}>
+          <div className="w-10 h-10 rounded-lg flex items-center justify-center font-bold" style={{ backgroundColor: "#dbeafe", color: "#1e40af" }}>
+            U
           </div>
-        )}
+          {sidebarOpen && <span className="text-sm font-medium text-gray-700">Profile</span>}
+        </div>
       </div>
 
       {/* MAIN CONTENT */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* TOP NAVBAR */}
         <div
-          className="border-b p-4"
+          className="border-b p-6 flex items-center justify-between"
           style={{
-            backgroundColor: "#1a1a1a",
-            borderColor: "rgba(255, 255, 255, 0.1)",
+            backgroundColor: "#ffffff",
+            borderColor: "#e5e7eb",
           }}
         >
-          <div className="flex items-center justify-between">
-            <div className="flex gap-6">
-              {navItems.map((item, idx) => (
-                <button
-                  key={idx}
-                  className="text-sm font-bold transition-colors"
-                  style={{
-                    color: item.active ? "#e8d4c0" : "rgba(255, 255, 255, 0.5)",
-                  }}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-            <Link
-              href="/essenz"
-              className="px-4 py-2 rounded text-sm font-bold"
+          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+
+          <div className="flex items-center gap-6">
+            {/* Search Bar */}
+            <input
+              type="text"
+              placeholder="Search for anything"
+              className="px-4 py-2 rounded-lg border text-sm"
               style={{
-                backgroundColor: "rgba(232, 212, 192, 0.1)",
-                color: "#e8d4c0",
-                border: "1px solid rgba(232, 212, 192, 0.3)",
+                backgroundColor: "#f3f4f6",
+                borderColor: "#e5e7eb",
+                color: "#6b7280",
               }}
-            >
-              [ESSENZ] →
-            </Link>
+            />
+
+            {/* Date Range */}
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ backgroundColor: "#f3f4f6" }}>
+              <span className="text-sm text-gray-700">30 days Oct 16 / 21 - Nov 14 / 21</span>
+              <span className="text-gray-400">▼</span>
+            </div>
+
+            {/* Right Icons */}
+            <div className="flex items-center gap-4">
+              <button className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#f3f4f6", color: "#6b7280" }}>
+                🌍
+              </button>
+              <button className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#f3f4f6", color: "#6b7280" }}>
+                🔔
+              </button>
+              <button className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#f3f4f6", color: "#6b7280" }}>
+                💬
+              </button>
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-white" style={{ backgroundColor: "#1f2937" }}>
+                {session.user?.name?.charAt(0) || "U"}
+              </div>
+            </div>
           </div>
         </div>
 
         {/* CONTENT AREA */}
-        <div className="flex-1 overflow-y-auto p-8">
-          <div className="max-w-7xl mx-auto space-y-8">
-            {/* WELCOME */}
-            <div className="flex items-end justify-between">
-              <div>
-                <h1
-                  className="text-5xl font-bold mb-2"
-                  style={{ color: "#e8d4c0" }}
+        <div className="flex-1 overflow-y-auto p-8" style={{ backgroundColor: "#f8f6fc" }}>
+          <div className="max-w-7xl mx-auto space-y-6">
+            {/* SUMMARY CARDS */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {[
+                { label: "Overview", value: "1,552", icon: "⊕" },
+                { label: "Campaigns", value: "1,552", icon: "◈" },
+                { label: "Ad Group", value: "1,552", icon: "▢" },
+                { label: "Keywords", value: "1,552", icon: "◆" },
+              ].map((card, idx) => (
+                <div
+                  key={idx}
+                  className="p-4 rounded-xl border flex flex-col gap-2"
+                  style={{
+                    backgroundColor: "#ffffff",
+                    borderColor: "#e5e7eb",
+                  }}
                 >
-                  Welcome in, {session.user?.name?.split(" ")[0] || "User"}
-                </h1>
-                <div className="flex gap-3 text-xs font-bold" style={{ color: "rgba(255, 255, 255, 0.6)" }}>
-                  <span>[INTERVIEWS]</span>
-                  <span>[HIRED]</span>
-                  <span>[ACE]</span>
+                  <p className="text-sm text-gray-600">{card.label}</p>
+                  <p className="text-2xl font-bold text-gray-900">{card.value}</p>
                 </div>
-              </div>
-              <div className="flex gap-8">
-                <div className="text-right">
-                  <p className="text-xs" style={{ color: "rgba(255, 255, 255, 0.6)" }}>
-                    [EMPLOYEES]
-                  </p>
-                  <p className="text-4xl font-bold text-white">78</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs" style={{ color: "rgba(255, 255, 255, 0.6)" }}>
-                    [HOURS]
-                  </p>
-                  <p className="text-4xl font-bold text-white">56</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs" style={{ color: "rgba(255, 255, 255, 0.6)" }}>
-                    [PROJECTS]
-                  </p>
-                  <p className="text-4xl font-bold text-white">{stats.totalGoals || 0}</p>
-                </div>
-              </div>
+              ))}
             </div>
 
-            {/* MAIN GRID */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* LEFT COLUMN */}
-              <div className="space-y-6">
-                {/* PROFILE CARD */}
+            {/* MAIN GRID - Modern Layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* LEFT SECTION - Charts */}
+              <div className="lg:col-span-7 space-y-6">
+                {/* TOP 5 PRODUCTS & CAMPAIGNS */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Donut Chart */}
+                  <div
+                    className="rounded-xl p-6 border"
+                    style={{
+                      backgroundColor: "#ffffff",
+                      borderColor: "#e5e7eb",
+                    }}
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="font-semibold text-gray-900">Top 5 products by spend</h3>
+                      <button className="text-gray-400 text-lg">⋯</button>
+                    </div>
+                    <div className="flex justify-center py-8">
+                      <div className="w-32 h-32 rounded-full flex items-center justify-center font-bold" style={{ background: "conic-gradient(#7c3aed 0deg 120deg, #a78bfa 120deg 180deg, #c4b5fd 180deg 240deg, #ddd6fe 240deg 280deg, #ede9fe 280deg 360deg)" }}>
+                        <div className="w-24 h-24 rounded-full bg-white flex items-center justify-center">
+                          <div className="text-center">
+                            <p className="text-2xl font-bold text-gray-900">2,985</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Campaign Table */}
+                  <div
+                    className="rounded-xl p-6 border"
+                    style={{
+                      backgroundColor: "#ffffff",
+                      borderColor: "#e5e7eb",
+                    }}
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="font-semibold text-gray-900">Highest ACoS campaigns</h3>
+                      <button className="text-gray-400 text-lg">⋯</button>
+                    </div>
+                    <div className="space-y-2 text-sm">
+                      {[
+                        { name: "BOBWYN3JMT", cost: "$30.25", prev: "$149.85", curr: "$149.85" },
+                        { name: "Campaign - 3...", cost: "$40.00", prev: "$134.00", curr: "$134.50" },
+                        { name: "Research - AC...", cost: "$43.55", prev: "$129.75", curr: "$125.00" },
+                      ].map((row, idx) => (
+                        <div key={idx} className="flex justify-between py-2 border-b border-gray-100" style={{ color: idx === 0 ? "#ec4899" : "#6b7280" }}>
+                          <span className="font-medium">{row.name}</span>
+                          <span>{row.cost}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* PROFILE CARD - Repositioned */}
                 <div
-                  className="rounded-lg p-6 border"
+                  className="rounded-xl p-6 border"
                   style={{
-                    backgroundColor: "#1a1a1a",
-                    borderColor: "rgba(255, 255, 255, 0.1)",
+                    backgroundColor: "#ffffff",
+                    borderColor: "#e5e7eb",
                   }}
                 >
                   <div className="flex items-center gap-4 mb-4">
                     <div
-                      className="w-16 h-16 rounded-lg flex items-center justify-center text-2xl font-bold text-black"
-                      style={{ backgroundColor: "#e8d4c0" }}
+                      className="w-16 h-16 rounded-lg flex items-center justify-center text-2xl font-bold text-white"
+                      style={{ backgroundColor: "#7c3aed" }}
                     >
                       {session.user?.name?.charAt(0) || "U"}
                     </div>
                     <div>
-                      <p className="font-bold text-white">{session.user?.name || "User"}</p>
-                      <p className="text-xs" style={{ color: "rgba(255, 255, 255, 0.5)" }}>
-                        UX/UI Designer
+                      <p className="font-bold text-gray-900">{session.user?.name || "User"}</p>
+                      <p className="text-xs text-gray-500">
+                        Product Manager
                       </p>
                     </div>
                   </div>
                   <div
-                    className="px-3 py-2 rounded text-xs font-bold text-center"
+                    className="px-3 py-2 rounded-lg text-xs font-bold text-center"
                     style={{
-                      backgroundColor: "rgba(232, 212, 192, 0.1)",
-                      color: "#e8d4c0",
+                      backgroundColor: "#ede9fe",
+                      color: "#7c3aed",
                     }}
                   >
-                    $1,200
+                    Profile Info
                   </div>
+                </div>
+
+                {/* METRIC CARDS - Orders, Sales, PPC */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {[
+                    { label: "Orders Created", value: "$134,970", change: "+12.8%", positive: true },
+                    { label: "Total Sales", value: "$2,145,132.80", change: "+4.98%", positive: false },
+                    { label: "PPC Sales", value: "$890.00", change: "-0.17%", positive: true },
+                  ].map((metric, idx) => (
+                    <div
+                      key={idx}
+                      className="rounded-xl p-4 border"
+                      style={{
+                        backgroundColor: idx === 1 ? "#1f2937" : "#ffffff",
+                        borderColor: idx === 1 ? "#374151" : "#e5e7eb",
+                      }}
+                    >
+                      <p className="text-xs font-medium" style={{ color: idx === 1 ? "#9ca3af" : "#6b7280" }}>
+                        {metric.label}
+                      </p>
+                      <p className="text-xl font-bold mt-2" style={{ color: idx === 1 ? "#ffffff" : "#1f2937" }}>
+                        {metric.value}
+                      </p>
+                      <p className="text-xs mt-2" style={{ color: metric.positive ? "#10b981" : "#ef4444" }}>
+                        {metric.change}
+                      </p>
+                    </div>
+                  ))}
                 </div>
 
                 {/* PENSION CONTRIBUTIONS */}
                 <div
-                  className="rounded-lg p-6 border"
+                  className="rounded-xl p-6 border"
                   style={{
-                    backgroundColor: "#1a1a1a",
-                    borderColor: "rgba(255, 255, 255, 0.1)",
+                    backgroundColor: "#ffffff",
+                    borderColor: "#e5e7eb",
                   }}
                 >
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-bold text-white">[CONTRIBUTIONS]</h3>
-                    <button className="text-xs" style={{ color: "#e8d4c0" }}>
-                      ↗
-                    </button>
+                    <h3 className="font-semibold text-gray-900">Cost Analysis</h3>
+                    <button className="text-gray-400">⋯</button>
                   </div>
-                  <div className="space-y-2 text-xs">
-                    <div
-                      className="p-3 rounded flex items-center gap-2"
-                      style={{ backgroundColor: "rgba(232, 212, 192, 0.1)" }}
-                    >
+                  <div className="h-32 flex items-end justify-between gap-2">
+                    {[40, 50, 35, 60, 45, 55, 50].map((height, idx) => (
                       <div
-                        className="w-4 h-4 rounded"
-                        style={{ backgroundColor: "#e8d4c0" }}
+                        key={idx}
+                        className="flex-1 rounded-t"
+                        style={{
+                          height: `${height}%`,
+                          backgroundColor: idx === 3 ? "#f59e0b" : "#ddd6fe",
+                        }}
                       />
-                      <span className="text-white">Macbook Air</span>
-                    </div>
+                    ))}
                   </div>
-                </div>
-
-                {/* DEVICES */}
-                <div
-                  className="rounded-lg p-6 border"
-                  style={{
-                    backgroundColor: "#1a1a1a",
-                    borderColor: "rgba(255, 255, 255, 0.1)",
-                  }}
-                >
-                  <h3 className="font-bold text-white mb-4">[DEVICES]</h3>
-                  <div className="space-y-2 text-xs">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-10 h-10 rounded"
-                        style={{ backgroundColor: "rgba(232, 212, 192, 0.2)" }}
-                      />
-                      <div>
-                        <p className="font-bold text-white">Macbook Air</p>
-                        <p style={{ color: "rgba(255, 255, 255, 0.5)" }}>M3</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* COMPENSATION SUMMARY */}
-                <div
-                  className="rounded-lg p-6 border"
-                  style={{
-                    backgroundColor: "#1a1a1a",
-                    borderColor: "rgba(255, 255, 255, 0.1)",
-                  }}
-                >
-                  <h3 className="font-bold text-white mb-4">[COMPENSATION]</h3>
-                  <p className="text-xs" style={{ color: "rgba(255, 255, 255, 0.6)" }}>
-                    View details
-                  </p>
-                </div>
-
-                {/* EMPLOYEE BENEFITS */}
-                <div
-                  className="rounded-lg p-6 border"
-                  style={{
-                    backgroundColor: "#1a1a1a",
-                    borderColor: "rgba(255, 255, 255, 0.1)",
-                  }}
-                >
-                  <h3 className="font-bold text-white mb-4">[BENEFITS]</h3>
-                  <p className="text-xs" style={{ color: "rgba(255, 255, 255, 0.6)" }}>
-                    Expand section
-                  </p>
                 </div>
               </div>
 
-              {/* CENTER COLUMN */}
-              <div className="space-y-6">
+              {/* RIGHT SECTION - More Metrics */}
+              <div className="lg:col-span-5 space-y-6">
+                {/* UNITS SALES & ORGANIC SALES */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {[
+                    { label: "Units Sales", value: "$151,740", change: "-0.17%" },
+                    { label: "Organic Sales Ra...", value: "100.00%", change: "-0.12%" },
+                  ].map((metric, idx) => (
+                    <div
+                      key={idx}
+                      className="rounded-xl p-4 border"
+                      style={{
+                        backgroundColor: "#ffffff",
+                        borderColor: "#e5e7eb",
+                      }}
+                    >
+                      <p className="text-xs font-medium text-gray-600">{metric.label}</p>
+                      <p className="text-lg font-bold mt-2 text-gray-900">{metric.value}</p>
+                      <p className="text-xs mt-2 text-red-500">{metric.change}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* ACoS vs TACoS Chart */}
+                <div
+                  className="rounded-xl p-6 border"
+                  style={{
+                    backgroundColor: "#ffffff",
+                    borderColor: "#e5e7eb",
+                  }}
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-semibold text-gray-900">ACoS vs TACoS</h3>
+                    <button className="text-gray-400">⋯</button>
+                  </div>
+                  <div className="flex items-end justify-center gap-8 py-6">
+                    <div className="flex flex-col items-center">
+                      <div className="w-20 h-20 rounded-lg flex items-center justify-center font-bold text-white relative" style={{ backgroundColor: "#7c3aed" }}>
+                        <span className="text-2xl">84.9%</span>
+                      </div>
+                      <p className="text-xs text-gray-600 mt-2">ACoS</p>
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <div className="w-20 h-20 rounded-lg flex items-center justify-center font-bold text-white relative" style={{ backgroundColor: "#a78bfa" }}>
+                        <span className="text-2xl">76.26%</span>
+                      </div>
+                      <p className="text-xs text-gray-600 mt-2">TACoS</p>
+                    </div>
+                  </div>
+                </div>
+
                 {/* PROGRESS CARD */}
                 <div
-                  className="rounded-lg p-6 border"
+                  className="rounded-xl p-6 border"
                   style={{
-                    backgroundColor: "#1a1a1a",
-                    borderColor: "rgba(255, 255, 255, 0.1)",
+                    backgroundColor: "#ffffff",
+                    borderColor: "#e5e7eb",
                   }}
                 >
                   <div className="flex items-center justify-between mb-6">
-                    <h3 className="font-bold text-white">[PROGRESS]</h3>
-                    <button className="text-xs" style={{ color: "#e8d4c0" }}>
-                      ↗
-                    </button>
+                    <h3 className="font-semibold text-gray-900">Progress</h3>
+                    <button className="text-sm text-gray-400">⋯</button>
                   </div>
-                  <p className="text-3xl font-bold text-white mb-2">
-                    {doneCount}h
+                  <p className="text-3xl font-bold text-gray-900 mb-2">
+                    {doneCount}
                   </p>
-                  <p className="text-xs mb-4" style={{ color: "rgba(255, 255, 255, 0.6)" }}>
-                    [WORKTIME] This week
+                  <p className="text-xs mb-4 text-gray-500">
+                    Worktime This week
                   </p>
                   <div className="flex gap-1 items-end h-16">
                     {[4, 3, 5, 2, 6, 4, 3].map((h, i) => (
@@ -520,7 +566,7 @@ export default function DashboardPage() {
                         className="flex-1 rounded-t"
                         style={{
                           height: `${(h / 6) * 100}%`,
-                          backgroundColor: "rgba(232, 212, 192, 0.3)",
+                          backgroundColor: "#c4b5fd",
                         }}
                       />
                     ))}
@@ -531,11 +577,11 @@ export default function DashboardPage() {
                 <div
                   className="rounded-lg p-6 border"
                   style={{
-                    backgroundColor: "#1a1a1a",
-                    borderColor: "rgba(255, 255, 255, 0.1)",
+                    backgroundColor: "#ffffff",
+                    borderColor: "#e5e7eb",
                   }}
                 >
-                  <h3 className="font-bold text-white mb-6">[TIME TRACKER]</h3>
+                  <h3 className="font-bold text-gray-900 mb-6">Time Tracker</h3>
                   <div className="flex justify-center mb-6">
                     <div className="relative w-32 h-32 flex items-center justify-center">
                       <svg className="w-full h-full" viewBox="0 0 100 100">
@@ -544,7 +590,7 @@ export default function DashboardPage() {
                           cy="50"
                           r="40"
                           fill="none"
-                          stroke="rgba(232, 212, 192, 0.2)"
+                          stroke="#ede9fe"
                           strokeWidth="2"
                         />
                         <circle
@@ -552,7 +598,7 @@ export default function DashboardPage() {
                           cy="50"
                           r="40"
                           fill="none"
-                          stroke="#e8d4c0"
+                          stroke="#7c3aed"
                           strokeWidth="3"
                           strokeDasharray={`${(progressPercent / 100) * 251} 251`}
                           strokeLinecap="round"
@@ -560,9 +606,9 @@ export default function DashboardPage() {
                         />
                       </svg>
                       <div className="absolute text-center">
-                        <p className="text-sm font-bold text-white">02:35</p>
-                        <p className="text-xs" style={{ color: "rgba(255, 255, 255, 0.6)" }}>
-                          [WORKTIME]
+                        <p className="text-sm font-bold text-gray-900">02:35</p>
+                        <p className="text-xs text-gray-500">
+                          Worktime
                         </p>
                       </div>
                     </div>
@@ -571,9 +617,9 @@ export default function DashboardPage() {
                     <button
                       className="px-4 py-2 rounded text-xs font-bold"
                       style={{
-                        backgroundColor: "rgba(232, 212, 192, 0.1)",
-                        color: "#e8d4c0",
-                        border: "1px solid rgba(232, 212, 192, 0.3)",
+                        backgroundColor: "#ede9fe",
+                        color: "#7c3aed",
+                        border: "1px solid #ddd6fe",
                       }}
                     >
                       ⏸ PAUSE
@@ -585,21 +631,20 @@ export default function DashboardPage() {
                 <div
                   className="rounded-lg p-6 border"
                   style={{
-                    backgroundColor: "#1a1a1a",
-                    borderColor: "rgba(255, 255, 255, 0.1)",
+                    backgroundColor: "#ffffff",
+                    borderColor: "#e5e7eb",
                   }}
                 >
-                  <h3 className="font-bold text-white mb-4">[CALENDAR]</h3>
+                  <h3 className="font-bold text-gray-900 mb-4">Calendar</h3>
                   <div className="grid grid-cols-7 gap-2 text-xs text-center mb-4">
                     {["S", "M", "T", "W", "T", "F", "S"].map((d) => (
-                      <div key={d} style={{ color: "rgba(255, 255, 255, 0.6)" }}>
+                      <div key={d} className="text-gray-600">
                         {d}
                       </div>
                     ))}
                   </div>
                   <div
-                    className="grid grid-cols-7 gap-2 text-xs"
-                    style={{ color: "rgba(255, 255, 255, 0.6)" }}
+                    className="grid grid-cols-7 gap-2 text-xs text-gray-600"
                   >
                     {Array.from({ length: 35 }, (_, i) => i + 1).map((n) => (
                       <div key={n} className="text-center p-2">
@@ -616,35 +661,35 @@ export default function DashboardPage() {
                 <div
                   className="rounded-lg p-6 border"
                   style={{
-                    backgroundColor: "#1a1a1a",
-                    borderColor: "rgba(255, 255, 255, 0.1)",
+                    backgroundColor: "#ffffff",
+                    borderColor: "#e5e7eb",
                   }}
                 >
                   <div className="flex items-start justify-between mb-6">
                     <div>
-                      <h3 className="font-bold text-white mb-1">[ONBOARDING]</h3>
-                      <p className="text-xs" style={{ color: "rgba(255, 255, 255, 0.6)" }}>
+                      <h3 className="font-bold text-gray-900 mb-1">Onboarding</h3>
+                      <p className="text-xs text-gray-600">
                         18%
                       </p>
                     </div>
                   </div>
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
-                      <div className="flex-1 h-2 rounded-full" style={{ backgroundColor: "rgba(232, 212, 192, 0.2)" }}>
+                      <div className="flex-1 h-2 rounded-full" style={{ backgroundColor: "#ede9fe" }}>
                         <div
                           className="h-full rounded-full"
-                          style={{ width: "30%", backgroundColor: "#e8d4c0" }}
+                          style={{ width: "30%", backgroundColor: "#7c3aed" }}
                         />
                       </div>
-                      <span className="text-xs font-bold" style={{ color: "#e8d4c0" }}>
+                      <span className="text-xs font-bold text-purple-600">
                         30%
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="flex-1 h-2 rounded-full" style={{ backgroundColor: "rgba(232, 212, 192, 0.2)" }}>
+                      <div className="flex-1 h-2 rounded-full" style={{ backgroundColor: "#ede9fe" }}>
                         <div
                           className="h-full rounded-full"
-                          style={{ width: "25%", backgroundColor: "rgba(232, 212, 192, 0.3)" }}
+                          style={{ width: "25%", backgroundColor: "#c4b5fd" }}
                         />
                       </div>
                       <span className="text-xs" style={{ color: "rgba(255, 255, 255, 0.6)" }}>
@@ -652,10 +697,10 @@ export default function DashboardPage() {
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="flex-1 h-2 rounded-full" style={{ backgroundColor: "rgba(232, 212, 192, 0.2)" }}>
+                      <div className="flex-1 h-2 rounded-full" style={{ backgroundColor: "#ede9fe" }}>
                         <div
                           className="h-full rounded-full"
-                          style={{ width: "0%", backgroundColor: "rgba(232, 212, 192, 0.3)" }}
+                          style={{ width: "0%", backgroundColor: "#c4b5fd" }}
                         />
                       </div>
                       <span className="text-xs" style={{ color: "rgba(255, 255, 255, 0.6)" }}>
@@ -669,21 +714,21 @@ export default function DashboardPage() {
                 <div
                   className="rounded-lg p-6 border"
                   style={{
-                    backgroundColor: "#1a1a1a",
-                    borderColor: "rgba(255, 255, 255, 0.1)",
+                    backgroundColor: "#ffffff",
+                    borderColor: "#e5e7eb",
                   }}
                 >
-                  <h3 className="font-bold text-white mb-4">[TASKS]</h3>
+                  <h3 className="font-bold text-gray-900 mb-4">Tasks</h3>
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
-                      <span className="text-xs" style={{ color: "rgba(255, 255, 255, 0.6)" }}>
-                        [COMPLETED]
+                      <span className="text-xs text-gray-600">
+                        Completed
                       </span>
-                      <span className="text-lg font-bold text-white">
+                      <span className="text-lg font-bold text-gray-900">
                         {stats.completedTodos}/{stats.totalTodos}
                       </span>
                     </div>
-                    <div className="w-full h-1 rounded-full" style={{ backgroundColor: "rgba(232, 212, 192, 0.2)" }}>
+                    <div className="w-full h-1 rounded-full" style={{ backgroundColor: "#ede9fe" }}>
                       <div
                         className="h-full rounded-full transition-all"
                         style={{
@@ -692,7 +737,7 @@ export default function DashboardPage() {
                               ? (stats.completedTodos / stats.totalTodos) * 100
                               : 0
                           }%`,
-                          backgroundColor: "#e8d4c0",
+                          backgroundColor: "#7c3aed",
                         }}
                       />
                     </div>
@@ -703,30 +748,29 @@ export default function DashboardPage() {
                 <div
                   className="rounded-lg p-6 border"
                   style={{
-                    backgroundColor: "#0a0a0a",
-                    borderColor: "rgba(255, 255, 255, 0.1)",
+                    backgroundColor: "#ffffff",
+                    borderColor: "#e5e7eb",
                   }}
                 >
-                  <h3 className="font-bold text-white mb-4">[ONBOARDING TASKS] 2/8</h3>
+                  <h3 className="font-bold text-gray-900 mb-4">Onboarding Tasks 2/8</h3>
                   <div className="space-y-3">
                     {[
                       { task: "[INTERVIEW]", date: "Sep 15, 10:30" },
                       { task: "[TEAM MEETING]", date: "Sep 16, 10:30" },
                       { task: "[PROJECT UPDATE]", date: "Sep 17" },
                     ].map((item, idx) => (
-                      <div key={idx} className="flex items-center gap-3 pb-3 border-b" style={{ borderColor: "rgba(255, 255, 255, 0.1)" }}>
+                      <div key={idx} className="flex items-center gap-3 pb-3 border-b border-gray-100">
                         <div
-                          className="w-6 h-6 rounded flex items-center justify-center text-xs"
+                          className="w-6 h-6 rounded flex items-center justify-center text-xs text-purple-600"
                           style={{
-                            backgroundColor: "rgba(232, 212, 192, 0.2)",
-                            color: "#e8d4c0",
+                            backgroundColor: "#ede9fe",
                           }}
                         >
                           ●
                         </div>
                         <div className="flex-1">
-                          <p className="text-xs font-bold text-white">{item.task}</p>
-                          <p className="text-xs" style={{ color: "rgba(255, 255, 255, 0.5)" }}>
+                          <p className="text-xs font-bold text-gray-900">{item.task}</p>
+                          <p className="text-xs text-gray-500">
                             {item.date}
                           </p>
                         </div>
@@ -739,7 +783,7 @@ export default function DashboardPage() {
 
             {/* WELLNESS SECTION */}
             <div>
-              <h2 className="text-2xl font-bold text-white mb-6">[WELLNESS TRACKING]</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">Wellness Tracking</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <ITPPreview />
                 <BreathingPreview />
@@ -788,31 +832,31 @@ function ITPPreview() {
 
   return (
     <div
-      className="rounded-lg p-6 border hover:border-opacity-100 transition-colors cursor-pointer"
+      className="rounded-xl p-6 border hover:border-opacity-100 transition-colors cursor-pointer"
       style={{
-        backgroundColor: "#1a1a1a",
-        borderColor: "rgba(255, 255, 255, 0.1)",
+        backgroundColor: "#ffffff",
+        borderColor: "#e5e7eb",
       }}
       onClick={() => router.push("/itp")}
     >
-      <h3 className="text-lg font-bold text-white mb-4">[ITP] — Plan Tracker</h3>
+      <h3 className="text-lg font-bold text-gray-900 mb-4">ITP — Plan Tracker</h3>
       <div className="space-y-3">
         <div className="flex justify-between items-center">
-          <span style={{ color: "rgba(255, 255, 255, 0.6)" }}>[DONE]</span>
-          <span className="text-white font-semibold">{doneCount}/{plans.length}</span>
+          <span className="text-gray-600">Done</span>
+          <span className="text-gray-900 font-semibold">{doneCount}/{plans.length}</span>
         </div>
         <div className="flex justify-between items-center">
-          <span style={{ color: "rgba(255, 255, 255, 0.6)" }}>[PENDING]</span>
-          <span className="text-white font-semibold">{pendingCount}</span>
+          <span className="text-gray-600">Pending</span>
+          <span className="text-gray-900 font-semibold">{pendingCount}</span>
         </div>
-        <div className="w-full h-2 rounded-full overflow-hidden" style={{ backgroundColor: "rgba(232, 212, 192, 0.2)" }}>
+        <div className="w-full h-2 rounded-full overflow-hidden" style={{ backgroundColor: "#ede9fe" }}>
           <div
             className="h-full transition-all"
-            style={{ width: `${percent}%`, backgroundColor: "#e8d4c0" }}
+            style={{ width: `${percent}%`, backgroundColor: "#7c3aed" }}
           />
         </div>
-        <p className="text-xs mt-2" style={{ color: "rgba(255, 255, 255, 0.5)" }}>
-          [CLICK] to manage plans
+        <p className="text-xs mt-2 text-gray-500">
+          Click to manage plans
         </p>
       </div>
     </div>
@@ -849,31 +893,31 @@ function BreathingPreview() {
 
   return (
     <div
-      className="rounded-lg p-6 border hover:border-opacity-100 transition-colors cursor-pointer"
+      className="rounded-xl p-6 border hover:border-opacity-100 transition-colors cursor-pointer"
       style={{
-        backgroundColor: "#1a1a1a",
-        borderColor: "rgba(255, 255, 255, 0.1)",
+        backgroundColor: "#ffffff",
+        borderColor: "#e5e7eb",
       }}
       onClick={() => router.push("/breathing")}
     >
-      <h3 className="text-lg font-bold text-white mb-4">[BREATHING] Exercises</h3>
+      <h3 className="text-lg font-bold text-gray-900 mb-4">Breathing Exercises</h3>
       <div className="space-y-3">
         <div className="flex justify-between items-center">
-          <span style={{ color: "rgba(255, 255, 255, 0.6)" }}>[PRESET]</span>
-          <span className="text-white font-semibold">{info?.preset || "—"}</span>
+          <span className="text-gray-600">Preset</span>
+          <span className="text-gray-900 font-semibold">{info?.preset || "—"}</span>
         </div>
         <div className="flex justify-between items-center">
-          <span style={{ color: "rgba(255, 255, 255, 0.6)" }}>[CYCLES]</span>
-          <span className="text-white font-semibold">{cycles}/12</span>
+          <span className="text-gray-600">Cycles</span>
+          <span className="text-gray-900 font-semibold">{cycles}/12</span>
         </div>
-        <div className="w-full h-2 rounded-full overflow-hidden" style={{ backgroundColor: "rgba(232, 212, 192, 0.2)" }}>
+        <div className="w-full h-2 rounded-full overflow-hidden" style={{ backgroundColor: "#ede9fe" }}>
           <div
             className="h-full transition-all"
-            style={{ width: `${pct}%`, backgroundColor: "#e8d4c0" }}
+            style={{ width: `${pct}%`, backgroundColor: "#7c3aed" }}
           />
         </div>
-        <p className="text-xs mt-2" style={{ color: "rgba(255, 255, 255, 0.5)" }}>
-          [CLICK] to start exercise
+        <p className="text-xs mt-2 text-gray-500">
+          Click to start exercise
         </p>
       </div>
     </div>
@@ -907,21 +951,21 @@ function ThoughtsPreview() {
 
   return (
     <div
-      className="rounded-lg p-6 border hover:border-opacity-100 transition-colors cursor-pointer"
+      className="rounded-xl p-6 border hover:border-opacity-100 transition-colors cursor-pointer"
       style={{
-        backgroundColor: "#1a1a1a",
-        borderColor: "rgba(255, 255, 255, 0.1)",
+        backgroundColor: "#ffffff",
+        borderColor: "#e5e7eb",
       }}
       onClick={() => router.push("/thoughts")}
     >
-      <h3 className="text-lg font-bold text-white mb-4">[THOUGHTS] Today</h3>
+      <h3 className="text-lg font-bold text-gray-900 mb-4">Thoughts Today</h3>
       <div className="space-y-3">
         <div className="flex justify-between items-center">
-          <span style={{ color: "rgba(255, 255, 255, 0.6)" }}>[RECORDED]</span>
-          <span className="text-white font-semibold">{thoughts}</span>
+          <span className="text-gray-600">Recorded</span>
+          <span className="text-gray-900 font-semibold">{thoughts}</span>
         </div>
-        <p className="text-xs mt-2" style={{ color: "rgba(255, 255, 255, 0.5)" }}>
-          [CLICK] to log thoughts
+        <p className="text-xs mt-2 text-gray-500">
+          Click to log thoughts
         </p>
       </div>
     </div>
@@ -962,13 +1006,13 @@ function GroundingPreview() {
       }}
       onClick={() => router.push("/grounding")}
     >
-      <h3 className="text-lg font-bold text-white mb-4">[GROUNDING] 5-4-3-2-1</h3>
+      <h3 className="text-lg font-bold text-gray-900 mb-4">Grounding 5-4-3-2-1</h3>
       <div className="space-y-3">
-        <p className="text-xs" style={{ color: "rgba(255, 255, 255, 0.6)" }}>
-          {info ? "[COMPLETED]" : "[NO DATA]"}
+        <p className="text-xs text-gray-600">
+          {info ? "Completed" : "No Data"}
         </p>
-        <p className="text-xs mt-2" style={{ color: "rgba(255, 255, 255, 0.5)" }}>
-          [CLICK] to practice
+        <p className="text-xs mt-2 text-gray-500">
+          Click to practice
         </p>
       </div>
     </div>
@@ -1009,13 +1053,13 @@ function SelfCompassionPreview() {
       }}
       onClick={() => router.push("/self-compassion")}
     >
-      <h3 className="text-lg font-bold text-white mb-4">[COMPASSION] Self-Talk</h3>
+      <h3 className="text-lg font-bold text-gray-900 mb-4">Compassion Self-Talk</h3>
       <div className="space-y-3">
-        <p className="text-xs" style={{ color: "rgba(255, 255, 255, 0.6)" }}>
-          {info ? "[COMPLETED]" : "[NO DATA]"}
+        <p className="text-xs text-gray-600">
+          {info ? "Completed" : "No Data"}
         </p>
-        <p className="text-xs mt-2" style={{ color: "rgba(255, 255, 255, 0.5)" }}>
-          [CLICK] to practice
+        <p className="text-xs mt-2 text-gray-500">
+          Click to practice
         </p>
       </div>
     </div>
@@ -1069,18 +1113,18 @@ function PomodoroPreview() {
       }}
       onClick={() => router.push("/pomodoro")}
     >
-      <h3 className="text-lg font-bold text-white mb-4">[POMODORO] Timer</h3>
+      <h3 className="text-lg font-bold text-gray-900 mb-4">Pomodoro Timer</h3>
       <div className="space-y-3">
         <div className="flex justify-between items-center">
-          <span style={{ color: "rgba(255, 255, 255, 0.6)" }}>[TODAY]</span>
-          <span className="text-white font-semibold">{stats?.today || 0}</span>
+          <span className="text-gray-600">Today</span>
+          <span className="text-gray-900 font-semibold">{stats?.today || 0}</span>
         </div>
         <div className="flex justify-between items-center">
-          <span style={{ color: "rgba(255, 255, 255, 0.6)" }}>[TOTAL]</span>
-          <span className="text-white font-semibold">{stats?.sessions || 0}</span>
+          <span className="text-gray-600">Total</span>
+          <span className="text-gray-900 font-semibold">{stats?.sessions || 0}</span>
         </div>
-        <p className="text-xs mt-2" style={{ color: "rgba(255, 255, 255, 0.5)" }}>
-          [CLICK] to start timer
+        <p className="text-xs mt-2 text-gray-500">
+          Click to start timer
         </p>
       </div>
     </div>
