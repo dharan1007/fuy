@@ -84,6 +84,7 @@ model User {
   productReviews  ProductReview[]      @relation("ProductReviews")
   brandReviews    BrandReview[]        @relation("BrandReviews")
   orders          Order[]              @relation("Orders")
+  payments        Payment[]            // Razorpay payments
 
   // --- Awe Routes & Places ---
   waypoints       RouteWaypoint[]
@@ -1209,4 +1210,74 @@ model PlacePhotoShare {
   @@unique([photoId, userId])
   @@index([photoId])
   @@index([userId])
+}
+
+// ========================
+// Razorpay Payment System
+// ========================
+
+model Payment {
+  id                String   @id @default(cuid())
+  userId            String
+  orderId           String   // Razorpay order ID
+  paymentId         String?  // Razorpay payment ID (set after successful payment)
+  amount            Float    // Amount in rupees
+  currency          String   @default("INR")
+  // Status: CREATED | AUTHORIZED | CAPTURED | FAILED | REFUNDED
+  status            String   @default("CREATED")
+  // Payment method: card, netbanking, wallet, upi, etc.
+  paymentMethod     String?
+  // Description of the payment
+  description       String?
+  // Razorpay receipt ID
+  receiptId         String?
+  // Failure reason if payment failed
+  failureReason     String?
+  // Refund details (JSON)
+  refundData        String?
+  // Signature verification
+  signatureId       String?
+  signatureData     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  webhookLogs WebhookLog[]
+
+  @@unique([orderId])
+  @@index([userId])
+  @@index([status])
+  @@index([paymentId])
+  @@index([createdAt])
+}
+
+model WebhookLog {
+  id              String   @id @default(cuid())
+  paymentId       String?  // Reference to Payment record
+  razorpayEventId String   // Razorpay webhook event ID for idempotency
+  eventType       String   // payment.authorized | payment.captured | payment.failed | refund.created
+  // Request payload (stored as JSON string)
+  payload         String
+  // Signature verification result
+  signatureValid  Boolean  @default(false)
+  // Processing status: PENDING | PROCESSED | FAILED
+  status          String   @default("PENDING")
+  // Error message if processing failed
+  errorMessage    String?
+  // Number of retry attempts
+  retryCount      Int      @default(0)
+  // Next retry timestamp
+  nextRetryAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  payment Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@unique([razorpayEventId]) // Ensures idempotency
+  @@index([paymentId])
+  @@index([eventType])
+  @@index([status])
+  @@index([createdAt])
 }
