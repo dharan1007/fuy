@@ -5,26 +5,37 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "ios": { "bundleIdentifier": "com.fuy.mobile" },
-    "android": { "package": "com.fuy.mobile" },
+    "ios": {
+      "bundleIdentifier": "com.fuy.mobile"
+    },
+    "android": {
+      "package": "com.fuy.mobile"
+    },
     "extra": {
       "USE_EMULATOR": "false",
       "EXPO_PUBLIC_API_URL": "",
-      "eas": {
-        "projectId": "YOUR_EAS_PROJECT_ID"
-      },
       "ONESIGNAL_APP_ID": "YOUR_ONESIGNAL_APP_ID",
-      "ONESIGNAL_REST_API_KEY": "YOUR_ONESIGNAL_REST_API_KEY"
+      "ONESIGNAL_REST_API_KEY": "YOUR_ONESIGNAL_REST_API_KEY",
+      "eas": {
+        "projectId": "816a31ef-3c5e-4026-835f-255c73866a0f"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
     },
     "plugins": [
       [
         "expo-build-properties",
         {
           "android": {
+            "compileSdkVersion": 34,
+            "targetSdkVersion": 34,
+            "minSdkVersion": 21,
             "usesCleartextTraffic": true
           }
         }
       ]
-    ]
+    ],
+    "owner": "dharantej"
   }
 }
