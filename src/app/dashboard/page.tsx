@@ -322,247 +322,21 @@ export default function DashboardPage() {
 
         {/* CONTENT AREA */}
         <div className="flex-1 overflow-y-auto p-8" style={{ backgroundColor: "#f8f6fc" }}>
-          <div className="max-w-7xl mx-auto space-y-6">
-            {/* SUMMARY CARDS */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              {[
-                { label: "Overview", value: "1,552", icon: "⊕" },
-                { label: "Campaigns", value: "1,552", icon: "◈" },
-                { label: "Ad Group", value: "1,552", icon: "▢" },
-                { label: "Keywords", value: "1,552", icon: "◆" },
-              ].map((card, idx) => (
-                <div
-                  key={idx}
-                  className="p-4 rounded-xl border flex flex-col gap-2"
-                  style={{
-                    backgroundColor: "#ffffff",
-                    borderColor: "#e5e7eb",
-                  }}
-                >
-                  <p className="text-sm text-gray-600">{card.label}</p>
-                  <p className="text-2xl font-bold text-gray-900">{card.value}</p>
-                </div>
-              ))}
+          <div className="max-w-7xl mx-auto space-y-8">
+            {/* PAGE TITLE */}
+            <div className="mb-8">
+              <h2 className="text-3xl font-bold text-gray-900 mb-2">Wellness Tracking</h2>
+              <p className="text-gray-600">Track your daily wellness activities and progress</p>
             </div>
 
-            {/* MAIN GRID - Modern Layout */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              {/* LEFT SECTION - Charts */}
-              <div className="lg:col-span-7 space-y-6">
-                {/* PROFILE CARD - Repositioned */}
-                <div
-                  className="rounded-xl p-6 border"
-                  style={{
-                    backgroundColor: "#ffffff",
-                    borderColor: "#e5e7eb",
-                  }}
-                >
-                  <div className="flex items-center gap-4 mb-4">
-                    <div
-                      className="w-16 h-16 rounded-lg flex items-center justify-center text-2xl font-bold text-white"
-                      style={{ backgroundColor: "#7c3aed" }}
-                    >
-                      {session.user?.name?.charAt(0) || "U"}
-                    </div>
-                    <div>
-                      <p className="font-bold text-gray-900">{session.user?.name || "User"}</p>
-                      <p className="text-xs text-gray-500">
-                        Product Manager
-                      </p>
-                    </div>
-                  </div>
-                  <div
-                    className="px-3 py-2 rounded-lg text-xs font-bold text-center"
-                    style={{
-                      backgroundColor: "#ede9fe",
-                      color: "#7c3aed",
-                    }}
-                  >
-                    Profile Info
-                  </div>
-                </div>
-
-                {/* METRIC CARD - Total Sales */}
-                <div className="grid grid-cols-1 gap-4">
-                  <div
-                    className="rounded-xl p-4 border"
-                    style={{
-                      backgroundColor: "#1f2937",
-                      borderColor: "#374151",
-                    }}
-                  >
-                    <p className="text-xs font-medium text-gray-400">Total Sales</p>
-                    <p className="text-xl font-bold mt-2 text-white">$2,145,132.80</p>
-                    <p className="text-xs mt-2 text-red-500">+4.98%</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* RIGHT SECTION - More Metrics */}
-              <div className="lg:col-span-5 space-y-6">
-                {/* PROGRESS CARD */}
-                <div
-                  className="rounded-xl p-6 border"
-                  style={{
-                    backgroundColor: "#ffffff",
-                    borderColor: "#e5e7eb",
-                  }}
-                >
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="font-semibold text-gray-900">Progress</h3>
-                    <button className="text-sm text-gray-400">⋯</button>
-                  </div>
-                  <p className="text-3xl font-bold text-gray-900 mb-2">
-                    {doneCount}
-                  </p>
-                  <p className="text-xs mb-4 text-gray-500">
-                    Worktime This week
-                  </p>
-                  <div className="flex gap-1 items-end h-16">
-                    {[4, 3, 5, 2, 6, 4, 3].map((h, i) => (
-                      <div
-                        key={i}
-                        className="flex-1 rounded-t"
-                        style={{
-                          height: `${(h / 6) * 100}%`,
-                          backgroundColor: "#c4b5fd",
-                        }}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                {/* TIME TRACKER CARD */}
-                <div
-                  className="rounded-lg p-6 border"
-                  style={{
-                    backgroundColor: "#ffffff",
-                    borderColor: "#e5e7eb",
-                  }}
-                >
-                  <h3 className="font-bold text-gray-900 mb-6">Time Tracker</h3>
-                  <div className="flex justify-center mb-6">
-                    <div className="relative w-32 h-32 flex items-center justify-center">
-                      <svg className="w-full h-full" viewBox="0 0 100 100">
-                        <circle
-                          cx="50"
-                          cy="50"
-                          r="40"
-                          fill="none"
-                          stroke="#ede9fe"
-                          strokeWidth="2"
-                        />
-                        <circle
-                          cx="50"
-                          cy="50"
-                          r="40"
-                          fill="none"
-                          stroke="#7c3aed"
-                          strokeWidth="3"
-                          strokeDasharray={`${(progressPercent / 100) * 251} 251`}
-                          strokeLinecap="round"
-                          transform="rotate(-90 50 50)"
-                        />
-                      </svg>
-                      <div className="absolute text-center">
-                        <p className="text-sm font-bold text-gray-900">02:35</p>
-                        <p className="text-xs text-gray-500">
-                          Worktime
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-center">
-                    <button
-                      className="px-4 py-2 rounded text-xs font-bold"
-                      style={{
-                        backgroundColor: "#ede9fe",
-                        color: "#7c3aed",
-                        border: "1px solid #ddd6fe",
-                      }}
-                    >
-                      ⏸ PAUSE
-                    </button>
-                  </div>
-                </div>
-
-                {/* CALENDAR PLACEHOLDER */}
-                <div
-                  className="rounded-lg p-6 border"
-                  style={{
-                    backgroundColor: "#ffffff",
-                    borderColor: "#e5e7eb",
-                  }}
-                >
-                  <h3 className="font-bold text-gray-900 mb-4">Calendar</h3>
-                  <div className="grid grid-cols-7 gap-2 text-xs text-center mb-4">
-                    {["S", "M", "T", "W", "T", "F", "S"].map((d) => (
-                      <div key={d} className="text-gray-600">
-                        {d}
-                      </div>
-                    ))}
-                  </div>
-                  <div
-                    className="grid grid-cols-7 gap-2 text-xs text-gray-600"
-                  >
-                    {Array.from({ length: 35 }, (_, i) => i + 1).map((n) => (
-                      <div key={n} className="text-center p-2">
-                        {n <= 31 ? n : ""}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* RIGHT COLUMN */}
-              <div className="space-y-6">
-                {/* STATS CARD */}
-                <div
-                  className="rounded-lg p-6 border"
-                  style={{
-                    backgroundColor: "#ffffff",
-                    borderColor: "#e5e7eb",
-                  }}
-                >
-                  <h3 className="font-bold text-gray-900 mb-4">Tasks</h3>
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs text-gray-600">
-                        Completed
-                      </span>
-                      <span className="text-lg font-bold text-gray-900">
-                        {stats.completedTodos}/{stats.totalTodos}
-                      </span>
-                    </div>
-                    <div className="w-full h-1 rounded-full" style={{ backgroundColor: "#ede9fe" }}>
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{
-                          width: `${
-                            stats.totalTodos > 0
-                              ? (stats.completedTodos / stats.totalTodos) * 100
-                              : 0
-                          }%`,
-                          backgroundColor: "#7c3aed",
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* WELLNESS SECTION */}
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Wellness Tracking</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <ITPPreview />
-                <BreathingPreview />
-                <ThoughtsPreview />
-                <GroundingPreview />
-                <SelfCompassionPreview />
-                <PomodoroPreview />
-              </div>
+            {/* WELLNESS CARDS */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <ITPPreview />
+              <BreathingPreview />
+              <ThoughtsPreview />
+              <GroundingPreview />
+              <SelfCompassionPreview />
+              <PomodoroPreview />
             </div>
           </div>
         </div>
@@ -603,30 +377,30 @@ function ITPPreview() {
 
   return (
     <div
-      className="rounded-xl p-6 border hover:border-opacity-100 transition-colors cursor-pointer"
+      className="rounded-xl p-6 border hover:shadow-md transition-all cursor-pointer backdrop-blur-sm"
       style={{
-        backgroundColor: "#ffffff",
-        borderColor: "#e5e7eb",
+        backgroundColor: "rgba(255, 255, 255, 0.5)",
+        borderColor: "rgba(255, 255, 255, 0.6)",
       }}
       onClick={() => router.push("/itp")}
     >
       <h3 className="text-lg font-bold text-gray-900 mb-4">ITP — Plan Tracker</h3>
       <div className="space-y-3">
         <div className="flex justify-between items-center">
-          <span className="text-gray-600">Done</span>
+          <span className="text-gray-700">Done</span>
           <span className="text-gray-900 font-semibold">{doneCount}/{plans.length}</span>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-gray-600">Pending</span>
+          <span className="text-gray-700">Pending</span>
           <span className="text-gray-900 font-semibold">{pendingCount}</span>
         </div>
-        <div className="w-full h-2 rounded-full overflow-hidden" style={{ backgroundColor: "#ede9fe" }}>
+        <div className="w-full h-2 rounded-full overflow-hidden" style={{ backgroundColor: "rgba(124, 58, 237, 0.2)" }}>
           <div
             className="h-full transition-all"
             style={{ width: `${percent}%`, backgroundColor: "#7c3aed" }}
           />
         </div>
-        <p className="text-xs mt-2 text-gray-500">
+        <p className="text-xs mt-2 text-gray-600">
           Click to manage plans
         </p>
       </div>
@@ -664,30 +438,30 @@ function BreathingPreview() {
 
   return (
     <div
-      className="rounded-xl p-6 border hover:border-opacity-100 transition-colors cursor-pointer"
+      className="rounded-xl p-6 border hover:shadow-md transition-all cursor-pointer backdrop-blur-sm"
       style={{
-        backgroundColor: "#ffffff",
-        borderColor: "#e5e7eb",
+        backgroundColor: "rgba(255, 255, 255, 0.5)",
+        borderColor: "rgba(255, 255, 255, 0.6)",
       }}
       onClick={() => router.push("/breathing")}
     >
       <h3 className="text-lg font-bold text-gray-900 mb-4">Breathing Exercises</h3>
       <div className="space-y-3">
         <div className="flex justify-between items-center">
-          <span className="text-gray-600">Preset</span>
+          <span className="text-gray-700">Preset</span>
           <span className="text-gray-900 font-semibold">{info?.preset || "—"}</span>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-gray-600">Cycles</span>
+          <span className="text-gray-700">Cycles</span>
           <span className="text-gray-900 font-semibold">{cycles}/12</span>
         </div>
-        <div className="w-full h-2 rounded-full overflow-hidden" style={{ backgroundColor: "#ede9fe" }}>
+        <div className="w-full h-2 rounded-full overflow-hidden" style={{ backgroundColor: "rgba(124, 58, 237, 0.2)" }}>
           <div
             className="h-full transition-all"
             style={{ width: `${pct}%`, backgroundColor: "#7c3aed" }}
           />
         </div>
-        <p className="text-xs mt-2 text-gray-500">
+        <p className="text-xs mt-2 text-gray-600">
           Click to start exercise
         </p>
       </div>
@@ -722,20 +496,20 @@ function ThoughtsPreview() {
 
   return (
     <div
-      className="rounded-xl p-6 border hover:border-opacity-100 transition-colors cursor-pointer"
+      className="rounded-xl p-6 border hover:shadow-md transition-all cursor-pointer backdrop-blur-sm"
       style={{
-        backgroundColor: "#ffffff",
-        borderColor: "#e5e7eb",
+        backgroundColor: "rgba(255, 255, 255, 0.5)",
+        borderColor: "rgba(255, 255, 255, 0.6)",
       }}
       onClick={() => router.push("/thoughts")}
     >
       <h3 className="text-lg font-bold text-gray-900 mb-4">Thoughts Today</h3>
       <div className="space-y-3">
         <div className="flex justify-between items-center">
-          <span className="text-gray-600">Recorded</span>
+          <span className="text-gray-700">Recorded</span>
           <span className="text-gray-900 font-semibold">{thoughts}</span>
         </div>
-        <p className="text-xs mt-2 text-gray-500">
+        <p className="text-xs mt-2 text-gray-600">
           Click to log thoughts
         </p>
       </div>
@@ -770,19 +544,19 @@ function GroundingPreview() {
 
   return (
     <div
-      className="rounded-lg p-6 border hover:border-opacity-100 transition-colors cursor-pointer"
+      className="rounded-xl p-6 border hover:shadow-md transition-all cursor-pointer backdrop-blur-sm"
       style={{
-        backgroundColor: "#1a1a1a",
-        borderColor: "rgba(255, 255, 255, 0.1)",
+        backgroundColor: "rgba(255, 255, 255, 0.5)",
+        borderColor: "rgba(255, 255, 255, 0.6)",
       }}
       onClick={() => router.push("/grounding")}
     >
       <h3 className="text-lg font-bold text-gray-900 mb-4">Grounding 5-4-3-2-1</h3>
       <div className="space-y-3">
-        <p className="text-xs text-gray-600">
+        <p className="text-xs text-gray-700">
           {info ? "Completed" : "No Data"}
         </p>
-        <p className="text-xs mt-2 text-gray-500">
+        <p className="text-xs mt-2 text-gray-600">
           Click to practice
         </p>
       </div>
@@ -817,19 +591,19 @@ function SelfCompassionPreview() {
 
   return (
     <div
-      className="rounded-lg p-6 border hover:border-opacity-100 transition-colors cursor-pointer"
+      className="rounded-xl p-6 border hover:shadow-md transition-all cursor-pointer backdrop-blur-sm"
       style={{
-        backgroundColor: "#1a1a1a",
-        borderColor: "rgba(255, 255, 255, 0.1)",
+        backgroundColor: "rgba(255, 255, 255, 0.5)",
+        borderColor: "rgba(255, 255, 255, 0.6)",
       }}
       onClick={() => router.push("/self-compassion")}
     >
       <h3 className="text-lg font-bold text-gray-900 mb-4">Compassion Self-Talk</h3>
       <div className="space-y-3">
-        <p className="text-xs text-gray-600">
+        <p className="text-xs text-gray-700">
           {info ? "Completed" : "No Data"}
         </p>
-        <p className="text-xs mt-2 text-gray-500">
+        <p className="text-xs mt-2 text-gray-600">
           Click to practice
         </p>
       </div>
@@ -877,24 +651,24 @@ function PomodoroPreview() {
 
   return (
     <div
-      className="rounded-lg p-6 border hover:border-opacity-100 transition-colors cursor-pointer"
+      className="rounded-xl p-6 border hover:shadow-md transition-all cursor-pointer backdrop-blur-sm"
       style={{
-        backgroundColor: "#1a1a1a",
-        borderColor: "rgba(255, 255, 255, 0.1)",
+        backgroundColor: "rgba(255, 255, 255, 0.5)",
+        borderColor: "rgba(255, 255, 255, 0.6)",
       }}
       onClick={() => router.push("/pomodoro")}
     >
       <h3 className="text-lg font-bold text-gray-900 mb-4">Pomodoro Timer</h3>
       <div className="space-y-3">
         <div className="flex justify-between items-center">
-          <span className="text-gray-600">Today</span>
+          <span className="text-gray-700">Today</span>
           <span className="text-gray-900 font-semibold">{stats?.today || 0}</span>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-gray-600">Total</span>
+          <span className="text-gray-700">Total</span>
           <span className="text-gray-900 font-semibold">{stats?.sessions || 0}</span>
         </div>
-        <p className="text-xs mt-2 text-gray-500">
+        <p className="text-xs mt-2 text-gray-600">
           Click to start timer
         </p>
       </div>
