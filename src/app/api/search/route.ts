@@ -2,6 +2,17 @@ import { getSessionUser } from "@/lib/session";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+// Type definitions
+interface SearchUser {
+  id: string;
+  name: string;
+  handle: string;
+  avatar: string;
+  bio: string;
+  followers: number;
+  isFollowing: boolean;
+}
+
 // Mock data for search results
 const MOCK_POSTS = [
   {
@@ -126,7 +137,7 @@ export async function GET(req: NextRequest) {
         : [];
 
     // Fetch real users from database
-    let users = [];
+    let users: SearchUser[] = [];
     if (type === "all" || type === "users") {
       const dbUsers = await prisma.user.findMany({
         where: {
