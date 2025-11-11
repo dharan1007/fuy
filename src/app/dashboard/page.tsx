@@ -246,7 +246,6 @@ export default function DashboardPage() {
           {[
             { label: "Overview", icon: "⊕" },
             { label: "Campaigns", icon: "◈" },
-            { label: "Ad Group", icon: "▢" },
             { label: "Keywords", icon: "◆" },
           ].map((item, idx) => (
             <div
@@ -350,58 +349,6 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               {/* LEFT SECTION - Charts */}
               <div className="lg:col-span-7 space-y-6">
-                {/* TOP 5 PRODUCTS & CAMPAIGNS */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Donut Chart */}
-                  <div
-                    className="rounded-xl p-6 border"
-                    style={{
-                      backgroundColor: "#ffffff",
-                      borderColor: "#e5e7eb",
-                    }}
-                  >
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="font-semibold text-gray-900">Top 5 products by spend</h3>
-                      <button className="text-gray-400 text-lg">⋯</button>
-                    </div>
-                    <div className="flex justify-center py-8">
-                      <div className="w-32 h-32 rounded-full flex items-center justify-center font-bold" style={{ background: "conic-gradient(#7c3aed 0deg 120deg, #a78bfa 120deg 180deg, #c4b5fd 180deg 240deg, #ddd6fe 240deg 280deg, #ede9fe 280deg 360deg)" }}>
-                        <div className="w-24 h-24 rounded-full bg-white flex items-center justify-center">
-                          <div className="text-center">
-                            <p className="text-2xl font-bold text-gray-900">2,985</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Campaign Table */}
-                  <div
-                    className="rounded-xl p-6 border"
-                    style={{
-                      backgroundColor: "#ffffff",
-                      borderColor: "#e5e7eb",
-                    }}
-                  >
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="font-semibold text-gray-900">Highest ACoS campaigns</h3>
-                      <button className="text-gray-400 text-lg">⋯</button>
-                    </div>
-                    <div className="space-y-2 text-sm">
-                      {[
-                        { name: "BOBWYN3JMT", cost: "$30.25", prev: "$149.85", curr: "$149.85" },
-                        { name: "Campaign - 3...", cost: "$40.00", prev: "$134.00", curr: "$134.50" },
-                        { name: "Research - AC...", cost: "$43.55", prev: "$129.75", curr: "$125.00" },
-                      ].map((row, idx) => (
-                        <div key={idx} className="flex justify-between py-2 border-b border-gray-100" style={{ color: idx === 0 ? "#ec4899" : "#6b7280" }}>
-                          <span className="font-medium">{row.name}</span>
-                          <span>{row.cost}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
                 {/* PROFILE CARD - Repositioned */}
                 <div
                   className="rounded-xl p-6 border"
@@ -435,112 +382,24 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                {/* METRIC CARDS - Orders, Sales, PPC */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {[
-                    { label: "Orders Created", value: "$134,970", change: "+12.8%", positive: true },
-                    { label: "Total Sales", value: "$2,145,132.80", change: "+4.98%", positive: false },
-                    { label: "PPC Sales", value: "$890.00", change: "-0.17%", positive: true },
-                  ].map((metric, idx) => (
-                    <div
-                      key={idx}
-                      className="rounded-xl p-4 border"
-                      style={{
-                        backgroundColor: idx === 1 ? "#1f2937" : "#ffffff",
-                        borderColor: idx === 1 ? "#374151" : "#e5e7eb",
-                      }}
-                    >
-                      <p className="text-xs font-medium" style={{ color: idx === 1 ? "#9ca3af" : "#6b7280" }}>
-                        {metric.label}
-                      </p>
-                      <p className="text-xl font-bold mt-2" style={{ color: idx === 1 ? "#ffffff" : "#1f2937" }}>
-                        {metric.value}
-                      </p>
-                      <p className="text-xs mt-2" style={{ color: metric.positive ? "#10b981" : "#ef4444" }}>
-                        {metric.change}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-
-                {/* PENSION CONTRIBUTIONS */}
-                <div
-                  className="rounded-xl p-6 border"
-                  style={{
-                    backgroundColor: "#ffffff",
-                    borderColor: "#e5e7eb",
-                  }}
-                >
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-semibold text-gray-900">Cost Analysis</h3>
-                    <button className="text-gray-400">⋯</button>
-                  </div>
-                  <div className="h-32 flex items-end justify-between gap-2">
-                    {[40, 50, 35, 60, 45, 55, 50].map((height, idx) => (
-                      <div
-                        key={idx}
-                        className="flex-1 rounded-t"
-                        style={{
-                          height: `${height}%`,
-                          backgroundColor: idx === 3 ? "#f59e0b" : "#ddd6fe",
-                        }}
-                      />
-                    ))}
+                {/* METRIC CARD - Total Sales */}
+                <div className="grid grid-cols-1 gap-4">
+                  <div
+                    className="rounded-xl p-4 border"
+                    style={{
+                      backgroundColor: "#1f2937",
+                      borderColor: "#374151",
+                    }}
+                  >
+                    <p className="text-xs font-medium text-gray-400">Total Sales</p>
+                    <p className="text-xl font-bold mt-2 text-white">$2,145,132.80</p>
+                    <p className="text-xs mt-2 text-red-500">+4.98%</p>
                   </div>
                 </div>
               </div>
 
               {/* RIGHT SECTION - More Metrics */}
               <div className="lg:col-span-5 space-y-6">
-                {/* UNITS SALES & ORGANIC SALES */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {[
-                    { label: "Units Sales", value: "$151,740", change: "-0.17%" },
-                    { label: "Organic Sales Ra...", value: "100.00%", change: "-0.12%" },
-                  ].map((metric, idx) => (
-                    <div
-                      key={idx}
-                      className="rounded-xl p-4 border"
-                      style={{
-                        backgroundColor: "#ffffff",
-                        borderColor: "#e5e7eb",
-                      }}
-                    >
-                      <p className="text-xs font-medium text-gray-600">{metric.label}</p>
-                      <p className="text-lg font-bold mt-2 text-gray-900">{metric.value}</p>
-                      <p className="text-xs mt-2 text-red-500">{metric.change}</p>
-                    </div>
-                  ))}
-                </div>
-
-                {/* ACoS vs TACoS Chart */}
-                <div
-                  className="rounded-xl p-6 border"
-                  style={{
-                    backgroundColor: "#ffffff",
-                    borderColor: "#e5e7eb",
-                  }}
-                >
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-semibold text-gray-900">ACoS vs TACoS</h3>
-                    <button className="text-gray-400">⋯</button>
-                  </div>
-                  <div className="flex items-end justify-center gap-8 py-6">
-                    <div className="flex flex-col items-center">
-                      <div className="w-20 h-20 rounded-lg flex items-center justify-center font-bold text-white relative" style={{ backgroundColor: "#7c3aed" }}>
-                        <span className="text-2xl">84.9%</span>
-                      </div>
-                      <p className="text-xs text-gray-600 mt-2">ACoS</p>
-                    </div>
-                    <div className="flex flex-col items-center">
-                      <div className="w-20 h-20 rounded-lg flex items-center justify-center font-bold text-white relative" style={{ backgroundColor: "#a78bfa" }}>
-                        <span className="text-2xl">76.26%</span>
-                      </div>
-                      <p className="text-xs text-gray-600 mt-2">TACoS</p>
-                    </div>
-                  </div>
-                </div>
-
                 {/* PROGRESS CARD */}
                 <div
                   className="rounded-xl p-6 border"
@@ -657,59 +516,6 @@ export default function DashboardPage() {
 
               {/* RIGHT COLUMN */}
               <div className="space-y-6">
-                {/* ONBOARDING CARD */}
-                <div
-                  className="rounded-lg p-6 border"
-                  style={{
-                    backgroundColor: "#ffffff",
-                    borderColor: "#e5e7eb",
-                  }}
-                >
-                  <div className="flex items-start justify-between mb-6">
-                    <div>
-                      <h3 className="font-bold text-gray-900 mb-1">Onboarding</h3>
-                      <p className="text-xs text-gray-600">
-                        18%
-                      </p>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 h-2 rounded-full" style={{ backgroundColor: "#ede9fe" }}>
-                        <div
-                          className="h-full rounded-full"
-                          style={{ width: "30%", backgroundColor: "#7c3aed" }}
-                        />
-                      </div>
-                      <span className="text-xs font-bold text-purple-600">
-                        30%
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 h-2 rounded-full" style={{ backgroundColor: "#ede9fe" }}>
-                        <div
-                          className="h-full rounded-full"
-                          style={{ width: "25%", backgroundColor: "#c4b5fd" }}
-                        />
-                      </div>
-                      <span className="text-xs" style={{ color: "rgba(255, 255, 255, 0.6)" }}>
-                        25%
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 h-2 rounded-full" style={{ backgroundColor: "#ede9fe" }}>
-                        <div
-                          className="h-full rounded-full"
-                          style={{ width: "0%", backgroundColor: "#c4b5fd" }}
-                        />
-                      </div>
-                      <span className="text-xs" style={{ color: "rgba(255, 255, 255, 0.6)" }}>
-                        0%
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
                 {/* STATS CARD */}
                 <div
                   className="rounded-lg p-6 border"
@@ -741,41 +547,6 @@ export default function DashboardPage() {
                         }}
                       />
                     </div>
-                  </div>
-                </div>
-
-                {/* ONBOARDING TASK LIST */}
-                <div
-                  className="rounded-lg p-6 border"
-                  style={{
-                    backgroundColor: "#ffffff",
-                    borderColor: "#e5e7eb",
-                  }}
-                >
-                  <h3 className="font-bold text-gray-900 mb-4">Onboarding Tasks 2/8</h3>
-                  <div className="space-y-3">
-                    {[
-                      { task: "[INTERVIEW]", date: "Sep 15, 10:30" },
-                      { task: "[TEAM MEETING]", date: "Sep 16, 10:30" },
-                      { task: "[PROJECT UPDATE]", date: "Sep 17" },
-                    ].map((item, idx) => (
-                      <div key={idx} className="flex items-center gap-3 pb-3 border-b border-gray-100">
-                        <div
-                          className="w-6 h-6 rounded flex items-center justify-center text-xs text-purple-600"
-                          style={{
-                            backgroundColor: "#ede9fe",
-                          }}
-                        >
-                          ●
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-xs font-bold text-gray-900">{item.task}</p>
-                          <p className="text-xs text-gray-500">
-                            {item.date}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
                   </div>
                 </div>
               </div>
