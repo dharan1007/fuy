@@ -1,0 +1,323 @@
+.backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 20px;
+}
+
+.modal {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  width: 100%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  padding: 24px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(220, 38, 38, 0.1));
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #dc2626;
+  margin: 0 0 8px 0;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0;
+}
+
+.content {
+  padding: 24px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.warningBox {
+  display: flex;
+  gap: 16px;
+  padding: 16px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  margin-bottom: 24px;
+}
+
+.warningIcon {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.warningTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: #991b1b;
+  margin: 0 0 8px 0;
+}
+
+.warningText {
+  font-size: 13px;
+  color: #7f1d1d;
+  margin: 0 0 12px 0;
+}
+
+.warningList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.warningList li {
+  font-size: 12px;
+  color: #7f1d1d;
+  padding: 4px 0;
+  padding-left: 20px;
+  position: relative;
+}
+
+.warningList li:before {
+  content: '•';
+  position: absolute;
+  left: 8px;
+  color: #dc2626;
+  font-weight: bold;
+}
+
+.confirmationSection {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.required {
+  font-family: 'Courier New', monospace;
+  background: #f3f4f6;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #1f2937;
+}
+
+.passwordInput {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  transition: all 0.2s ease;
+}
+
+.passwordInput .input {
+  padding-right: 40px;
+}
+
+.input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.input:disabled {
+  background: #f9fafb;
+  color: #d1d5db;
+  cursor: not-allowed;
+}
+
+.showPasswordBtn {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px;
+  transition: opacity 0.2s ease;
+}
+
+.showPasswordBtn:hover:not(:disabled) {
+  opacity: 0.7;
+}
+
+.showPasswordBtn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.errorBox {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #991b1b;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.errorBox span {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.errorBox p {
+  margin: 0;
+  flex: 1;
+}
+
+.footer {
+  display: flex;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  background: #f9fafb;
+  border-bottom-left-radius: 16px;
+  border-bottom-right-radius: 16px;
+}
+
+.cancelButton {
+  flex: 1;
+  padding: 10px 16px;
+  background: white;
+  border: 1px solid #d1d5db;
+  color: #374151;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.cancelButton:hover:not(:disabled) {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.cancelButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.deleteButton {
+  flex: 1;
+  padding: 10px 16px;
+  background: #dc2626;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.deleteButton:hover:not(:disabled) {
+  background: #b91c1c;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+}
+
+.deleteButton:disabled {
+  background: #f87171;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Scrollbar styling */
+.modal::-webkit-scrollbar {
+  width: 6px;
+}
+
+.modal::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.modal::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+}
+
+.modal::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* Mobile responsive */
+@media (max-width: 600px) {
+  .modal {
+    max-height: 100vh;
+  }
+
+  .header {
+    padding: 16px;
+  }
+
+  .content {
+    padding: 16px;
+  }
+
+  .footer {
+    padding: 12px 16px;
+    flex-direction: column-reverse;
+  }
+
+  .cancelButton,
+  .deleteButton {
+    width: 100%;
+  }
+}
