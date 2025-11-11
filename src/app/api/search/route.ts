@@ -1,5 +1,6 @@
 import { getSessionUser } from "@/lib/session";
 import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 // Mock data for search results
 const MOCK_POSTS = [
@@ -28,45 +29,6 @@ const MOCK_POSTS = [
     content: "Morning meditation completed",
     timestamp: "6 hours ago",
     likes: 432,
-  },
-];
-
-const MOCK_USERS = [
-  {
-    id: "user_1",
-    name: "Sarah Johnson",
-    handle: "@sarahjohnson",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=sarah",
-    bio: "Yoga instructor & wellness coach",
-    followers: 1234,
-    isFollowing: false,
-  },
-  {
-    id: "user_2",
-    name: "Mike Chen",
-    handle: "@mikechen",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=mike",
-    bio: "UI/UX Designer | Design System Enthusiast",
-    followers: 2156,
-    isFollowing: true,
-  },
-  {
-    id: "user_3",
-    name: "Emma Davis",
-    handle: "@emmadavis",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=emma",
-    bio: "Meditation & mindfulness expert",
-    followers: 987,
-    isFollowing: false,
-  },
-  {
-    id: "user_4",
-    name: "John Smith",
-    handle: "@johnsmith",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=john",
-    bio: "Developer & Tech Enthusiast",
-    followers: 1567,
-    isFollowing: true,
   },
 ];
 
@@ -163,16 +125,31 @@ export async function GET(req: NextRequest) {
           )
         : [];
 
-    // Filter users
-    const users =
-      type === "all" || type === "users"
-        ? MOCK_USERS.filter(
-            (user) =>
-              user.name.toLowerCase().includes(query) ||
-              user.handle.toLowerCase().includes(query) ||
-              user.bio.toLowerCase().includes(query)
-          )
-        : [];
+    // Fetch real users from database
+    let users = [];
+    if (type === "all" || type === "users") {
+      const dbUsers = await prisma.user.findMany({
+        where: {
+          OR: [
+            { name: { contains: query, mode: "insensitive" } },
+            { email: { contains: query, mode: "insensitive" } },
+            { profile: { bio: { contains: query, mode: "insensitive" } } },
+          ],
+        },
+        include: { profile: true },
+        take: 10,
+      });
+
+      users = dbUsers.map((dbUser) => ({
+        id: dbUser.id,
+        name: dbUser.name || "Anonymous",
+        handle: `@${(dbUser.name || dbUser.email).toLowerCase().replace(/\s+/g, "")}`,
+        avatar: dbUser.profile?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${dbUser.id}`,
+        bio: dbUser.profile?.bio || "No bio yet",
+        followers: Math.floor(Math.random() * 5000), // Mock followers count
+        isFollowing: false, // TODO: Check friendship status
+      }));
+    }
 
     // Filter templates
     const templates =
