@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import DeleteAccountModal from '@/components/DeleteAccountModal';
+import GhostedRequestsSection from '@/components/GhostedRequestsSection';
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -80,6 +81,9 @@ export default function SettingsPage() {
             </div>
           </div>
         </section>
+
+        {/* Ghosted Requests Section */}
+        <GhostedRequestsSection />
 
         {/* Privacy & Security Section */}
         <section className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 mb-6">

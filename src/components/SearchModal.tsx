@@ -65,7 +65,7 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
   const [error, setError] = useState<string | null>(null);
   const [followingStates, setFollowingStates] = useState<Record<string, { status: "PENDING" | "ACCEPTED" | null; loading: boolean }>>({});
 
-  const handleFollow = async (userId: string, user: User) => {
+  const handleFollow = async (userId: string) => {
     setFollowingStates(prev => ({
       ...prev,
       [userId]: { ...prev[userId], loading: true }
@@ -301,7 +301,7 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
                           ) : (
                             <button
                               className={styles.followButton}
-                              onClick={() => handleFollow(user.id, user)}
+                              onClick={() => handleFollow(user.id)}
                               disabled={isLoading}
                             >
                               {isLoading ? '...' : 'Follow'}

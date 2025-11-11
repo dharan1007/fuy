@@ -32,6 +32,8 @@ export async function GET() {
       where: { id: u.id },
       select: {
         name: true,
+        followersCount: true,
+        followingCount: true,
         profile: {
           select: {
             displayName: true,
@@ -68,7 +70,9 @@ export async function GET() {
     return NextResponse.json({
       name: userData?.name ?? null,
       profile: userData?.profile ?? null,
-      stats: { friends: friendCount, posts: postCount },
+      followersCount: userData?.followersCount ?? 0,
+      followingCount: userData?.followingCount ?? 0,
+      stats: { friends: friendCount, posts: postCount, followers: userData?.followersCount ?? 0, following: userData?.followingCount ?? 0 },
       posts,
     });
   } catch (e: any) {

@@ -25,6 +25,9 @@ model User {
   name      String?
   emailVerified DateTime?
   createdAt DateTime @default(now())
+  // Follower/Following counts for real-time updates
+  followersCount  Int @default(0)
+  followingCount  Int @default(0)
 
   // Relations
   profile         Profile?
@@ -137,9 +140,14 @@ model Friendship {
   id        String   @id @default(cuid())
   userId    String
   friendId  String
-  // Allowed: PENDING | ACCEPTED | BLOCKED
+  // Allowed: PENDING | ACCEPTED | BLOCKED | GHOSTED
   status    String   @default("PENDING")
+  // Track if request was ghosted by the recipient
+  isGhosted Boolean  @default(false)
+  // ID of user who ghosted (the recipient if ghosted)
+  ghostedBy String?
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   user   User @relation("A", fields: [userId], references: [id], onDelete: Cascade)
   friend User @relation("B", fields: [friendId], references: [id], onDelete: Cascade)

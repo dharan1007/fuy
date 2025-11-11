@@ -209,10 +209,21 @@ export async function PATCH(req: Request) {
     }
 
     if (action === "ACCEPT") {
-      // Accept the request
+      // Accept the request and update counts
       const updated = await prisma.friendship.update({
         where: { id: friendshipId },
-        data: { status: "ACCEPTED" },
+        data: { status: "ACCEPTED", isGhosted: false },
+      });
+
+      // Update follower/following counts
+      await prisma.user.update({
+        where: { id: friendship.userId },
+        data: { followingCount: { increment: 1 } },
+      });
+
+      await prisma.user.update({
+        where: { id: userId },
+        data: { followersCount: { increment: 1 } },
       });
 
       // Create notification for the sender
@@ -226,7 +237,17 @@ export async function PATCH(req: Request) {
         },
       });
 
-      return NextResponse.json({ friendship: updated });
+      // Get updated users with new counts
+      const updatedUsers = await prisma.user.findMany({
+        where: { id: { in: [friendship.userId, userId] } },
+        select: {
+          id: true,
+          followersCount: true,
+          followingCount: true,
+        },
+      });
+
+      return NextResponse.json({ friendship: updated, updatedUsers });
     } else if (action === "REJECT") {
       // Reject/delete the request
       await prisma.friendship.delete({
@@ -234,6 +255,14 @@ export async function PATCH(req: Request) {
       });
 
       return NextResponse.json({ message: "Friend request rejected" });
+    } else if (action === "GHOST") {
+      // Ghost the request - mark it as ghosted
+      const updated = await prisma.friendship.update({
+        where: { id: friendshipId },
+        data: { isGhosted: true, ghostedBy: userId },
+      });
+
+      return NextResponse.json({ friendship: updated, message: "Request ghosted" });
     } else {
       return NextResponse.json(
         { error: "Invalid action" },

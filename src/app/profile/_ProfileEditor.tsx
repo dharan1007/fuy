@@ -126,7 +126,8 @@ export default function ProfileEditor() {
       <div className="mx-auto max-w-4xl px-4 sm:px-6 pt-14">
         {/* Stats */}
         <div className="flex flex-wrap gap-2 sm:gap-3 mb-6">
-          <Stat label="Friends" value={stats.friends} />
+          <Stat label="Followers" value={data?.followersCount || stats.followers || 0} />
+          <Stat label="Following" value={data?.followingCount || stats.following || 0} />
           <Stat label="Posts" value={stats.posts} />
         </div>
 

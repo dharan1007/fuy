@@ -7,6 +7,7 @@ import Waves from '@/components/Waves';
 import HopinProgramsCard from '@/components/HopinProgramsCard';
 import RankingCard from '@/components/RankingCard';
 import SearchModal from '@/components/SearchModal';
+import FriendRequestsModal from '@/components/FriendRequestsModal';
 
 interface Post {
   id: number;
@@ -29,6 +30,8 @@ export default function Home() {
   const [postLikes, setPostLikes] = useState<Record<number, number>>({});
   const [likedPosts, setLikedPosts] = useState<Set<number>>(new Set());
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isFriendRequestsOpen, setIsFriendRequestsOpen] = useState(false);
+  const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
 
   const users = [
     { id: 1, name: 'Amanda', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=amanda' },
@@ -40,8 +43,22 @@ export default function Home() {
     { id: 7, name: 'Bob', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=bob' },
   ];
 
+  const fetchPendingRequestsCount = async () => {
+    try {
+      const response = await fetch('/api/friends/request');
+      if (response.ok) {
+        const data = await response.json();
+        const pendingCount = data.requests.filter((r: any) => r.status === 'PENDING').length;
+        setPendingRequestsCount(pendingCount);
+      }
+    } catch (err) {
+      console.error('Error fetching pending requests count:', err);
+    }
+  };
+
   useEffect(() => {
     setIsMounted(true);
+    fetchPendingRequestsCount();
 
     // Initialize posts with different sizes
     const mockPosts: Post[] = [
@@ -526,6 +543,20 @@ export default function Home() {
             🔍
           </button>
 
+          {/* Friend Requests */}
+          <button
+            className="text-2xl text-gray-700 hover:text-blue-600 transition-colors hover:scale-110 transform duration-200 relative"
+            title="Friend Requests"
+            onClick={() => setIsFriendRequestsOpen(true)}
+          >
+            🔔
+            {pendingRequestsCount > 0 && (
+              <span className="absolute -top-2 -right-2 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                {pendingRequestsCount > 9 ? '9+' : pendingRequestsCount}
+              </span>
+            )}
+          </button>
+
           {/* Messages */}
           <Link
             href="/chat"
@@ -551,6 +582,12 @@ export default function Home() {
 
       {/* Search Modal */}
       <SearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
+
+      {/* Friend Requests Modal */}
+      <FriendRequestsModal isOpen={isFriendRequestsOpen} onClose={() => {
+        setIsFriendRequestsOpen(false);
+        fetchPendingRequestsCount(); // Refresh count when modal closes
+      }} />
     </div>
   );
 }
