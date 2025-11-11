@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Waves from '@/components/Waves';
 import HopinProgramsCard from '@/components/HopinProgramsCard';
 import RankingCard from '@/components/RankingCard';
+import SearchModal from '@/components/SearchModal';
 
 interface Post {
   id: number;
@@ -27,6 +28,7 @@ export default function Home() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [postLikes, setPostLikes] = useState<Record<number, number>>({});
   const [likedPosts, setLikedPosts] = useState<Set<number>>(new Set());
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   const users = [
     { id: 1, name: 'Amanda', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=amanda' },
@@ -515,6 +517,15 @@ export default function Home() {
             +
           </button>
 
+          {/* Search */}
+          <button
+            className="text-2xl text-gray-700 hover:text-blue-600 transition-colors hover:scale-110 transform duration-200"
+            title="Search"
+            onClick={() => setIsSearchOpen(true)}
+          >
+            🔍
+          </button>
+
           {/* Messages */}
           <Link
             href="/chat"
@@ -537,6 +548,9 @@ export default function Home() {
           </Link>
         </nav>
       </div>
+
+      {/* Search Modal */}
+      <SearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
     </div>
   );
 }
