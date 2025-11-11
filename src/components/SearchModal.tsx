@@ -21,6 +21,8 @@ interface User {
   bio: string;
   followers: number;
   isFollowing: boolean;
+  friendshipId?: string;
+  friendshipStatus?: "PENDING" | "ACCEPTED";
 }
 
 interface Template {
@@ -61,6 +63,103 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
   const [results, setResults] = useState<SearchResults | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [followingStates, setFollowingStates] = useState<Record<string, { status: "PENDING" | "ACCEPTED" | null; loading: boolean }>>({});
+
+  const handleFollow = async (userId: string, user: User) => {
+    setFollowingStates(prev => ({
+      ...prev,
+      [userId]: { ...prev[userId], loading: true }
+    }));
+
+    try {
+      const response = await fetch('/api/friends/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ friendId: userId }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        const newStatus = data.autoAccepted ? "ACCEPTED" : "PENDING";
+        setFollowingStates(prev => ({
+          ...prev,
+          [userId]: { status: newStatus, loading: false }
+        }));
+
+        // Update results if available
+        if (results) {
+          setResults({
+            ...results,
+            users: results.users.map(u =>
+              u.id === userId
+                ? { ...u, isFollowing: newStatus === "ACCEPTED", friendshipStatus: newStatus, friendshipId: data.friendship?.id }
+                : u
+            ),
+          });
+        }
+      } else {
+        setFollowingStates(prev => ({
+          ...prev,
+          [userId]: { status: null, loading: false }
+        }));
+        console.error('Failed to send friend request:', data.error);
+      }
+    } catch (err) {
+      setFollowingStates(prev => ({
+        ...prev,
+        [userId]: { status: null, loading: false }
+      }));
+      console.error('Error sending friend request:', err);
+    }
+  };
+
+  const handleUnfollow = async (userId: string, friendshipId?: string) => {
+    if (!friendshipId) return;
+
+    setFollowingStates(prev => ({
+      ...prev,
+      [userId]: { ...prev[userId], loading: true }
+    }));
+
+    try {
+      const response = await fetch('/api/friends/request', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ friendshipId }),
+      });
+
+      if (response.ok) {
+        setFollowingStates(prev => ({
+          ...prev,
+          [userId]: { status: null, loading: false }
+        }));
+
+        // Update results if available
+        if (results) {
+          setResults({
+            ...results,
+            users: results.users.map(u =>
+              u.id === userId
+                ? { ...u, isFollowing: false, friendshipStatus: undefined, friendshipId: undefined }
+                : u
+            ),
+          });
+        }
+      } else {
+        setFollowingStates(prev => ({
+          ...prev,
+          [userId]: { status: prev[userId]?.status || null, loading: false }
+        }));
+      }
+    } catch (err) {
+      console.error('Error unfollowing user:', err);
+      setFollowingStates(prev => ({
+        ...prev,
+        [userId]: { status: null, loading: false }
+      }));
+    }
+  };
 
   useEffect(() => {
     if (!searchQuery.trim()) {
@@ -78,6 +177,16 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
         }
         const data = await response.json();
         setResults(data);
+
+        // Initialize following states from results
+        const states: Record<string, { status: "PENDING" | "ACCEPTED" | null; loading: boolean }> = {};
+        data.users.forEach((user: User) => {
+          states[user.id] = {
+            status: user.friendshipStatus || null,
+            loading: false
+          };
+        });
+        setFollowingStates(states);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred');
         console.error('Search error:', err);
@@ -159,24 +268,48 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
                 <div className={styles.section}>
                   <h3 className={styles.sectionTitle}>Users</h3>
                   <div className={styles.usersList}>
-                    {results.users.map((user) => (
-                      <div key={user.id} className={styles.userCard}>
-                        <img src={user.avatar} alt={user.name} className={styles.avatar} />
-                        <div className={styles.userInfo}>
-                          <h4 className={styles.userName}>{user.name}</h4>
-                          <p className={styles.userHandle}>{user.handle}</p>
-                          <p className={styles.userBio}>{user.bio}</p>
-                          <p className={styles.followers}>{user.followers.toLocaleString()} followers</p>
+                    {results.users.map((user) => {
+                      const followState = followingStates[user.id] || { status: null, loading: false };
+                      const isFollowing = followState.status === "ACCEPTED";
+                      const isPending = followState.status === "PENDING";
+                      const isLoading = followState.loading;
+
+                      return (
+                        <div key={user.id} className={styles.userCard}>
+                          <img src={user.avatar} alt={user.name} className={styles.avatar} />
+                          <div className={styles.userInfo}>
+                            <h4 className={styles.userName}>{user.name}</h4>
+                            <p className={styles.userHandle}>{user.handle}</p>
+                            <p className={styles.userBio}>{user.bio}</p>
+                            <p className={styles.followers}>{user.followers.toLocaleString()} followers</p>
+                          </div>
+                          {isFollowing ? (
+                            <button
+                              className={`${styles.followButton} ${styles.following}`}
+                              onClick={() => handleUnfollow(user.id, user.friendshipId)}
+                              disabled={isLoading}
+                            >
+                              {isLoading ? '...' : 'Following'}
+                            </button>
+                          ) : isPending ? (
+                            <button
+                              className={`${styles.followButton} ${styles.pending}`}
+                              disabled={true}
+                            >
+                              Pending
+                            </button>
+                          ) : (
+                            <button
+                              className={styles.followButton}
+                              onClick={() => handleFollow(user.id, user)}
+                              disabled={isLoading}
+                            >
+                              {isLoading ? '...' : 'Follow'}
+                            </button>
+                          )}
                         </div>
-                        <button
-                          className={`${styles.followButton} ${
-                            user.isFollowing ? styles.following : ''
-                          }`}
-                        >
-                          {user.isFollowing ? 'Following' : 'Follow'}
-                        </button>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
