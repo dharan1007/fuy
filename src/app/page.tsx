@@ -7,7 +7,7 @@ import Waves from '@/components/Waves';
 import HopinProgramsCard from '@/components/HopinProgramsCard';
 import RankingCard from '@/components/RankingCard';
 import SearchModal from '@/components/SearchModal';
-import FriendRequestsModal from '@/components/FriendRequestsModal';
+import NotificationsModal from '@/components/NotificationsModal';
 
 interface Post {
   id: number;
@@ -30,8 +30,8 @@ export default function Home() {
   const [postLikes, setPostLikes] = useState<Record<number, number>>({});
   const [likedPosts, setLikedPosts] = useState<Set<number>>(new Set());
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [isFriendRequestsOpen, setIsFriendRequestsOpen] = useState(false);
-  const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const users = [
     { id: 1, name: 'Amanda', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=amanda' },
@@ -43,22 +43,21 @@ export default function Home() {
     { id: 7, name: 'Bob', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=bob' },
   ];
 
-  const fetchPendingRequestsCount = async () => {
+  const fetchUnreadCount = async () => {
     try {
-      const response = await fetch('/api/friends/request');
+      const response = await fetch('/api/notifications?unreadOnly=true');
       if (response.ok) {
         const data = await response.json();
-        const pendingCount = data.requests.filter((r: any) => r.status === 'PENDING').length;
-        setPendingRequestsCount(pendingCount);
+        setUnreadCount(data.notifications?.length || 0);
       }
     } catch (err) {
-      console.error('Error fetching pending requests count:', err);
+      console.error('Error fetching unread count:', err);
     }
   };
 
   useEffect(() => {
     setIsMounted(true);
-    fetchPendingRequestsCount();
+    fetchUnreadCount();
 
     // Initialize posts with different sizes
     const mockPosts: Post[] = [
@@ -536,23 +535,27 @@ export default function Home() {
 
           {/* Search */}
           <button
-            className="text-2xl text-gray-700 hover:text-blue-600 transition-colors hover:scale-110 transform duration-200"
+            className="p-1.5 text-gray-700 hover:text-blue-600 transition-colors hover:scale-110 transform duration-200"
             title="Search"
             onClick={() => setIsSearchOpen(true)}
           >
-            🔍
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
           </button>
 
-          {/* Friend Requests */}
+          {/* Notifications */}
           <button
-            className="text-2xl text-gray-700 hover:text-blue-600 transition-colors hover:scale-110 transform duration-200 relative"
-            title="Friend Requests"
-            onClick={() => setIsFriendRequestsOpen(true)}
+            className="relative p-1.5 text-gray-700 hover:text-blue-600 transition-colors hover:scale-110 transform duration-200"
+            title="Notifications"
+            onClick={() => setIsNotificationsOpen(true)}
           >
-            🔔
-            {pendingRequestsCount > 0 && (
-              <span className="absolute -top-2 -right-2 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                {pendingRequestsCount > 9 ? '9+' : pendingRequestsCount}
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+            {unreadCount > 0 && (
+              <span className="absolute -top-2 -right-2 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-medium">
+                {unreadCount > 9 ? '9+' : unreadCount}
               </span>
             )}
           </button>
@@ -560,11 +563,13 @@ export default function Home() {
           {/* Messages */}
           <Link
             href="/chat"
-            className="text-2xl text-gray-700 hover:text-blue-600 transition-colors hover:scale-110 transform duration-200 relative"
+            className="relative p-1.5 text-gray-700 hover:text-blue-600 transition-colors hover:scale-110 transform duration-200"
             title="Messages"
           >
-            ◊
-            <span className="absolute -top-2 -right-2 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+            <span className="absolute -top-2 -right-2 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-medium">
               3
             </span>
           </Link>
@@ -572,10 +577,12 @@ export default function Home() {
           {/* Essenz Dashboard */}
           <Link
             href="/essenz"
-            className="text-2xl text-gray-700 hover:text-blue-600 transition-colors hover:scale-110 transform duration-200"
+            className="p-1.5 text-gray-700 hover:text-blue-600 transition-colors hover:scale-110 transform duration-200"
             title="Essenz Dashboard"
           >
-            ★
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+            </svg>
           </Link>
         </nav>
       </div>
@@ -583,10 +590,10 @@ export default function Home() {
       {/* Search Modal */}
       <SearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
 
-      {/* Friend Requests Modal */}
-      <FriendRequestsModal isOpen={isFriendRequestsOpen} onClose={() => {
-        setIsFriendRequestsOpen(false);
-        fetchPendingRequestsCount(); // Refresh count when modal closes
+      {/* Notifications Modal */}
+      <NotificationsModal isOpen={isNotificationsOpen} onClose={() => {
+        setIsNotificationsOpen(false);
+        fetchUnreadCount(); // Refresh count when modal closes
       }} />
     </div>
   );
