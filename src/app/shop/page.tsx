@@ -206,10 +206,10 @@ export default function ShopPage() {
 
       {/* Main Hero Section */}
       <div className="relative w-full bg-black dark:bg-neutral-950 text-white overflow-hidden pt-4 sm:pt-6">
-        <div className="max-w-7xl mx-auto px-4 py-16 flex items-center justify-between">
-          <div className="flex-1">
-            <h1 className="text-5xl font-bold mb-4">YOUR STYLE IS HERE!</h1>
-            <p className="text-lg text-gray-300 dark:text-gray-400 mb-8">Discover the latest fashion trends and exclusive collections</p>
+        <div className="max-w-7xl mx-auto px-4 py-8 sm:py-16 flex flex-col md:flex-row items-center justify-between gap-6 md:gap-0">
+          <div className="flex-1 w-full md:w-auto">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4">YOUR STYLE IS HERE!</h1>
+            <p className="text-base sm:text-lg text-gray-300 dark:text-gray-400 mb-6 sm:mb-8">Discover the latest fashion trends and exclusive collections</p>
             <div className="flex gap-4">
               <button className="px-6 py-2 bg-yellow-500 text-black font-bold rounded hover:bg-yellow-600 transition">
                 New Year Collection
@@ -218,7 +218,7 @@ export default function ShopPage() {
                 View Collection
               </button>
             </div>
-            <div className="mt-8 flex gap-6 text-sm">
+            <div className="mt-4 sm:mt-8 flex flex-wrap gap-3 sm:gap-6 text-xs sm:text-sm">
               <div className="flex items-center gap-2">
                 <span className="font-bold">New Year Collection</span>
               </div>
@@ -226,17 +226,17 @@ export default function ShopPage() {
               <div className="flex items-center gap-2">
                 <span className="font-bold">Discount Up to 25%</span>
               </div>
-              <span className="text-gray-400 dark:text-gray-500">×</span>
-              <div className="flex items-center gap-2">
+              <span className="hidden sm:inline text-gray-400 dark:text-gray-500">×</span>
+              <div className="hidden sm:flex items-center gap-2">
                 <span className="font-bold">Best Fashion in 2024</span>
               </div>
-              <span className="text-gray-400 dark:text-gray-500">×</span>
-              <div className="flex items-center gap-2">
+              <span className="hidden sm:inline text-gray-400 dark:text-gray-500">×</span>
+              <div className="hidden sm:flex items-center gap-2">
                 <span className="font-bold">End Year Sale</span>
               </div>
             </div>
           </div>
-          <div className="flex-1 relative h-96">
+          <div className="flex-1 relative w-full h-64 sm:h-80 md:h-96">
             <img
               src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&h=600&fit=crop"
               alt="Fashion Hero"
@@ -247,19 +247,19 @@ export default function ShopPage() {
       </div>
 
       {/* Side Banners Section */}
-      <div className="max-w-7xl mx-auto px-4 py-8 grid grid-cols-3 gap-6">
+      <div className="max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
         {/* End Year Big Sale Banner */}
         <div className="col-span-1 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-neutral-800 dark:to-neutral-700 rounded-lg overflow-hidden">
-          <div className="relative h-96 bg-gray-300 dark:bg-neutral-700 flex items-end justify-between p-6">
+          <div className="relative h-64 sm:h-80 md:h-96 bg-gray-300 dark:bg-neutral-700 flex items-end justify-between p-4 sm:p-6">
             <img
               src="https://images.unsplash.com/photo-1495386794519-c21d9a3a8d6d?w=300&h=400&fit=crop"
               alt="Model"
               className="absolute inset-0 w-full h-full object-cover"
             />
             <div className="relative z-10">
-              <h3 className="text-2xl font-bold text-white mb-2">END YEAR BIG SALE 🎉</h3>
-              <p className="text-white text-sm mb-4">The Modern Classic</p>
-              <button className="px-6 py-2 bg-yellow-500 text-black font-bold rounded hover:bg-yellow-600">
+              <h3 className="text-lg sm:text-2xl font-bold text-white mb-2">END YEAR BIG SALE 🎉</h3>
+              <p className="text-white text-xs sm:text-sm mb-4">The Modern Classic</p>
+              <button className="px-4 sm:px-6 py-2 bg-yellow-500 text-black font-bold rounded text-sm hover:bg-yellow-600">
                 Shop Now
               </button>
             </div>
@@ -267,24 +267,24 @@ export default function ShopPage() {
         </div>
 
         {/* Stay up to date banner */}
-        <div className="col-span-2 grid grid-cols-2 gap-6">
-          <div className="bg-gray-900 dark:bg-neutral-800 text-white rounded-lg p-6 flex flex-col justify-between border border-gray-800 dark:border-neutral-700">
+        <div className="col-span-1 md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+          <div className="bg-gray-900 dark:bg-neutral-800 text-white rounded-lg p-4 sm:p-6 flex flex-col justify-between border border-gray-800 dark:border-neutral-700">
             <div>
-              <h3 className="text-2xl font-bold mb-2">STAY UP TO DATE BY JOINING OUR NEWSLETTER</h3>
-              <p className="text-sm text-gray-300 dark:text-gray-400">Get the latest collection & exclusive vouchers</p>
+              <h3 className="text-lg sm:text-2xl font-bold mb-2">STAY UP TO DATE BY JOINING OUR NEWSLETTER</h3>
+              <p className="text-xs sm:text-sm text-gray-300 dark:text-gray-400">Get the latest collection & exclusive vouchers</p>
             </div>
-            <button className="px-6 py-2 border border-white text-white font-bold rounded w-fit hover:bg-white hover:text-black transition mt-4">
+            <button className="px-4 sm:px-6 py-2 border border-white text-white font-bold rounded text-sm w-fit hover:bg-white hover:text-black transition mt-4">
               Join Now
             </button>
           </div>
 
           {/* Featured Collection Banner */}
-          <div className="bg-gradient-to-r from-blue-500 to-purple-600 dark:from-blue-700 dark:to-purple-800 rounded-lg p-6 text-white flex flex-col justify-between">
+          <div className="bg-gradient-to-r from-blue-500 to-purple-600 dark:from-blue-700 dark:to-purple-800 rounded-lg p-4 sm:p-6 text-white flex flex-col justify-between">
             <div>
-              <p className="text-sm font-semibold mb-2">NEW COLLECTION</p>
-              <h3 className="text-2xl font-bold">SUMMER VIBES</h3>
+              <p className="text-xs sm:text-sm font-semibold mb-2">NEW COLLECTION</p>
+              <h3 className="text-lg sm:text-2xl font-bold">SUMMER VIBES</h3>
             </div>
-            <button className="px-6 py-2 bg-white dark:bg-gray-200 text-blue-600 dark:text-blue-700 font-bold rounded w-fit hover:bg-gray-100 dark:hover:bg-gray-300 transition mt-4">
+            <button className="px-4 sm:px-6 py-2 bg-white dark:bg-gray-200 text-blue-600 dark:text-blue-700 font-bold rounded text-sm w-fit hover:bg-gray-100 dark:hover:bg-gray-300 transition mt-4">
               Explore
             </button>
           </div>

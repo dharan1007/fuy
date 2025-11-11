@@ -220,9 +220,9 @@ export default function DashboardPage() {
 
   return (
     <div className="flex min-h-screen" style={{ backgroundColor: "#f8f6fc" }}>
-      {/* SIDEBAR */}
+      {/* SIDEBAR - Hidden on mobile, visible on sm and above */}
       <div
-        className={`transition-all duration-300 border-r flex flex-col ${
+        className={`hidden sm:flex transition-all duration-300 border-r flex-col ${
           sidebarOpen ? "w-64" : "w-20"
         }`}
         style={{
@@ -275,20 +275,20 @@ export default function DashboardPage() {
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* TOP NAVBAR */}
         <div
-          className="border-b p-6 flex items-center justify-between"
+          className="border-b p-4 sm:p-6 flex items-center justify-between"
           style={{
             backgroundColor: "#ffffff",
             borderColor: "#e5e7eb",
           }}
         >
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Dashboard</h1>
 
-          <div className="flex items-center gap-6">
-            {/* Search Bar */}
+          <div className="flex items-center gap-2 sm:gap-6">
+            {/* Search Bar - Hidden on mobile */}
             <input
               type="text"
-              placeholder="Search for anything"
-              className="px-4 py-2 rounded-lg border text-sm"
+              placeholder="Search..."
+              className="hidden sm:block px-4 py-2 rounded-lg border text-sm"
               style={{
                 backgroundColor: "#f3f4f6",
                 borderColor: "#e5e7eb",
@@ -296,14 +296,14 @@ export default function DashboardPage() {
               }}
             />
 
-            {/* Date Range */}
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ backgroundColor: "#f3f4f6" }}>
+            {/* Date Range - Hidden on mobile */}
+            <div className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-lg" style={{ backgroundColor: "#f3f4f6" }}>
               <span className="text-sm text-gray-700">30 days Oct 16 / 21 - Nov 14 / 21</span>
               <span className="text-gray-400">▼</span>
             </div>
 
             {/* Right Icons */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
               <button className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#f3f4f6", color: "#6b7280" }}>
                 🌍
               </button>
@@ -321,16 +321,16 @@ export default function DashboardPage() {
         </div>
 
         {/* CONTENT AREA */}
-        <div className="flex-1 overflow-y-auto p-8" style={{ backgroundColor: "#f8f6fc" }}>
-          <div className="max-w-7xl mx-auto space-y-8">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-8" style={{ backgroundColor: "#f8f6fc" }}>
+          <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
             {/* PAGE TITLE */}
-            <div className="mb-8">
-              <h2 className="text-3xl font-bold text-gray-900 mb-2">Wellness Tracking</h2>
-              <p className="text-gray-600">Track your daily wellness activities and progress</p>
+            <div className="mb-6 sm:mb-8">
+              <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Wellness Tracking</h2>
+              <p className="text-sm sm:text-base text-gray-600">Track your daily wellness activities and progress</p>
             </div>
 
             {/* WELLNESS CARDS */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               <ITPPreview />
               <BreathingPreview />
               <ThoughtsPreview />

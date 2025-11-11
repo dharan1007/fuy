@@ -271,7 +271,7 @@ export default function HopinPage() {
       {/* Main scrollable content */}
       <div className="flex-1 overflow-y-auto">
         {/* Map section - sticky at top */}
-        <div className="w-full h-96 border-b border-gray-200 dark:border-neutral-700 overflow-hidden sticky top-0 z-40">
+        <div className="w-full h-64 sm:h-80 md:h-96 border-b border-gray-200 dark:border-neutral-700 overflow-hidden sticky top-0 z-40">
           <LeafletMap
             basemapStyle={basemapStyle}
             activeCategory={activeCategory}
@@ -427,7 +427,7 @@ export default function HopinPage() {
                 {/* Estimated Calories - 3 columns */}
                 <div className="mb-6">
                   <label className="block text-xs font-semibold uppercase text-gray-700 dark:text-gray-300 mb-3 tracking-wide">Estimated Calories</label>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="bg-white dark:bg-neutral-800 rounded-lg p-3 border border-gray-200 dark:border-neutral-700">
                       <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Walking</p>
                       <p className="text-lg font-semibold text-orange-700 dark:text-orange-300">{kcal.walk}</p>
@@ -449,7 +449,7 @@ export default function HopinPage() {
                 {/* Custom Calorie Inputs */}
                 <div className="mb-6">
                   <label className="block text-xs font-semibold uppercase text-gray-700 dark:text-gray-300 mb-3 tracking-wide">Custom Calories (Optional)</label>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <input
                       type="number"
                       placeholder="Walk"
@@ -475,7 +475,7 @@ export default function HopinPage() {
                 </div>
 
                 {/* Elevation Gain & Together Burn - 2 columns */}
-                <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                   <div className="bg-white dark:bg-neutral-800 rounded-lg p-4 border border-gray-200 dark:border-neutral-700">
                     <p className="text-xs font-semibold uppercase text-gray-700 dark:text-gray-300 mb-2 tracking-wide">Elevation Gain</p>
                     <p className="text-xl font-bold text-gray-900 dark:text-white">{elevationGain}m</p>
@@ -614,7 +614,7 @@ export default function HopinPage() {
                   className="w-full rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 px-3 py-2 text-sm text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-400"
                   placeholder="sky,texture,quiet,edges,colors"
                 />
-                <div className="mt-3 grid gap-2 md:grid-cols-2">
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {cueSheet.map((c: any, i: number) => (
                     <div
                       key={i}
