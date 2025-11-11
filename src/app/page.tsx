@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import Waves from '@/components/Waves';
+import HopinProgramsCard from '@/components/HopinProgramsCard';
+import RankingCard from '@/components/RankingCard';
 
 interface Post {
   id: number;
@@ -19,21 +21,10 @@ interface Post {
   size: 'small' | 'medium' | 'large';
 }
 
-interface Activity {
-  id: number;
-  user: string;
-  action: string;
-  amount?: string;
-  time: string;
-  avatar: string;
-  type: 'subscription' | 'purchase' | 'tip' | 'post' | 'job' | 'follow';
-}
-
 export default function Home() {
   const { data: session } = useSession();
   const [isMounted, setIsMounted] = useState(false);
   const [posts, setPosts] = useState<Post[]>([]);
-  const [activities, setActivities] = useState<Activity[]>([]);
   const [postLikes, setPostLikes] = useState<Record<number, number>>({});
   const [likedPosts, setLikedPosts] = useState<Set<number>>(new Set());
 
@@ -129,63 +120,7 @@ export default function Home() {
       },
     ];
 
-    const mockActivities: Activity[] = [
-      {
-        id: 1,
-        user: 'Vidaly Alkenasky',
-        action: 'subscribed to your channel',
-        amount: '$10.00',
-        time: '3 min ago',
-        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=vidaly',
-        type: 'subscription',
-      },
-      {
-        id: 2,
-        user: 'Makaym Karafuli',
-        action: 'purchased your video course',
-        amount: '$90.00',
-        time: '6 min ago',
-        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=makaym',
-        type: 'purchase',
-      },
-      {
-        id: 3,
-        user: 'Evgeny Aleksandrov',
-        action: 'sent you a tip for your post',
-        amount: '$30.00',
-        time: '7 min ago',
-        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=evgeny',
-        type: 'tip',
-      },
-      {
-        id: 4,
-        user: 'Sarah Johnson',
-        action: 'posted: "Great design work!"',
-        time: '12 min ago',
-        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=sarah',
-        type: 'post',
-      },
-      {
-        id: 5,
-        user: 'Roseline Kumbura',
-        action: 'sent you a job offer',
-        amount: '$2,500/mo',
-        time: '15 min ago',
-        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=roseline',
-        type: 'job',
-      },
-      {
-        id: 6,
-        user: 'Michael Chen',
-        action: 'started following you',
-        time: '22 min ago',
-        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=michael',
-        type: 'follow',
-      },
-    ];
-
     setPosts(mockPosts);
-    setActivities(mockActivities);
 
     // Initialize likes
     const initialLikes: Record<number, number> = {};
@@ -209,29 +144,6 @@ export default function Home() {
     });
   };
 
-  const getActivityIcon = (type: string) => {
-    const icons: Record<string, string> = {
-      subscription: '▸',
-      purchase: '◆',
-      tip: '◇',
-      post: '☐',
-      job: '◈',
-      follow: '◎',
-    };
-    return icons[type] || '●';
-  };
-
-  const getActivityColor = (type: string) => {
-    const colors: Record<string, string> = {
-      subscription: 'from-blue-400 to-blue-500',
-      purchase: 'from-green-400 to-green-500',
-      tip: 'from-yellow-400 to-yellow-500',
-      post: 'from-purple-400 to-purple-500',
-      job: 'from-orange-400 to-orange-500',
-      follow: 'from-pink-400 to-pink-500',
-    };
-    return colors[type] || 'from-gray-400 to-gray-500';
-  };
 
   if (!isMounted) return null;
 
@@ -479,66 +391,9 @@ export default function Home() {
         </main>
 
         {/* RIGHT SIDEBAR */}
-        <aside className="col-span-3 rounded-2xl p-6 bg-white/30 backdrop-blur-sm border border-white/40 shadow-sm">
-          <h3 className="font-bold text-xl mb-6 text-gray-800 border-b border-gray-200/50 pb-4">Activity Feed</h3>
-
-          <div className="space-y-4">
-            {activities.map((activity) => {
-              const bgColors: Record<string, string> = {
-                subscription: 'bg-blue-50',
-                purchase: 'bg-green-50',
-                tip: 'bg-yellow-50',
-                post: 'bg-purple-50',
-                job: 'bg-orange-50',
-                follow: 'bg-pink-50',
-              };
-              const borderColors: Record<string, string> = {
-                subscription: 'border-blue-200',
-                purchase: 'border-green-200',
-                tip: 'border-yellow-200',
-                post: 'border-purple-200',
-                job: 'border-orange-200',
-                follow: 'border-pink-200',
-              };
-              const textColors: Record<string, string> = {
-                subscription: 'text-blue-700',
-                purchase: 'text-green-700',
-                tip: 'text-yellow-700',
-                post: 'text-purple-700',
-                job: 'text-orange-700',
-                follow: 'text-pink-700',
-              };
-
-              return (
-                <div key={activity.id} className={`${bgColors[activity.type]} ${borderColors[activity.type]} border rounded-xl p-4 hover:shadow-md transition-all`}>
-                  <div className="flex gap-3">
-                    <img src={activity.avatar} alt={activity.user} className="w-12 h-12 rounded-full flex-shrink-0 border border-gray-300 shadow-sm" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-800">{activity.user}</p>
-                      <p className={`text-xs ${textColors[activity.type]} font-medium`}>{getActivityIcon(activity.type)} {activity.action}</p>
-                      <p className="text-xs text-gray-500 mt-1">{activity.time}</p>
-                    </div>
-                  </div>
-                  {activity.amount && (
-                    <div className="mt-3 flex items-center justify-between">
-                      <p className={`text-sm font-bold ${textColors[activity.type]}`}>{activity.amount}</p>
-                      <button className={`text-xs px-3 py-1 ${textColors[activity.type]} bg-white border ${borderColors[activity.type]} font-semibold rounded-lg hover:bg-gray-50 transition-colors`}>
-                        {activity.type === 'job' ? 'Review' : 'Reply'}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Community */}
-          <div className="mt-8 p-4 bg-gradient-to-br from-blue-50 to-purple-50 border border-purple-200 rounded-2xl text-center">
-            <p className="text-sm font-semibold text-gray-800 mb-3">Join Our Community</p>
-            <button className="w-full py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white border border-blue-400 rounded-lg font-semibold text-sm hover:shadow-md transition-all">
-              Join Discord
-            </button>
-          </div>
+        <aside className="col-span-3 rounded-2xl p-6 bg-white/30 backdrop-blur-sm border border-white/40 shadow-sm overflow-y-auto max-h-[calc(100vh-200px)]">
+          <HopinProgramsCard />
+          <RankingCard />
         </aside>
       </div>
 

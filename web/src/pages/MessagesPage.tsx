@@ -47,6 +47,13 @@ export default function MessagesPage() {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [showAIChat, setShowAIChat] = useState(false);
   const [userId] = useState('user_123');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Filter conversations based on search query
+  const filteredConversations = conversations.filter(conv =>
+    conv.participantName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    conv.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   // Feature navigation mapping
   const featureRoutes = {
@@ -107,6 +114,30 @@ export default function MessagesPage() {
           </button>
         </div>
 
+        {/* Search Input */}
+        <div className={styles.searchContainer}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#999999' }}>
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.35-4.35" />
+          </svg>
+          <input
+            type="text"
+            placeholder="Search conversations..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className={styles.searchInput}
+          />
+          {searchQuery && (
+            <button
+              className={styles.clearButton}
+              onClick={() => setSearchQuery('')}
+              title="Clear search"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+
         <div className={styles.conversationsList}>
           {/* AI Assistant - Always at top */}
           <div
@@ -134,7 +165,7 @@ export default function MessagesPage() {
           </div>
 
           {/* Regular Conversations */}
-          {conversations.map((conv) => (
+          {filteredConversations.map((conv) => (
             <div
               key={conv.id}
               className={`${styles.conversationItem} ${

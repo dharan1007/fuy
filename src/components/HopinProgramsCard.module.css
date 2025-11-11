@@ -1,0 +1,153 @@
+.container {
+  width: 100%;
+  margin-bottom: 24px;
+}
+
+.title {
+  font-weight: bold;
+  font-size: 1.1rem;
+  margin-bottom: 12px;
+  color: #1f2937;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  padding-bottom: 8px;
+}
+
+.loadingState,
+.emptyState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 280px;
+  color: #6b7280;
+  font-size: 0.875rem;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.programCard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(168, 85, 247, 0.1));
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 16px;
+  height: 100%;
+}
+
+.programHeader {
+  display: flex;
+  gap: 12px;
+}
+
+.programImage {
+  font-size: 3rem;
+  flex-shrink-0;
+}
+
+.programMeta {
+  flex: 1;
+  min-width: 0;
+}
+
+.programTitle {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #1f2937;
+  margin: 0;
+  margin-bottom: 4px;
+}
+
+.programDescription {
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.programDetails {
+  display: flex;
+  gap: 16px;
+  padding: 8px 0;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.detailItem {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.detailLabel {
+  font-size: 0.7rem;
+  color: #9ca3af;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.detailValue {
+  font-size: 0.9rem;
+  color: #1f2937;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.friendsInterested {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.friendsLabel {
+  font-size: 0.75rem;
+  color: #6b7280;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.friendsTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.friendTag {
+  display: inline-block;
+  padding: 4px 8px;
+  background: rgba(59, 130, 246, 0.2);
+  color: #1e40af;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.joinButton {
+  align-self: flex-end;
+  padding: 8px 16px;
+  background: linear-gradient(135deg, rgb(59, 130, 246), rgb(139, 92, 246));
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.joinButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+.joinButton:active {
+  transform: translateY(0);
+}

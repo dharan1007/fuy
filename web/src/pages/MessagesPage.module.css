@@ -83,6 +83,55 @@
   transform: scale(0.95);
 }
 
+/* Search Container */
+.searchContainer {
+  position: relative;
+  padding: 0 20px;
+  margin-bottom: 12px;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 10px 12px 10px 36px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 20px;
+  background: rgba(0, 0, 0, 0.03);
+  font-size: 14px;
+  color: #000000;
+  outline: none;
+  transition: all 0.2s ease;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  box-sizing: border-box;
+}
+
+.searchInput:focus {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(255, 122, 92, 0.3);
+  box-shadow: 0 0 0 3px rgba(255, 122, 92, 0.1);
+}
+
+.searchInput::placeholder {
+  color: #999999;
+}
+
+.clearButton {
+  position: absolute;
+  right: 28px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: #999999;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 8px;
+  transition: all 0.2s ease;
+}
+
+.clearButton:hover {
+  color: #333333;
+}
+
 /* Conversations List */
 .conversationsList {
   flex: 1;

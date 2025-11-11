@@ -1,0 +1,239 @@
+.container {
+  width: 100%;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.title {
+  font-weight: bold;
+  font-size: 1.1rem;
+  color: #1f2937;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  padding-bottom: 8px;
+  margin: 0;
+}
+
+.filterButtons {
+  display: flex;
+  gap: 6px;
+}
+
+.filterBtn {
+  padding: 6px 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  background: transparent;
+  color: #666;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.filterBtn:hover {
+  background: rgba(59, 130, 246, 0.1);
+  color: #1e40af;
+}
+
+.filterBtn.active {
+  background: linear-gradient(135deg, rgb(59, 130, 246), rgb(139, 92, 246));
+  color: white;
+  border-color: rgb(59, 130, 246);
+}
+
+.categorySelector {
+  margin-bottom: 12px;
+}
+
+.categorySelect {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 8px;
+  background: white;
+  color: #1f2937;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.categorySelect:hover {
+  border-color: rgb(59, 130, 246);
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.categorySelect:focus {
+  outline: none;
+  border-color: rgb(59, 130, 246);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.loadingState,
+.emptyState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 320px;
+  color: #6b7280;
+  font-size: 0.875rem;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.rankingCard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.1), rgba(59, 130, 246, 0.1));
+  border: 1px solid rgba(168, 85, 247, 0.2);
+  border-radius: 16px;
+  height: 100%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.rankingCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(168, 85, 247, 0.2);
+}
+
+.rankingHeader {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.rankBadge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, rgb(168, 85, 247), rgb(139, 92, 246));
+  color: white;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.userInfo {
+  flex: 1;
+}
+
+.userName {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #1f2937;
+  margin: 0;
+  margin-bottom: 4px;
+}
+
+.streak {
+  font-size: 0.8rem;
+  color: #f97316;
+  font-weight: 500;
+  margin: 0;
+}
+
+.scoreSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 0;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.scoreItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.scoreLabel {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.scoreValue {
+  font-size: 1rem;
+  color: #1f2937;
+  font-weight: 700;
+}
+
+.scoreProgressBar {
+  width: 100%;
+  height: 6px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: linear-gradient(90deg, rgb(59, 130, 246), rgb(168, 85, 247));
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.activities {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 8px;
+}
+
+.activityItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.activityIcon {
+  font-size: 1.2rem;
+}
+
+.activityValue {
+  font-size: 0.8rem;
+  color: #1f2937;
+  font-weight: 600;
+}
+
+.viewButton {
+  align-self: flex-end;
+  padding: 8px 16px;
+  background: linear-gradient(135deg, rgb(168, 85, 247), rgb(139, 92, 246));
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.viewButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(168, 85, 247, 0.4);
+}
+
+.viewButton:active {
+  transform: translateY(0);
+}
