@@ -91,6 +91,21 @@ export default function NotificationsPage() {
     }
   }
 
+  async function handleFriendAction(senderId: string, action: "ACCEPT" | "REJECT" | "GHOST") {
+    try {
+      const res = await fetch("/api/friends/request", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ friendshipId: senderId, action }),
+      });
+      if (res.ok) {
+        loadNotifications();
+      }
+    } catch (error) {
+      console.error("Friend action error:", error);
+    }
+  }
+
   function getNotificationIcon(type: string) {
     switch (type) {
       case "FRIEND_REQUEST":
@@ -212,7 +227,7 @@ export default function NotificationsPage() {
           {notifications.map((notif) => (
             <div
               key={notif.id}
-              className={`p-4 rounded-lg transition-colors cursor-pointer ${
+              className={`p-4 rounded-lg transition-colors ${
                 notif.read
                   ? "bg-white hover:bg-gray-50"
                   : "bg-blue-50 hover:bg-blue-100 border-l-4 border-blue-600"
@@ -239,6 +254,53 @@ export default function NotificationsPage() {
                       <p className="text-xs text-gray-400 mt-1">
                         {new Date(notif.createdAt).toLocaleString()}
                       </p>
+
+                      {/* Friend Request Actions */}
+                      {notif.type === "FRIEND_REQUEST" && notif.sender && (
+                        <div className="flex gap-2 mt-3">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleFriendAction(notif.sender!.id, "ACCEPT");
+                            }}
+                            className="flex items-center gap-1 px-3 py-1.5 bg-green-100 hover:bg-green-200 text-green-700 rounded-md text-xs font-medium transition-colors"
+                            title="Accept request"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            Accept
+                          </button>
+
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleFriendAction(notif.sender!.id, "REJECT");
+                            }}
+                            className="flex items-center gap-1 px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 rounded-md text-xs font-medium transition-colors"
+                            title="Reject request"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                            Reject
+                          </button>
+
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleFriendAction(notif.sender!.id, "GHOST");
+                            }}
+                            className="flex items-center gap-1 px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md text-xs font-medium transition-colors"
+                            title="Ghost request (hide)"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-4.803M9 12a3 3 0 110-6 3 3 0 010 6zm9 0a9 9 0 11-18 0 9 9 0 0118 0zm-4 12a1 1 0 1 1-2 0 1 1 0 012 0z" />
+                            </svg>
+                            Ghost
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     <button
@@ -246,7 +308,7 @@ export default function NotificationsPage() {
                         e.stopPropagation();
                         deleteNotification(notif.id);
                       }}
-                      className="text-gray-400 hover:text-red-600"
+                      className="text-gray-400 hover:text-red-600 flex-shrink-0"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

@@ -3,7 +3,7 @@
  * Displays conversations list with AI Assistant integration
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { AIChatInterface } from '../components/ai';
 import styles from './MessagesPage.module.css';
@@ -15,6 +15,22 @@ interface Conversation {
   lastMessageTime: number;
   unreadCount: number;
   avatar?: string;
+}
+
+interface Message {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  senderName: string;
+  content: string;
+  timestamp: number;
+  read: boolean;
+}
+
+interface Friend {
+  id: string;
+  name: string;
+  status?: string;
 }
 
 const DUMMY_CONVERSATIONS: Conversation[] = [
@@ -41,19 +57,142 @@ const DUMMY_CONVERSATIONS: Conversation[] = [
   },
 ];
 
+const DUMMY_FRIENDS: Friend[] = [
+  { id: 'friend_1', name: 'Sarah Johnson', status: 'online' },
+  { id: 'friend_2', name: 'Mike Chen', status: 'offline' },
+  { id: 'friend_3', name: 'Emma Davis', status: 'online' },
+  { id: 'friend_4', name: 'Alex Kumar', status: 'online' },
+  { id: 'friend_5', name: 'Jessica Lee', status: 'offline' },
+  { id: 'friend_6', name: 'David Martinez', status: 'online' },
+];
+
+const DUMMY_MESSAGES: { [key: string]: Message[] } = {
+  conv_1: [
+    { id: '1', conversationId: 'conv_1', senderId: 'user_123', senderName: 'You', content: 'Hey Sarah!', timestamp: Date.now() - 600000, read: true },
+    { id: '2', conversationId: 'conv_1', senderId: 'friend_1', senderName: 'Sarah Johnson', content: 'Hey! How are you?', timestamp: Date.now() - 500000, read: true },
+    { id: '3', conversationId: 'conv_1', senderId: 'user_123', senderName: 'You', content: 'Great! You?', timestamp: Date.now() - 400000, read: true },
+    { id: '4', conversationId: 'conv_1', senderId: 'friend_1', senderName: 'Sarah Johnson', content: 'Doing well! Did you see the new feature?', timestamp: Date.now() - 300000, read: false },
+  ],
+  conv_2: [
+    { id: '5', conversationId: 'conv_2', senderId: 'friend_2', senderName: 'Mike Chen', content: 'Thanks for your help!', timestamp: Date.now() - 3600000, read: true },
+  ],
+  conv_3: [
+    { id: '6', conversationId: 'conv_3', senderId: 'friend_3', senderName: 'Emma Davis', content: 'Let\'s catch up soon!', timestamp: Date.now() - 86400000, read: false },
+  ],
+};
+
 export default function MessagesPage() {
   const router = useRouter();
   const [conversations, setConversations] = useState<Conversation[]>(DUMMY_CONVERSATIONS);
+  const [messages, setMessages] = useState<{ [key: string]: Message[] }>(DUMMY_MESSAGES);
+  const [friends, setFriends] = useState<Friend[]>(DUMMY_FRIENDS);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [showAIChat, setShowAIChat] = useState(false);
   const [userId] = useState('user_123');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showFriendsDropdown, setShowFriendsDropdown] = useState(false);
+  const [showRetentionSettings, setShowRetentionSettings] = useState(false);
+  const [chatRetention, setChatRetention] = useState<'1day' | '7days' | '30days' | 'forever'>('forever');
+  const [messageInput, setMessageInput] = useState('');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to latest message
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [selectedConversationId, messages]);
 
   // Filter conversations based on search query
   const filteredConversations = conversations.filter(conv =>
     conv.participantName.toLowerCase().includes(searchQuery.toLowerCase()) ||
     conv.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Filter friends based on search query
+  const filteredFriends = friends.filter(friend =>
+    friend.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // Send message
+  const handleSendMessage = () => {
+    if (!messageInput.trim() || !selectedConversationId) return;
+
+    const newMessage: Message = {
+      id: Date.now().toString(),
+      conversationId: selectedConversationId,
+      senderId: userId,
+      senderName: 'You',
+      content: messageInput,
+      timestamp: Date.now(),
+      read: true,
+    };
+
+    setMessages(prev => ({
+      ...prev,
+      [selectedConversationId]: [...(prev[selectedConversationId] || []), newMessage]
+    }));
+
+    // Update conversation's last message
+    setConversations(prev =>
+      prev.map(conv =>
+        conv.id === selectedConversationId
+          ? { ...conv, lastMessage: messageInput, lastMessageTime: Date.now() }
+          : conv
+      )
+    );
+
+    setMessageInput('');
+  };
+
+  // Start conversation with friend
+  const handleStartConversation = (friend: Friend) => {
+    const existingConv = conversations.find(c => c.participantName === friend.name);
+    if (existingConv) {
+      setSelectedConversationId(existingConv.id);
+    } else {
+      const newConvId = `conv_${Date.now()}`;
+      const newConv: Conversation = {
+        id: newConvId,
+        participantName: friend.name,
+        lastMessage: '',
+        lastMessageTime: Date.now(),
+        unreadCount: 0,
+      };
+      setConversations([newConv, ...conversations]);
+      setMessages({ ...messages, [newConvId]: [] });
+      setSelectedConversationId(newConvId);
+    }
+    setSearchQuery('');
+    setShowFriendsDropdown(false);
+  };
+
+  // Save/delete messages based on retention setting
+  useEffect(() => {
+    if (!selectedConversationId) return;
+
+    const interval = setInterval(() => {
+      setMessages(prev => {
+        const convMessages = prev[selectedConversationId] || [];
+        const now = Date.now();
+        const retentionMs = {
+          '1day': 24 * 60 * 60 * 1000,
+          '7days': 7 * 24 * 60 * 60 * 1000,
+          '30days': 30 * 24 * 60 * 60 * 1000,
+          'forever': Infinity,
+        }[chatRetention];
+
+        const filteredMessages = convMessages.filter(msg =>
+          now - msg.timestamp < retentionMs
+        );
+
+        return {
+          ...prev,
+          [selectedConversationId]: filteredMessages,
+        };
+      });
+    }, 60000); // Check every minute
+
+    return () => clearInterval(interval);
+  }, [selectedConversationId, chatRetention]);
 
   // Feature navigation mapping
   const featureRoutes = {
@@ -115,26 +254,96 @@ export default function MessagesPage() {
         </div>
 
         {/* Search Input */}
-        <div className={styles.searchContainer}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#999999' }}>
+        <div className={styles.searchContainer} style={{ position: 'relative' }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#999999', pointerEvents: 'none' }}>
             <circle cx="11" cy="11" r="8" />
             <path d="m21 21-4.35-4.35" />
           </svg>
           <input
             type="text"
-            placeholder="Search conversations..."
+            placeholder="Search conversations or friends..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setShowFriendsDropdown(e.target.value.length > 0 && filteredFriends.length > 0);
+            }}
+            onFocus={() => setShowFriendsDropdown(searchQuery.length > 0 && filteredFriends.length > 0)}
+            onBlur={() => setTimeout(() => setShowFriendsDropdown(false), 200)}
             className={styles.searchInput}
           />
           {searchQuery && (
             <button
               className={styles.clearButton}
-              onClick={() => setSearchQuery('')}
+              onClick={() => {
+                setSearchQuery('');
+                setShowFriendsDropdown(false);
+              }}
               title="Clear search"
             >
               ✕
             </button>
+          )}
+
+          {/* Friends Dropdown */}
+          {showFriendsDropdown && filteredFriends.length > 0 && (
+            <div style={{
+              position: 'absolute',
+              top: '100%',
+              left: 0,
+              right: 0,
+              backgroundColor: '#ffffff',
+              border: '1px solid #e5e7eb',
+              borderTop: 'none',
+              borderBottomLeftRadius: '8px',
+              borderBottomRightRadius: '8px',
+              maxHeight: '300px',
+              overflowY: 'auto',
+              boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+              zIndex: 10,
+            }}>
+              {filteredFriends.map((friend) => (
+                <button
+                  key={friend.id}
+                  onClick={() => handleStartConversation(friend)}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    textAlign: 'left',
+                    border: 'none',
+                    borderBottom: '1px solid #f0f0f0',
+                    backgroundColor: 'transparent',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    transition: 'background-color 0.2s',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f9fafb')}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '50%',
+                      backgroundColor: '#3b82f6',
+                      color: '#ffffff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                    }}>
+                      {friend.name.charAt(0)}
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: '500', color: '#111827' }}>{friend.name}</div>
+                      <div style={{ fontSize: '12px', color: friend.status === 'online' ? '#10b981' : '#9ca3af' }}>
+                        {friend.status === 'online' ? '● Online' : '● Offline'}
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
           )}
         </div>
 
@@ -210,6 +419,90 @@ export default function MessagesPage() {
                 <p>Online</p>
               </div>
               <div className={styles.chatHeaderActions}>
+                {/* Chat Retention Settings Button */}
+                <div style={{ position: 'relative' }}>
+                  <button
+                    className={styles.iconButton}
+                    title="Chat retention settings"
+                    onClick={() => setShowRetentionSettings(!showRetentionSettings)}
+                    style={{ position: 'relative' }}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="12" cy="12" r="1" />
+                      <path d="M12 1v6m0 6v6" />
+                      <path d="M4.22 4.22l4.24 4.24M15.54 15.54l4.24 4.24" />
+                      <path d="M1 12h6m6 0h6" />
+                      <path d="M4.22 19.78l4.24-4.24M15.54 8.46l4.24-4.24" />
+                    </svg>
+                  </button>
+
+                  {/* Retention Settings Popup */}
+                  {showRetentionSettings && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '100%',
+                      right: 0,
+                      marginTop: '8px',
+                      backgroundColor: '#ffffff',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '8px',
+                      minWidth: '200px',
+                      boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+                      zIndex: 20,
+                    }}>
+                      <div style={{ padding: '12px', borderBottom: '1px solid #e5e7eb', fontSize: '12px', fontWeight: '600', color: '#6b7280' }}>
+                        Auto-delete messages after:
+                      </div>
+                      {(['1day', '7days', '30days', 'forever'] as const).map((option) => (
+                        <button
+                          key={option}
+                          onClick={() => {
+                            setChatRetention(option);
+                            setShowRetentionSettings(false);
+                          }}
+                          style={{
+                            width: '100%',
+                            padding: '10px 12px',
+                            textAlign: 'left',
+                            border: 'none',
+                            backgroundColor: chatRetention === option ? '#eff6ff' : 'transparent',
+                            color: chatRetention === option ? '#1e40af' : '#374151',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            transition: 'background-color 0.2s',
+                            borderBottom: option !== 'forever' ? '1px solid #f3f4f6' : 'none',
+                          }}
+                          onMouseEnter={(e) => chatRetention !== option && (e.currentTarget.style.backgroundColor = '#f9fafb')}
+                          onMouseLeave={(e) => chatRetention !== option && (e.currentTarget.style.backgroundColor = 'transparent')}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div style={{
+                              width: '16px',
+                              height: '16px',
+                              borderRadius: '50%',
+                              border: '2px solid',
+                              borderColor: chatRetention === option ? '#3b82f6' : '#d1d5db',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}>
+                              {chatRetention === option && (
+                                <div style={{
+                                  width: '6px',
+                                  height: '6px',
+                                  borderRadius: '50%',
+                                  backgroundColor: '#3b82f6',
+                                }}></div>
+                              )}
+                            </div>
+                            <span>{option === '1day' ? '1 Day' : option === '7days' ? '7 Days' : option === '30days' ? '30 Days' : 'Forever'}</span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 <button className={styles.iconButton} title="Call">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
@@ -231,11 +524,46 @@ export default function MessagesPage() {
               </div>
             </div>
 
-            {/* Messages Area - Placeholder */}
+            {/* Messages Area */}
             <div className={styles.messagesArea}>
-              <div className={styles.placeholderMessage}>
-                <p>Start chatting with {selectedConversation.participantName}</p>
-              </div>
+              {(selectedConversationId && messages[selectedConversationId] && messages[selectedConversationId].length > 0) ? (
+                messages[selectedConversationId]!.map((msg) => (
+                  <div
+                    key={msg.id}
+                    style={{
+                      display: 'flex',
+                      marginBottom: '12px',
+                      justifyContent: msg.senderId === userId ? 'flex-end' : 'flex-start',
+                      cursor: 'pointer',
+                      transition: 'opacity 0.2s',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.8')}
+                    onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
+                    title={`Click to ${msg.senderId !== userId ? 'save' : 'manage'} message`}
+                  >
+                    <div
+                      style={{
+                        maxWidth: '60%',
+                        padding: '10px 14px',
+                        borderRadius: '12px',
+                        backgroundColor: msg.senderId === userId ? '#3b82f6' : '#e5e7eb',
+                        color: msg.senderId === userId ? '#ffffff' : '#1f2937',
+                        wordWrap: 'break-word',
+                      }}
+                    >
+                      <p style={{ margin: 0, fontSize: '14px' }}>{msg.content}</p>
+                      <p style={{ margin: '4px 0 0 0', fontSize: '12px', opacity: 0.7 }}>
+                        {formatTime(msg.timestamp)}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className={styles.placeholderMessage}>
+                  <p>Start chatting with {selectedConversation.participantName}</p>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
             </div>
 
             {/* Input Area */}
@@ -243,9 +571,15 @@ export default function MessagesPage() {
               <input
                 type="text"
                 placeholder="Type a message..."
+                value={messageInput}
+                onChange={(e) => setMessageInput(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                 className={styles.messageInput}
               />
-              <button className={styles.sendButton}>
+              <button
+                className={styles.sendButton}
+                onClick={handleSendMessage}
+              >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M16.6915026,12.4744748 L3.50612381,13.2599618 C3.19218622,13.2599618 3.03521743,13.4170592 3.03521743,13.5741566 L1.15159189,20.0151496 C0.8376543,20.8006365 0.99,21.89 1.77946707,22.52 C2.41,22.99 3.50612381,23.1 4.13399899,22.8429026 L21.714504,14.0454487 C22.6563168,13.5741566 23.1272231,12.6315722 22.9702544,11.6889879 L4.13399899,1.16296077 C3.34915502,0.9 2.40734225,1.00636533 1.77946707,1.4776575 C0.994623095,2.10604706 0.837654326,3.0486314 1.15159189,3.97788973 L3.03521743,10.4188827 C3.03521743,10.5759801 3.03521743,10.7330775 3.50612381,10.7330775 L16.6915026,11.5185644 C16.6915026,11.5185644 17.1624089,11.5185644 17.1624089,12.0374122 C17.1624089,12.4744748 16.6915026,12.4744748 16.6915026,12.4744748 Z" />
                 </svg>
