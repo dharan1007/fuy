@@ -9,6 +9,7 @@ type Notification = {
   message: string;
   read: boolean;
   createdAt: string;
+  friendshipId?: string;
   sender?: {
     id: string;
     name: string | null;
@@ -91,6 +92,21 @@ export default function NotificationsModal({ isOpen, onClose }: NotificationsMod
       loadNotifications();
     } catch (error) {
       console.error('Delete notification error:', error);
+    }
+  }
+
+  async function handleFriendAction(senderId: string, action: 'ACCEPT' | 'REJECT' | 'GHOST') {
+    try {
+      const res = await fetch('/api/friends/request', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ friendshipId: senderId, action }),
+      });
+      if (res.ok) {
+        loadNotifications();
+      }
+    } catch (error) {
+      console.error('Friend action error:', error);
     }
   }
 
@@ -216,6 +232,96 @@ export default function NotificationsModal({ isOpen, onClose }: NotificationsMod
                       <p className={styles.timestamp}>
                         {new Date(notif.createdAt).toLocaleString()}
                       </p>
+
+                      {/* Friend Request Actions */}
+                      {notif.type === 'FRIEND_REQUEST' && notif.sender && notif.friendshipId && (
+                        <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleFriendAction(notif.friendshipId!, 'ACCEPT');
+                            }}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '6px 12px',
+                              backgroundColor: '#d1fae5',
+                              color: '#065f46',
+                              border: 'none',
+                              borderRadius: '6px',
+                              fontSize: '12px',
+                              fontWeight: '600',
+                              cursor: 'pointer',
+                              transition: 'background-color 0.2s',
+                            }}
+                            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#a7f3d0')}
+                            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#d1fae5')}
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            Accept
+                          </button>
+
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleFriendAction(notif.friendshipId!, 'REJECT');
+                            }}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '6px 12px',
+                              backgroundColor: '#fee2e2',
+                              color: '#991b1b',
+                              border: 'none',
+                              borderRadius: '6px',
+                              fontSize: '12px',
+                              fontWeight: '600',
+                              cursor: 'pointer',
+                              transition: 'background-color 0.2s',
+                            }}
+                            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#fca5a5')}
+                            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#fee2e2')}
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                            Reject
+                          </button>
+
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleFriendAction(notif.friendshipId!, 'GHOST');
+                            }}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '6px 12px',
+                              backgroundColor: '#f3f4f6',
+                              color: '#374151',
+                              border: 'none',
+                              borderRadius: '6px',
+                              fontSize: '12px',
+                              fontWeight: '600',
+                              cursor: 'pointer',
+                              transition: 'background-color 0.2s',
+                            }}
+                            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#e5e7eb')}
+                            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#f3f4f6')}
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            Ghost
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     <button

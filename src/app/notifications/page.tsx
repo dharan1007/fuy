@@ -11,6 +11,7 @@ type Notification = {
   message: string;
   read: boolean;
   createdAt: string;
+  friendshipId?: string;
   sender?: {
     id: string;
     name: string | null;
@@ -91,15 +92,18 @@ export default function NotificationsPage() {
     }
   }
 
-  async function handleFriendAction(senderId: string, action: "ACCEPT" | "REJECT" | "GHOST") {
+  async function handleFriendAction(friendshipId: string, action: "ACCEPT" | "REJECT" | "GHOST") {
     try {
       const res = await fetch("/api/friends/request", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ friendshipId: senderId, action }),
+        body: JSON.stringify({ friendshipId, action }),
       });
       if (res.ok) {
         loadNotifications();
+      } else {
+        const error = await res.json();
+        console.error("Friend action failed:", error.error);
       }
     } catch (error) {
       console.error("Friend action error:", error);
@@ -256,12 +260,12 @@ export default function NotificationsPage() {
                       </p>
 
                       {/* Friend Request Actions */}
-                      {notif.type === "FRIEND_REQUEST" && notif.sender && (
+                      {notif.type === "FRIEND_REQUEST" && notif.sender && notif.friendshipId && (
                         <div className="flex gap-2 mt-3">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleFriendAction(notif.sender!.id, "ACCEPT");
+                              handleFriendAction(notif.friendshipId!, "ACCEPT");
                             }}
                             className="flex items-center gap-1 px-3 py-1.5 bg-green-100 hover:bg-green-200 text-green-700 rounded-md text-xs font-medium transition-colors"
                             title="Accept request"
@@ -275,7 +279,7 @@ export default function NotificationsPage() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleFriendAction(notif.sender!.id, "REJECT");
+                              handleFriendAction(notif.friendshipId!, "REJECT");
                             }}
                             className="flex items-center gap-1 px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 rounded-md text-xs font-medium transition-colors"
                             title="Reject request"
@@ -289,7 +293,7 @@ export default function NotificationsPage() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleFriendAction(notif.sender!.id, "GHOST");
+                              handleFriendAction(notif.friendshipId!, "GHOST");
                             }}
                             className="flex items-center gap-1 px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md text-xs font-medium transition-colors"
                             title="Ghost request (hide)"

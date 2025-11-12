@@ -41,9 +41,20 @@ export async function GET(req: Request) {
             },
           });
 
+          // Find the friendship record for this request
+          const friendship = await prisma.friendship.findFirst({
+            where: {
+              OR: [
+                { userId: notif.postId, friendId: userId },
+                { userId: userId, friendId: notif.postId },
+              ],
+            },
+          });
+
           return {
             ...notif,
             sender,
+            friendshipId: friendship?.id,
           };
         }
 

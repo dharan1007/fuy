@@ -54,14 +54,16 @@ export default function LoginPage() {
       });
 
       if (signInResult?.ok) {
+        // Add delay to ensure session is established
+        await new Promise(resolve => setTimeout(resolve, 500));
         router.push("/");
       } else {
         setError("Failed to authenticate");
+        setLoading(false);
       }
     } catch (err) {
       setError("An error occurred");
       console.error(err);
-    } finally {
       setLoading(false);
     }
   };
@@ -82,9 +84,15 @@ export default function LoginPage() {
         setError("Invalid email or password");
         setLoading(false);
       } else if (res?.ok) {
+        // Add a small delay to ensure session is properly established
+        await new Promise(resolve => setTimeout(resolve, 500));
         router.push("/");
+      } else {
+        setError("Failed to sign in. Please try again.");
+        setLoading(false);
       }
     } catch (err) {
+      console.error("Login error:", err);
       setError("Something went wrong. Please try again.");
       setLoading(false);
     }

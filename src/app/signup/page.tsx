@@ -21,6 +21,11 @@ export default function SignupPage() {
     setError("");
 
     // Validation
+    if (!formData.name || !formData.email) {
+      setError("Name and email are required");
+      return;
+    }
+
     if (formData.password.length < 8) {
       setError("Password must be at least 8 characters");
       return;
@@ -39,7 +44,7 @@ export default function SignupPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: formData.email,
+          email: formData.email.toLowerCase(),
           password: formData.password,
           name: formData.name,
         }),
@@ -55,18 +60,21 @@ export default function SignupPage() {
 
       // Auto sign in after successful signup
       const signInRes = await signIn("credentials", {
-        email: formData.email,
+        email: formData.email.toLowerCase(),
         password: formData.password,
         redirect: false,
       });
 
       if (signInRes?.ok) {
+        // Add delay to ensure session is established
+        await new Promise(resolve => setTimeout(resolve, 500));
         router.push("/profile/setup");
       } else {
         setError("Account created but failed to sign in. Please try logging in.");
         setLoading(false);
       }
     } catch (err) {
+      console.error("Signup error:", err);
       setError("Something went wrong. Please try again.");
       setLoading(false);
     }
