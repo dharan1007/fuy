@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
+import { moderateContent } from "@/lib/moderation";
 
 type FeatureKeyStr =
   | "JOURNAL"
@@ -50,7 +51,21 @@ export async function POST(req: NextRequest) {
   const feature = asFeat(body.feature);
   const visibility = asVis(body.visibility);
   const content = String(body.content ?? "");
+  const title = String(body.title ?? "");
   const groupId = body.groupId ? String(body.groupId) : null;
+
+  // Check content moderation
+  const moderation = moderateContent(content, title);
+  if (!moderation.isAllowed) {
+    return NextResponse.json(
+      {
+        error: "Content violates community guidelines",
+        violations: moderation.violations,
+        details: moderation.violations.join("; "),
+      },
+      { status: 400 }
+    );
+  }
 
   const media = Array.isArray(body.media) ? body.media : [];
   const joyScore = Number.isFinite(body.joyScore) ? Math.trunc(body.joyScore) : 0;
