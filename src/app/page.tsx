@@ -5,6 +5,8 @@ import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import SearchModal from '@/components/SearchModal';
 import NotificationsModal from '@/components/NotificationsModal';
+import HopinProgramsCard from '@/components/HopinProgramsCard';
+import RankingCard from '@/components/RankingCard';
 
 interface UserProfile {
   name: string | null;
@@ -166,45 +168,54 @@ export default function Home() {
   const avatarUrl = userProfile?.profile?.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${displayName}`;
 
   return (
-    <div className="min-h-screen bg-white text-black flex flex-col">
-      {/* Header - Clean and Minimal */}
-      <header className="sticky top-0 z-40 border-b border-black/10">
-        <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between">
-            <Link href="/" className="flex items-center gap-2 font-bold text-xl">
-              <div className="w-8 h-8 bg-black rounded-full" />
-              <span>Fuy</span>
+    <div className="min-h-screen bg-white text-black flex flex-col relative overflow-hidden">
+      {/* HEADER - Minimal Floating */}
+      <header className="sticky top-0 z-40 px-6 py-4 pointer-events-none">
+        <div className="flex items-center justify-between gap-4">
+          {/* Logo/Explore Module */}
+          <div className="bg-white/40 backdrop-blur-md border border-white/40 rounded-2xl px-6 py-3 shadow-sm pointer-events-auto hover:bg-white/50 transition-all">
+            <Link href="/" className="flex items-center gap-2">
+              <span className="text-2xl">◌</span>
+              <span className="text-sm font-semibold text-gray-700">Explore</span>
+            </Link>
+          </div>
+
+          {/* Navigation Module */}
+          <div className="bg-white/40 backdrop-blur-md border border-white/40 rounded-2xl px-6 py-3 shadow-sm pointer-events-auto hover:bg-white/50 transition-all flex items-center gap-6">
+            {/* Canvas */}
+            <Link href="/journal" className="text-sm font-semibold text-gray-700 hover:text-blue-600 transition-colors">
+              ▭
             </Link>
 
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => setIsSearchOpen(true)}
-                className="p-2 hover:bg-black/5 rounded-lg transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </button>
+            {/* Hopin */}
+            <Link href="/hopin" className="text-sm font-semibold text-gray-700 hover:text-blue-600 transition-colors">
+              ⊞
+            </Link>
 
-              <button
-                onClick={() => setIsNotificationsOpen(true)}
-                className="relative p-2 hover:bg-black/5 rounded-lg transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                </svg>
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-black text-white text-xs rounded-full flex items-center justify-center font-bold">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                )}
-              </button>
+            {/* Shop */}
+            <Link href="/shop" className="text-sm font-semibold text-gray-700 hover:text-blue-600 transition-colors">
+              ◆
+            </Link>
 
-              <Link href="/profile" className="flex items-center gap-2 p-2 hover:bg-black/5 rounded-lg transition-colors">
-                <img src={avatarUrl} alt={displayName} className="w-6 h-6 rounded-full border border-black/20" />
-                <span className="text-sm font-medium hidden sm:inline">{displayName}</span>
-              </Link>
-            </div>
+            {/* Dashboard */}
+            <Link href="/dashboard" className="text-sm font-semibold text-gray-700 hover:text-blue-600 transition-colors">
+              ⊕
+            </Link>
+          </div>
+
+          {/* User Profile Module */}
+          <div className="bg-white/40 backdrop-blur-md border border-white/40 rounded-2xl px-4 py-2 shadow-sm pointer-events-auto hover:bg-white/50 transition-all">
+            <Link href="/profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+              <img
+                src={avatarUrl}
+                alt={displayName}
+                className="w-8 h-8 rounded-full border-2 border-blue-400"
+              />
+              <div className="hidden sm:flex flex-col">
+                <div className="text-xs font-semibold text-gray-800">{displayName}</div>
+                <div className="text-xs text-green-600 font-medium">Online</div>
+              </div>
+            </Link>
           </div>
         </div>
       </header>
@@ -424,45 +435,81 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Right Sidebar - Navigation */}
-          <aside className="md:col-span-1">
-            <div className="sticky top-20 space-y-4">
-              <nav className="space-y-2">
-                <Link href="/feed" className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-black/5 transition-colors font-medium text-sm">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                  </svg>
-                  Feed
-                </Link>
-                <Link href="/friends" className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-black/5 transition-colors font-medium text-sm">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3.914a3 3 0 01-2.868-4.02M9 20h12a2 2 0 002-2v-2a6 6 0 00-6-6H9a6 6 0 00-6 6v2a2 2 0 002 2z" />
-                  </svg>
-                  Friends
-                </Link>
-                <Link href="/notifications" className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-black/5 transition-colors font-medium text-sm">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                  </svg>
-                  Notifications
-                </Link>
-                <Link href="/journal" className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-black/5 transition-colors font-medium text-sm">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Journal
-                </Link>
-                <Link href="/dashboard" className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-black/5 transition-colors font-medium text-sm">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                  </svg>
-                  Dashboard
-                </Link>
-              </nav>
-            </div>
+          {/* Right Sidebar - Features Cards */}
+          <aside className="hidden md:block md:col-span-1 rounded-2xl p-4 sm:p-6 bg-white/30 backdrop-blur-sm border border-white/40 shadow-sm overflow-y-auto max-h-[calc(100vh-200px)]">
+            <HopinProgramsCard />
+            <RankingCard />
           </aside>
         </div>
       </main>
+
+      {/* Bottom Floating Curved Nav Bar */}
+      <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 pointer-events-none">
+        <nav className="bg-white/40 backdrop-blur-md border border-white/40 rounded-full px-8 py-4 shadow-lg pointer-events-auto flex items-center gap-8 hover:bg-white/50 transition-all">
+          {/* Create Post */}
+          <button
+            className="text-2xl text-gray-700 hover:text-blue-600 transition-colors hover:scale-110 transform duration-200"
+            title="Create Post"
+            onClick={() => {
+              // Can be connected to a create post modal
+            }}
+          >
+            +
+          </button>
+
+          {/* Search */}
+          <button
+            className="p-1.5 text-gray-700 hover:text-blue-600 transition-colors hover:scale-110 transform duration-200"
+            title="Search"
+            onClick={() => setIsSearchOpen(true)}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </button>
+
+          {/* Notifications */}
+          <button
+            className="relative p-1.5 text-gray-700 hover:text-blue-600 transition-colors hover:scale-110 transform duration-200"
+            title="Notifications"
+            onClick={() => setIsNotificationsOpen(true)}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+            </svg>
+            {unreadCount > 0 && (
+              <span className="absolute -top-2 -right-2 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-medium">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
+
+          {/* Messages */}
+          <Link
+            href="/chat"
+            className="relative p-1.5 text-gray-700 hover:text-blue-600 transition-colors hover:scale-110 transform duration-200"
+            title="Messages"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+            <span className="absolute -top-2 -right-2 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-medium">
+              3
+            </span>
+          </Link>
+
+          {/* Essenz Dashboard */}
+          <Link
+            href="/essenz"
+            className="p-1.5 text-gray-700 hover:text-blue-600 transition-colors hover:scale-110 transform duration-200"
+            title="Essenz Dashboard"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+            </svg>
+          </Link>
+        </nav>
+      </div>
 
       {/* Modals */}
       <SearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />

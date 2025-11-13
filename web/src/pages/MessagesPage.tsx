@@ -472,8 +472,16 @@ export default function MessagesPage() {
                             transition: 'background-color 0.2s',
                             borderBottom: option !== 'forever' ? '1px solid #f3f4f6' : 'none',
                           }}
-                          onMouseEnter={(e) => chatRetention !== option && (e.currentTarget.style.backgroundColor = '#f9fafb')}
-                          onMouseLeave={(e) => chatRetention !== option && (e.currentTarget.style.backgroundColor = 'transparent')}
+                          onMouseEnter={(e) => {
+                            if (chatRetention !== option) {
+                              e.currentTarget.style.backgroundColor = '#f9fafb';
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (chatRetention !== option) {
+                              e.currentTarget.style.backgroundColor = 'transparent';
+                            }
+                          }}
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <div style={{
