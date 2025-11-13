@@ -43,9 +43,9 @@
 }
 
 .filterBtn.active {
-  background: linear-gradient(135deg, rgb(59, 130, 246), rgb(139, 92, 246));
+  background: #000;
   color: white;
-  border-color: rgb(59, 130, 246);
+  border-color: #000;
 }
 
 .categorySelector {
@@ -93,17 +93,18 @@
   flex-direction: column;
   gap: 12px;
   padding: 16px;
-  background: linear-gradient(135deg, rgba(168, 85, 247, 0.1), rgba(59, 130, 246, 0.1));
-  border: 1px solid rgba(168, 85, 247, 0.2);
+  background: rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.6);
   border-radius: 16px;
   height: 100%;
   cursor: pointer;
   transition: all 0.2s ease;
+  backdrop-filter: blur(10px);
 }
 
 .rankingCard:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(168, 85, 247, 0.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .rankingHeader {
@@ -118,7 +119,7 @@
   justify-content: center;
   width: 48px;
   height: 48px;
-  background: linear-gradient(135deg, rgb(168, 85, 247), rgb(139, 92, 246));
+  background: #000;
   color: white;
   border-radius: 12px;
   font-weight: 700;
@@ -184,7 +185,7 @@
 
 .progressFill {
   height: 100%;
-  background: linear-gradient(90deg, rgb(59, 130, 246), rgb(168, 85, 247));
+  background: #000;
   border-radius: 3px;
   transition: width 0.3s ease;
 }
@@ -219,7 +220,7 @@
 .viewButton {
   align-self: flex-end;
   padding: 8px 16px;
-  background: linear-gradient(135deg, rgb(168, 85, 247), rgb(139, 92, 246));
+  background: #000;
   color: white;
   border: none;
   border-radius: 8px;
@@ -231,7 +232,7 @@
 
 .viewButton:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(168, 85, 247, 0.4);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
 .viewButton:active {

@@ -30,10 +30,11 @@
   flex-direction: column;
   gap: 12px;
   padding: 16px;
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(168, 85, 247, 0.1));
-  border: 1px solid rgba(59, 130, 246, 0.2);
+  background: rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.6);
   border-radius: 16px;
   height: 100%;
+  backdrop-filter: blur(10px);
 }
 
 .programHeader {
@@ -133,7 +134,7 @@
 .joinButton {
   align-self: flex-end;
   padding: 8px 16px;
-  background: linear-gradient(135deg, rgb(59, 130, 246), rgb(139, 92, 246));
+  background: #000;
   color: white;
   border: none;
   border-radius: 8px;
@@ -145,7 +146,7 @@
 
 .joinButton:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
 .joinButton:active {

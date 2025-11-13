@@ -95,18 +95,23 @@ export default function NotificationsModal({ isOpen, onClose }: NotificationsMod
     }
   }
 
-  async function handleFriendAction(senderId: string, action: 'ACCEPT' | 'REJECT' | 'GHOST') {
+  async function handleFriendAction(friendshipId: string, action: 'ACCEPT' | 'REJECT' | 'GHOST') {
     try {
       const res = await fetch('/api/friends/request', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ friendshipId: senderId, action }),
+        body: JSON.stringify({ friendshipId, action }),
       });
       if (res.ok) {
-        loadNotifications();
+        await loadNotifications();
+      } else {
+        const error = await res.json();
+        console.error('Friend action failed:', error.error);
+        alert(`Failed to ${action.toLowerCase()} friend request: ${error.error}`);
       }
     } catch (error) {
       console.error('Friend action error:', error);
+      alert('An error occurred while processing the friend request');
     }
   }
 

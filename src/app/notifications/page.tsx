@@ -100,13 +100,15 @@ export default function NotificationsPage() {
         body: JSON.stringify({ friendshipId, action }),
       });
       if (res.ok) {
-        loadNotifications();
+        await loadNotifications();
       } else {
         const error = await res.json();
         console.error("Friend action failed:", error.error);
+        alert(`Failed to ${action.toLowerCase()} friend request: ${error.error}`);
       }
     } catch (error) {
       console.error("Friend action error:", error);
+      alert("An error occurred while processing the friend request");
     }
   }
 
