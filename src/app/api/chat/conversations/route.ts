@@ -4,10 +4,14 @@ import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
 import { logger } from "@/lib/logger";
 
-// Get all conversations for the current user
+// Get all conversations for the current user with pagination
 export async function GET(req: Request) {
   try {
     const userId = await requireUserId();
+    const { searchParams } = new URL(req.url);
+    const page = parseInt(searchParams.get("page") || "1");
+    const limit = parseInt(searchParams.get("limit") || "20");
+    const skip = (page - 1) * limit;
 
     const conversations = await prisma.conversation.findMany({
       where: {
@@ -21,7 +25,6 @@ export async function GET(req: Request) {
           select: {
             id: true,
             name: true,
-            email: true,
             profile: {
               select: {
                 displayName: true,
@@ -34,7 +37,6 @@ export async function GET(req: Request) {
           select: {
             id: true,
             name: true,
-            email: true,
             profile: {
               select: {
                 displayName: true,
@@ -54,9 +56,29 @@ export async function GET(req: Request) {
         },
       },
       orderBy: { lastMessageAt: "desc" },
+      skip,
+      take: limit,
     });
 
-    return NextResponse.json({ conversations });
+    // Get total count for pagination metadata
+    const total = await prisma.conversation.count({
+      where: {
+        OR: [
+          { participantA: userId },
+          { participantB: userId },
+        ],
+      },
+    });
+
+    return NextResponse.json({
+      conversations,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    });
   } catch (error: any) {
     logger.error("Get conversations error:", error);
     if (error?.message === "UNAUTHENTICATED") {

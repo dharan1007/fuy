@@ -2,20 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useHopln } from '../../hooks/useFeatures';
-
-const COLORS = {
-  primary: '#6AA8FF',
-  joy: '#FFB366',
-  calm: '#38D67A',
-  reflect: '#B88FFF',
-  base: '#0F0F12',
-  surface: '#1A1A22',
-  text: '#E8E8F0',
-  textMuted: 'rgba(232, 232, 240, 0.6)',
-};
+import { GlassBackground, GlassSurface } from '../../components/glass';
+import { useGlassTokens } from '../../theme';
 
 export default function HoplnScreen() {
   const { routes, loading, error, loadRoutes } = useHopln();
+  const tokens = useGlassTokens();
   const [filter, setFilter] = useState<'all' | 'completed' | 'in-progress' | 'planned'>('all');
 
   useEffect(() => {
@@ -25,13 +17,13 @@ export default function HoplnScreen() {
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
       case 'easy':
-        return COLORS.calm;
+        return '#FFD4C5';
       case 'medium':
-        return COLORS.joy;
+        return '#FFB3A7';
       case 'hard':
-        return COLORS.reflect;
+        return '#FFE5DB';
       default:
-        return COLORS.primary;
+        return '#FF7A5C';
     }
   };
 
@@ -58,31 +50,32 @@ export default function HoplnScreen() {
   ];
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Hopln</Text>
-          <Text style={styles.subtitle}>Your adventure routes</Text>
-        </View>
-        <Pressable style={styles.startButton} onPress={() => console.log('Start route')}>
-          <Text style={styles.startButtonText}>Start Route</Text>
-        </Pressable>
-      </View>
+    <GlassBackground>
+      <SafeAreaView style={styles.container}>
+        {/* Header */}
+        <GlassSurface variant="header" style={styles.header} padding={16}>
+          <View style={{flex: 1}}>
+            <Text style={[styles.title, { color: tokens.colors.text.primary }]}>Hopln</Text>
+            <Text style={[styles.subtitle, { color: tokens.colors.text.secondary }]}>Your adventure routes</Text>
+          </View>
+          <Pressable style={[styles.startButton, { backgroundColor: tokens.colors.primary }]} onPress={() => console.log('Start route')}>
+            <Text style={styles.startButtonText}>Start Route</Text>
+          </Pressable>
+        </GlassSurface>
 
       {/* Stats */}
       <View style={styles.statsContainer}>
         <View style={styles.statCard}>
-          <Text style={styles.statValue}>12</Text>
-          <Text style={styles.statLabel}>Routes</Text>
+          <Text style={[styles.statValue, { color: tokens.colors.primary }]}>12</Text>
+          <Text style={[styles.statLabel, { color: tokens.colors.text.secondary }]}>Routes</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statValue}>45 km</Text>
-          <Text style={styles.statLabel}>Total Distance</Text>
+          <Text style={[styles.statValue, { color: tokens.colors.primary }]}>45 km</Text>
+          <Text style={[styles.statLabel, { color: tokens.colors.text.secondary }]}>Total Distance</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statValue}>8</Text>
-          <Text style={styles.statLabel}>Completed</Text>
+          <Text style={[styles.statValue, { color: tokens.colors.primary }]}>8</Text>
+          <Text style={[styles.statLabel, { color: tokens.colors.text.secondary }]}>Completed</Text>
         </View>
       </View>
 
@@ -93,14 +86,14 @@ export default function HoplnScreen() {
             key={btn.id}
             style={[
               styles.filterButton,
-              filter === btn.id && styles.filterButtonActive,
+              filter === btn.id && [styles.filterButtonActive, { backgroundColor: tokens.colors.primary, borderColor: tokens.colors.primary }],
             ]}
             onPress={() => setFilter(btn.id as any)}
           >
             <Text
               style={[
                 styles.filterText,
-                filter === btn.id && styles.filterTextActive,
+                filter === btn.id ? { color: '#000' } : { color: tokens.colors.text.secondary },
               ]}
             >
               {btn.label}
@@ -112,13 +105,13 @@ export default function HoplnScreen() {
       {/* Routes List */}
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
-          <Text style={styles.loadingText}>Loading routes...</Text>
+          <ActivityIndicator size="large" color={tokens.colors.primary} />
+          <Text style={[styles.loadingText, { color: tokens.colors.text.secondary }]}>Loading routes...</Text>
         </View>
       ) : error ? (
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Failed to load routes</Text>
-          <Pressable style={styles.retryButton} onPress={loadRoutes}>
+          <Pressable style={[styles.retryButton, { backgroundColor: tokens.colors.primary }]} onPress={loadRoutes}>
             <Text style={styles.retryButtonText}>Retry</Text>
           </Pressable>
         </View>
@@ -133,8 +126,8 @@ export default function HoplnScreen() {
                   <Text style={styles.statusIcon}>{getStatusIcon(item.status)}</Text>
                 </View>
                 <View style={styles.routeInfo}>
-                  <Text style={styles.routeName}>{item.name}</Text>
-                  <Text style={styles.routeDate}>
+                  <Text style={[styles.routeName, { color: tokens.colors.text.primary }]}>{item.name}</Text>
+                  <Text style={[styles.routeDate, { color: tokens.colors.text.secondary }]}>
                     {item.startedAt || 'Not started'}
                   </Text>
                 </View>
@@ -143,11 +136,11 @@ export default function HoplnScreen() {
               <View style={styles.routeStats}>
                 <View style={styles.statItem}>
                   <Text style={styles.statIcon}>📍</Text>
-                  <Text style={styles.statText}>{item.distance}</Text>
+                  <Text style={[styles.statText, { color: tokens.colors.text.secondary }]}>{item.distance}</Text>
                 </View>
                 <View style={styles.statItem}>
                   <Text style={styles.statIcon}>⏱</Text>
-                  <Text style={styles.statText}>{item.duration}</Text>
+                  <Text style={[styles.statText, { color: tokens.colors.text.secondary }]}>{item.duration}</Text>
                 </View>
                 <View
                   style={[
@@ -171,19 +164,19 @@ export default function HoplnScreen() {
           ListEmptyComponent={
             <View style={styles.emptyState}>
               <Text style={styles.emptyIcon}>🛤️</Text>
-              <Text style={styles.emptyText}>No routes found</Text>
+              <Text style={[styles.emptyText, { color: tokens.colors.text.primary }]}>No routes found</Text>
             </View>
           }
         />
       )}
     </SafeAreaView>
+  </GlassBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.base,
   },
   loadingContainer: {
     flex: 1,
@@ -192,7 +185,6 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
-    color: COLORS.textMuted,
     fontSize: 14,
   },
   errorContainer: {
@@ -208,7 +200,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   retryButton: {
-    backgroundColor: COLORS.primary,
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
@@ -223,21 +214,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomColor: '#000000',
   },
   title: {
     fontSize: 24,
     fontWeight: '700',
-    color: COLORS.text,
   },
   subtitle: {
     fontSize: 12,
-    color: COLORS.textMuted,
     marginTop: 2,
   },
   startButton: {
-    backgroundColor: COLORS.primary,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
@@ -255,27 +244,20 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: COLORS.surface,
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 14,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 2,
-    elevation: 1,
+    borderColor: '#000000',
   },
   statValue: {
     fontSize: 20,
     fontWeight: '700',
-    color: COLORS.primary,
     letterSpacing: 0.5,
   },
   statLabel: {
     fontSize: 11,
-    color: COLORS.textMuted,
     marginTop: 4,
     fontWeight: '500',
   },
@@ -291,17 +273,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    borderColor: '#000000',
+    backgroundColor: '#FFF5F0',
   },
   filterButtonActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
+    borderWidth: 1.5,
   },
   filterText: {
     fontSize: 12,
     fontWeight: '700',
-    color: COLORS.textMuted,
     textAlign: 'center',
   },
   filterTextActive: {
@@ -312,17 +292,12 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   routeCard: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: '#FFF5F0',
     borderRadius: 14,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 2,
+    borderColor: '#000000',
   },
   routeHeader: {
     flexDirection: 'row',
@@ -333,7 +308,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(106, 168, 255, 0.15)',
+    backgroundColor: '#FF7A5C',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -347,12 +322,10 @@ const styles = StyleSheet.create({
   routeName: {
     fontSize: 15,
     fontWeight: '700',
-    color: COLORS.text,
     letterSpacing: 0.3,
   },
   routeDate: {
     fontSize: 12,
-    color: COLORS.textMuted,
     marginTop: 2,
     fontWeight: '500',
   },
@@ -371,7 +344,6 @@ const styles = StyleSheet.create({
   },
   statText: {
     fontSize: 12,
-    color: COLORS.textMuted,
   },
   difficultyBadge: {
     paddingHorizontal: 8,
@@ -396,6 +368,5 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.text,
   },
 });

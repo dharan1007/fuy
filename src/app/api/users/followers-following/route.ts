@@ -10,6 +10,9 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const type = searchParams.get("type"); // "followers" or "following"
     const search = searchParams.get("search") || "";
+    const page = parseInt(searchParams.get("page") || "1");
+    const limit = parseInt(searchParams.get("limit") || "50");
+    const skip = (page - 1) * limit;
 
     if (!type || !["followers", "following"].includes(type)) {
       return NextResponse.json(
@@ -19,6 +22,7 @@ export async function GET(req: Request) {
     }
 
     let users = [];
+    let total = 0;
 
     if (type === "following") {
       // Get users that the current user is following (where status is ACCEPTED)
@@ -26,13 +30,18 @@ export async function GET(req: Request) {
         where: {
           userId,
           status: "ACCEPTED",
+          friend: search ? {
+            OR: [
+              { name: { contains: search, mode: "insensitive" } },
+              { profile: { displayName: { contains: search, mode: "insensitive" } } },
+            ],
+          } : undefined,
         },
         include: {
           friend: {
             select: {
               id: true,
               name: true,
-              email: true,
               profile: {
                 select: {
                   displayName: true,
@@ -43,7 +52,25 @@ export async function GET(req: Request) {
             },
           },
         },
+        skip,
+        take: limit,
+        orderBy: { createdAt: "desc" },
       });
+
+      // Get total count
+      total = await prisma.friendship.count({
+        where: {
+          userId,
+          status: "ACCEPTED",
+          friend: search ? {
+            OR: [
+              { name: { contains: search, mode: "insensitive" } },
+              { profile: { displayName: { contains: search, mode: "insensitive" } } },
+            ],
+          } : undefined,
+        },
+      });
+
       users = friendships.map((f) => f.friend);
     } else {
       // Get followers (users following current user)
@@ -51,13 +78,18 @@ export async function GET(req: Request) {
         where: {
           friendId: userId,
           status: "ACCEPTED",
+          user: search ? {
+            OR: [
+              { name: { contains: search, mode: "insensitive" } },
+              { profile: { displayName: { contains: search, mode: "insensitive" } } },
+            ],
+          } : undefined,
         },
         include: {
           user: {
             select: {
               id: true,
               name: true,
-              email: true,
               profile: {
                 select: {
                   displayName: true,
@@ -68,18 +100,37 @@ export async function GET(req: Request) {
             },
           },
         },
+        skip,
+        take: limit,
+        orderBy: { createdAt: "desc" },
       });
+
+      // Get total count
+      total = await prisma.friendship.count({
+        where: {
+          friendId: userId,
+          status: "ACCEPTED",
+          user: search ? {
+            OR: [
+              { name: { contains: search, mode: "insensitive" } },
+              { profile: { displayName: { contains: search, mode: "insensitive" } } },
+            ],
+          } : undefined,
+        },
+      });
+
       users = friendships.map((f) => f.user);
     }
 
-    // Filter by search query if provided
-    const filtered = users.filter(
-      (user) =>
-        user.name?.toLowerCase().includes(search.toLowerCase()) ||
-        user.profile?.displayName?.toLowerCase().includes(search.toLowerCase())
-    );
-
-    return NextResponse.json({ users: filtered });
+    return NextResponse.json({
+      users,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    });
   } catch (error: any) {
     logger.error("Get followers/following error:", error);
     if (error?.message === "UNAUTHENTICATED") {

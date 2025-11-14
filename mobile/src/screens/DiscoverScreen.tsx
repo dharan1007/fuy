@@ -1,25 +1,16 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, Pressable, TextInput, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-const COLORS = {
-  primary: '#6AA8FF',
-  joy: '#FFB366',
-  calm: '#38D67A',
-  reflect: '#B88FFF',
-  base: '#0F0F12',
-  surface: '#1A1A22',
-  text: '#E8E8F0',
-  textMuted: 'rgba(232, 232, 240, 0.6)',
-};
+import { GlassBackground, GlassSurface } from '../components/glass';
+import { useGlassTokens } from '../theme';
 
 const TRENDING_CATEGORIES = [
-  { id: '1', name: 'Joy Stories', icon: '😊', color: COLORS.joy },
-  { id: '2', name: 'Wellness', icon: '🧘', color: COLORS.calm },
-  { id: '3', name: 'Creative', icon: '🎨', color: COLORS.reflect },
-  { id: '4', name: 'Adventure', icon: '🚀', color: COLORS.primary },
-  { id: '5', name: 'Learning', icon: '📚', color: COLORS.reflect },
-  { id: '6', name: 'Community', icon: '👥', color: COLORS.calm },
+  { id: '1', name: 'Joy Stories', icon: '😊', color: '#FFB3A7' },
+  { id: '2', name: 'Wellness', icon: '🧘', color: '#FFD4C5' },
+  { id: '3', name: 'Creative', icon: '🎨', color: '#FFE5DB' },
+  { id: '4', name: 'Adventure', icon: '🚀', color: '#FF7A5C' },
+  { id: '5', name: 'Learning', icon: '📚', color: '#FFE5DB' },
+  { id: '6', name: 'Community', icon: '👥', color: '#FFD4C5' },
 ];
 
 const TRENDING_POSTS = [
@@ -53,31 +44,33 @@ const TRENDING_POSTS = [
 ];
 
 export default function DiscoverScreen() {
+  const tokens = useGlassTokens();
   const [searchQuery, setSearchQuery] = useState('');
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Discover</Text>
-          <Text style={styles.subtitle}>Explore trending moments and categories</Text>
-        </View>
+    <GlassBackground>
+      <SafeAreaView style={styles.container}>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {/* Header */}
+          <GlassSurface variant="header" style={styles.header} padding={16}>
+            <Text style={[styles.title, { color: tokens.colors.text.primary }]}>Discover</Text>
+            <Text style={[styles.subtitle, { color: tokens.colors.text.secondary }]}>Explore trending moments and categories</Text>
+          </GlassSurface>
 
-        {/* Search Bar */}
-        <View style={styles.searchContainer}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search moments..."
-            placeholderTextColor={COLORS.textMuted}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-        </View>
+          {/* Search Bar */}
+          <View style={styles.searchContainer}>
+            <TextInput
+              style={[styles.searchInput, { color: tokens.colors.text.primary }]}
+              placeholder="Search moments..."
+              placeholderTextColor={tokens.colors.text.secondary}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+          </View>
 
-        {/* Trending Categories */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Trending Categories</Text>
+          {/* Trending Categories */}
+          <View style={styles.sectionContainer}>
+            <Text style={[styles.sectionTitle, { color: tokens.colors.text.primary }]}>Trending Categories</Text>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -95,80 +88,72 @@ export default function DiscoverScreen() {
           </ScrollView>
         </View>
 
-        {/* Trending Moments */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Trending Now</Text>
-          {TRENDING_POSTS.map((post) => (
-            <Pressable key={post.id} style={styles.trendingCard}>
-              <View style={styles.trendingHeader}>
-                <View>
-                  <View style={styles.authorRow}>
-                    <Text style={styles.authorName}>{post.author}</Text>
-                    {post.verified && <Text style={styles.verifyBadge}>✓</Text>}
+          {/* Trending Moments */}
+          <View style={styles.sectionContainer}>
+            <Text style={[styles.sectionTitle, { color: tokens.colors.text.primary }]}>Trending Now</Text>
+            {TRENDING_POSTS.map((post) => (
+              <Pressable key={post.id} style={styles.trendingCard}>
+                <View style={styles.trendingHeader}>
+                  <View>
+                    <View style={styles.authorRow}>
+                      <Text style={[styles.authorName, { color: tokens.colors.text.primary }]}>{post.author}</Text>
+                      {post.verified && <Text style={[styles.verifyBadge, { color: tokens.colors.primary }]}>✓</Text>}
+                    </View>
+                    <Text style={[styles.categoryTag, { color: tokens.colors.text.secondary }]}>{post.category}</Text>
                   </View>
-                  <Text style={styles.categoryTag}>{post.category}</Text>
                 </View>
-              </View>
 
-              <Text style={styles.trendingTitle}>{post.title}</Text>
-              <Text style={styles.trendingDescription}>{post.description}</Text>
+                <Text style={[styles.trendingTitle, { color: tokens.colors.text.primary }]}>{post.title}</Text>
+                <Text style={[styles.trendingDescription, { color: tokens.colors.text.secondary }]}>{post.description}</Text>
 
-              <View style={styles.trendingFooter}>
-                <Text style={styles.momentCount}>⭐ {post.momentCount}K moments</Text>
-              </View>
-            </Pressable>
-          ))}
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+                <View style={styles.trendingFooter}>
+                  <Text style={[styles.momentCount, { color: tokens.colors.primary }]}>⭐ {post.momentCount}K moments</Text>
+                </View>
+              </Pressable>
+            ))}
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    </GlassBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.base,
   },
   header: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
   },
   title: {
     fontSize: 24,
     fontWeight: '700',
-    color: COLORS.text,
     marginBottom: 4,
   },
   subtitle: {
     fontSize: 12,
-    color: COLORS.textMuted,
   },
   searchContainer: {
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
   searchInput: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: '#FFFFFF',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    color: COLORS.text,
     fontSize: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: '#000000',
   },
   sectionContainer: {
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomColor: '#000000',
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: COLORS.text,
     marginBottom: 12,
   },
   categoryScroll: {
@@ -182,8 +167,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: 'rgba(106, 168, 255, 0.3)',
-    backgroundColor: 'rgba(106, 168, 255, 0.05)',
+    backgroundColor: '#FFF5F0',
   },
   categoryIcon: {
     fontSize: 24,
@@ -192,15 +176,14 @@ const styles = StyleSheet.create({
   categoryName: {
     fontSize: 12,
     fontWeight: '600',
-    color: COLORS.text,
   },
   trendingCard: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: '#FFF5F0',
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: '#E5D7D0',
   },
   trendingHeader: {
     flexDirection: 'row',
@@ -216,26 +199,21 @@ const styles = StyleSheet.create({
   authorName: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.text,
   },
   verifyBadge: {
     fontSize: 14,
-    color: COLORS.primary,
   },
   categoryTag: {
     fontSize: 11,
-    color: COLORS.textMuted,
     marginTop: 4,
   },
   trendingTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.text,
     marginBottom: 8,
   },
   trendingDescription: {
     fontSize: 13,
-    color: COLORS.textMuted,
     marginBottom: 12,
     lineHeight: 18,
   },
@@ -246,7 +224,6 @@ const styles = StyleSheet.create({
   },
   momentCount: {
     fontSize: 12,
-    color: COLORS.primary,
     fontWeight: '600',
   },
 });

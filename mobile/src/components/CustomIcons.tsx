@@ -7,7 +7,7 @@ const COLORS = {
   calm: '#38D67A',
   reflect: '#B88FFF',
   text: '#E8E8F0',
-  textMuted: 'rgba(232, 232, 240, 0.6)',
+  textMuted: '#E8E8F0',
 };
 
 interface IconProps {
@@ -410,7 +410,7 @@ export const ShopIcon: React.FC<IconProps> = ({ size = 24, color = COLORS.primar
 );
 
 // Create/Plus Icon
-export const CreateIcon: React.FC<IconProps> = ({ size = 24, color = color || '#fff' }) => (
+export const CreateIcon: React.FC<IconProps> = ({ size = 24, color = COLORS.primary }) => (
   <View style={[styles.iconContainer, { width: size, height: size }]}>
     {/* Vertical line */}
     <View

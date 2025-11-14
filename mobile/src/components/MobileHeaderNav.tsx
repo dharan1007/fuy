@@ -9,7 +9,7 @@ const COLORS = {
   base: '#0F0F12',
   surface: '#1A1A22',
   text: '#E8E8F0',
-  textMuted: 'rgba(232, 232, 240, 0.6)',
+  textMuted: '#E8E8F0',
 };
 
 interface TopHeaderProps {
@@ -126,9 +126,8 @@ const styles = StyleSheet.create({
   // Top Header Styles
   topHeader: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(26, 26, 34, 0.8)',
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    borderBottomColor: '#FFFFFF',
     paddingHorizontal: 8,
     paddingVertical: 12,
     justifyContent: 'space-around',
@@ -143,7 +142,7 @@ const styles = StyleSheet.create({
   },
   topTabText: {
     fontSize: 13,
-    color: 'rgba(232, 232, 240, 0.6)',
+    color: '#E8E8F0',
     fontWeight: '500',
   },
   topTabTextActive: {
@@ -168,7 +167,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomColor: '#FFFFFF',
   },
   headerContent: {
     flex: 1,

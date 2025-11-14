@@ -2,22 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, Pressable, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useShop } from '../../hooks/useFeatures';
-
-const COLORS = {
-  primary: '#6AA8FF',
-  joy: '#FFB366',
-  calm: '#38D67A',
-  reflect: '#B88FFF',
-  base: '#0F0F12',
-  surface: '#1A1A22',
-  text: '#E8E8F0',
-  textMuted: 'rgba(232, 232, 240, 0.6)',
-};
+import { GlassBackground, GlassSurface } from '../../components/glass';
+import { useGlassTokens } from '../../theme';
+import type { ShopItem } from '../../store/featuresStore';
 
 const CATEGORIES = ['All', 'Cosmetics', 'Badges', 'Themes', 'Stickers', 'Sounds', 'Subscriptions'];
 
 export default function ShopScreen() {
   const { shopItems, walletBalance, loading, error, loadItems, buy, loadWallet } = useShop();
+  const tokens = useGlassTokens();
   const [selectedCategory, setSelectedCategory] = useState('All');
 
   useEffect(() => {
@@ -28,7 +21,7 @@ export default function ShopScreen() {
   const filteredItems =
     selectedCategory === 'All'
       ? shopItems
-      : shopItems.filter((item: any) => item.category === selectedCategory);
+      : shopItems.filter((item: ShopItem) => item.category === selectedCategory);
 
   const handlePurchase = async (id: string, price: number) => {
     try {
@@ -39,119 +32,150 @@ export default function ShopScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Shop</Text>
-          <Text style={styles.subtitle}>Marketplace & items</Text>
-        </View>
-        <View style={styles.walletCard}>
-          <Text style={styles.walletIcon}>💎</Text>
-          <Text style={styles.walletLabel}>Balance</Text>
-          <Text style={styles.walletAmount}>{walletBalance?.toLocaleString() || '0'}</Text>
-        </View>
-      </View>
+    <GlassBackground>
+      <SafeAreaView style={{ flex: 1 }}>
+        {/* Header */}
+        <GlassSurface variant="header" padding={16}>
+          <View style={styles.headerContent}>
+            <View>
+              <Text style={[styles.title, { color: tokens.colors.text.primary }]}>Shop</Text>
+              <Text style={[styles.subtitle, { color: tokens.colors.text.secondary }]}>Marketplace & items</Text>
+            </View>
+            <GlassSurface variant="card" padding={12} style={styles.walletCard}>
+              <Text style={styles.walletIcon}>💎</Text>
+              <Text style={[styles.walletLabel, { color: tokens.colors.text.secondary }]}>Balance</Text>
+              <Text style={[styles.walletAmount, { color: tokens.colors.primary }]}>
+                {walletBalance?.toLocaleString() || '0'}
+              </Text>
+            </GlassSurface>
+          </View>
+        </GlassSurface>
 
-      {/* Categories */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.categoriesScroll}
-      >
-        <View style={styles.categoriesContainer}>
-          {CATEGORIES.map((category) => (
-            <Pressable
-              key={category}
-              style={[
-                styles.categoryButton,
-                selectedCategory === category && styles.categoryButtonActive,
-              ]}
-              onPress={() => setSelectedCategory(category)}
-            >
-              <Text
+        {/* Categories */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.categoriesScroll}
+        >
+          <View style={styles.categoriesContainer}>
+            {CATEGORIES.map((category) => (
+              <Pressable
+                key={category}
                 style={[
-                  styles.categoryText,
-                  selectedCategory === category && styles.categoryTextActive,
+                  styles.categoryButton,
+                  selectedCategory === category && styles.categoryButtonActive,
+                  selectedCategory === category && { backgroundColor: tokens.colors.primary },
                 ]}
+                onPress={() => setSelectedCategory(category)}
               >
-                {category}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      </ScrollView>
+                <Text
+                  style={[
+                    styles.categoryText,
+                    selectedCategory === category && styles.categoryTextActive,
+                  ]}
+                >
+                  {category}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </ScrollView>
 
-      {/* Items Grid */}
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
-          <Text style={styles.loadingText}>Loading items...</Text>
-        </View>
-      ) : error ? (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Failed to load items</Text>
-          <Pressable style={styles.retryButton} onPress={loadItems}>
-            <Text style={styles.retryButtonText}>Retry</Text>
-          </Pressable>
-        </View>
-      ) : (
-        <FlatList
-          data={filteredItems}
-          numColumns={2}
-          columnWrapperStyle={styles.gridRow}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-          <View style={styles.gridItem}>
-            <Pressable
-              style={[
-                styles.itemCard,
-                item.purchased && styles.itemCardPurchased,
-              ]}
-              onPress={() => !item.purchased && handlePurchase(item.id, item.price)}
-            >
-              <View style={styles.itemIconContainer}>
-                <Text style={styles.itemIcon}>{item.icon}</Text>
+        {/* Items Grid */}
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={tokens.colors.primary} />
+            <Text style={[styles.loadingText, { color: tokens.colors.text.secondary }]}>Loading items...</Text>
+          </View>
+        ) : error ? (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>Failed to load items</Text>
+            <Pressable style={[styles.retryButton, { backgroundColor: tokens.colors.primary }]} onPress={loadItems}>
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <FlatList
+            data={filteredItems}
+            numColumns={2}
+            columnWrapperStyle={styles.gridRow}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <View style={styles.gridItem}>
+                <Pressable
+                  style={[
+                    styles.itemCard,
+                    item.purchased && styles.itemCardPurchased,
+                  ]}
+                  onPress={() => !item.purchased && handlePurchase(item.id, item.price)}
+                >
+                  <View style={[styles.itemIconContainer, { backgroundColor: '#FF7A5C' }]}>
+                    <Text style={styles.itemIcon}>{item.icon}</Text>
+                  </View>
+
+                  <Text style={[styles.itemName, { color: tokens.colors.text.primary }]} numberOfLines={2}>
+                    {item.name}
+                  </Text>
+                  <Text style={[styles.itemDescription, { color: tokens.colors.text.secondary }]} numberOfLines={1}>
+                    {item.description}
+                  </Text>
+
+                  {item.purchased ? (
+                    <View style={[styles.purchasedBadge, { backgroundColor: '#FFD4C5' }]}>
+                      <Text style={styles.purchasedText}>✓ Owned</Text>
+                    </View>
+                  ) : (
+                    <View style={[styles.priceTag, { backgroundColor: tokens.colors.primary }]}>
+                      <Text style={styles.priceValue}>{item.price}</Text>
+                      <Text style={styles.priceCurrency}>💎</Text>
+                    </View>
+                  )}
+                </Pressable>
               </View>
-
-              <Text style={styles.itemName} numberOfLines={2}>
-                {item.name}
-              </Text>
-              <Text style={styles.itemDescription} numberOfLines={1}>
-                {item.description}
-              </Text>
-
-              {item.purchased ? (
-                <View style={styles.purchasedBadge}>
-                  <Text style={styles.purchasedText}>✓ Owned</Text>
-                </View>
-              ) : (
-                <View style={styles.priceTag}>
-                  <Text style={styles.priceValue}>{item.price}</Text>
-                  <Text style={styles.priceCurrency}>💎</Text>
-                </View>
-              )}
-            </Pressable>
-          </View>
+            )}
+            contentContainerStyle={styles.listContent}
+            scrollEnabled={false}
+            ListEmptyComponent={
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyIcon}>🛍️</Text>
+                <Text style={[styles.emptyText, { color: tokens.colors.text.primary }]}>No items found</Text>
+              </View>
+            }
+          />
         )}
-        contentContainerStyle={styles.listContent}
-        scrollEnabled={false}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyIcon}>🛍️</Text>
-            <Text style={styles.emptyText}>No items found</Text>
-          </View>
-        }
-      />
-      )}
-    </SafeAreaView>
+      </SafeAreaView>
+    </GlassBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.base,
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  subtitle: {
+    fontSize: 12,
+  },
+  walletCard: {
+    alignItems: 'center',
+  },
+  walletIcon: {
+    fontSize: 24,
+    marginBottom: 4,
+  },
+  walletLabel: {
+    fontSize: 11,
+  },
+  walletAmount: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginTop: 4,
   },
   loadingContainer: {
     flex: 1,
@@ -160,7 +184,6 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
-    color: COLORS.textMuted,
     fontSize: 14,
   },
   errorContainer: {
@@ -176,7 +199,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   retryButton: {
-    backgroundColor: COLORS.primary,
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
@@ -184,45 +206,6 @@ const styles = StyleSheet.create({
   retryButtonText: {
     color: '#000',
     fontWeight: '600',
-  },
-  header: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginBottom: 12,
-  },
-  subtitle: {
-    fontSize: 12,
-    color: COLORS.textMuted,
-  },
-  walletCard: {
-    marginTop: 12,
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(106, 168, 255, 0.3)',
-  },
-  walletIcon: {
-    fontSize: 24,
-    marginBottom: 4,
-  },
-  walletLabel: {
-    fontSize: 11,
-    color: COLORS.textMuted,
-  },
-  walletAmount: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLORS.primary,
-    marginTop: 4,
   },
   categoriesScroll: {
     paddingVertical: 12,
@@ -236,18 +219,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: '#FFF5F0',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: '#F0F0F0',
   },
   categoryButtonActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
+    borderColor: '#FF7A5C',
   },
   categoryText: {
     fontSize: 12,
     fontWeight: '600',
-    color: COLORS.textMuted,
+    color: '#666666',
   },
   categoryTextActive: {
     color: '#000',
@@ -264,27 +246,21 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   itemCard: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: '#FFF5F0',
     borderRadius: 16,
     padding: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: '#E5D7D0',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 2,
   },
   itemCardPurchased: {
-    borderColor: COLORS.primary,
-    backgroundColor: 'rgba(106, 168, 255, 0.15)',
+    borderColor: '#FF7A5C',
+    backgroundColor: '#FFB3A7',
   },
   itemIconContainer: {
     width: 60,
     height: 60,
     borderRadius: 12,
-    backgroundColor: 'rgba(106, 168, 255, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
@@ -295,13 +271,11 @@ const styles = StyleSheet.create({
   itemName: {
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.text,
     textAlign: 'center',
     marginBottom: 4,
   },
   itemDescription: {
     fontSize: 11,
-    color: COLORS.textMuted,
     textAlign: 'center',
     marginBottom: 8,
   },
@@ -309,7 +283,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: COLORS.primary,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
@@ -326,7 +299,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: COLORS.calm,
   },
   purchasedText: {
     fontSize: 12,
@@ -345,6 +317,5 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.text,
   },
 });

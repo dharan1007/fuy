@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 // Import screens
 import HomeScreen from '../screens/HomeScreen';
 import MessagesScreen from '../screens/MessagesScreen';
+import NotificationsScreen from '../screens/NotificationsScreen';
 import DiscoverScreen from '../screens/DiscoverScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 
@@ -27,29 +28,37 @@ import {
   ShopIcon,
 } from '../components/CustomIcons';
 
-// Colors
+// Colors - Pastel white, red/orange, glassmorphic theme
 const COLORS = {
-  primary: '#6AA8FF',
-  joy: '#FFB366',
-  calm: '#38D67A',
-  reflect: '#B88FFF',
-  base: '#0F0F12',
-  surface: '#1A1A22',
-  text: '#E8E8F0',
-  textMuted: 'rgba(232, 232, 240, 0.6)',
-  border: 'rgba(255, 255, 255, 0.08)',
+  primary: '#FF7A5C',      // Warm coral/orange-red
+  secondary: '#FFB3A7',    // Soft peachy pink
+  joy: '#FFB3A7',          // Peachy pink
+  calm: '#FFD4C5',         // Very light peach
+  reflect: '#FFE5DB',      // Pale rose
+  base: '#FFFFFF',  // White (opaque)
+  baseLight: '#FAFAF8',  // Off-white (opaque)
+  surface: '#FFF5F0',  // Light peach (opaque)
+  surfaceAlt: '#FFFFFF',  // White (opaque)
+  text: '#000000',         // Black
+  textMuted: '#666666',    // Dark gray
+  border: '#E5D7D0',       // Soft warm border
+  borderLight: '#000000',  // Black (opaque)
 };
 
 export function TopTabNavigator() {
-  const [topTab, setTopTab] = React.useState<'home' | 'messages' | 'discover' | 'profile'>('home');
+  const [topTab, setTopTab] = React.useState<'home' | 'messages' | 'notifications' | 'discover' | 'profile'>('home');
   const [bottomTab, setBottomTab] = React.useState<'canvas' | 'hopln' | 'essenz' | 'shop'>('canvas');
+  const [showBottomNav, setShowBottomNav] = React.useState(true);
 
-  const renderTopContent = () => {
+  // Render screen based on active top tab
+  const renderScreen = () => {
     switch (topTab) {
       case 'home':
-        return <HomeScreen />;
+        return showBottomNav ? renderFeatureScreen() : <HomeScreen />;
       case 'messages':
         return <MessagesScreen />;
+      case 'notifications':
+        return <NotificationsScreen />;
       case 'discover':
         return <DiscoverScreen />;
       case 'profile':
@@ -59,7 +68,8 @@ export function TopTabNavigator() {
     }
   };
 
-  const renderBottomContent = () => {
+  // Render feature screens (Canvas, Hopln, Essenz, Shop)
+  const renderFeatureScreen = () => {
     switch (bottomTab) {
       case 'canvas':
         return <CanvasScreen />;
@@ -74,9 +84,20 @@ export function TopTabNavigator() {
     }
   };
 
-  // Determine which content to show based on active tabs
-  const isTopTabActive = topTab !== 'home';
-  const activeScreen = isTopTabActive ? renderTopContent() : renderBottomContent();
+  const handleTopTabPress = (tab: typeof topTab) => {
+    setTopTab(tab);
+    // Show bottom nav only on home tab
+    setShowBottomNav(tab === 'home');
+  };
+
+  const handleBottomTabPress = (tab: typeof bottomTab) => {
+    setBottomTab(tab);
+    // Make sure we're on home tab
+    if (topTab !== 'home') {
+      setTopTab('home');
+      setShowBottomNav(true);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -87,19 +108,19 @@ export function TopTabNavigator() {
           <View style={styles.headerLeft}>
             <Pressable
               style={[styles.navIcon, topTab === 'home' && styles.navIconActive]}
-              onPress={() => setTopTab('home')}
+              onPress={() => handleTopTabPress('home')}
             >
               <HomeIcon size={20} color={topTab === 'home' ? COLORS.primary : COLORS.textMuted} />
             </Pressable>
             <Pressable
               style={[styles.navIcon, topTab === 'messages' && styles.navIconActive]}
-              onPress={() => setTopTab('messages')}
+              onPress={() => handleTopTabPress('messages')}
             >
               <MessagesIcon size={20} color={topTab === 'messages' ? COLORS.primary : COLORS.textMuted} />
             </Pressable>
             <Pressable
               style={[styles.navIcon, topTab === 'discover' && styles.navIconActive]}
-              onPress={() => setTopTab('discover')}
+              onPress={() => handleTopTabPress('discover')}
             >
               <DiscoverIcon size={20} color={topTab === 'discover' ? COLORS.primary : COLORS.textMuted} />
             </Pressable>
@@ -110,12 +131,15 @@ export function TopTabNavigator() {
 
           {/* Right side - Notification + Profile */}
           <View style={styles.headerRight}>
-            <Pressable style={styles.notificationBtn}>
-              <NotificationIcon size={20} color={COLORS.textMuted} />
+            <Pressable
+              style={[styles.notificationBtn, topTab === 'notifications' && styles.notificationBtnActive]}
+              onPress={() => handleTopTabPress('notifications')}
+            >
+              <NotificationIcon size={20} color={topTab === 'notifications' ? COLORS.primary : COLORS.textMuted} />
             </Pressable>
             <Pressable
               style={[styles.profileIcon, topTab === 'profile' && styles.profileIconActive]}
-              onPress={() => setTopTab('profile')}
+              onPress={() => handleTopTabPress('profile')}
             >
               <ProfileIcon size={20} color={topTab === 'profile' ? COLORS.primary : COLORS.textMuted} />
             </Pressable>
@@ -125,74 +149,64 @@ export function TopTabNavigator() {
 
       {/* MAIN CONTENT AREA */}
       <View style={styles.contentContainer}>
-        {activeScreen}
+        {renderScreen()}
       </View>
 
-      {/* BOTTOM NAVIGATION BAR - PROFESSIONAL WITH CREATE BUTTON */}
-      <View style={styles.bottomBar}>
-        {/* Left tabs */}
-        <View style={styles.bottomLeftTabs}>
-          <Pressable
-            style={[styles.bottomTab, bottomTab === 'canvas' && styles.bottomTabActive]}
-            onPress={() => {
-              setBottomTab('canvas');
-              setTopTab('home');
-            }}
-          >
-            <CanvasIcon size={20} color={bottomTab === 'canvas' ? COLORS.primary : COLORS.textMuted} />
-            <Text style={[styles.bottomTabLabel, bottomTab === 'canvas' && styles.bottomTabLabelActive]}>
-              Canvas
-            </Text>
+      {/* BOTTOM NAVIGATION BAR - ONLY SHOW ON HOME TAB */}
+      {showBottomNav && (
+        <View style={styles.bottomBar}>
+          {/* Left tabs */}
+          <View style={styles.bottomLeftTabs}>
+            <Pressable
+              style={[styles.bottomTab, bottomTab === 'canvas' && styles.bottomTabActive]}
+              onPress={() => handleBottomTabPress('canvas')}
+            >
+              <CanvasIcon size={20} color={bottomTab === 'canvas' ? COLORS.primary : COLORS.textMuted} />
+              <Text style={[styles.bottomTabLabel, bottomTab === 'canvas' && styles.bottomTabLabelActive]}>
+                Canvas
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={[styles.bottomTab, bottomTab === 'hopln' && styles.bottomTabActive]}
+              onPress={() => handleBottomTabPress('hopln')}
+            >
+              <HoplnIcon size={20} color={bottomTab === 'hopln' ? COLORS.primary : COLORS.textMuted} />
+              <Text style={[styles.bottomTabLabel, bottomTab === 'hopln' && styles.bottomTabLabelActive]}>
+                Hopln
+              </Text>
+            </Pressable>
+          </View>
+
+          {/* Center Create Button */}
+          <Pressable style={styles.createButton}>
+            <Text style={styles.createButtonText}>+</Text>
           </Pressable>
 
-          <Pressable
-            style={[styles.bottomTab, bottomTab === 'hopln' && styles.bottomTabActive]}
-            onPress={() => {
-              setBottomTab('hopln');
-              setTopTab('home');
-            }}
-          >
-            <HoplnIcon size={20} color={bottomTab === 'hopln' ? COLORS.primary : COLORS.textMuted} />
-            <Text style={[styles.bottomTabLabel, bottomTab === 'hopln' && styles.bottomTabLabelActive]}>
-              Hopln
-            </Text>
-          </Pressable>
+          {/* Right tabs */}
+          <View style={styles.bottomRightTabs}>
+            <Pressable
+              style={[styles.bottomTab, bottomTab === 'essenz' && styles.bottomTabActive]}
+              onPress={() => handleBottomTabPress('essenz')}
+            >
+              <EssenzIcon size={20} color={bottomTab === 'essenz' ? COLORS.primary : COLORS.textMuted} />
+              <Text style={[styles.bottomTabLabel, bottomTab === 'essenz' && styles.bottomTabLabelActive]}>
+                Essenz
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={[styles.bottomTab, bottomTab === 'shop' && styles.bottomTabActive]}
+              onPress={() => handleBottomTabPress('shop')}
+            >
+              <ShopIcon size={20} color={bottomTab === 'shop' ? COLORS.primary : COLORS.textMuted} />
+              <Text style={[styles.bottomTabLabel, bottomTab === 'shop' && styles.bottomTabLabelActive]}>
+                Shop
+              </Text>
+            </Pressable>
+          </View>
         </View>
-
-        {/* Center Create Button */}
-        <Pressable style={styles.createButton}>
-          <Text style={styles.createButtonText}>+</Text>
-        </Pressable>
-
-        {/* Right tabs */}
-        <View style={styles.bottomRightTabs}>
-          <Pressable
-            style={[styles.bottomTab, bottomTab === 'essenz' && styles.bottomTabActive]}
-            onPress={() => {
-              setBottomTab('essenz');
-              setTopTab('home');
-            }}
-          >
-            <EssenzIcon size={20} color={bottomTab === 'essenz' ? COLORS.primary : COLORS.textMuted} />
-            <Text style={[styles.bottomTabLabel, bottomTab === 'essenz' && styles.bottomTabLabelActive]}>
-              Essenz
-            </Text>
-          </Pressable>
-
-          <Pressable
-            style={[styles.bottomTab, bottomTab === 'shop' && styles.bottomTabActive]}
-            onPress={() => {
-              setBottomTab('shop');
-              setTopTab('home');
-            }}
-          >
-            <ShopIcon size={20} color={bottomTab === 'shop' ? COLORS.primary : COLORS.textMuted} />
-            <Text style={[styles.bottomTabLabel, bottomTab === 'shop' && styles.bottomTabLabelActive]}>
-              Shop
-            </Text>
-          </Pressable>
-        </View>
-      </View>
+      )}
     </View>
   );
 }
@@ -200,14 +214,11 @@ export function TopTabNavigator() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.base,
   },
 
   // HEADER STYLES
   headerSafeArea: {
-    backgroundColor: COLORS.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomWidth: 0,
   },
   header: {
     flexDirection: 'row',
@@ -232,14 +243,6 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     letterSpacing: 1,
   },
-  notificationBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'transparent',
-  },
   navIcon: {
     width: 40,
     height: 40,
@@ -249,10 +252,18 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   navIconActive: {
-    backgroundColor: 'rgba(106, 168, 255, 0.15)',
+    backgroundColor: '#FF7A5C',
   },
-  navIconText: {
-    fontSize: 18,
+  notificationBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+  },
+  notificationBtnActive: {
+    backgroundColor: '#FF7A5C',
   },
   profileIcon: {
     width: 40,
@@ -268,9 +279,6 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     borderColor: COLORS.primary,
   },
-  profileIconText: {
-    fontSize: 18,
-  },
 
   // CONTENT AREA
   contentContainer: {
@@ -285,7 +293,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 8,
     paddingVertical: 12,
-    backgroundColor: COLORS.surface,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
     height: 80,
@@ -309,12 +316,13 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   bottomTabActive: {
-    backgroundColor: 'rgba(106, 168, 255, 0.15)',
+    backgroundColor: '#FF7A5C',
   },
   bottomTabLabel: {
     fontSize: 10,
     color: COLORS.textMuted,
     fontWeight: '500',
+    marginTop: 2,
   },
   bottomTabLabelActive: {
     color: COLORS.primary,
@@ -329,11 +337,6 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
     marginHorizontal: 8,
   },
   createButtonText: {

@@ -133,7 +133,8 @@ export function useMessaging() {
   const fetchConversations = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/chat/conversations');
+      // Fetch first page with 20 conversations per page for faster loading
+      const response = await fetch('/api/chat/conversations?page=1&limit=20');
       if (response.ok) {
         const data = await response.json();
         const currentUserId = (session?.user as any)?.id;
@@ -163,9 +164,10 @@ export function useMessaging() {
 
   const fetchFollowersAndFollowing = useCallback(async () => {
     try {
+      // Fetch with pagination - limit to 50 per page for better performance
       const [followersRes, followingRes] = await Promise.all([
-        fetch('/api/users/followers-following?type=followers'),
-        fetch('/api/users/followers-following?type=following'),
+        fetch('/api/users/followers-following?type=followers&page=1&limit=50'),
+        fetch('/api/users/followers-following?type=following&page=1&limit=50'),
       ]);
 
       if (followersRes.ok) {

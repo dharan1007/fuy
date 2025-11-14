@@ -11,7 +11,7 @@ const COLORS = {
   base: '#0F0F12',
   surface: '#1A1A22',
   text: '#E8E8F0',
-  textMuted: 'rgba(232, 232, 240, 0.6)',
+  textMuted: '#E8E8F0',
 };
 
 export default function RankingScreen() {
@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomColor: '#F5F5F5',
   },
   title: {
     fontSize: 24,
@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
     padding: 12,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(106, 168, 255, 0.3)',
+    borderColor: '#6AA8FF',
   },
   topScoreIcon: {
     fontSize: 24,
@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomColor: '#F5F5F5',
     gap: 8,
   },
   tab: {
@@ -237,7 +237,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     alignItems: 'center',
     borderRadius: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    backgroundColor: '#F5F5F5',
   },
   tabActive: {
     backgroundColor: COLORS.primary,
@@ -262,17 +262,17 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: '#F5F5F5',
   },
   leaderboardItemHighlight: {
     borderColor: COLORS.primary,
-    backgroundColor: 'rgba(106, 168, 255, 0.1)',
+    backgroundColor: '#6AA8FF',
   },
   rankMedal: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: 'rgba(106, 168, 255, 0.15)',
+    backgroundColor: '#6AA8FF',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -308,7 +308,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.05)',
+    borderTopColor: '#F5F5F5',
   },
   sectionTitle: {
     fontSize: 14,
@@ -329,7 +329,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: '#F5F5F5',
   },
   achievementIcon: {
     fontSize: 28,

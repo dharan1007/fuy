@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, ViewStyle, Pressable } from 'react-native';
+import { View, ViewStyle, Pressable } from 'react-native';
 import { COLORS, SPACING, BORDER_RADIUS } from '../constants/index';
 
 interface CardProps {
@@ -30,25 +30,12 @@ const Card: React.FC<CardProps> = ({
 
   const variantStyles = {
     default: {
-      backgroundColor: COLORS.white,
-      shadowColor: COLORS.black,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 3,
     },
     outlined: {
-      backgroundColor: COLORS.white,
       borderWidth: 1,
       borderColor: COLORS.gray200,
     },
     elevated: {
-      backgroundColor: COLORS.white,
-      shadowColor: COLORS.black,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.15,
-      shadowRadius: 8,
-      elevation: 5,
     },
   };
 

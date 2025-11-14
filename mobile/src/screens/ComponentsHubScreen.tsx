@@ -10,7 +10,7 @@ const COLORS = {
   base: '#0F0F12',
   surface: '#1A1A22',
   text: '#E8E8F0',
-  textMuted: 'rgba(232, 232, 240, 0.6)',
+  textMuted: '#E8E8F0',
 };
 
 const COMPONENTS = [
@@ -78,7 +78,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(106, 168, 255, 0.2)',
+    borderColor: '#6AA8FF',
     alignItems: 'center',
   },
   iconContainer: {

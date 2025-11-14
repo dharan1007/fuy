@@ -95,7 +95,6 @@ const styles = StyleSheet.create({
     borderColor: COLORS.gray300,
     borderRadius: BORDER_RADIUS.md,
     paddingHorizontal: SPACING.md,
-    backgroundColor: COLORS.gray100,
   },
   input: {
     flex: 1,
@@ -109,7 +108,6 @@ const styles = StyleSheet.create({
   },
   inputError: {
     borderColor: COLORS.danger,
-    backgroundColor: '#fff5f5',
   },
   errorText: {
     fontSize: FONT_SIZES.xs,

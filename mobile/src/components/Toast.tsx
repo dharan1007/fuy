@@ -41,28 +41,9 @@ const ToastItem: React.FC<ToastItemProps> = ({ toast }) => {
     }
   };
 
-  const getBackgroundColor = () => {
-    switch (toast.type) {
-      case 'success':
-        return COLORS.success;
-      case 'error':
-        return COLORS.danger;
-      case 'warning':
-        return COLORS.warning;
-      case 'info':
-      default:
-        return COLORS.info;
-    }
-  };
-
   return (
     <Animated.View
-      style={[
-        styles.toast,
-        {
-          backgroundColor: getBackgroundColor(),
-        },
-      ]}
+      style={[styles.toast]}
     >
       <Ionicons
         name={getIcon() as any}

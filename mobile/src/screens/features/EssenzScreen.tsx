@@ -1,260 +1,231 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, Pressable, ProgressBarAndroid, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useEssenz } from '../../hooks/useFeatures';
-
-const COLORS = {
-  primary: '#6AA8FF',
-  joy: '#FFB366',
-  calm: '#38D67A',
-  reflect: '#B88FFF',
-  base: '#0F0F12',
-  surface: '#1A1A22',
-  text: '#E8E8F0',
-  textMuted: 'rgba(232, 232, 240, 0.6)',
-};
+import { GlassBackground, GlassSurface } from '../../components/glass';
+import { useGlassTokens } from '../../theme';
+import type { Challenge } from '../../store/featuresStore';
 
 export default function EssenzScreen() {
   const { challenges, loading, error, loadChallenges } = useEssenz();
+  const tokens = useGlassTokens();
   const [activeTab, setActiveTab] = useState<'active' | 'completed'>('active');
 
   useEffect(() => {
     loadChallenges();
   }, [loadChallenges]);
 
-  const getDifficultyColor = (difficulty: string) => {
+  const getDifficultyColor = (difficulty: 'easy' | 'medium' | 'hard') => {
     switch (difficulty) {
       case 'easy':
-        return COLORS.calm;
+        return '#FFD4C5';
       case 'medium':
-        return COLORS.joy;
+        return '#FFB3A7';
       case 'hard':
-        return COLORS.reflect;
+        return '#FFE5DB';
       default:
-        return COLORS.primary;
+        return tokens.colors.primary;
     }
   };
 
   const handleCompleteDay = async (id: string) => {
-    // TODO: Implement challenge completion logic when available
     console.log('Complete challenge:', id);
   };
 
-  const activeChallenges = challenges.filter((c: any) => c.progress < c.totalSteps);
-  const completedChallenges = challenges.filter((c: any) => c.progress === c.totalSteps);
+  const activeChallenges = challenges.filter((c: Challenge) => c.progress < c.totalSteps);
+  const completedChallenges = challenges.filter((c: Challenge) => c.progress === c.totalSteps);
   const displayChallenges = activeTab === 'active' ? activeChallenges : completedChallenges;
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Essenz</Text>
-          <Text style={styles.subtitle}>Growth challenges</Text>
-        </View>
-        <Pressable style={styles.newChallengeButton}>
-          <Text style={styles.newChallengeButtonText}>+</Text>
-        </Pressable>
-      </View>
+    <GlassBackground>
+      <SafeAreaView style={{ flex: 1 }}>
+        {/* Header */}
+        <GlassSurface variant="header" padding={16}>
+          <View style={styles.headerContent}>
+            <View>
+              <Text style={[styles.title, { color: tokens.colors.text.primary }]}>Essenz</Text>
+              <Text style={[styles.subtitle, { color: tokens.colors.text.secondary }]}>Growth challenges</Text>
+            </View>
+            <Pressable style={[styles.newChallengeButton, { backgroundColor: tokens.colors.primary }]}>
+              <Text style={styles.newChallengeButtonText}>+</Text>
+            </Pressable>
+          </View>
+        </GlassSurface>
 
-      {/* Stats */}
-      <View style={styles.statsContainer}>
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>{activeChallenges.length}</Text>
-          <Text style={styles.statLabel}>Active</Text>
+        {/* Stats */}
+        <View style={styles.statsContainer}>
+          <GlassSurface variant="card" padding={12} style={styles.statCard}>
+            <Text style={[styles.statValue, { color: tokens.colors.primary }]}>{activeChallenges.length}</Text>
+            <Text style={[styles.statLabel, { color: tokens.colors.text.secondary }]}>Active</Text>
+          </GlassSurface>
+          <GlassSurface variant="card" padding={12} style={styles.statCard}>
+            <Text style={[styles.statValue, { color: tokens.colors.primary }]}>{completedChallenges.length}</Text>
+            <Text style={[styles.statLabel, { color: tokens.colors.text.secondary }]}>Completed</Text>
+          </GlassSurface>
+          <GlassSurface variant="card" padding={12} style={styles.statCard}>
+            <Text style={[styles.statValue, { color: tokens.colors.primary }]}>
+              {Math.round(
+                challenges.reduce((sum, c) => sum + (c.progress / c.totalSteps) * 100, 0) /
+                  challenges.length
+              )}
+              %
+            </Text>
+            <Text style={[styles.statLabel, { color: tokens.colors.text.secondary }]}>Overall</Text>
+          </GlassSurface>
         </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>{completedChallenges.length}</Text>
-          <Text style={styles.statLabel}>Completed</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>
-            {Math.round(
-              challenges.reduce((sum, c) => sum + (c.progress / c.totalSteps) * 100, 0) /
-                challenges.length
-            )}
-            %
-          </Text>
-          <Text style={styles.statLabel}>Overall</Text>
-        </View>
-      </View>
 
-      {/* Tabs */}
-      <View style={styles.tabContainer}>
-        <Pressable
-          style={[styles.tab, activeTab === 'active' && styles.tabActive]}
-          onPress={() => setActiveTab('active')}
-        >
-          <Text style={[styles.tabText, activeTab === 'active' && styles.tabTextActive]}>
-            Active
-          </Text>
-        </Pressable>
-        <Pressable
-          style={[styles.tab, activeTab === 'completed' && styles.tabActive]}
-          onPress={() => setActiveTab('completed')}
-        >
-          <Text style={[styles.tabText, activeTab === 'completed' && styles.tabTextActive]}>
-            Completed
-          </Text>
-        </Pressable>
-      </View>
-
-      {/* Challenges List */}
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
-          <Text style={styles.loadingText}>Loading challenges...</Text>
-        </View>
-      ) : error ? (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Failed to load challenges</Text>
-          <Pressable style={styles.retryButton} onPress={loadChallenges}>
-            <Text style={styles.retryButtonText}>Retry</Text>
+        {/* Tabs */}
+        <View style={styles.tabContainer}>
+          <Pressable
+            style={[
+              styles.tab,
+              activeTab === 'active' && styles.tabActive,
+              activeTab === 'active' && { borderBottomColor: tokens.colors.primary },
+            ]}
+            onPress={() => setActiveTab('active')}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === 'active' && styles.tabTextActive,
+                activeTab === 'active' && { color: tokens.colors.primary },
+              ]}
+            >
+              Active
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[
+              styles.tab,
+              activeTab === 'completed' && styles.tabActive,
+              activeTab === 'completed' && { borderBottomColor: tokens.colors.primary },
+            ]}
+            onPress={() => setActiveTab('completed')}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === 'completed' && styles.tabTextActive,
+                activeTab === 'completed' && { color: tokens.colors.primary },
+              ]}
+            >
+              Completed
+            </Text>
           </Pressable>
         </View>
-      ) : (
-        <FlatList
-          data={displayChallenges}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-          <View style={styles.challengeCard}>
-            <View style={styles.challengeHeader}>
-              <View style={styles.challengeInfo}>
-                <Text style={styles.challengeName}>{item.name}</Text>
-                <Text style={styles.challengeCategory}>{item.category}</Text>
-              </View>
-              <View
-                style={[
-                  styles.difficultyBadge,
-                  { backgroundColor: getDifficultyColor(item.difficulty) + '20' },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.difficultyText,
-                    { color: getDifficultyColor(item.difficulty) },
-                  ]}
-                >
-                  {item.difficulty.charAt(0).toUpperCase() + item.difficulty.slice(1)}
+
+        {/* Challenges List */}
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={tokens.colors.primary} />
+            <Text style={[styles.loadingText, { color: tokens.colors.text.secondary }]}>Loading challenges...</Text>
+          </View>
+        ) : error ? (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>Failed to load challenges</Text>
+            <Pressable
+              style={[styles.retryButton, { backgroundColor: tokens.colors.primary }]}
+              onPress={loadChallenges}
+            >
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <FlatList
+            data={displayChallenges}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <GlassSurface variant="card" padding={16} style={styles.challengeCard}>
+                <View style={styles.challengeHeader}>
+                  <View style={styles.challengeInfo}>
+                    <Text style={[styles.challengeName, { color: tokens.colors.text.primary }]}>
+                      {item.name}
+                    </Text>
+                    <Text style={[styles.challengeCategory, { color: tokens.colors.text.secondary }]}>
+                      {item.category}
+                    </Text>
+                  </View>
+                  <View style={[styles.difficultyBadge, { backgroundColor: getDifficultyColor(item.difficulty) + '20' }]}>
+                    <Text style={[styles.difficultyText, { color: getDifficultyColor(item.difficulty) }]}>
+                      {item.difficulty.charAt(0).toUpperCase() + item.difficulty.slice(1)}
+                    </Text>
+                  </View>
+                </View>
+
+                <Text style={[styles.challengeDescription, { color: tokens.colors.text.secondary }]}>
+                  {item.description}
+                </Text>
+
+                <View style={styles.progressContainer}>
+                  <View style={styles.progressBar}>
+                    <View
+                      style={[styles.progressFill, { width: `${(item.progress / item.totalSteps) * 100}%`, backgroundColor: tokens.colors.primary }]}
+                    />
+                  </View>
+                  <Text style={[styles.progressText, { color: tokens.colors.text.secondary }]}>
+                    {item.progress}/{item.totalSteps}
+                  </Text>
+                </View>
+
+                <View style={styles.challengeFooter}>
+                  <View style={styles.daysLeft}>
+                    <Text style={styles.daysLeftIcon}>⏰</Text>
+                    <Text style={[styles.daysLeftText, { color: tokens.colors.text.secondary }]}>
+                      {item.daysLeft} days left
+                    </Text>
+                  </View>
+                  <View style={[styles.rewardBadge, { backgroundColor: '#FF7A5C' }]}>
+                    <Text style={styles.rewardIcon}>��</Text>
+                    <Text style={[styles.rewardText, { color: tokens.colors.primary }]}>{item.reward}</Text>
+                  </View>
+                  {item.progress < item.totalSteps && (
+                    <Pressable
+                      style={[styles.completeButton, { backgroundColor: tokens.colors.primary }]}
+                      onPress={() => handleCompleteDay(item.id)}
+                    >
+                      <Text style={styles.completeButtonText}>+1</Text>
+                    </Pressable>
+                  )}
+                </View>
+              </GlassSurface>
+            )}
+            contentContainerStyle={styles.listContent}
+            ListEmptyComponent={
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyIcon}>✨</Text>
+                <Text style={[styles.emptyText, { color: tokens.colors.text.primary }]}>
+                  {activeTab === 'active' ? 'No active challenges' : 'No completed challenges'}
+                </Text>
+                <Text style={[styles.emptySubtext, { color: tokens.colors.text.secondary }]}>
+                  {activeTab === 'active' ? 'Create one to get started' : 'Keep it up!'}
                 </Text>
               </View>
-            </View>
-
-            <Text style={styles.challengeDescription}>{item.description}</Text>
-
-            <View style={styles.progressContainer}>
-              <View style={styles.progressBar}>
-                <View
-                  style={[
-                    styles.progressFill,
-                    { width: `${(item.progress / item.totalSteps) * 100}%` },
-                  ]}
-                />
-              </View>
-              <Text style={styles.progressText}>
-                {item.progress}/{item.totalSteps}
-              </Text>
-            </View>
-
-            <View style={styles.challengeFooter}>
-              <View style={styles.daysLeft}>
-                <Text style={styles.daysLeftIcon}>⏰</Text>
-                <Text style={styles.daysLeftText}>{item.daysLeft} days left</Text>
-              </View>
-              <View style={styles.rewardBadge}>
-                <Text style={styles.rewardIcon}>🏆</Text>
-                <Text style={styles.rewardText}>{item.reward}</Text>
-              </View>
-              {item.progress < item.totalSteps && (
-                <Pressable
-                  style={styles.completeButton}
-                  onPress={() => handleCompleteDay(item.id)}
-                >
-                  <Text style={styles.completeButtonText}>+1</Text>
-                </Pressable>
-              )}
-            </View>
-          </View>
+            }
+          />
         )}
-        contentContainerStyle={styles.listContent}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyIcon}>✨</Text>
-            <Text style={styles.emptyText}>
-              {activeTab === 'active' ? 'No active challenges' : 'No completed challenges'}
-            </Text>
-            <Text style={styles.emptySubtext}>
-              {activeTab === 'active' ? 'Create one to get started' : 'Keep it up!'}
-            </Text>
-          </View>
-        }
-      />
-      )}
-    </SafeAreaView>
+      </SafeAreaView>
+    </GlassBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.base,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 12,
-    color: COLORS.textMuted,
-    fontSize: 14,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-  },
-  errorText: {
-    color: '#FF6464',
-    fontSize: 16,
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  retryButton: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: '#000',
-    fontWeight: '600',
-  },
-  header: {
+  headerContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
   },
   title: {
     fontSize: 24,
     fontWeight: '700',
-    color: COLORS.text,
   },
   subtitle: {
     fontSize: 12,
-    color: COLORS.textMuted,
     marginTop: 2,
   },
   newChallengeButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -271,29 +242,50 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: COLORS.surface,
-    borderRadius: 8,
-    padding: 12,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
   },
   statValue: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.primary,
   },
   statLabel: {
     fontSize: 10,
-    color: COLORS.textMuted,
     marginTop: 4,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+  },
+  errorText: {
+    color: '#FF6464',
+    fontSize: 16,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  retryButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#000',
+    fontWeight: '600',
   },
   tabContainer: {
     flexDirection: 'row',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
   },
   tab: {
     flex: 1,
@@ -302,27 +294,22 @@ const styles = StyleSheet.create({
   },
   tabActive: {
     borderBottomWidth: 2,
-    borderBottomColor: COLORS.primary,
   },
   tabText: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.textMuted,
+    color: '#666666',
   },
   tabTextActive: {
-    color: COLORS.primary,
+    fontWeight: '600',
   },
   listContent: {
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
   challengeCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: 16,
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 12,
   },
   challengeHeader: {
     flexDirection: 'row',
@@ -336,11 +323,9 @@ const styles = StyleSheet.create({
   challengeName: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.text,
   },
   challengeCategory: {
     fontSize: 11,
-    color: COLORS.textMuted,
     marginTop: 2,
   },
   difficultyBadge: {
@@ -354,7 +339,6 @@ const styles = StyleSheet.create({
   },
   challengeDescription: {
     fontSize: 12,
-    color: COLORS.textMuted,
     marginBottom: 12,
     lineHeight: 16,
   },
@@ -363,19 +347,17 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     height: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: '#000000',
     borderRadius: 3,
     overflow: 'hidden',
     marginBottom: 6,
   },
   progressFill: {
     height: '100%',
-    backgroundColor: COLORS.primary,
     borderRadius: 3,
   },
   progressText: {
     fontSize: 11,
-    color: COLORS.textMuted,
   },
   challengeFooter: {
     flexDirection: 'row',
@@ -392,7 +374,6 @@ const styles = StyleSheet.create({
   },
   daysLeftText: {
     fontSize: 11,
-    color: COLORS.textMuted,
   },
   rewardBadge: {
     flexDirection: 'row',
@@ -401,7 +382,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
-    backgroundColor: 'rgba(106, 168, 255, 0.15)',
   },
   rewardIcon: {
     fontSize: 12,
@@ -409,14 +389,12 @@ const styles = StyleSheet.create({
   rewardText: {
     fontSize: 11,
     fontWeight: '600',
-    color: COLORS.primary,
   },
   completeButton: {
     marginLeft: 'auto',
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -437,11 +415,9 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.text,
     marginBottom: 4,
   },
   emptySubtext: {
     fontSize: 12,
-    color: COLORS.textMuted,
   },
 });

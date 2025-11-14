@@ -71,7 +71,7 @@ export default function MessagesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showFriendsDropdown, setShowFriendsDropdown] = useState(false);
   const [showRetentionSettings, setShowRetentionSettings] = useState(false);
-  const [chatRetention, setChatRetention] = useState<'1day' | '7days' | '30days' | 'forever'>('forever');
+  const [chatRetention, setChatRetention] = useState<'1day' | '7days' | '30days' | 'forever'>('1day');
   const [messageInput, setMessageInput] = useState('');
   const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(null);
   const [searchResults, setSearchResults] = useState<Friend[]>([]);

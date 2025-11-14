@@ -11,7 +11,7 @@ const COLORS = {
   base: '#0F0F12',
   surface: '#1A1A22',
   text: '#E8E8F0',
-  textMuted: 'rgba(232, 232, 240, 0.6)',
+  textMuted: '#E8E8F0',
 };
 
 export default function BondingScreen() {
@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomColor: '#FFFFFF',
   },
   title: {
     fontSize: 24,
@@ -259,7 +259,7 @@ const styles = StyleSheet.create({
     padding: 16,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(106, 168, 255, 0.2)',
+    borderColor: '#6AA8FF',
   },
   introIcon: {
     fontSize: 32,
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomColor: '#FFFFFF',
     gap: 8,
   },
   tab: {
@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     alignItems: 'center',
     borderRadius: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    backgroundColor: '#FFFFFF',
   },
   tabActive: {
     backgroundColor: COLORS.primary,
@@ -312,7 +312,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: '#FFFFFF',
   },
   connectionHeader: {
     flexDirection: 'row',
@@ -367,9 +367,9 @@ const styles = StyleSheet.create({
     gap: 16,
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.05)',
+    borderTopColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomColor: '#FFFFFF',
     marginBottom: 12,
   },
   statItem: {
@@ -392,7 +392,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 8,
     borderRadius: 8,
-    backgroundColor: 'rgba(106, 168, 255, 0.1)',
+    backgroundColor: '#6AA8FF',
     alignItems: 'center',
   },
   actionIcon: {

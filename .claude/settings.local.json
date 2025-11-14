@@ -4,7 +4,8 @@
       "Bash(npx prisma migrate:*)",
       "Bash(npx prisma db push:*)",
       "Bash(npm install:*)",
-      "Bash(powershell:*)"
+      "Bash(powershell:*)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []

@@ -30,7 +30,7 @@ export function useHopln() {
   }, [setRoutes, setLoading, setError]);
 
   const createRoute = useCallback(
-    async (name: string, distance: number, duration: number, difficulty: string) => {
+    async (name: string, distance: number, duration: number, difficulty: 'easy' | 'medium' | 'hard') => {
       setError(null);
       try {
         const data = await apiService.createRoute({
@@ -44,7 +44,7 @@ export function useHopln() {
           name,
           distance,
           duration,
-          difficulty: difficulty as any,
+          difficulty,
           status: 'planned',
         });
       } catch (err: any) {

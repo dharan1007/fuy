@@ -13,6 +13,8 @@ export type RootStackParamList = {
   ProfileEdit: undefined;
   CreatePost: undefined;
   CreateJournal: undefined;
+  RoutineDetail?: { routineId?: string };
+  GuideDetail?: { feature?: string; guide?: any; level?: string };
 };
 
 export type MainTabParamList = {

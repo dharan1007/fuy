@@ -2,11 +2,9 @@ import React from 'react';
 import {
   TouchableOpacity,
   Text,
-  StyleSheet,
   ActivityIndicator,
   ViewStyle,
   TextStyle,
-  Pressable,
 } from 'react-native';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../constants/index';
 
@@ -80,25 +78,22 @@ const createStyles = (variant: string, size: string) => {
       button: {
         ...baseButtonStyle,
         ...sizeStyles[size as keyof typeof sizeStyles],
-        backgroundColor: COLORS.primary,
       },
       text: { color: COLORS.white, fontSize: FONT_SIZES.base, fontWeight: '600' as const },
-      disabled: { backgroundColor: COLORS.gray400 },
+      disabled: {},
     },
     secondary: {
       button: {
         ...baseButtonStyle,
         ...sizeStyles[size as keyof typeof sizeStyles],
-        backgroundColor: COLORS.secondary,
       },
       text: { color: COLORS.white, fontSize: FONT_SIZES.base, fontWeight: '600' as const },
-      disabled: { backgroundColor: COLORS.gray400 },
+      disabled: {},
     },
     outline: {
       button: {
         ...baseButtonStyle,
         ...sizeStyles[size as keyof typeof sizeStyles],
-        backgroundColor: COLORS.white,
         borderWidth: 1,
         borderColor: COLORS.primary,
       },
@@ -109,10 +104,9 @@ const createStyles = (variant: string, size: string) => {
       button: {
         ...baseButtonStyle,
         ...sizeStyles[size as keyof typeof sizeStyles],
-        backgroundColor: 'transparent',
       },
       text: { color: COLORS.primary, fontSize: FONT_SIZES.base, fontWeight: '600' as const },
-      disabled: { opacity: 0.5 },
+      disabled: {},
     },
   };
 

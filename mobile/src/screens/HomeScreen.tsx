@@ -1,22 +1,22 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, RefreshControl, ActivityIndicator, Pressable } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  FlatList,
+  RefreshControl,
+  ActivityIndicator,
+  Pressable,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFeeds } from '../hooks/useFeeds';
-
-const COLORS = {
-  primary: '#6AA8FF',
-  joy: '#FFB366',
-  calm: '#38D67A',
-  reflect: '#B88FFF',
-  base: '#0F0F12',
-  surface: '#1A1A22',
-  text: '#E8E8F0',
-  textMuted: 'rgba(232, 232, 240, 0.6)',
-};
+import { GlassBackground, GlassSurface, GlassChip, GlassButton } from '../components/glass';
+import { TitleM, BodyM, BodyS, Caption } from '../components/typography';
+import { useGlassTokens, GLASS_TOKENS } from '../theme';
 
 export default function HomeScreen() {
   const { posts, loading, error, refreshing, hasMore, loadFeed, onRefresh, loadMore, addReaction } =
     useFeeds();
+  const tokens = useGlassTokens();
 
   useEffect(() => {
     loadFeed();
@@ -28,232 +28,246 @@ export default function HomeScreen() {
     }
   };
 
-  const getMoodColor = (mood?: string) => {
+  const getMoodEmoji = (mood?: string) => {
     switch (mood) {
       case 'joy':
-        return COLORS.joy;
+        return '😊';
       case 'calm':
-        return COLORS.calm;
+        return '😌';
       case 'reflect':
-        return COLORS.reflect;
+        return '🤔';
       default:
-        return COLORS.primary;
+        return '✨';
     }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <FlatList
-        data={posts}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <View style={styles.postCard}>
-            <View style={styles.postHeader}>
-              <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarText}>{item.author.charAt(0)}</Text>
-              </View>
-              <View style={styles.postMeta}>
-                <Text style={styles.author}>{item.author}</Text>
-                <Text style={styles.postTime}>
-                  {item.timestamp || 'Unknown date'}
-                </Text>
-              </View>
-            </View>
-
-            <Text style={styles.content}>{item.content}</Text>
-
-            {item.mood && (
-              <View
-                style={[
-                  styles.moodBadge,
-                  { backgroundColor: getMoodColor(item.mood) + '20' },
-                ]}
-              >
-                <Text
+    <GlassBackground>
+      <SafeAreaView style={styles.container} edges={['left', 'right', 'bottom']}>
+        <FlatList
+          data={posts}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <GlassSurface
+              variant="card"
+              style={styles.postCard}
+              padding={0}
+              radius={GLASS_TOKENS.glass.radius.large}
+            >
+              {/* Post Header - Author info */}
+              <View style={styles.postHeader}>
+                <View
                   style={[
-                    styles.moodText,
-                    { color: getMoodColor(item.mood) },
+                    styles.avatar,
+                    { backgroundColor: tokens.colors.primary },
                   ]}
                 >
-                  {item.mood.charAt(0).toUpperCase() + item.mood.slice(1)}
-                </Text>
+                  <BodyM style={{ color: '#FFFFFF' }}>
+                    {item.author.charAt(0).toUpperCase()}
+                  </BodyM>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <TitleM numberOfLines={1}>{item.author}</TitleM>
+                  <Caption contrast="low">{item.timestamp || 'Now'}</Caption>
+                </View>
               </View>
-            )}
 
-            <View style={styles.postFooter}>
-              <Pressable
-                style={styles.actionButton}
-                onPress={() => addReaction(item.id)}
-              >
-                <Text style={styles.actionIcon}>💜</Text>
-                <Text style={styles.stat}>{item.reactions}</Text>
-              </Pressable>
-              <Pressable style={styles.actionButton}>
-                <Text style={styles.actionIcon}>💬</Text>
-                <Text style={styles.stat}>{item.comments}</Text>
-              </Pressable>
-            </View>
-          </View>
-        )}
-        contentContainerStyle={styles.listContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={COLORS.primary}
+              {/* Post Content */}
+              <BodyM style={styles.postContent}>
+                {item.content}
+              </BodyM>
+
+              {/* Mood Badge */}
+              {item.mood && (
+                <GlassChip
+                  label={`${getMoodEmoji(item.mood)} ${item.mood.charAt(0).toUpperCase() + item.mood.slice(1)}`}
+                  style={styles.moodChip}
+                />
+              )}
+
+              {/* Action Overlay at Bottom - Minimal glass chip */}
+              <View style={styles.actionOverlay}>
+                <Pressable
+                  style={styles.actionIconButton}
+                  onPress={() => addReaction(item.id)}
+                >
+                  <BodyS>💜 {item.reactions}</BodyS>
+                </Pressable>
+                <Pressable style={styles.actionIconButton}>
+                  <BodyS>💬 {item.comments}</BodyS>
+                </Pressable>
+                <Pressable style={styles.actionIconButton}>
+                  <BodyS>↗️</BodyS>
+                </Pressable>
+              </View>
+            </GlassSurface>
+          )}
+          contentContainerStyle={styles.listContent}
+          scrollIndicatorInsets={{ right: 1 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={tokens.colors.primary}
+            />
+          }
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={
+            loading ? (
+              <ActivityIndicator
+                size="large"
+                color={tokens.colors.primary}
+                style={styles.footerLoader}
+              />
+            ) : null
+          }
+          ListEmptyComponent={
+            error ? (
+              <View style={styles.emptyState}>
+                <BodyM style={{ marginBottom: GLASS_TOKENS.spacing[3], textAlign: 'center' }}>
+                  Error: {error}
+                </BodyM>
+                <GlassButton
+                  variant="primary"
+                  label="Retry"
+                  onPress={() => loadFeed()}
+                />
+              </View>
+            ) : loading && posts.length === 0 ? (
+              <View style={styles.emptyState}>
+                <ActivityIndicator size="large" color={tokens.colors.primary} />
+              </View>
+            ) : posts.length === 0 ? (
+              <View style={styles.emptyState}>
+                <TitleM style={{ marginBottom: GLASS_TOKENS.spacing[3] }}>
+                  No posts yet
+                </TitleM>
+                <BodyS contrast="low">Be the first to share something</BodyS>
+              </View>
+            ) : null
+          }
+        />
+
+        {/* Bottom Glass Action Dock */}
+        <View style={styles.actionDock}>
+          <GlassButton
+            variant="secondary"
+            label="Timer"
+            size="small"
+            leftIcon={<BodyM>⏱️</BodyM>}
+            onPress={() => {}}
           />
-        }
-        onEndReached={handleLoadMore}
-        onEndReachedThreshold={0.5}
-        ListFooterComponent={
-          loading ? <ActivityIndicator size="large" color={COLORS.primary} style={{ marginVertical: 16 }} /> : null
-        }
-        ListEmptyComponent={
-          error ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>Error: {error}</Text>
-              <Pressable
-                style={styles.retryButton}
-                onPress={() => loadFeed()}
-              >
-                <Text style={styles.retryText}>Retry</Text>
-              </Pressable>
-            </View>
-          ) : loading && posts.length === 0 ? (
-            <View style={styles.emptyState}>
-              <ActivityIndicator size="large" color={COLORS.primary} />
-            </View>
-          ) : posts.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>No posts yet</Text>
-            </View>
-          ) : null
-        }
-      />
-    </SafeAreaView>
+          <GlassButton
+            variant="secondary"
+            label="Search"
+            size="small"
+            leftIcon={<BodyM>🔍</BodyM>}
+            onPress={() => {}}
+          />
+          <GlassButton
+            variant="secondary"
+            label="Map"
+            size="small"
+            leftIcon={<BodyM>📍</BodyM>}
+            onPress={() => {}}
+          />
+          <GlassButton
+            variant="primary"
+            label="Heart"
+            size="small"
+            leftIcon={<BodyM>❤️</BodyM>}
+            onPress={() => {}}
+          />
+        </View>
+      </SafeAreaView>
+    </GlassBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.base,
   },
+
   listContent: {
-    paddingHorizontal: 0,
-    paddingVertical: 0,
+    paddingHorizontal: GLASS_TOKENS.spacing[4],
+    paddingVertical: GLASS_TOKENS.spacing[3],
+    gap: GLASS_TOKENS.spacing[3],
+    paddingBottom: GLASS_TOKENS.spacing[16],
   },
+
   postCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 0,
-    padding: 0,
-    marginBottom: 0,
-    borderWidth: 0,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: GLASS_TOKENS.glass.radius.large,
   },
+
   postHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
-    justifyContent: 'space-between',
+    gap: GLASS_TOKENS.spacing[3],
+    paddingHorizontal: GLASS_TOKENS.spacing[3],
+    paddingVertical: GLASS_TOKENS.spacing[2],
+    borderBottomWidth: 1,
+    borderBottomColor: '#000000',
   },
-  avatarPlaceholder: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.primary,
+
+  avatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
   },
-  avatarText: {
-    color: '#000',
-    fontSize: 15,
-    fontWeight: '700',
+
+  postContent: {
+    paddingHorizontal: GLASS_TOKENS.spacing[3],
+    paddingTop: GLASS_TOKENS.spacing[3],
+    paddingBottom: GLASS_TOKENS.spacing[2],
+    lineHeight: 24,
   },
-  postMeta: {
-    flex: 1,
-  },
-  author: {
-    color: COLORS.text,
-    fontSize: 14,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-  postTime: {
-    fontSize: 12,
-    color: COLORS.textMuted,
-    marginTop: 2,
-  },
-  content: {
-    color: COLORS.text,
-    fontSize: 14,
-    lineHeight: 21,
-    marginBottom: 8,
-    paddingHorizontal: 16,
-    letterSpacing: 0.2,
-  },
-  moodBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
+
+  moodChip: {
+    marginHorizontal: GLASS_TOKENS.spacing[3],
+    marginBottom: GLASS_TOKENS.spacing[2],
     alignSelf: 'flex-start',
-    marginBottom: 12,
-    marginLeft: 16,
-    borderWidth: 1,
   },
-  moodText: {
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-  postFooter: {
-    flexDirection: 'row',
-    gap: 0,
-    paddingTop: 0,
-    paddingBottom: 12,
-    paddingHorizontal: 16,
-    borderTopWidth: 0,
-    borderTopColor: 'transparent',
-  },
-  actionButton: {
+
+  actionOverlay: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    paddingRight: 16,
+    gap: GLASS_TOKENS.spacing[2],
+    paddingHorizontal: GLASS_TOKENS.spacing[3],
+    paddingVertical: GLASS_TOKENS.spacing[2],
+    borderTopWidth: 1,
+    borderTopColor: '#000000',
   },
-  actionIcon: {
-    fontSize: 18,
+
+  actionIconButton: {
+    paddingVertical: GLASS_TOKENS.spacing[1],
+    paddingHorizontal: GLASS_TOKENS.spacing[2],
   },
-  stat: {
-    color: COLORS.textMuted,
-    fontSize: 12,
-    fontWeight: '500',
+
+  footerLoader: {
+    marginVertical: GLASS_TOKENS.spacing[4],
   },
+
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 80,
+    paddingVertical: GLASS_TOKENS.spacing[12],
   },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginBottom: 16,
-  },
-  retryButton: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 24,
-  },
-  retryText: {
-    color: '#000',
-    fontWeight: '700',
-    fontSize: 14,
+
+  // Bottom action dock
+  actionDock: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: GLASS_TOKENS.spacing[2],
+    paddingHorizontal: GLASS_TOKENS.spacing[4],
+    paddingVertical: GLASS_TOKENS.spacing[3],
   },
 });

@@ -40,7 +40,8 @@ export async function GET(req: Request) {
       );
     }
 
-    // Get messages
+    // Get messages with pagination (default: last 50 messages)
+    const limit = 50;
     const messages = await prisma.message.findMany({
       where: { conversationId },
       include: {
@@ -57,9 +58,12 @@ export async function GET(req: Request) {
           },
         },
       },
-      orderBy: { createdAt: "asc" },
-      take: 100,
+      orderBy: { createdAt: "desc" },
+      take: limit,
     });
+
+    // Reverse to get chronological order
+    messages.reverse();
 
     // Mark messages as read
     await prisma.message.updateMany({
