@@ -3,6 +3,26 @@
 import React, { useState, useEffect } from 'react';
 import styles from './NotificationsModal.module.css';
 
+type UserProfile = {
+  displayName: string | null;
+  avatarUrl: string | null;
+};
+
+type NotificationUser = {
+  id: string;
+  name: string | null;
+  profile: UserProfile | null;
+};
+
+type NotificationPost = {
+  id: string;
+  content: string;
+  user: {
+    id: string;
+    name: string | null;
+  } | null;
+};
+
 type Notification = {
   id: string;
   type: string;
@@ -13,22 +33,8 @@ type Notification = {
   actionState?: 'ACCEPT' | 'REJECT' | 'GHOST' | null;
   followerCount?: number;
   followingCount?: number;
-  sender?: {
-    id: string;
-    name: string | null;
-    profile: {
-      displayName: string | null;
-      avatarUrl: string | null;
-    } | null;
-  };
-  post?: {
-    id: string;
-    content: string;
-    user: {
-      id: string;
-      name: string | null;
-    } | null;
-  } | null;
+  sender?: NotificationUser;
+  post?: NotificationPost | null;
 };
 
 interface NotificationsModalProps {
