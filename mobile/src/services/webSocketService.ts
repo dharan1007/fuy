@@ -154,6 +154,7 @@ export const WS_EVENTS = {
 
   // Message events
   NEW_MESSAGE: 'message:new',
+  MESSAGE_SENT: 'message:sent',
   TYPING_START: 'typing:start',
   TYPING_END: 'typing:end',
 
@@ -168,7 +169,17 @@ export const WS_EVENTS = {
   // Rank events
   RANK_UPDATE: 'rank:update',
 
-  // Bonding events
+  // Bonding/Friend Request events
   CONNECTION_REQUEST: 'connection:request',
   CONNECTION_ACCEPTED: 'connection:accepted',
+  FRIEND_REQUEST_CREATED: 'friend:request:created',
+  FRIEND_REQUEST_ACCEPTED: 'friend:request:accepted',
+  FRIEND_REQUEST_REJECTED: 'friend:request:rejected',
+  FRIEND_REQUEST_GHOSTED: 'friend:request:ghosted',
+  FRIEND_REQUEST_UPDATED: 'friend:request:updated',
+
+  // Notification events
+  NOTIFICATION_NEW: 'notification:new',
+  NOTIFICATION_READ: 'notification:read',
+  NOTIFICATION_DELETED: 'notification:deleted',
 };

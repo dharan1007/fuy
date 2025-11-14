@@ -9,6 +9,9 @@ import {
   MOCK_LEADERBOARD,
   MOCK_FEED_POSTS,
   MOCK_WALLET,
+  MOCK_CONVERSATIONS,
+  MOCK_CONVERSATION_MESSAGES,
+  MOCK_ALL_USERS,
 } from '../constants/dummyData';
 
 const API_BASE_URL = 'http://localhost:3000/api';
@@ -82,17 +85,37 @@ class ApiService {
 
   // ===== MESSAGES ENDPOINTS =====
   async getConversations(page: number = 1) {
-    const response = await this.axiosInstance.get('/messages/conversations', {
-      params: { page },
-    });
-    return response.data;
+    try {
+      const response = await this.axiosInstance.get('/messages/conversations', {
+        params: { page },
+      });
+      return response.data;
+    } catch (error) {
+      // Fallback to mock data when API is unavailable
+      return {
+        conversations: MOCK_CONVERSATIONS,
+        totalCount: MOCK_CONVERSATIONS.length,
+        page,
+      };
+    }
   }
 
   async getMessages(conversationId: string, page: number = 1) {
-    const response = await this.axiosInstance.get(`/messages/${conversationId}`, {
-      params: { page },
-    });
-    return response.data;
+    try {
+      const response = await this.axiosInstance.get(`/messages/${conversationId}`, {
+        params: { page },
+      });
+      return response.data;
+    } catch (error) {
+      // Fallback to mock data when API is unavailable
+      return {
+        messages: (MOCK_CONVERSATION_MESSAGES as Record<string, any>)[conversationId] || [],
+        participantId: 'user_1',
+        participantName: 'Contact',
+        lastMessage: 'Hello',
+        lastMessageTime: new Date().toISOString(),
+      };
+    }
   }
 
   async sendMessage(conversationId: string, content: string) {
@@ -105,6 +128,28 @@ class ApiService {
   async markConversationAsRead(conversationId: string) {
     const response = await this.axiosInstance.patch(`/messages/${conversationId}/read`);
     return response.data;
+  }
+
+  async searchUsers(query: string) {
+    try {
+      const response = await this.axiosInstance.get('/messages/search/users', {
+        params: { q: query },
+      });
+      return response.data;
+    } catch (error) {
+      // Fallback to mock data when API is unavailable
+      const lowerQuery = query.toLowerCase();
+      const filtered = MOCK_ALL_USERS.filter(
+        (user) =>
+          user.name.toLowerCase().includes(lowerQuery) ||
+          user.id.toLowerCase().includes(lowerQuery)
+      );
+      return {
+        users: filtered,
+        query,
+        totalCount: filtered.length,
+      };
+    }
   }
 
   // ===== CANVAS (JOURNAL) ENDPOINTS =====

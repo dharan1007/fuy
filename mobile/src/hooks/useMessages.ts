@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useCallback } from 'react';
 import { useMessagesStore } from '../store/messagesStore';
 import { apiService } from '../services/apiService';
 
@@ -59,18 +59,34 @@ export function useMessages() {
     async (content: string) => {
       if (!currentConversation) return;
 
+      const timestamp = Date.now();
+
       try {
+        // Send message to server first
         const data = await apiService.sendMessage(currentConversation.id, content);
+
+        // Add message with server response data (or use optimistic ID if needed)
         addMessage({
-          id: data.id || Date.now().toString(),
+          id: data.id || `msg_${Date.now()}`,
           conversationId: currentConversation.id,
           senderId: data.senderId || 'me',
           content,
-          timestamp: Date.now(),
+          timestamp,
           read: true,
         });
       } catch (err: any) {
         setError(err.message || 'Failed to send message');
+
+        // Optionally add optimistic message even on error, with error state
+        // This allows user to retry later
+        addMessage({
+          id: `failed_${Date.now()}`,
+          conversationId: currentConversation.id,
+          senderId: 'me',
+          content: `[Failed to send] ${content}`,
+          timestamp,
+          read: true,
+        });
       }
     },
     [currentConversation, addMessage, setError]

@@ -1,381 +1,555 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, Pressable, TextInput, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  ActivityIndicator,
+  ScrollView,
+  Modal,
+  Pressable,
+  Alert,
+  TextInput,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useMessages } from '../hooks/useMessages';
-
-const COLORS = {
-  primary: '#6AA8FF',
-  base: '#0F0F12',
-  surface: '#1A1A22',
-  text: '#E8E8F0',
-  textMuted: 'rgba(232, 232, 240, 0.6)',
-};
+import { GlassBackground, GlassSurface, GlassChip, GlassButton, GlassDivider, StoryRing } from '../components/glass';
+import { TitleM, BodyM, BodyS, Caption } from '../components/typography';
+import { GLASS_TOKENS } from '../theme/glassTheme';
+import { AIChatInterface } from '../components/ai';
+import { aiActionHandlers } from '../services/aiActionHandlers';
+import { apiService } from '../services/apiService';
 
 export default function MessagesScreen() {
   const { conversations, loading, error, loadConversations, openConversation } = useMessages();
+  const [activeTab, setActiveTab] = useState<'inbox' | 'unread' | 'requests'>('inbox');
+  const [showAIChat, setShowAIChat] = useState(false);
+  const [userId] = useState('user_123'); // Get from auth in real app
+
+  // Search functionality
   const [searchQuery, setSearchQuery] = useState('');
-  const [filteredConversations, setFilteredConversations] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
 
   useEffect(() => {
     loadConversations();
   }, [loadConversations]);
 
-  useEffect(() => {
-    if (searchQuery.trim()) {
-      setFilteredConversations(
-        conversations.filter(
-          (conv) =>
-            conv.participantName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            conv.lastMessage?.toLowerCase().includes(searchQuery.toLowerCase())
-        )
-      );
-    } else {
-      setFilteredConversations(conversations);
-    }
-  }, [conversations, searchQuery]);
+  // Handle search
+  const handleSearch = useCallback(async (query: string) => {
+    setSearchQuery(query);
 
-  const handleConversationPress = (conversationId: string) => {
-    openConversation(conversationId);
+    if (query.trim().length === 0) {
+      setShowSearchResults(false);
+      setSearchResults([]);
+      return;
+    }
+
+    setShowSearchResults(true);
+    setSearchLoading(true);
+    try {
+      const data = await apiService.searchUsers(query);
+      setSearchResults(data.users || []);
+    } catch (err) {
+      console.error('Search failed:', err);
+      setSearchResults([]);
+    } finally {
+      setSearchLoading(false);
+    }
+  }, []);
+
+  const clearSearch = useCallback(() => {
+    setSearchQuery('');
+    setSearchResults([]);
+    setShowSearchResults(false);
+  }, []);
+
+  // Format time for display
+  const formatTime = (timestamp: string | Date | number) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
   };
 
-  return (
-    <View style={styles.container}>
-      {/* Gradient Background */}
-      <View style={styles.gradientBackground} />
+  // Get initials from name
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map((word) => word[0])
+      .join('')
+      .toUpperCase()
+      .substring(0, 2);
+  };
 
-      <SafeAreaView style={styles.safeArea}>
-        {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.title}>Messages</Text>
-            <Text style={styles.subtitle}>Stay connected</Text>
-          </View>
-          <View style={styles.unreadIndicator}>
-            <Text style={styles.unreadCount}>{conversations.length}</Text>
-          </View>
+  // Filter conversations based on tab
+  const getFilteredConversations = () => {
+    switch (activeTab) {
+      case 'unread':
+        return conversations.filter((c) => c.unreadCount > 0);
+      case 'requests':
+        return conversations.slice(0, 2); // Placeholder
+      default:
+        return conversations;
+    }
+  };
+
+  const filteredConversations = getFilteredConversations();
+  const inboxCount = conversations.length;
+  const unreadCount = conversations.reduce((sum, c) => sum + c.unreadCount, 0);
+
+  const tabData = [
+    { id: 'inbox', label: 'Inbox', count: inboxCount + 1 }, // +1 for AI
+    { id: 'unread', label: 'Unread', count: unreadCount },
+    { id: 'requests', label: 'Requests', count: 0 },
+  ];
+
+  // Add AI Assistant as first conversation
+  const aiConversation = {
+    id: 'ai-assistant',
+    participantName: 'AI Assistant',
+    lastMessage: "Hi! I'm here to help with routines, todos, and more...",
+    lastMessageTime: Date.now(),
+    unreadCount: 0,
+  };
+
+  const allConversations = activeTab === 'inbox'
+    ? [aiConversation, ...filteredConversations]
+    : filteredConversations;
+
+  return (
+    <GlassBackground>
+      <SafeAreaView style={{ flex: 1 }} edges={['left', 'right', 'bottom']}>
+        {/* Stories/Active Friends Row */}
+        <View style={styles.storiesContainer}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.storiesContent}
+          >
+            {conversations.slice(0, 6).map((conv, index) => (
+              <StoryRing
+                key={conv.id}
+                size={48}
+                ringWidth={2}
+                hasStory={index % 2 === 0}
+                initial={getInitials(conv.participantName)}
+                placeholderColor={GLASS_TOKENS.colors.primary}
+                gradientColors={[GLASS_TOKENS.colors.primary, GLASS_TOKENS.colors.secondary]}
+              />
+            ))}
+          </ScrollView>
         </View>
 
         {/* Search Bar */}
         <View style={styles.searchContainer}>
-          <Text style={styles.searchIcon}>🔍</Text>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search messages..."
-            placeholderTextColor={COLORS.textMuted}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-        </View>
-
-        {/* Loading State */}
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
-            <Text style={styles.loadingText}>Loading conversations...</Text>
-          </View>
-        ) : error ? (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>Failed to load conversations</Text>
-            <Pressable style={styles.retryButton} onPress={loadConversations}>
-              <Text style={styles.retryButtonText}>Retry</Text>
-            </Pressable>
-          </View>
-        ) : (
-          <FlatList
-            data={filteredConversations}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <Pressable
-                style={styles.conversationItem}
-                onPress={() => handleConversationPress(item.id)}
-              >
-                {/* Avatar - Modern circular with gradient */}
-                <View style={styles.avatarContainer}>
-                  <View style={[styles.avatar, { backgroundColor: getAvatarColor(item.participantName) }]}>
-                    <Text style={styles.avatarText}>{item.participantName?.[0] || '?'}</Text>
-                  </View>
-                  {item.unreadCount > 0 && <View style={styles.onlineDot} />}
-                </View>
-
-                {/* Conversation Info */}
-                <View style={styles.conversationInfo}>
-                  <View style={styles.conversationHeader}>
-                    <Text style={styles.conversationName}>{item.participantName || 'Unknown'}</Text>
-                    <Text style={styles.conversationTime}>
-                      {new Date(item.lastMessageTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </Text>
-                  </View>
-                  <Text style={styles.conversationMessage} numberOfLines={1}>
-                    {item.lastMessage || 'No messages yet'}
-                  </Text>
-                </View>
-
-                {/* Unread Badge */}
-                {item.unreadCount > 0 && (
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>{item.unreadCount > 9 ? '9+' : item.unreadCount}</Text>
-                  </View>
-                )}
+          <View style={styles.searchInputWrapper}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search friends or users..."
+              placeholderTextColor={GLASS_TOKENS.colors.textSecondary}
+              value={searchQuery}
+              onChangeText={handleSearch}
+            />
+            {searchQuery.length > 0 && (
+              <Pressable onPress={clearSearch} style={styles.clearButton}>
+                <Text style={styles.clearButtonText}>✕</Text>
               </Pressable>
             )}
-            contentContainerStyle={styles.listContent}
-            scrollIndicatorInsets={{ right: 1 }}
-            ListEmptyComponent={
-              <View style={styles.emptyState}>
-                <View style={styles.emptyIconContainer}>
-                  <Text style={styles.emptyIcon}>💬</Text>
-                </View>
-                <Text style={styles.emptyText}>No conversations yet</Text>
-                <Text style={styles.emptySubtext}>Start a conversation with someone</Text>
+          </View>
+        </View>
+
+        {/* Show search results or normal tabs */}
+        {showSearchResults ? (
+          <>
+            {/* Tabs - Glass Chips */}
+            <View style={styles.tabsContainer}>
+              {tabData.map((tab) => (
+                <GlassChip
+                  key={tab.id}
+                  label={`${tab.label}${tab.count > 0 ? ` (${tab.count})` : ''}`}
+                  selected={activeTab === tab.id}
+                  onPress={() => setActiveTab(tab.id as any)}
+                />
+              ))}
+            </View>
+
+            {/* Search Results */}
+            {searchLoading ? (
+              <View style={styles.centerContainer}>
+                <ActivityIndicator size="large" color={GLASS_TOKENS.colors.primary} />
               </View>
-            }
-          />
+            ) : searchResults.length > 0 ? (
+              <FlatList
+                data={searchResults}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                  <GlassSurface
+                    variant="card"
+                    style={styles.conversationItem}
+                    onPress={() => {
+                      // Start a new conversation with this user
+                      console.log('Starting conversation with:', item.name);
+                      clearSearch();
+                    }}
+                    interactive
+                    padding={{ horizontal: GLASS_TOKENS.spacing[3], vertical: GLASS_TOKENS.spacing[2] }}
+                  >
+                    <View style={styles.conversationRow}>
+                      {/* Avatar */}
+                      <StoryRing
+                        size={48}
+                        ringWidth={0}
+                        initial={getInitials(item.name)}
+                        placeholderColor={GLASS_TOKENS.colors.primary}
+                      />
+
+                      {/* User Info */}
+                      <View style={styles.messageContent}>
+                        <View style={styles.messageHeader}>
+                          <TitleM numberOfLines={1}>
+                            {item.name}
+                          </TitleM>
+                          <View style={[
+                            styles.statusBadge,
+                            { backgroundColor: item.status === 'online' ? '#4CAF50' : '#9E9E9E' }
+                          ]}>
+                            <Caption style={{ color: '#FFF', fontSize: 10 }}>
+                              {item.status === 'online' ? '●' : '○'}
+                            </Caption>
+                          </View>
+                        </View>
+                        <BodyS contrast="low" numberOfLines={1}>
+                          {item.isFriend ? '👥 Friend' : '👤 User'}
+                        </BodyS>
+                      </View>
+                    </View>
+                  </GlassSurface>
+                )}
+                contentContainerStyle={styles.listContent}
+                ItemSeparatorComponent={() => (
+                  <GlassDivider
+                    variant="subtle"
+                    style={styles.divider}
+                  />
+                )}
+              />
+            ) : (
+              <View style={styles.emptyState}>
+                <TitleM style={{ marginBottom: GLASS_TOKENS.spacing[3] }}>No users found</TitleM>
+                <BodyS contrast="low">Try searching with a different name</BodyS>
+              </View>
+            )}
+          </>
+        ) : (
+          <>
+            {/* Tabs - Glass Chips */}
+            <View style={styles.tabsContainer}>
+              {tabData.map((tab) => (
+                <GlassChip
+                  key={tab.id}
+                  label={`${tab.label}${tab.count > 0 ? ` (${tab.count})` : ''}`}
+                  selected={activeTab === tab.id}
+                  onPress={() => setActiveTab(tab.id as any)}
+                />
+              ))}
+            </View>
+
+            {/* Conversation List */}
+            {loading ? (
+              <View style={styles.centerContainer}>
+                <ActivityIndicator size="large" color={GLASS_TOKENS.colors.primary} />
+              </View>
+            ) : error ? (
+              <View style={styles.centerContainer}>
+                <BodyM style={{ marginBottom: GLASS_TOKENS.spacing[3] }}>Failed to load conversations</BodyM>
+                <GlassButton
+                  variant="primary"
+                  label="Retry"
+                  onPress={loadConversations}
+                />
+              </View>
+            ) : (
+              <FlatList
+                data={allConversations}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                  <GlassSurface
+                    variant="card"
+                    style={styles.conversationItem}
+                    onPress={() => {
+                      if (item.id === 'ai-assistant') {
+                        setShowAIChat(true);
+                      } else {
+                        openConversation(item.id);
+                      }
+                    }}
+                    interactive
+                    padding={{ horizontal: GLASS_TOKENS.spacing[3], vertical: GLASS_TOKENS.spacing[2] }}
+                  >
+                    {/* Avatar + Content */}
+                    <View style={styles.conversationRow}>
+                      {/* Avatar - Special icon for AI */}
+                      {item.id === 'ai-assistant' ? (
+                        <View
+                          style={{
+                            width: 48,
+                            height: 48,
+                            borderRadius: 24,
+                            backgroundColor: GLASS_TOKENS.colors.primary,
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                          }}
+                        >
+                          <Text style={{ fontSize: 24 }}>🤖</Text>
+                        </View>
+                      ) : (
+                        <StoryRing
+                          size={48}
+                          ringWidth={0}
+                          initial={getInitials(item.participantName)}
+                          placeholderColor={GLASS_TOKENS.colors.primary}
+                        />
+                      )}
+
+                      {/* Message Content */}
+                      <View style={styles.messageContent}>
+                        <View style={styles.messageHeader}>
+                          <TitleM numberOfLines={1}>
+                            {item.participantName}
+                            {item.id === 'ai-assistant' && (
+                              <Text style={{ fontSize: 12, marginLeft: 4 }}>✨</Text>
+                            )}
+                          </TitleM>
+                          <Caption contrast="low">{formatTime(item.lastMessageTime)}</Caption>
+                        </View>
+                        <BodyS contrast="low" numberOfLines={1}>
+                          {item.lastMessage}
+                        </BodyS>
+                      </View>
+
+                      {/* Unread Indicator */}
+                      {item.unreadCount > 0 && (
+                        <View style={styles.unreadDot} />
+                      )}
+                    </View>
+                  </GlassSurface>
+                )}
+                contentContainerStyle={styles.listContent}
+                ItemSeparatorComponent={() => (
+                  <GlassDivider
+                    variant="subtle"
+                    style={styles.divider}
+                  />
+                )}
+                ListEmptyComponent={
+                  <View style={styles.emptyState}>
+                    <TitleM style={{ marginBottom: GLASS_TOKENS.spacing[3] }}>No conversations</TitleM>
+                    <BodyS contrast="low">Start a conversation with someone</BodyS>
+                  </View>
+                }
+              />
+            )}
+          </>
         )}
+
+        {/* Floating Compose FAB */}
+        <View style={styles.fabContainer}>
+          <GlassButton
+            variant="primary"
+            label="Compose"
+            size="large"
+            onPress={() => console.log('New message')}
+            leftIcon={<Text style={{ fontSize: 18 }}>✉️</Text>}
+          />
+        </View>
       </SafeAreaView>
-    </View>
+
+      {/* AI Chat Modal */}
+      <Modal
+        visible={showAIChat}
+        animationType="slide"
+        onRequestClose={() => setShowAIChat(false)}
+      >
+        <AIChatInterface
+          userId={userId}
+          onActionDetected={async (action, data) => {
+            console.log('AI Action detected:', action, data);
+            try {
+              const result = await aiActionHandlers.handleAction(
+                {
+                  type: action as
+                    | 'create_routine'
+                    | 'create_todo'
+                    | 'search_products'
+                    | 'search_users'
+                    | 'search_posts'
+                    | 'feature_guide',
+                  payload: data,
+                },
+                userId
+              );
+              if (!result.success) {
+                Alert.alert('Action Failed', result.error || 'Could not complete the action');
+              }
+            } catch (error) {
+              console.error('Error handling AI action:', error);
+              Alert.alert('Error', 'Failed to handle action');
+            }
+          }}
+        />
+        {/* Close Button */}
+        <Pressable
+          style={styles.closeButton}
+          onPress={() => setShowAIChat(false)}
+        >
+          <Text style={styles.closeButtonText}>✕</Text>
+        </Pressable>
+      </Modal>
+    </GlassBackground>
   );
 }
 
-// Helper function to get avatar color based on name
-function getAvatarColor(name?: string): string {
-  const colors = ['#6AA8FF', '#FFB366', '#38D67A', '#B88FFF', '#FF6B9D', '#00D4FF'];
-  if (!name) return colors[0];
-  const charCode = name.charCodeAt(0);
-  return colors[charCode % colors.length];
-}
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.base,
+  // Stories/Active Friends
+  storiesContainer: {
+    paddingVertical: GLASS_TOKENS.spacing[3],
+    paddingHorizontal: GLASS_TOKENS.spacing[4],
   },
-  gradientBackground: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: COLORS.base,
-    opacity: 1,
-  },
-  safeArea: {
-    flex: 1,
+  storiesContent: {
+    gap: GLASS_TOKENS.spacing[3],
   },
 
-  // HEADER
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: COLORS.text,
-    letterSpacing: 0.5,
-  },
-  subtitle: {
-    fontSize: 12,
-    color: COLORS.textMuted,
-    marginTop: 2,
-    fontWeight: '500',
-  },
-  unreadIndicator: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 12,
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  unreadCount: {
-    color: '#000',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-
-  // SEARCH BAR
+  // Search Bar
   searchContainer: {
+    paddingHorizontal: GLASS_TOKENS.spacing[4],
+    paddingVertical: GLASS_TOKENS.spacing[2],
+  },
+  searchInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 16,
-    marginVertical: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: GLASS_TOKENS.glass.radius.large,
     borderWidth: 1,
-    borderColor: 'rgba(106, 168, 255, 0.2)',
-  },
-  searchIcon: {
-    fontSize: 16,
-    marginRight: 8,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: GLASS_TOKENS.spacing[3],
   },
   searchInput: {
     flex: 1,
-    color: COLORS.text,
-    fontSize: 14,
-    fontWeight: '500',
+    height: 44,
+    fontSize: 16,
+    color: GLASS_TOKENS.colors.text.primary,
+  },
+  clearButton: {
+    padding: GLASS_TOKENS.spacing[2],
+  },
+  clearButtonText: {
+    fontSize: 18,
+    color: GLASS_TOKENS.colors.primary,
+    fontWeight: 'bold',
   },
 
-  // CONVERSATION LIST
-  listContent: {
-    paddingHorizontal: 8,
-    paddingBottom: 20,
+  // Tabs
+  tabsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: GLASS_TOKENS.spacing[4],
+    paddingVertical: GLASS_TOKENS.spacing[2],
+    gap: GLASS_TOKENS.spacing[2],
   },
+
+  // Conversation List
+  listContent: {
+    paddingHorizontal: GLASS_TOKENS.spacing[4],
+    paddingVertical: GLASS_TOKENS.spacing[3],
+    gap: GLASS_TOKENS.spacing[2],
+  },
+
   conversationItem: {
+    borderRadius: GLASS_TOKENS.glass.radius.large,
+  },
+
+  conversationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 8,
-    marginVertical: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    gap: GLASS_TOKENS.spacing[3],
   },
 
-  // AVATAR
-  avatarContainer: {
-    position: 'relative',
-    marginRight: 12,
-  },
-  avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  avatarText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  onlineDot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: '#38D67A',
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    borderWidth: 2,
-    borderColor: COLORS.base,
-  },
-
-  // CONVERSATION INFO
-  conversationInfo: {
+  messageContent: {
     flex: 1,
+    gap: GLASS_TOKENS.spacing[1],
   },
-  conversationHeader: {
+
+  messageHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
-  },
-  conversationName: {
-    color: COLORS.text,
-    fontSize: 14,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-  conversationTime: {
-    color: COLORS.textMuted,
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  conversationMessage: {
-    color: COLORS.textMuted,
-    fontSize: 13,
-    fontWeight: '400',
-    letterSpacing: 0.2,
+    gap: GLASS_TOKENS.spacing[2],
   },
 
-  // BADGE
-  badge: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 10,
-    minWidth: 24,
+  statusBadge: {
+    width: 24,
     height: 24,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 8,
-  },
-  badgeText: {
-    color: '#000',
-    fontSize: 11,
-    fontWeight: '700',
   },
 
-  // LOADING / ERROR / EMPTY
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+  unreadDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: GLASS_TOKENS.colors.primary,
   },
-  loadingText: {
-    marginTop: 12,
-    color: COLORS.textMuted,
-    fontSize: 14,
+
+  divider: {
+    marginVertical: GLASS_TOKENS.spacing[2],
   },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-  },
-  errorText: {
-    color: '#FF6464',
-    fontSize: 16,
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  retryButton: {
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  retryButtonText: {
-    color: '#000',
-    fontWeight: '700',
-    fontSize: 14,
-  },
+
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 80,
+    paddingVertical: GLASS_TOKENS.spacing[12],
   },
-  emptyIconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(106, 168, 255, 0.1)',
+
+  centerContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    paddingHorizontal: GLASS_TOKENS.spacing[4],
   },
-  emptyIcon: {
-    fontSize: 40,
+
+  fabContainer: {
+    position: 'absolute',
+    bottom: GLASS_TOKENS.spacing[4],
+    right: GLASS_TOKENS.spacing[4],
+    paddingBottom: GLASS_TOKENS.spacing[4],
   },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginBottom: 8,
+
+  closeButton: {
+    position: 'absolute',
+    top: GLASS_TOKENS.spacing[4],
+    right: GLASS_TOKENS.spacing[4],
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: GLASS_TOKENS.colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 100,
   },
-  emptySubtext: {
-    fontSize: 13,
-    color: COLORS.textMuted,
-    fontWeight: '500',
+
+  closeButtonText: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: 'bold',
   },
 });
