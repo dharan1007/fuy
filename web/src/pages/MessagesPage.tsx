@@ -72,7 +72,10 @@ export default function MessagesPage() {
   const [chatRetention, setChatRetention] = useState<'1day' | '7days' | '30days' | 'forever'>('forever');
   const [messageInput, setMessageInput] = useState('');
   const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [searchResults, setSearchResults] = useState<Friend[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Sync API conversations with local state
   useEffect(() => {
@@ -99,11 +102,64 @@ export default function MessagesPage() {
 
   // Get all followers and following combined for search
   const allChatUsers = getAllChatUsers();
-  const filteredFriends = allChatUsers.filter(friend =>
+
+  // Filter local friends first
+  const filteredLocalFriends = allChatUsers.filter(friend =>
     (friend.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     friend.profile?.displayName?.toLowerCase().includes(searchQuery.toLowerCase()))
     && searchQuery.length > 0
   );
+
+  // Combine local and search results, avoiding duplicates
+  const filteredFriends = Array.from(
+    new Map([...filteredLocalFriends, ...searchResults].map(f => [f.id, f])).values()
+  );
+
+  // Handle search input with debouncing
+  const handleSearchChange = useCallback((query: string) => {
+    setSearchQuery(query);
+    setShowFriendsDropdown(query.length > 0);
+
+    // Clear previous timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    if (query.length === 0) {
+      setSearchResults([]);
+      return;
+    }
+
+    // Debounce the search
+    setIsSearching(true);
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        // Search in followers
+        const followersRes = await fetch(
+          `/api/users/followers-following?type=followers&search=${encodeURIComponent(query)}`
+        );
+        // Search in following
+        const followingRes = await fetch(
+          `/api/users/followers-following?type=following&search=${encodeURIComponent(query)}`
+        );
+
+        const followersData = followersRes.ok ? await followersRes.json() : { users: [] };
+        const followingData = followingRes.ok ? await followingRes.json() : { users: [] };
+
+        // Combine results and remove duplicates
+        const allResults = [...followersData.users, ...followingData.users];
+        const uniqueResults = Array.from(
+          new Map(allResults.map(u => [u.id, u])).values()
+        );
+
+        setSearchResults(uniqueResults);
+        setIsSearching(false);
+      } catch (error) {
+        console.error('Search failed:', error);
+        setIsSearching(false);
+      }
+    }, 300);
+  }, []);
 
   // Send message
   const handleSendMessage = useCallback(async () => {
@@ -223,6 +279,15 @@ export default function MessagesPage() {
     }
   }, [selectedConversationId, messages, fetchMessages]);
 
+  // Cleanup search timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // Feature navigation mapping
   const featureRoutes = {
     canvas: '/journal',
@@ -290,13 +355,10 @@ export default function MessagesPage() {
           </svg>
           <input
             type="text"
-            placeholder="Search conversations or friends..."
+            placeholder="Search conversations or add friends..."
             value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setShowFriendsDropdown(e.target.value.length > 0 && filteredFriends.length > 0);
-            }}
-            onFocus={() => setShowFriendsDropdown(searchQuery.length > 0 && filteredFriends.length > 0)}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            onFocus={() => setShowFriendsDropdown(searchQuery.length > 0)}
             onBlur={() => setTimeout(() => setShowFriendsDropdown(false), 200)}
             className={styles.searchInput}
           />
@@ -314,7 +376,7 @@ export default function MessagesPage() {
           )}
 
           {/* Friends Dropdown */}
-          {showFriendsDropdown && filteredFriends.length > 0 && (
+          {showFriendsDropdown && (
             <div style={{
               position: 'absolute',
               top: '100%',
@@ -325,72 +387,126 @@ export default function MessagesPage() {
               borderTop: 'none',
               borderBottomLeftRadius: '8px',
               borderBottomRightRadius: '8px',
-              maxHeight: '300px',
+              maxHeight: '400px',
               overflowY: 'auto',
               boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
               zIndex: 10,
             }}>
-              {filteredFriends.map((friend) => {
-                const isOnline = onlineUsers.has(friend.id);
-                return (
-                  <button
-                    key={friend.id}
-                    onClick={() => handleStartConversation(friend)}
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      textAlign: 'left',
-                      border: 'none',
-                      borderBottom: '1px solid #f0f0f0',
-                      backgroundColor: 'transparent',
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      transition: 'background-color 0.2s',
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f9fafb')}
-                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <div style={{ position: 'relative' }}>
-                        <div style={{
-                          width: '32px',
-                          height: '32px',
-                          borderRadius: '50%',
-                          backgroundColor: '#3b82f6',
-                          color: '#ffffff',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: '12px',
-                          fontWeight: 'bold',
-                        }}>
-                          {friend.name?.charAt(0) || friend.profile?.displayName?.charAt(0)}
+              {isSearching && (
+                <div style={{
+                  padding: '16px',
+                  textAlign: 'center',
+                  color: '#6b7280',
+                  fontSize: '14px',
+                }}>
+                  Searching...
+                </div>
+              )}
+
+              {!isSearching && filteredFriends.length === 0 && (
+                <div style={{
+                  padding: '16px',
+                  textAlign: 'center',
+                  color: '#9ca3af',
+                  fontSize: '14px',
+                }}>
+                  No followers or following found matching "{searchQuery}"
+                </div>
+              )}
+
+              {!isSearching && filteredFriends.length > 0 && (
+                <>
+                  <div style={{
+                    padding: '8px 12px',
+                    backgroundColor: '#f9fafb',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    color: '#6b7280',
+                    borderBottom: '1px solid #e5e7eb',
+                  }}>
+                    {filteredFriends.length} result{filteredFriends.length !== 1 ? 's' : ''}
+                  </div>
+                  {filteredFriends.map((friend) => {
+                    const isOnline = onlineUsers.has(friend.id);
+                    const isAlreadyConversation = conversations.some(
+                      (c) => c.participantId === friend.id
+                    );
+
+                    return (
+                      <button
+                        key={friend.id}
+                        onClick={() => handleStartConversation(friend)}
+                        style={{
+                          width: '100%',
+                          padding: '12px',
+                          textAlign: 'left',
+                          border: 'none',
+                          borderBottom: '1px solid #f0f0f0',
+                          backgroundColor: isAlreadyConversation ? '#f0f4ff' : 'transparent',
+                          cursor: 'pointer',
+                          fontSize: '14px',
+                          transition: 'background-color 0.2s',
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = isAlreadyConversation ? '#e0e7ff' : '#f9fafb')}
+                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = isAlreadyConversation ? '#f0f4ff' : 'transparent')}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'space-between' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+                            <div style={{ position: 'relative' }}>
+                              <div style={{
+                                width: '36px',
+                                height: '36px',
+                                borderRadius: '50%',
+                                backgroundColor: '#3b82f6',
+                                color: '#ffffff',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '12px',
+                                fontWeight: 'bold',
+                              }}>
+                                {friend.name?.charAt(0) || friend.profile?.displayName?.charAt(0)}
+                              </div>
+                              {isOnline && (
+                                <div style={{
+                                  position: 'absolute',
+                                  bottom: 0,
+                                  right: 0,
+                                  width: '12px',
+                                  height: '12px',
+                                  borderRadius: '50%',
+                                  backgroundColor: '#10b981',
+                                  border: '2px solid white',
+                                }} />
+                              )}
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontWeight: '500', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {friend.profile?.displayName || friend.name}
+                              </div>
+                              <div style={{ fontSize: '12px', color: isOnline ? '#10b981' : '#9ca3af' }}>
+                                {isOnline ? '🟢 Online' : '⚫ Offline'}
+                              </div>
+                            </div>
+                          </div>
+                          {isAlreadyConversation && (
+                            <div style={{
+                              fontSize: '11px',
+                              backgroundColor: '#dbeafe',
+                              color: '#1e40af',
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              whiteSpace: 'nowrap',
+                            }}>
+                              Existing
+                            </div>
+                          )}
                         </div>
-                        {isOnline && (
-                          <div style={{
-                            position: 'absolute',
-                            bottom: 0,
-                            right: 0,
-                            width: '12px',
-                            height: '12px',
-                            borderRadius: '50%',
-                            backgroundColor: '#10b981',
-                            border: '2px solid white',
-                          }} />
-                        )}
-                      </div>
-                      <div>
-                        <div style={{ fontWeight: '500', color: '#111827' }}>
-                          {friend.profile?.displayName || friend.name}
-                        </div>
-                        <div style={{ fontSize: '12px', color: isOnline ? '#10b981' : '#9ca3af' }}>
-                          {isOnline ? '● Online' : '● Offline'}
-                        </div>
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
+                      </button>
+                    );
+                  })}
+                </>
+              )}
             </div>
           )}
         </div>
