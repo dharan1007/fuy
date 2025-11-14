@@ -538,7 +538,7 @@ export default function Home() {
               <ul className="space-y-2">
                 <li><Link href="/chat" className="text-sm text-black/60 hover:text-black transition-colors">Messages</Link></li>
                 <li><Link href="/profile" className="text-sm text-black/60 hover:text-black transition-colors">Profile</Link></li>
-                <li><a href="mailto:dharan.poduvu@gmail.com" className="text-sm text-black/60 hover:text-black transition-colors">Contact Us</a></li>
+                <li><Link href="/contact-us" className="text-sm text-black/60 hover:text-black transition-colors">Contact Us</Link></li>
               </ul>
             </div>
 
