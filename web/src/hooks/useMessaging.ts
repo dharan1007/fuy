@@ -50,74 +50,81 @@ export function useMessaging() {
   const [error, setError] = useState<string | null>(null);
   const socketRef = useRef<Socket | null>(null);
 
-  // Initialize Socket.io connection
+  // Initialize Socket.io connection (development only)
   useEffect(() => {
     if (!session?.user || !(session.user as any).id) return;
 
     const userId = (session.user as any).id;
-    const newSocket = io(
-      process.env.NEXT_PUBLIC_API_URL || window.location.origin,
-      {
-        reconnection: true,
-        reconnectionDelay: 1000,
-        reconnectionDelayMax: 5000,
-        reconnectionAttempts: 5,
-      }
-    );
+    const isProduction = process.env.NODE_ENV === 'production';
 
-    newSocket.on('connect', () => {
-      console.log('Socket connected:', newSocket.id);
-      newSocket.emit('user:register', userId);
-    });
+    // Only initialize Socket.io in development
+    if (!isProduction) {
+      const newSocket = io(
+        process.env.NEXT_PUBLIC_API_URL || window.location.origin,
+        {
+          reconnection: true,
+          reconnectionDelay: 1000,
+          reconnectionDelayMax: 5000,
+          reconnectionAttempts: 5,
+        }
+      );
 
-    newSocket.on('user:online', (data: { userId: string; socketId: string }) => {
-      setOnlineUsers((prev) => new Set([...prev, data.userId]));
-    });
-
-    newSocket.on('user:offline', (data: { userId: string }) => {
-      setOnlineUsers((prev) => {
-        const updated = new Set(prev);
-        updated.delete(data.userId);
-        return updated;
+      newSocket.on('connect', () => {
+        console.log('Socket connected:', newSocket.id);
+        newSocket.emit('user:register', userId);
       });
-    });
 
-    newSocket.on('message:new', (message: Message) => {
-      setMessages((prev) => ({
-        ...prev,
-        [message.conversationId]: [...(prev[message.conversationId] || []), message],
-      }));
-    });
+      newSocket.on('user:online', (data: { userId: string; socketId: string }) => {
+        setOnlineUsers((prev) => new Set([...prev, data.userId]));
+      });
 
-    newSocket.on('typing:start', (data: { userId: string; conversationId: string }) => {
-      setTypingUsers((prev) => ({
-        ...prev,
-        [data.conversationId]: new Set([...(prev[data.conversationId] || []), data.userId]),
-      }));
-    });
+      newSocket.on('user:offline', (data: { userId: string }) => {
+        setOnlineUsers((prev) => {
+          const updated = new Set(prev);
+          updated.delete(data.userId);
+          return updated;
+        });
+      });
 
-    newSocket.on('typing:end', (data: { userId: string; conversationId: string }) => {
-      setTypingUsers((prev) => ({
-        ...prev,
-        [data.conversationId]: Array.from(prev[data.conversationId] || []).filter(
-          (id) => id !== data.userId
-        ) as any,
-      }));
-    });
+      newSocket.on('message:new', (message: Message) => {
+        setMessages((prev) => ({
+          ...prev,
+          [message.conversationId]: [...(prev[message.conversationId] || []), message],
+        }));
+      });
 
-    newSocket.on('disconnect', () => {
-      console.log('Socket disconnected');
-    });
+      newSocket.on('typing:start', (data: { userId: string; conversationId: string }) => {
+        setTypingUsers((prev) => ({
+          ...prev,
+          [data.conversationId]: new Set([...(prev[data.conversationId] || []), data.userId]),
+        }));
+      });
 
-    socketRef.current = newSocket;
-    setSocket(newSocket);
+      newSocket.on('typing:end', (data: { userId: string; conversationId: string }) => {
+        setTypingUsers((prev) => ({
+          ...prev,
+          [data.conversationId]: Array.from(prev[data.conversationId] || []).filter(
+            (id) => id !== data.userId
+          ) as any,
+        }));
+      });
+
+      newSocket.on('disconnect', () => {
+        console.log('Socket disconnected');
+      });
+
+      socketRef.current = newSocket;
+      setSocket(newSocket);
+    }
 
     // Fetch initial data
     fetchConversations();
     fetchFollowersAndFollowing();
 
     return () => {
-      newSocket.disconnect();
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+      }
     };
   }, [session?.user]);
 
@@ -204,7 +211,7 @@ export function useMessaging() {
 
   const sendMessage = useCallback(
     async (conversationId: string, content: string) => {
-      if (!socketRef.current || !session?.user) return;
+      if (!session?.user) return;
 
       const userId = (session.user as any).id;
 
@@ -228,11 +235,13 @@ export function useMessaging() {
             read: true,
           };
 
-          // Emit via socket
-          socketRef.current.emit('message:send', {
-            conversationId,
-            message,
-          });
+          // Emit via socket (only in development)
+          if (socketRef.current) {
+            socketRef.current.emit('message:send', {
+              conversationId,
+              message,
+            });
+          }
         }
       } catch (err) {
         console.error('Failed to send message:', err);
