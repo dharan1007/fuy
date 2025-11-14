@@ -2,14 +2,14 @@
 import { Server as SocketIOServer } from "socket.io";
 import { logger } from "./logger";
 
-let io: SocketIOServer | null = null;
-
-interface Socket {
+interface SocketUser {
   userId: string;
   socketId: string;
 }
 
-const connectedUsers: Map<string, Socket> = new Map();
+let io: SocketIOServer | null = null;
+const connectedUsers: Map<string, SocketUser> = new Map();
+const socketToUser: Map<string, string> = new Map(); // Map socket ID to user ID
 
 export function initializeSocket(httpServer: any): SocketIOServer {
   if (io) return io;
@@ -30,15 +30,18 @@ export function initializeSocket(httpServer: any): SocketIOServer {
 
     // User authentication and registration
     socket.on("user:register", (userId: string) => {
-      const existingSocket = Array.from(connectedUsers.values()).find(
-        (s) => s.userId === userId
-      );
-      if (existingSocket) {
-        connectedUsers.delete(existingSocket.socketId);
+      // Remove old socket mapping if user already connected
+      const oldSocketId = Array.from(socketToUser.entries()).find(
+        ([_, uid]) => uid === userId
+      )?.[0];
+      if (oldSocketId) {
+        socketToUser.delete(oldSocketId);
+        connectedUsers.delete(oldSocketId);
       }
 
+      // Register new socket
+      socketToUser.set(socket.id, userId);
       connectedUsers.set(socket.id, { userId, socketId: socket.id });
-      socket.userId = userId;
       socket.join(`user:${userId}`); // Join user-specific room
 
       logger.debug(`[Socket] User registered: ${userId} (${socket.id})`);
@@ -49,27 +52,30 @@ export function initializeSocket(httpServer: any): SocketIOServer {
 
     // Handle typing indicator
     socket.on("typing:start", (data: { conversationId: string }) => {
-      if (!socket.userId) return;
+      const userId = socketToUser.get(socket.id);
+      if (!userId) return;
 
       // Broadcast to all users in the conversation except sender
       socket.broadcast.to(`conversation:${data.conversationId}`).emit("typing:start", {
-        userId: socket.userId,
+        userId,
         conversationId: data.conversationId,
       });
     });
 
     socket.on("typing:end", (data: { conversationId: string }) => {
-      if (!socket.userId) return;
+      const userId = socketToUser.get(socket.id);
+      if (!userId) return;
 
       socket.broadcast.to(`conversation:${data.conversationId}`).emit("typing:end", {
-        userId: socket.userId,
+        userId,
         conversationId: data.conversationId,
       });
     });
 
     // Handle message events
     socket.on("message:send", (data: { conversationId: string; message: any }) => {
-      if (!socket.userId) return;
+      const userId = socketToUser.get(socket.id);
+      if (!userId) return;
 
       // Join the conversation room
       socket.join(`conversation:${data.conversationId}`);
@@ -81,26 +87,28 @@ export function initializeSocket(httpServer: any): SocketIOServer {
       });
 
       logger.debug(
-        `[Socket] Message sent in conversation ${data.conversationId} by ${socket.userId}`
+        `[Socket] Message sent in conversation ${data.conversationId} by ${userId}`
       );
     });
 
     // Handle message read status
     socket.on("message:read", (data: { conversationId: string; messageIds: string[] }) => {
-      if (!socket.userId) return;
+      const userId = socketToUser.get(socket.id);
+      if (!userId) return;
 
       io?.to(`conversation:${data.conversationId}`).emit("message:read", {
-        userId: socket.userId,
+        userId,
         messageIds: data.messageIds,
       });
     });
 
     socket.on("disconnect", () => {
-      const userData = connectedUsers.get(socket.id);
-      if (userData) {
+      const userId = socketToUser.get(socket.id);
+      if (userId) {
+        socketToUser.delete(socket.id);
         connectedUsers.delete(socket.id);
-        logger.debug(`[Socket] User disconnected: ${userData.userId}`);
-        io?.emit("user:offline", { userId: userData.userId });
+        logger.debug(`[Socket] User disconnected: ${userId}`);
+        io?.emit("user:offline", { userId });
       }
     });
   });
@@ -112,16 +120,16 @@ export function getSocket(): SocketIOServer | null {
   return io;
 }
 
-export function getOnlineUsers(): Socket[] {
+export function getOnlineUsers(): SocketUser[] {
   return Array.from(connectedUsers.values());
 }
 
 export function isUserOnline(userId: string): boolean {
-  return Array.from(connectedUsers.values()).some((s) => s.userId === userId);
+  return Array.from(socketToUser.values()).includes(userId);
 }
 
 export function getUserSocketId(userId: string): string | undefined {
-  return Array.from(connectedUsers.entries()).find(
-    ([_, socket]) => socket.userId === userId
+  return Array.from(socketToUser.entries()).find(
+    ([_, uid]) => uid === userId
   )?.[0];
 }

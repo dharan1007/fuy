@@ -44,6 +44,8 @@ interface Friend {
 export default function MessagesPage() {
   const router = useRouter();
   const { data: session } = useSession();
+  const userId = (session?.user as any)?.id;
+
   const {
     conversations: apiConversations,
     messages: apiMessages,
@@ -105,9 +107,8 @@ export default function MessagesPage() {
 
   // Send message
   const handleSendMessage = useCallback(async () => {
-    if (!messageInput.trim() || !selectedConversationId || !session?.user) return;
+    if (!messageInput.trim() || !selectedConversationId || !userId) return;
 
-    const userId = (session.user as any).id;
     const content = messageInput.trim();
     setMessageInput('');
     stopTyping(selectedConversationId);
@@ -139,7 +140,7 @@ export default function MessagesPage() {
 
     // Send via API and Socket.io
     await sendMessage(selectedConversationId, content);
-  }, [messageInput, selectedConversationId, session?.user, sendMessage, stopTyping]);
+  }, [messageInput, selectedConversationId, userId, sendMessage, stopTyping]);
 
   // Start conversation with friend
   const handleStartConversation = useCallback(async (friend: Friend) => {
@@ -451,7 +452,7 @@ export default function MessagesPage() {
       <div className={styles.mainContent}>
         {showAIChat ? (
           <AIChatInterface
-            userId={userId}
+            userId={userId || ''}
             onActionDetected={(action, data) => {
               console.log('AI Action detected:', action, data);
               // Handle actions here
@@ -622,9 +623,9 @@ export default function MessagesPage() {
               )}
 
               {/* Typing Indicator */}
-              {typingUsers[selectedConversationId] && typingUsers[selectedConversationId].size > 0 && (
+              {selectedConversationId && typingUsers[selectedConversationId] && typingUsers[selectedConversationId].size > 0 && (
                 <div style={{ padding: '12px', fontSize: '14px', color: '#9ca3af', fontStyle: 'italic' }}>
-                  {Array.from(typingUsers[selectedConversationId]).join(', ')} is typing...
+                  {Array.from(typingUsers[selectedConversationId]!).join(', ')} is typing...
                 </div>
               )}
 
