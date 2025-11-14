@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import styles from './NotificationsModal.module.css';
 
+// Type definitions
 type UserProfile = {
   displayName: string | null;
   avatarUrl: string | null;
@@ -106,17 +107,14 @@ export default function NotificationsModal({ isOpen, onClose }: NotificationsMod
   }
 
   async function handleFriendAction(friendshipId: string, action: 'ACCEPT' | 'REJECT' | 'GHOST') {
-    // Optimistic update: immediately update the notification with action state
+    // Optimistic update: immediately remove or update the notification
     const originalNotifications = notifications;
 
-    // Update notification to show action state immediately
-    setNotifications(prev =>
-      prev.map(n =>
-        n.friendshipId === friendshipId
-          ? { ...n, actionState: action }
-          : n
-      )
-    );
+    // For GHOST, keep the notification but mark it differently
+    // For ACCEPT and REJECT, remove it immediately
+    if (action !== 'GHOST') {
+      setNotifications(prev => prev.filter(n => n.friendshipId !== friendshipId));
+    }
 
     setActionLoading(prev => ({ ...prev, [friendshipId]: true }));
 
@@ -128,22 +126,13 @@ export default function NotificationsModal({ isOpen, onClose }: NotificationsMod
       });
 
       if (res.ok) {
-        const data = await res.json();
+        // Success! The optimistic update already happened
+        // Only reload to get any other updates from the server
         console.log(`Friend request ${action.toLowerCase()}ed successfully`);
 
-        // Update notification with follower/following counts from response
-        setNotifications(prev =>
-          prev.map(n =>
-            n.friendshipId === friendshipId
-              ? {
-                  ...n,
-                  actionState: action,
-                  followerCount: data.followerCount || 0,
-                  followingCount: data.followingCount || 0,
-                }
-              : n
-          )
-        );
+        // Optional: reload to sync with server state
+        // but don't wait for it to show immediate feedback
+        loadNotifications().catch(console.error);
       } else {
         const error = await res.json();
         console.error('Friend action failed:', error.error);
@@ -299,149 +288,125 @@ export default function NotificationsModal({ isOpen, onClose }: NotificationsMod
 
                       {/* Friend Request Actions */}
                       {notif.type === 'FRIEND_REQUEST' && notif.sender && notif.friendshipId && (
-                        <>
-                          {notif.actionState ? (
-                            <div style={{ marginTop: '12px', padding: '12px', backgroundColor: '#f0fdf4', borderRadius: '6px', borderLeft: '4px solid #22c55e' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: '#22c55e' }}>
+                        <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleFriendAction(notif.friendshipId!, 'ACCEPT');
+                            }}
+                            disabled={actionLoading[notif.friendshipId]}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '6px 12px',
+                              backgroundColor: actionLoading[notif.friendshipId] ? '#b0f0d0' : '#d1fae5',
+                              color: '#065f46',
+                              border: 'none',
+                              borderRadius: '6px',
+                              fontSize: '12px',
+                              fontWeight: '600',
+                              cursor: actionLoading[notif.friendshipId] ? 'not-allowed' : 'pointer',
+                              transition: 'background-color 0.2s',
+                              opacity: actionLoading[notif.friendshipId] ? 0.6 : 1,
+                            }}
+                            onMouseEnter={(e) => !actionLoading[notif.friendshipId!] && (e.currentTarget.style.backgroundColor = '#a7f3d0')}
+                            onMouseLeave={(e) => !actionLoading[notif.friendshipId!] && (e.currentTarget.style.backgroundColor = '#d1fae5')}
+                          >
+                            {actionLoading[notif.friendshipId] ? (
+                              <>
+                                <span style={{ animation: 'spin 0.6s linear infinite', display: 'inline-block' }}>⟳</span>
+                                Processing...
+                              </>
+                            ) : (
+                              <>
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                 </svg>
-                                <span style={{ fontWeight: '600', color: '#166534' }}>
-                                  {notif.actionState === 'ACCEPT' && 'Accepted'}
-                                  {notif.actionState === 'REJECT' && 'Rejected'}
-                                  {notif.actionState === 'GHOST' && 'Ghosted'}
-                                </span>
-                              </div>
-                              {notif.actionState === 'ACCEPT' && (
-                                <div style={{ fontSize: '13px', color: '#166534' }}>
-                                  <p style={{ margin: '0 0 4px 0' }}>📊 Your stats:</p>
-                                  <p style={{ margin: '2px 0' }}>👥 Followers: <strong>{notif.followerCount || 0}</strong></p>
-                                  <p style={{ margin: '2px 0' }}>➡️ Following: <strong>{notif.followingCount || 0}</strong></p>
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleFriendAction(notif.friendshipId!, 'ACCEPT');
-                                }}
-                                disabled={actionLoading[notif.friendshipId]}
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                  padding: '6px 12px',
-                                  backgroundColor: actionLoading[notif.friendshipId] ? '#b0f0d0' : '#d1fae5',
-                                  color: '#065f46',
-                                  border: 'none',
-                                  borderRadius: '6px',
-                                  fontSize: '12px',
-                                  fontWeight: '600',
-                                  cursor: actionLoading[notif.friendshipId] ? 'not-allowed' : 'pointer',
-                                  transition: 'background-color 0.2s',
-                                  opacity: actionLoading[notif.friendshipId] ? 0.6 : 1,
-                                }}
-                                onMouseEnter={(e) => !actionLoading[notif.friendshipId!] && (e.currentTarget.style.backgroundColor = '#a7f3d0')}
-                                onMouseLeave={(e) => !actionLoading[notif.friendshipId!] && (e.currentTarget.style.backgroundColor = '#d1fae5')}
-                              >
-                                {actionLoading[notif.friendshipId] ? (
-                                  <>
-                                    <span style={{ animation: 'spin 0.6s linear infinite', display: 'inline-block' }}>⟳</span>
-                                    Processing...
-                                  </>
-                                ) : (
-                                  <>
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                    </svg>
-                                    Accept
-                                  </>
-                                )}
-                              </button>
+                                Accept
+                              </>
+                            )}
+                          </button>
 
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleFriendAction(notif.friendshipId!, 'REJECT');
-                                }}
-                                disabled={actionLoading[notif.friendshipId]}
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                  padding: '6px 12px',
-                                  backgroundColor: actionLoading[notif.friendshipId] ? '#f5c2c2' : '#fee2e2',
-                                  color: '#991b1b',
-                                  border: 'none',
-                                  borderRadius: '6px',
-                                  fontSize: '12px',
-                                  fontWeight: '600',
-                                  cursor: actionLoading[notif.friendshipId] ? 'not-allowed' : 'pointer',
-                                  transition: 'background-color 0.2s',
-                                  opacity: actionLoading[notif.friendshipId] ? 0.6 : 1,
-                                }}
-                                onMouseEnter={(e) => !actionLoading[notif.friendshipId!] && (e.currentTarget.style.backgroundColor = '#fca5a5')}
-                                onMouseLeave={(e) => !actionLoading[notif.friendshipId!] && (e.currentTarget.style.backgroundColor = '#fee2e2')}
-                              >
-                                {actionLoading[notif.friendshipId] ? (
-                                  <>
-                                    <span style={{ animation: 'spin 0.6s linear infinite', display: 'inline-block' }}>⟳</span>
-                                    Processing...
-                                  </>
-                                ) : (
-                                  <>
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                    Reject
-                                  </>
-                                )}
-                              </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleFriendAction(notif.friendshipId!, 'REJECT');
+                            }}
+                            disabled={actionLoading[notif.friendshipId]}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '6px 12px',
+                              backgroundColor: actionLoading[notif.friendshipId] ? '#f5c2c2' : '#fee2e2',
+                              color: '#991b1b',
+                              border: 'none',
+                              borderRadius: '6px',
+                              fontSize: '12px',
+                              fontWeight: '600',
+                              cursor: actionLoading[notif.friendshipId] ? 'not-allowed' : 'pointer',
+                              transition: 'background-color 0.2s',
+                              opacity: actionLoading[notif.friendshipId] ? 0.6 : 1,
+                            }}
+                            onMouseEnter={(e) => !actionLoading[notif.friendshipId!] && (e.currentTarget.style.backgroundColor = '#fca5a5')}
+                            onMouseLeave={(e) => !actionLoading[notif.friendshipId!] && (e.currentTarget.style.backgroundColor = '#fee2e2')}
+                          >
+                            {actionLoading[notif.friendshipId] ? (
+                              <>
+                                <span style={{ animation: 'spin 0.6s linear infinite', display: 'inline-block' }}>⟳</span>
+                                Processing...
+                              </>
+                            ) : (
+                              <>
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                                Reject
+                              </>
+                            )}
+                          </button>
 
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleFriendAction(notif.friendshipId!, 'GHOST');
-                                }}
-                                disabled={actionLoading[notif.friendshipId]}
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                  padding: '6px 12px',
-                                  backgroundColor: actionLoading[notif.friendshipId] ? '#d8dce1' : '#f3f4f6',
-                                  color: '#374151',
-                                  border: 'none',
-                                  borderRadius: '6px',
-                                  fontSize: '12px',
-                                  fontWeight: '600',
-                                  cursor: actionLoading[notif.friendshipId] ? 'not-allowed' : 'pointer',
-                                  transition: 'background-color 0.2s',
-                                  opacity: actionLoading[notif.friendshipId] ? 0.6 : 1,
-                                }}
-                                onMouseEnter={(e) => !actionLoading[notif.friendshipId!] && (e.currentTarget.style.backgroundColor = '#e5e7eb')}
-                                onMouseLeave={(e) => !actionLoading[notif.friendshipId!] && (e.currentTarget.style.backgroundColor = '#f3f4f6')}
-                              >
-                                {actionLoading[notif.friendshipId] ? (
-                                  <>
-                                    <span style={{ animation: 'spin 0.6s linear infinite', display: 'inline-block' }}>⟳</span>
-                                    Processing...
-                                  </>
-                                ) : (
-                                  <>
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                    </svg>
-                                    Ghost
-                                  </>
-                                )}
-                              </button>
-                            </div>
-                          )}
-                        </>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleFriendAction(notif.friendshipId!, 'GHOST');
+                            }}
+                            disabled={actionLoading[notif.friendshipId]}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              padding: '6px 12px',
+                              backgroundColor: actionLoading[notif.friendshipId] ? '#d8dce1' : '#f3f4f6',
+                              color: '#374151',
+                              border: 'none',
+                              borderRadius: '6px',
+                              fontSize: '12px',
+                              fontWeight: '600',
+                              cursor: actionLoading[notif.friendshipId] ? 'not-allowed' : 'pointer',
+                              transition: 'background-color 0.2s',
+                              opacity: actionLoading[notif.friendshipId] ? 0.6 : 1,
+                            }}
+                            onMouseEnter={(e) => !actionLoading[notif.friendshipId!] && (e.currentTarget.style.backgroundColor = '#e5e7eb')}
+                            onMouseLeave={(e) => !actionLoading[notif.friendshipId!] && (e.currentTarget.style.backgroundColor = '#f3f4f6')}
+                          >
+                            {actionLoading[notif.friendshipId] ? (
+                              <>
+                                <span style={{ animation: 'spin 0.6s linear infinite', display: 'inline-block' }}>⟳</span>
+                                Processing...
+                              </>
+                            ) : (
+                              <>
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                                Ghost
+                              </>
+                            )}
+                          </button>
+                        </div>
                       )}
                     </div>
 
