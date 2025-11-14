@@ -10,8 +10,9 @@ export default function PrivacyPolicyPage() {
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <h1 className="text-4xl font-bold text-gray-900">Privacy Policy</h1>
+          <p className="mt-2 text-lg text-gray-600">FUY Media</p>
           <p className="mt-4 text-lg text-gray-600">
-            Last updated: November 2024
+            Last updated: November 15, 2025
           </p>
         </div>
       </div>
@@ -23,10 +24,13 @@ export default function PrivacyPolicyPage() {
           {/* Introduction */}
           <section>
             <p className="text-gray-600 mb-4">
-              FUY ("we," "us," "our") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our website, mobile applications, and services (collectively, the "Platform").
+              FUY Media ("we," "us," "our") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our real-time messaging platform, web and mobile applications, and services (collectively, the "Platform").
+            </p>
+            <p className="text-gray-600 mb-4">
+              Please read this Privacy Policy carefully. By accessing or using FUY Media, you acknowledge that you have read, understood, and agree to be bound by all the provisions of this Privacy Policy.
             </p>
             <p className="text-gray-600">
-              Please read this Privacy Policy carefully. By accessing or using FUY, you acknowledge that you have read, understood, and agree to be bound by all the provisions of this Privacy Policy.
+              <strong>Contact:</strong> dharan.poduvu@gmail.com
             </p>
           </section>
 
@@ -36,107 +40,68 @@ export default function PrivacyPolicyPage() {
 
             <div className="space-y-6">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">1.1 Information You Provide Directly</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">1.1 Account Information</h3>
                 <div className="space-y-3 text-gray-600 ml-4">
-                  <p>
-                    <strong>Account Registration:</strong>
-                  </p>
                   <ul className="list-disc list-inside space-y-1 ml-2">
-                    <li>Name, email address, phone number</li>
+                    <li>Name, email address, and username</li>
                     <li>Password and authentication credentials</li>
-                    <li>Date of birth</li>
-                    <li>Address and location information</li>
-                    <li>Profile picture and bio</li>
-                  </ul>
-
-                  <p className="mt-4">
-                    <strong>Payment Information:</strong>
-                  </p>
-                  <ul className="list-disc list-inside space-y-1 ml-2">
-                    <li>Credit/debit card details (processed via Razorpay)</li>
-                    <li>UPI ID and digital wallet information</li>
-                    <li>Billing and shipping addresses</li>
-                    <li>Bank account details (for sellers)</li>
-                  </ul>
-
-                  <p className="mt-4">
-                    <strong>Content You Create:</strong>
-                  </p>
-                  <ul className="list-disc list-inside space-y-1 ml-2">
-                    <li>Posts, comments, and messages</li>
-                    <li>Photos, videos, and media uploads</li>
-                    <li>Journal entries and personal notes</li>
-                    <li>Product listings and descriptions (sellers)</li>
-                    <li>Reviews and ratings</li>
-                  </ul>
-
-                  <p className="mt-4">
-                    <strong>Communication:</strong>
-                  </p>
-                  <ul className="list-disc list-inside space-y-1 ml-2">
-                    <li>Messages and conversations</li>
-                    <li>Customer support inquiries</li>
-                    <li>Feedback and suggestions</li>
-                    <li>Email and chat communications</li>
+                    <li>Profile picture and user bio</li>
+                    <li>Phone number (optional)</li>
                   </ul>
                 </div>
               </div>
 
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">1.2 Information Collected Automatically</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">1.2 Message and Communication Data</h3>
                 <div className="space-y-3 text-gray-600 ml-4">
-                  <p>
-                    <strong>Device Information:</strong>
-                  </p>
                   <ul className="list-disc list-inside space-y-1 ml-2">
-                    <li>Device type, operating system, and version</li>
-                    <li>Device identifiers and unique advertising IDs</li>
-                    <li>Browser type and version</li>
-                    <li>Mobile network information</li>
+                    <li>Content of messages you send and receive</li>
+                    <li>Timestamps of messages</li>
+                    <li>Conversation metadata (participants, creation date)</li>
+                    <li>Typing indicators and read receipts</li>
+                    <li>File attachments and media shared in conversations</li>
+                    <li>Conversation history</li>
                   </ul>
+                </div>
+              </div>
 
-                  <p className="mt-4">
-                    <strong>Usage Information:</strong>
-                  </p>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">1.3 User Relationships and Presence Data</h3>
+                <div className="space-y-3 text-gray-600 ml-4">
                   <ul className="list-disc list-inside space-y-1 ml-2">
-                    <li>Pages visited and features used</li>
-                    <li>Time spent on Platform</li>
-                    <li>Clicks, searches, and interactions</li>
-                    <li>Products viewed and purchased</li>
-                    <li>Links clicked and content downloaded</li>
+                    <li>Follower and following relationships</li>
+                    <li>Friendship status and connections</li>
+                    <li>Online/offline status</li>
+                    <li>Last activity timestamps</li>
+                    <li>Typing indicators when composing messages</li>
                   </ul>
+                </div>
+              </div>
 
-                  <p className="mt-4">
-                    <strong>Location Information:</strong>
-                  </p>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">1.4 Technical and Device Data</h3>
+                <div className="space-y-3 text-gray-600 ml-4">
                   <ul className="list-disc list-inside space-y-1 ml-2">
                     <li>IP address and geolocation data</li>
-                    <li>GPS data (if location permissions granted)</li>
-                    <li>Device location history</li>
-                  </ul>
-
-                  <p className="mt-4">
-                    <strong>Cookies and Tracking:</strong>
-                  </p>
-                  <ul className="list-disc list-inside space-y-1 ml-2">
-                    <li>Session cookies for authentication</li>
-                    <li>Persistent cookies for preferences</li>
-                    <li>Analytics tracking pixels</li>
-                    <li>Third-party tracking tools</li>
+                    <li>Device type, operating system, and version</li>
+                    <li>Browser type and version</li>
+                    <li>Device identifiers</li>
+                    <li>Cookies and session identifiers</li>
+                    <li>Crash reports and error logs</li>
+                    <li>App version and settings</li>
                   </ul>
                 </div>
               </div>
 
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">1.3 Information from Third Parties</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">1.5 Usage Analytics</h3>
                 <div className="space-y-3 text-gray-600 ml-4">
                   <ul className="list-disc list-inside space-y-1 ml-2">
-                    <li>Social media platforms (if linked)</li>
-                    <li>Payment processors (Razorpay)</li>
-                    <li>Shipping and delivery partners</li>
-                    <li>Analytics providers</li>
-                    <li>Business partners and advertisers</li>
-                    <li>Other users (references, reviews, messages)</li>
+                    <li>Features used and interaction patterns</li>
+                    <li>Time spent on the platform</li>
+                    <li>Pages and sections accessed</li>
+                    <li>Search queries and filtering preferences</li>
+                    <li>How you interact with other users</li>
                   </ul>
                 </div>
               </div>
@@ -150,17 +115,17 @@ export default function PrivacyPolicyPage() {
             <div className="space-y-3 text-gray-600">
               <ul className="list-disc list-inside space-y-2 ml-2">
                 <li><strong>Account Management:</strong> Create, manage, and update your account</li>
-                <li><strong>Transactions:</strong> Process payments, orders, and refunds</li>
+                <li><strong>Real-Time Messaging:</strong> Deliver messages instantly to other users</li>
+                <li><strong>User Relationships:</strong> Manage your followers, following, and friendships</li>
+                <li><strong>Presence Tracking:</strong> Display online/offline status and typing indicators</li>
+                <li><strong>Search Functionality:</strong> Enable searching for followers and users</li>
+                <li><strong>Communication:</strong> Send notifications about messages and activity</li>
                 <li><strong>Service Delivery:</strong> Provide Platform features and functionality</li>
-                <li><strong>Communication:</strong> Send emails, SMS, and notifications</li>
-                <li><strong>Personalization:</strong> Customize content and recommendations</li>
                 <li><strong>Analytics:</strong> Understand usage patterns and improve Platform</li>
-                <li><strong>Security:</strong> Detect fraud and maintain safety</li>
-                <li><strong>Marketing:</strong> Send promotional emails and offers (with consent)</li>
+                <li><strong>Security:</strong> Detect fraud, prevent abuse, and maintain safety</li>
                 <li><strong>Legal Compliance:</strong> Meet regulatory and legal obligations</li>
-                <li><strong>Customer Support:</strong> Respond to inquiries and issues</li>
-                <li><strong>Research:</strong> Conduct surveys and user research</li>
-                <li><strong>Dispute Resolution:</strong> Handle complaints and disputes</li>
+                <li><strong>Customer Support:</strong> Respond to inquiries and technical issues</li>
+                <li><strong>Marketing:</strong> Send updates about new features (with consent)</li>
               </ul>
             </div>
           </section>
@@ -171,43 +136,49 @@ export default function PrivacyPolicyPage() {
 
             <div className="space-y-6">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">3.1 Public Information</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">3.1 Messages and Conversations</h3>
                 <p className="text-gray-600">
-                  Your profile name, profile picture, and public posts are visible to other users and potentially search engines.
+                  Your messages are shared only with the intended recipient(s) in your conversations. Messages are not publicly visible unless you choose to share them.
                 </p>
               </div>
 
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">3.2 Service Providers</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">3.2 User Relationships</h3>
+                <p className="text-gray-600">
+                  Your followers/following list and user profile information are visible to other users who have accepted your friendship or followed you back.
+                </p>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">3.3 Service Providers</h3>
                 <p className="text-gray-600">
                   We share information with trusted third parties who help us operate the Platform:
                 </p>
                 <ul className="list-disc list-inside space-y-1 ml-2 text-gray-600">
-                  <li>Payment processors (Razorpay)</li>
-                  <li>Shipping and logistics partners</li>
-                  <li>Email and SMS service providers</li>
-                  <li>Cloud hosting providers (Supabase)</li>
+                  <li>Cloud hosting and database providers</li>
+                  <li>Email and notification service providers</li>
                   <li>Analytics and monitoring services</li>
+                  <li>Payment processors (if applicable)</li>
                   <li>Customer support platforms</li>
                 </ul>
               </div>
 
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">3.3 Business Transfers</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">3.4 Business Transfers</h3>
                 <p className="text-gray-600">
-                  If FUY is acquired, merges with another company, or undergoes restructuring, your information may be transferred as part of that transaction.
+                  If FUY Media is acquired, merges with another company, or undergoes restructuring, your information may be transferred as part of that transaction.
                 </p>
               </div>
 
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">3.4 Legal Requirements</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">3.5 Legal Requirements</h3>
                 <p className="text-gray-600">
                   We may disclose your information if required by law, court order, or government request.
                 </p>
               </div>
 
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">3.5 Consent</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">3.6 Your Consent</h3>
                 <p className="text-gray-600">
                   We may share your information with other parties when you give explicit consent.
                 </p>
@@ -224,12 +195,14 @@ export default function PrivacyPolicyPage() {
                 We implement industry-standard security measures to protect your information:
               </p>
               <ul className="list-disc list-inside space-y-2 ml-2">
-                <li>SSL/TLS encryption for data in transit</li>
-                <li>AES-256 encryption for data at rest</li>
-                <li>Secure password hashing (bcrypt)</li>
-                <li>Regular security audits and penetration testing</li>
-                <li>Access controls and authentication</li>
+                <li>TLS/SSL encryption for all data transmitted between your device and our servers</li>
+                <li>Encrypted data storage and secure database access controls</li>
+                <li>Secure password hashing using industry-standard algorithms</li>
+                <li>Real-time connection security for WebSocket communications</li>
+                <li>Regular security audits and vulnerability testing</li>
                 <li>Firewalls and intrusion detection systems</li>
+                <li>Limited access to personal data by authorized personnel only</li>
+                <li>Session management and authentication mechanisms</li>
               </ul>
               <p className="mt-4">
                 <strong>Note:</strong> While we implement strong security measures, no system is 100% secure. We cannot guarantee absolute security of your information.
@@ -245,42 +218,42 @@ export default function PrivacyPolicyPage() {
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-3">5.1 Access and Correction</h3>
                 <p className="text-gray-600">
-                  You can access, review, and update your personal information anytime through your account settings.
+                  You can access, review, and update your personal information anytime through your account settings. You can modify your profile information, notification preferences, and privacy settings.
                 </p>
               </div>
 
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-3">5.2 Data Deletion</h3>
                 <p className="text-gray-600">
-                  You can request deletion of your account and personal data. We will delete your information within 30 days, except where retention is legally required.
+                  You can request deletion of your account and personal data by contacting us at dharan.poduvu@gmail.com. We will delete your information within 30 days, except where retention is legally required.
                 </p>
               </div>
 
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">5.3 Marketing Communications</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">5.3 Message Deletion</h3>
                 <p className="text-gray-600">
-                  You can opt out of promotional emails by clicking "Unsubscribe" in any email or changing your notification preferences.
+                  You can delete individual messages or entire conversations from your account. Deleted messages will be removed from your view, but may remain in the recipient's account.
                 </p>
               </div>
 
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">5.4 Cookie Preferences</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">5.4 Notification Preferences</h3>
+                <p className="text-gray-600">
+                  You can control what notifications you receive by adjusting your notification settings in your account preferences.
+                </p>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">5.5 Cookie Preferences</h3>
                 <p className="text-gray-600">
                   You can manage cookies through your browser settings. Some features may not work if cookies are disabled.
                 </p>
               </div>
 
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">5.5 Data Portability</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">5.6 Data Portability</h3>
                 <p className="text-gray-600">
-                  You can request a copy of your data in a portable format. Contact support@fuymedia.org for this request.
-                </p>
-              </div>
-
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">5.6 Do Not Track</h3>
-                <p className="text-gray-600">
-                  We do not currently respond to "Do Not Track" signals. However, you can manage tracking through browser settings.
+                  You can request a copy of your data in a portable format. Contact dharan.poduvu@gmail.com for this request.
                 </p>
               </div>
             </div>
@@ -292,10 +265,10 @@ export default function PrivacyPolicyPage() {
 
             <div className="space-y-4 text-gray-600">
               <p>
-                FUY is not intended for children under 13. We do not knowingly collect information from children under 13. If we become aware that a child under 13 has provided us with information, we will delete it immediately.
+                FUY Media is not intended for children under 13. We do not knowingly collect information from children under 13. If we become aware that a child under 13 has provided us with information, we will delete it immediately.
               </p>
               <p>
-                For children 13-18, parental consent is required to use the Platform.
+                For children 13-18, parental consent is required to use the Platform. Parents can contact us to request deletion of their child's account or information.
               </p>
             </div>
           </section>
@@ -305,6 +278,9 @@ export default function PrivacyPolicyPage() {
             <h2 className="text-2xl font-bold text-gray-900 mb-4">7. Data Retention</h2>
 
             <div className="space-y-4 text-gray-600">
+              <p>
+                We retain your personal information for the following periods:
+              </p>
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="bg-gray-100">
@@ -315,23 +291,31 @@ export default function PrivacyPolicyPage() {
                 <tbody>
                   <tr>
                     <td className="border border-gray-300 px-4 py-2">Account Information</td>
-                    <td className="border border-gray-300 px-4 py-2">Until account deletion</td>
+                    <td className="border border-gray-300 px-4 py-2">While account is active</td>
                   </tr>
                   <tr className="bg-gray-50">
-                    <td className="border border-gray-300 px-4 py-2">Transaction Records</td>
-                    <td className="border border-gray-300 px-4 py-2">7 years (for tax/legal)</td>
+                    <td className="border border-gray-300 px-4 py-2">Messages and Conversation History</td>
+                    <td className="border border-gray-300 px-4 py-2">Until deletion by user or account termination</td>
                   </tr>
                   <tr>
-                    <td className="border border-gray-300 px-4 py-2">User Content (Posts, etc.)</td>
-                    <td className="border border-gray-300 px-4 py-2">Until deletion by user</td>
+                    <td className="border border-gray-300 px-4 py-2">Friendship and Follower Data</td>
+                    <td className="border border-gray-300 px-4 py-2">Until user revokes relationship</td>
                   </tr>
                   <tr className="bg-gray-50">
-                    <td className="border border-gray-300 px-4 py-2">Analytics Data</td>
+                    <td className="border border-gray-300 px-4 py-2">Analytics and Usage Data</td>
                     <td className="border border-gray-300 px-4 py-2">12 months</td>
                   </tr>
                   <tr>
-                    <td className="border border-gray-300 px-4 py-2">Cookies</td>
+                    <td className="border border-gray-300 px-4 py-2">Session Logs</td>
+                    <td className="border border-gray-300 px-4 py-2">90 days</td>
+                  </tr>
+                  <tr className="bg-gray-50">
+                    <td className="border border-gray-300 px-4 py-2">Cookies and Tracking Data</td>
                     <td className="border border-gray-300 px-4 py-2">1-2 years</td>
+                  </tr>
+                  <tr>
+                    <td className="border border-gray-300 px-4 py-2">Backup and Archive Data</td>
+                    <td className="border border-gray-300 px-4 py-2">Up to 90 days after deletion</td>
                   </tr>
                 </tbody>
               </table>
@@ -344,10 +328,10 @@ export default function PrivacyPolicyPage() {
 
             <div className="space-y-4 text-gray-600">
               <p>
-                Your information may be transferred to, stored in, and processed in countries other than your country of residence. These countries may have data protection laws that differ from your home country.
+                Your information may be transferred to, stored in, and processed in countries other than your country of residence. Currently, our primary data storage location is in India. These countries may have data protection laws that differ from your home country.
               </p>
               <p>
-                By using FUY, you consent to the transfer of your information to countries outside your country of residence, which may not have the same data protection laws.
+                By using FUY Media, you consent to the transfer of your information to countries outside your country of residence, which may not have the same data protection laws. We ensure that any international transfers comply with applicable data protection laws and are protected by appropriate safeguards.
               </p>
             </div>
           </section>
@@ -358,7 +342,7 @@ export default function PrivacyPolicyPage() {
 
             <div className="space-y-4 text-gray-600">
               <p>
-                FUY may contain links to third-party websites and services. We are not responsible for their privacy practices. Please review their privacy policies before providing personal information.
+                FUY Media may contain links to third-party websites and services. We are not responsible for their privacy practices. Please review their privacy policies before providing personal information.
               </p>
             </div>
           </section>
@@ -369,13 +353,15 @@ export default function PrivacyPolicyPage() {
 
             <div className="space-y-4 text-gray-600">
               <p>
-                If you have questions about this Privacy Policy or our privacy practices, please contact us:
+                If you have questions about this Privacy Policy or our privacy practices, please contact our Privacy Compliance Officer:
               </p>
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="font-semibold text-gray-900 mb-3">Privacy Officer</p>
-                <p>Email: <a href="mailto:privacy@fuymedia.org" className="text-blue-600 hover:text-blue-700">privacy@fuymedia.org</a></p>
-                <p>Address: FUY Media Pvt. Ltd., Bangalore, Karnataka, India</p>
+                <p className="font-semibold text-gray-900 mb-3">Privacy Compliance Officer</p>
+                <p>Email: <a href="mailto:dharan.poduvu@gmail.com" className="text-blue-600 hover:text-blue-700">dharan.poduvu@gmail.com</a></p>
               </div>
+              <p className="mt-4">
+                We will respond to your request within 30 days.
+              </p>
             </div>
           </section>
 
@@ -385,7 +371,22 @@ export default function PrivacyPolicyPage() {
 
             <div className="space-y-4 text-gray-600">
               <p>
-                We may update this Privacy Policy from time to time. We will notify you of significant changes via email or prominent notice on the Platform. Your continued use of FUY after changes means you accept the updated Privacy Policy.
+                We reserve the right to modify this Privacy Policy at any time. Changes and clarifications will take effect immediately upon their posting on the Platform.
+              </p>
+              <p>
+                If we make material changes to this policy, we will notify you by:
+              </p>
+              <ul className="list-disc list-inside space-y-1 ml-2">
+                <li>Posting a prominent notice in the application</li>
+                <li>Sending you an email notification</li>
+                <li>Requiring you to accept the updated policy before continuing to use the service</li>
+              </ul>
+              <p className="mt-4">
+                Your continued use of FUY Media after changes are posted constitutes your acceptance of the updated policy.
+              </p>
+              <p>
+                <strong>Last Updated:</strong> November 15, 2025<br/>
+                <strong>Effective Date:</strong> November 15, 2025
               </p>
             </div>
           </section>
