@@ -1,17 +1,18 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, Switch } from 'react-native';
+import {
+  View,
+  ScrollView,
+  StyleSheet,
+  FlatList,
+  Dimensions,
+  Switch,
+  Pressable,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-const COLORS = {
-  primary: '#6AA8FF',
-  joy: '#FFB366',
-  calm: '#38D67A',
-  reflect: '#B88FFF',
-  base: '#0F0F12',
-  surface: '#1A1A22',
-  text: '#E8E8F0',
-  textMuted: 'rgba(232, 232, 240, 0.6)',
-};
+import { GlassBackground, GlassSurface, GlassChip, GlassButton, StoryRing } from '../components/glass';
+import { TitleL, TitleM, BodyM, BodyS, Caption } from '../components/typography';
+import { GLASS_TOKENS } from '../theme';
+import FollowersModal from '../components/FollowersModal';
 
 interface UserProfile {
   name: string;
@@ -23,7 +24,17 @@ interface UserProfile {
   joinDate: string;
 }
 
+const DUMMY_PHOTOS = [
+  { id: '1', uri: 'https://via.placeholder.com/200' },
+  { id: '2', uri: 'https://via.placeholder.com/200' },
+  { id: '3', uri: 'https://via.placeholder.com/200' },
+  { id: '4', uri: 'https://via.placeholder.com/200' },
+  { id: '5', uri: 'https://via.placeholder.com/200' },
+  { id: '6', uri: 'https://via.placeholder.com/200' },
+];
+
 export default function ProfileScreen() {
+  const [activeFilter, setActiveFilter] = useState<'posts' | 'tagged' | 'saved'>('posts');
   const [profile] = useState<UserProfile>({
     name: 'You',
     username: '@fuy_explorer',
@@ -35,307 +46,238 @@ export default function ProfileScreen() {
   });
 
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [darkMode, setDarkMode] = useState(true);
-  const [privacyMode, setPrivacyMode] = useState(false);
+  const [followersModalVisible, setFollowersModalVisible] = useState(false);
+  const [followingModalVisible, setFollowingModalVisible] = useState(false);
 
-  const PROFILE_SECTIONS = [
-    { id: '1', label: 'Your Moments', value: profile.momentCount, icon: '🎨' },
-    { id: '2', label: 'Followers', value: profile.followersCount, icon: '👥' },
-    { id: '3', label: 'Following', value: profile.followingCount, icon: '🔗' },
-  ];
-
-  const SETTINGS = [
-    {
-      id: '1',
-      label: 'Notifications',
-      description: 'Get notifications for new moments',
-      value: notificationsEnabled,
-      onChange: setNotificationsEnabled,
-    },
-    {
-      id: '2',
-      label: 'Dark Mode',
-      description: 'Use dark theme',
-      value: darkMode,
-      onChange: setDarkMode,
-    },
-    {
-      id: '3',
-      label: 'Private Profile',
-      description: 'Only followers can see your moments',
-      value: privacyMode,
-      onChange: setPrivacyMode,
-    },
-  ];
+  const screenWidth = Dimensions.get('window').width;
+  const photoSize = (screenWidth - GLASS_TOKENS.spacing[8] * 2 - GLASS_TOKENS.spacing[2] * 2) / 3;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Profile</Text>
-        </View>
+    <GlassBackground>
+      <SafeAreaView style={{ flex: 1 }} edges={['left', 'right']}>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {/* Profile Header - Glass Container */}
+          <GlassSurface
+            variant="card"
+            style={styles.headerCard}
+            padding={{ horizontal: GLASS_TOKENS.spacing[4], vertical: GLASS_TOKENS.spacing[4] }}
+            radius={GLASS_TOKENS.glass.radius.xl}
+          >
+            {/* Avatar & Info */}
+            <View style={styles.profileTop}>
+              <StoryRing
+                size={80}
+                ringWidth={3}
+                hasStory={true}
+                initial={profile.name.charAt(0)}
+                placeholderColor={GLASS_TOKENS.colors.primary}
+                gradientColors={[GLASS_TOKENS.colors.primary, GLASS_TOKENS.colors.secondary]}
+              />
 
-        {/* Profile Card */}
-        <View style={styles.profileCard}>
-          <View style={styles.avatarContainer}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>👤</Text>
-            </View>
-          </View>
-
-          <Text style={styles.name}>{profile.name}</Text>
-          <Text style={styles.username}>{profile.username}</Text>
-          <Text style={styles.bio}>{profile.bio}</Text>
-          <Text style={styles.joinDate}>{profile.joinDate}</Text>
-
-          <View style={styles.actionButtons}>
-            <Pressable style={styles.actionButton}>
-              <Text style={styles.actionButtonText}>Edit Profile</Text>
-            </Pressable>
-            <Pressable style={[styles.actionButton, styles.secondaryButton]}>
-              <Text style={styles.secondaryButtonText}>Share Profile</Text>
-            </Pressable>
-          </View>
-        </View>
-
-        {/* Stats */}
-        <View style={styles.statsContainer}>
-          {PROFILE_SECTIONS.map((stat) => (
-            <View key={stat.id} style={styles.statItem}>
-              <Text style={styles.statIcon}>{stat.icon}</Text>
-              <Text style={styles.statValue}>{stat.value}</Text>
-              <Text style={styles.statLabel}>{stat.label}</Text>
-            </View>
-          ))}
-        </View>
-
-        {/* Settings */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Settings</Text>
-
-          {SETTINGS.map((setting) => (
-            <View key={setting.id} style={styles.settingItem}>
-              <View style={styles.settingContent}>
-                <Text style={styles.settingLabel}>{setting.label}</Text>
-                <Text style={styles.settingDescription}>{setting.description}</Text>
+              <View style={{ flex: 1 }}>
+                <TitleL>{profile.name}</TitleL>
+                <BodyS contrast="low">{profile.username}</BodyS>
+                <Caption contrast="low" style={{ marginTop: GLASS_TOKENS.spacing[1] }}>
+                  {profile.joinDate}
+                </Caption>
               </View>
-              <Switch
-                value={setting.value}
-                onValueChange={setting.onChange}
-                trackColor={{ false: 'rgba(255, 255, 255, 0.1)', true: COLORS.primary }}
+            </View>
+
+            {/* Bio */}
+            <BodyM style={{ marginTop: GLASS_TOKENS.spacing[3], marginBottom: GLASS_TOKENS.spacing[3] }}>
+              {profile.bio}
+            </BodyM>
+
+            {/* Stats Row - Compact Pill Chips */}
+            <View style={styles.statsRow}>
+              <GlassChip
+                label={`🎨 ${profile.momentCount} Posts`}
+              />
+              <Pressable onPress={() => setFollowersModalVisible(true)}>
+                <GlassChip
+                  label={`👥 ${profile.followersCount} Followers`}
+                />
+              </Pressable>
+              <Pressable onPress={() => setFollowingModalVisible(true)}>
+                <GlassChip
+                  label={`🔗 ${profile.followingCount} Following`}
+                />
+              </Pressable>
+            </View>
+
+            {/* CTA Buttons */}
+            <View style={styles.ctaRow}>
+              <GlassButton
+                variant="primary"
+                label="Follow"
+                size="medium"
+                onPress={() => console.log('Follow')}
+                fullWidth={false}
+                style={{ flex: 1 }}
+              />
+              <GlassButton
+                variant="secondary"
+                label="Message"
+                size="medium"
+                onPress={() => console.log('Message')}
+                fullWidth={false}
+                style={{ flex: 1 }}
               />
             </View>
-          ))}
-        </View>
+          </GlassSurface>
 
-        {/* Additional Options */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>More</Text>
+          {/* Content Filters - Glass Chips */}
+          <View style={styles.filterRow}>
+            <GlassChip
+              label="Posts"
+              selected={activeFilter === 'posts'}
+              onPress={() => setActiveFilter('posts')}
+            />
+            <GlassChip
+              label="Tagged"
+              selected={activeFilter === 'tagged'}
+              onPress={() => setActiveFilter('tagged')}
+            />
+            <GlassChip
+              label="Saved"
+              selected={activeFilter === 'saved'}
+              onPress={() => setActiveFilter('saved')}
+            />
+          </View>
 
-          <Pressable style={styles.optionItem}>
-            <Text style={styles.optionIcon}>❓</Text>
-            <Text style={styles.optionLabel}>Help & Support</Text>
-          </Pressable>
+          {/* Photo Grid - Rounded Tiles with Generous Gutters */}
+          <View style={styles.photoGridContainer}>
+            <FlatList
+              data={DUMMY_PHOTOS}
+              numColumns={3}
+              keyExtractor={(item) => item.id}
+              scrollEnabled={false}
+              columnWrapperStyle={styles.photoRow}
+              renderItem={() => (
+                <View style={{ width: photoSize, height: photoSize }}>
+                  <GlassSurface
+                    variant="card"
+                    style={styles.photoTile}
+                    padding={0}
+                    radius={GLASS_TOKENS.glass.radius.large}
+                  />
+                </View>
+              )}
+            />
+          </View>
 
-          <Pressable style={styles.optionItem}>
-            <Text style={styles.optionIcon}>⚙️</Text>
-            <Text style={styles.optionLabel}>Privacy Policy</Text>
-          </Pressable>
+          {/* Settings Section */}
+          <GlassSurface
+            variant="card"
+            style={styles.settingsCard}
+            padding={{ horizontal: GLASS_TOKENS.spacing[4], vertical: GLASS_TOKENS.spacing[3] }}
+            radius={GLASS_TOKENS.glass.radius.large}
+          >
+            <TitleM style={{ marginBottom: GLASS_TOKENS.spacing[3] }}>
+              Preferences
+            </TitleM>
 
-          <Pressable style={styles.optionItem}>
-            <Text style={styles.optionIcon}>📋</Text>
-            <Text style={styles.optionLabel}>Terms of Service</Text>
-          </Pressable>
+            {/* Notification Setting */}
+            <View style={styles.settingRow}>
+              <View>
+                <BodyM>Notifications</BodyM>
+                <BodyS contrast="low" style={{ marginTop: GLASS_TOKENS.spacing[1] }}>
+                  Get updates on new moments
+                </BodyS>
+              </View>
+              <Switch
+                value={notificationsEnabled}
+                onValueChange={setNotificationsEnabled}
+                trackColor={{
+                  false: GLASS_TOKENS.glass.tint.light,
+                  true: GLASS_TOKENS.colors.primary,
+                }}
+              />
+            </View>
+          </GlassSurface>
 
-          <Pressable style={[styles.optionItem, styles.dangerOption]}>
-            <Text style={styles.optionIcon}>🚪</Text>
-            <Text style={styles.dangerLabel}>Sign Out</Text>
-          </Pressable>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+          {/* Bottom Spacing */}
+          <View style={{ height: GLASS_TOKENS.spacing[8] }} />
+        </ScrollView>
+      </SafeAreaView>
+
+      {/* Followers Modal */}
+      <FollowersModal
+        isVisible={followersModalVisible}
+        onClose={() => setFollowersModalVisible(false)}
+        type="followers"
+        count={profile.followersCount}
+      />
+
+      {/* Following Modal */}
+      <FollowersModal
+        isVisible={followingModalVisible}
+        onClose={() => setFollowingModalVisible(false)}
+        type="following"
+        count={profile.followingCount}
+      />
+    </GlassBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.base,
+  headerCard: {
+    marginHorizontal: GLASS_TOKENS.spacing[4],
+    marginTop: GLASS_TOKENS.spacing[3],
+    marginBottom: GLASS_TOKENS.spacing[4],
   },
-  header: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+
+  profileTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: GLASS_TOKENS.spacing[3],
   },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: COLORS.text,
+
+  statsRow: {
+    flexDirection: 'row',
+    gap: GLASS_TOKENS.spacing[2],
+    marginBottom: GLASS_TOKENS.spacing[3],
+    flexWrap: 'wrap',
   },
-  profileCard: {
-    marginHorizontal: 16,
-    marginVertical: 16,
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(106, 168, 255, 0.2)',
+
+  ctaRow: {
+    flexDirection: 'row',
+    gap: GLASS_TOKENS.spacing[3],
   },
-  avatarContainer: {
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: COLORS.primary,
+
+  filterRow: {
+    flexDirection: 'row',
+    gap: GLASS_TOKENS.spacing[2],
+    paddingHorizontal: GLASS_TOKENS.spacing[4],
+    paddingVertical: GLASS_TOKENS.spacing[3],
     justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
   },
-  avatarText: {
-    fontSize: 40,
+
+  photoGridContainer: {
+    paddingHorizontal: GLASS_TOKENS.spacing[4],
+    marginBottom: GLASS_TOKENS.spacing[4],
   },
-  name: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: COLORS.text,
-    textAlign: 'center',
-    marginBottom: 4,
+
+  photoRow: {
+    gap: GLASS_TOKENS.spacing[2],
+    marginBottom: GLASS_TOKENS.spacing[2],
   },
-  username: {
-    fontSize: 14,
-    color: COLORS.primary,
-    textAlign: 'center',
-    marginBottom: 8,
+
+  photoTile: {
+    backgroundColor: '#F0F0F0',
   },
-  bio: {
-    fontSize: 13,
-    color: COLORS.textMuted,
-    textAlign: 'center',
-    marginBottom: 8,
-    lineHeight: 18,
+
+  settingsCard: {
+    marginHorizontal: GLASS_TOKENS.spacing[4],
+    marginBottom: GLASS_TOKENS.spacing[4],
   },
-  joinDate: {
-    fontSize: 11,
-    color: COLORS.textMuted,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 8,
-  },
-  actionButton: {
-    flex: 1,
-    backgroundColor: COLORS.primary,
-    borderRadius: 8,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  actionButtonText: {
-    color: '#000',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  secondaryButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: COLORS.primary,
-  },
-  secondaryButtonText: {
-    color: COLORS.primary,
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  statIcon: {
-    fontSize: 24,
-    marginBottom: 4,
-  },
-  statValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.text,
-  },
-  statLabel: {
-    fontSize: 11,
-    color: COLORS.textMuted,
-    marginTop: 4,
-  },
-  sectionContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: COLORS.text,
-    marginBottom: 12,
-  },
-  settingItem: {
+
+  settingRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
-    marginBottom: 8,
-  },
-  settingContent: {
-    flex: 1,
-  },
-  settingLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-  settingDescription: {
-    fontSize: 12,
-    color: COLORS.textMuted,
-    marginTop: 2,
-  },
-  optionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
-    marginBottom: 8,
-    gap: 12,
-  },
-  optionIcon: {
-    fontSize: 18,
-  },
-  optionLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: COLORS.text,
-  },
-  dangerOption: {
-    backgroundColor: 'rgba(255, 100, 100, 0.05)',
-  },
-  dangerLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#FF6464',
+    paddingVertical: GLASS_TOKENS.spacing[3],
+    borderBottomWidth: 1,
+    borderBottomColor: '#000000',
   },
 });
