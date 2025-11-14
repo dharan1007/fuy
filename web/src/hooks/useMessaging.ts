@@ -49,6 +49,8 @@ export function useMessaging() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const socketRef = useRef<Socket | null>(null);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastMessageTimestampRef = useRef<{ [key: string]: number }>({});
 
   // Initialize Socket.io connection (development only)
   useEffect(() => {
@@ -312,6 +314,56 @@ export function useMessaging() {
     return uniqueUsers;
   }, [followers, following]);
 
+  // Polling function for production (when Socket.io is not available)
+  const startPolling = useCallback((conversationId: string) => {
+    // Stop existing polling if any
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+    }
+
+    // Set initial timestamp
+    if (!lastMessageTimestampRef.current[conversationId]) {
+      lastMessageTimestampRef.current[conversationId] = Date.now();
+    }
+
+    // Poll for new messages every 2 seconds in production
+    const isProduction = process.env.NODE_ENV === 'production';
+    if (isProduction) {
+      pollingIntervalRef.current = setInterval(async () => {
+        try {
+          const response = await fetch(
+            `/api/chat/messages?conversationId=${conversationId}`
+          );
+          if (response.ok) {
+            const data = await response.json();
+            const formattedMessages = data.messages.map((msg: any) => ({
+              id: msg.id,
+              conversationId: msg.conversationId,
+              senderId: msg.senderId,
+              senderName: msg.sender.profile?.displayName || msg.sender.name,
+              content: msg.content,
+              timestamp: new Date(msg.createdAt).getTime(),
+              read: msg.readAt !== null,
+            }));
+            setMessages((prev) => ({
+              ...prev,
+              [conversationId]: formattedMessages,
+            }));
+          }
+        } catch (err) {
+          console.error('Polling error:', err);
+        }
+      }, 2000); // Poll every 2 seconds
+    }
+  }, []);
+
+  const stopPolling = useCallback(() => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+  }, []);
+
   return {
     socket,
     conversations,
@@ -329,5 +381,7 @@ export function useMessaging() {
     stopTyping,
     createOrGetConversation,
     getAllChatUsers,
+    startPolling,
+    stopPolling,
   };
 }

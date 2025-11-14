@@ -60,6 +60,8 @@ export default function MessagesPage() {
     stopTyping,
     createOrGetConversation,
     getAllChatUsers,
+    startPolling,
+    stopPolling,
   } = useMessaging();
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -287,12 +289,24 @@ export default function MessagesPage() {
     return () => clearInterval(interval);
   }, [selectedConversationId, chatRetention]);
 
-  // Load messages when conversation is selected
+  // Load messages when conversation is selected and start polling
   useEffect(() => {
-    if (selectedConversationId && !messages[selectedConversationId]) {
-      fetchMessages(selectedConversationId);
+    if (selectedConversationId) {
+      if (!messages[selectedConversationId]) {
+        fetchMessages(selectedConversationId);
+      }
+      // Start polling for new messages in production
+      startPolling(selectedConversationId);
+    } else {
+      stopPolling();
     }
-  }, [selectedConversationId, messages, fetchMessages]);
+
+    return () => {
+      if (!selectedConversationId) {
+        stopPolling();
+      }
+    };
+  }, [selectedConversationId, messages, fetchMessages, startPolling, stopPolling]);
 
   // Cleanup search timeout on unmount
   useEffect(() => {
@@ -716,37 +730,92 @@ export default function MessagesPage() {
             {/* Messages Area */}
             <div className={styles.messagesArea}>
               {(selectedConversationId && messages[selectedConversationId] && messages[selectedConversationId].length > 0) ? (
-                messages[selectedConversationId]!.map((msg) => (
-                  <div
-                    key={msg.id}
-                    style={{
-                      display: 'flex',
-                      marginBottom: '12px',
-                      justifyContent: msg.senderId === userId ? 'flex-end' : 'flex-start',
-                      cursor: 'pointer',
-                      transition: 'opacity 0.2s',
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.8')}
-                    onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
-                    title={`Click to ${msg.senderId !== userId ? 'save' : 'manage'} message`}
-                  >
+                messages[selectedConversationId]!.map((msg, idx) => {
+                  const isOwnMessage = msg.senderId === userId;
+                  const prevMsg = idx > 0 ? messages[selectedConversationId]![idx - 1] : null;
+                  const isSameSender = prevMsg?.senderId === msg.senderId;
+
+                  return (
                     <div
+                      key={msg.id}
+                      className={`${styles.messageWrapper} ${isOwnMessage ? styles.own : styles.other}`}
                       style={{
-                        maxWidth: '60%',
-                        padding: '10px 14px',
-                        borderRadius: '12px',
-                        backgroundColor: msg.senderId === userId ? '#3b82f6' : '#e5e7eb',
-                        color: msg.senderId === userId ? '#ffffff' : '#1f2937',
-                        wordWrap: 'break-word',
+                        display: 'flex',
+                        marginBottom: isSameSender ? '2px' : '16px',
+                        justifyContent: isOwnMessage ? 'flex-end' : 'flex-start',
+                        paddingBottom: isSameSender ? 0 : '8px',
                       }}
                     >
-                      <p style={{ margin: 0, fontSize: '14px' }}>{msg.content}</p>
-                      <p style={{ margin: '4px 0 0 0', fontSize: '12px', opacity: 0.7 }}>
-                        {formatTime(msg.timestamp)}
-                      </p>
+                      {/* Avatar for received messages (grouped) */}
+                      {!isOwnMessage && !isSameSender && (
+                        <div
+                          style={{
+                            width: '32px',
+                            height: '32px',
+                            borderRadius: '50%',
+                            backgroundColor: '#3b82f6',
+                            color: '#ffffff',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '12px',
+                            fontWeight: 'bold',
+                            marginRight: '8px',
+                            flexShrink: 0,
+                          }}
+                        >
+                          {msg.senderName?.charAt(0) || 'U'}
+                        </div>
+                      )}
+                      {!isOwnMessage && isSameSender && (
+                        <div style={{ width: '32px', marginRight: '8px', flexShrink: 0 }} />
+                      )}
+
+                      {/* Message bubble */}
+                      <div
+                        className={styles.messageBubble}
+                        style={{
+                          maxWidth: '60%',
+                          padding: '10px 14px',
+                          borderRadius: isOwnMessage
+                            ? '18px 18px 4px 18px'
+                            : '18px 18px 18px 4px',
+                          backgroundColor: isOwnMessage ? '#3b82f6' : '#e5e7eb',
+                          color: isOwnMessage ? '#ffffff' : '#1f2937',
+                          wordWrap: 'break-word',
+                          wordBreak: 'break-word',
+                          boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                          transition: 'all 0.2s ease',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.boxShadow = isOwnMessage
+                            ? '0 4px 12px rgba(59, 130, 246, 0.3)'
+                            : '0 4px 12px rgba(0,0,0,0.1)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.05)';
+                        }}
+                      >
+                        {!isOwnMessage && !isSameSender && (
+                          <p style={{ margin: '0 0 4px 0', fontSize: '12px', fontWeight: '600', opacity: 0.8 }}>
+                            {msg.senderName}
+                          </p>
+                        )}
+                        <p style={{ margin: 0, fontSize: '14px', lineHeight: '1.4' }}>
+                          {msg.content}
+                        </p>
+                        <p style={{
+                          margin: '6px 0 0 0',
+                          fontSize: '11px',
+                          opacity: 0.6,
+                          textAlign: 'right'
+                        }}>
+                          {formatTime(msg.timestamp)}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <div className={styles.placeholderMessage}>
                   <p>Start chatting with {selectedConversation.participantName}</p>
