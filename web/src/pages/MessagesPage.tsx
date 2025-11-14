@@ -76,6 +76,7 @@ export default function MessagesPage() {
   const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(null);
   const [searchResults, setSearchResults] = useState<Friend[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -350,6 +351,8 @@ export default function MessagesPage() {
     } else {
       setSelectedConversationId(id);
     }
+    // Close mobile sidebar when conversation is selected
+    setShowMobileSidebar(false);
   };
 
   const selectedConversation = conversations.find((c) => c.id === selectedConversationId);
@@ -357,7 +360,7 @@ export default function MessagesPage() {
   return (
     <div className={styles.container}>
       {/* Sidebar - Conversations List */}
-      <div className={styles.sidebar}>
+      <div className={`${styles.sidebar} ${showMobileSidebar ? styles.mobileOpen : ''}`}>
         <div className={styles.header}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <button
@@ -607,6 +610,15 @@ export default function MessagesPage() {
           <div className={styles.chatArea}>
             {/* Chat Header */}
             <div className={styles.chatHeader}>
+              {/* Mobile Menu Toggle */}
+              <button
+                className={styles.mobileMenuToggle}
+                onClick={() => setShowMobileSidebar(!showMobileSidebar)}
+                title="Toggle conversations"
+              >
+                ☰
+              </button>
+
               <div className={styles.chatHeaderInfo}>
                 <h2>{selectedConversation.participantName}</h2>
                 <p style={{ color: onlineUsers.has(selectedConversation.participantId) ? '#10b981' : '#9ca3af' }}>
