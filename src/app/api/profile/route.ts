@@ -1,5 +1,6 @@
 // src/app/api/profile/route.ts
 export const runtime = "nodejs";
+export const revalidate = 0; // Disable static generation for this route
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
