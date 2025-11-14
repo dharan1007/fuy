@@ -1,16 +1,19 @@
 /**
  * Messages Page - Web Version
- * Displays conversations list with AI Assistant integration
+ * Displays conversations list with AI Assistant integration and real-time messaging
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { AIChatInterface } from '../components/ai';
+import { useMessaging } from '../hooks/useMessaging';
 import styles from './MessagesPage.module.css';
 
 interface Conversation {
   id: string;
   participantName: string;
+  participantId: string;
   lastMessage: string;
   lastMessageTime: number;
   unreadCount: number;
@@ -30,71 +33,56 @@ interface Message {
 interface Friend {
   id: string;
   name: string;
+  email?: string;
+  profile?: {
+    displayName: string;
+    avatarUrl: string;
+  };
   status?: string;
 }
 
-const DUMMY_CONVERSATIONS: Conversation[] = [
-  {
-    id: 'conv_1',
-    participantName: 'Sarah Johnson',
-    lastMessage: 'Hey! Did you see the new feature?',
-    lastMessageTime: Date.now() - 300000,
-    unreadCount: 2,
-  },
-  {
-    id: 'conv_2',
-    participantName: 'Mike Chen',
-    lastMessage: 'Thanks for your help earlier!',
-    lastMessageTime: Date.now() - 3600000,
-    unreadCount: 0,
-  },
-  {
-    id: 'conv_3',
-    participantName: 'Emma Davis',
-    lastMessage: 'Let\'s catch up soon',
-    lastMessageTime: Date.now() - 86400000,
-    unreadCount: 1,
-  },
-];
-
-const DUMMY_FRIENDS: Friend[] = [
-  { id: 'friend_1', name: 'Sarah Johnson', status: 'online' },
-  { id: 'friend_2', name: 'Mike Chen', status: 'offline' },
-  { id: 'friend_3', name: 'Emma Davis', status: 'online' },
-  { id: 'friend_4', name: 'Alex Kumar', status: 'online' },
-  { id: 'friend_5', name: 'Jessica Lee', status: 'offline' },
-  { id: 'friend_6', name: 'David Martinez', status: 'online' },
-];
-
-const DUMMY_MESSAGES: { [key: string]: Message[] } = {
-  conv_1: [
-    { id: '1', conversationId: 'conv_1', senderId: 'user_123', senderName: 'You', content: 'Hey Sarah!', timestamp: Date.now() - 600000, read: true },
-    { id: '2', conversationId: 'conv_1', senderId: 'friend_1', senderName: 'Sarah Johnson', content: 'Hey! How are you?', timestamp: Date.now() - 500000, read: true },
-    { id: '3', conversationId: 'conv_1', senderId: 'user_123', senderName: 'You', content: 'Great! You?', timestamp: Date.now() - 400000, read: true },
-    { id: '4', conversationId: 'conv_1', senderId: 'friend_1', senderName: 'Sarah Johnson', content: 'Doing well! Did you see the new feature?', timestamp: Date.now() - 300000, read: false },
-  ],
-  conv_2: [
-    { id: '5', conversationId: 'conv_2', senderId: 'friend_2', senderName: 'Mike Chen', content: 'Thanks for your help!', timestamp: Date.now() - 3600000, read: true },
-  ],
-  conv_3: [
-    { id: '6', conversationId: 'conv_3', senderId: 'friend_3', senderName: 'Emma Davis', content: 'Let\'s catch up soon!', timestamp: Date.now() - 86400000, read: false },
-  ],
-};
-
 export default function MessagesPage() {
   const router = useRouter();
-  const [conversations, setConversations] = useState<Conversation[]>(DUMMY_CONVERSATIONS);
-  const [messages, setMessages] = useState<{ [key: string]: Message[] }>(DUMMY_MESSAGES);
-  const [friends, setFriends] = useState<Friend[]>(DUMMY_FRIENDS);
+  const { data: session } = useSession();
+  const {
+    conversations: apiConversations,
+    messages: apiMessages,
+    followers,
+    following,
+    onlineUsers,
+    typingUsers,
+    loading,
+    fetchMessages,
+    sendMessage,
+    startTyping,
+    stopTyping,
+    createOrGetConversation,
+    getAllChatUsers,
+  } = useMessaging();
+
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [messages, setMessages] = useState<{ [key: string]: Message[] }>({});
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [showAIChat, setShowAIChat] = useState(false);
-  const [userId] = useState('user_123');
   const [searchQuery, setSearchQuery] = useState('');
   const [showFriendsDropdown, setShowFriendsDropdown] = useState(false);
   const [showRetentionSettings, setShowRetentionSettings] = useState(false);
   const [chatRetention, setChatRetention] = useState<'1day' | '7days' | '30days' | 'forever'>('forever');
   const [messageInput, setMessageInput] = useState('');
+  const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Sync API conversations with local state
+  useEffect(() => {
+    if (apiConversations.length > 0) {
+      setConversations(apiConversations);
+    }
+  }, [apiConversations]);
+
+  // Sync API messages with local state
+  useEffect(() => {
+    setMessages(apiMessages);
+  }, [apiMessages]);
 
   // Auto-scroll to latest message
   useEffect(() => {
@@ -107,63 +95,96 @@ export default function MessagesPage() {
     conv.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Filter friends based on search query
-  const filteredFriends = friends.filter(friend =>
-    friend.name.toLowerCase().includes(searchQuery.toLowerCase())
+  // Get all followers and following combined for search
+  const allChatUsers = getAllChatUsers();
+  const filteredFriends = allChatUsers.filter(friend =>
+    (friend.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    friend.profile?.displayName?.toLowerCase().includes(searchQuery.toLowerCase()))
+    && searchQuery.length > 0
   );
 
   // Send message
-  const handleSendMessage = () => {
-    if (!messageInput.trim() || !selectedConversationId) return;
+  const handleSendMessage = useCallback(async () => {
+    if (!messageInput.trim() || !selectedConversationId || !session?.user) return;
 
-    const newMessage: Message = {
+    const userId = (session.user as any).id;
+    const content = messageInput.trim();
+    setMessageInput('');
+    stopTyping(selectedConversationId);
+
+    // Add optimistic message
+    const optimisticMessage: Message = {
       id: Date.now().toString(),
       conversationId: selectedConversationId,
       senderId: userId,
       senderName: 'You',
-      content: messageInput,
+      content,
       timestamp: Date.now(),
       read: true,
     };
 
     setMessages(prev => ({
       ...prev,
-      [selectedConversationId]: [...(prev[selectedConversationId] || []), newMessage]
+      [selectedConversationId]: [...(prev[selectedConversationId] || []), optimisticMessage]
     }));
 
     // Update conversation's last message
     setConversations(prev =>
       prev.map(conv =>
         conv.id === selectedConversationId
-          ? { ...conv, lastMessage: messageInput, lastMessageTime: Date.now() }
+          ? { ...conv, lastMessage: content, lastMessageTime: Date.now() }
           : conv
       )
     );
 
-    setMessageInput('');
-  };
+    // Send via API and Socket.io
+    await sendMessage(selectedConversationId, content);
+  }, [messageInput, selectedConversationId, session?.user, sendMessage, stopTyping]);
 
   // Start conversation with friend
-  const handleStartConversation = (friend: Friend) => {
-    const existingConv = conversations.find(c => c.participantName === friend.name);
-    if (existingConv) {
-      setSelectedConversationId(existingConv.id);
-    } else {
-      const newConvId = `conv_${Date.now()}`;
-      const newConv: Conversation = {
-        id: newConvId,
-        participantName: friend.name,
-        lastMessage: '',
-        lastMessageTime: Date.now(),
-        unreadCount: 0,
-      };
-      setConversations([newConv, ...conversations]);
-      setMessages({ ...messages, [newConvId]: [] });
-      setSelectedConversationId(newConvId);
+  const handleStartConversation = useCallback(async (friend: Friend) => {
+    try {
+      const existingConv = conversations.find(c => c.participantId === friend.id);
+      if (existingConv) {
+        setSelectedConversationId(existingConv.id);
+      } else {
+        const conversationId = await createOrGetConversation(friend.id);
+        if (conversationId) {
+          setSelectedConversationId(conversationId);
+          await fetchMessages(conversationId);
+        }
+      }
+      setSearchQuery('');
+      setShowFriendsDropdown(false);
+    } catch (err) {
+      console.error('Failed to start conversation:', err);
     }
-    setSearchQuery('');
-    setShowFriendsDropdown(false);
-  };
+  }, [conversations, createOrGetConversation, fetchMessages]);
+
+  // Handle message input changes with typing indicator
+  const handleMessageInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setMessageInput(value);
+
+    if (value.trim().length > 0 && selectedConversationId) {
+      startTyping(selectedConversationId);
+
+      // Clear previous timeout
+      if (typingTimeout) clearTimeout(typingTimeout);
+
+      // Set new timeout to stop typing
+      const timeout = setTimeout(() => {
+        stopTyping(selectedConversationId);
+      }, 1000);
+
+      setTypingTimeout(timeout);
+    } else {
+      if (typingTimeout) clearTimeout(typingTimeout);
+      if (selectedConversationId) {
+        stopTyping(selectedConversationId);
+      }
+    }
+  }, [selectedConversationId, startTyping, stopTyping, typingTimeout]);
 
   // Save/delete messages based on retention setting
   useEffect(() => {
@@ -193,6 +214,13 @@ export default function MessagesPage() {
 
     return () => clearInterval(interval);
   }, [selectedConversationId, chatRetention]);
+
+  // Load messages when conversation is selected
+  useEffect(() => {
+    if (selectedConversationId && !messages[selectedConversationId]) {
+      fetchMessages(selectedConversationId);
+    }
+  }, [selectedConversationId, messages, fetchMessages]);
 
   // Feature navigation mapping
   const featureRoutes = {
@@ -301,48 +329,67 @@ export default function MessagesPage() {
               boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
               zIndex: 10,
             }}>
-              {filteredFriends.map((friend) => (
-                <button
-                  key={friend.id}
-                  onClick={() => handleStartConversation(friend)}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    textAlign: 'left',
-                    border: 'none',
-                    borderBottom: '1px solid #f0f0f0',
-                    backgroundColor: 'transparent',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    transition: 'background-color 0.2s',
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f9fafb')}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{
-                      width: '32px',
-                      height: '32px',
-                      borderRadius: '50%',
-                      backgroundColor: '#3b82f6',
-                      color: '#ffffff',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '12px',
-                      fontWeight: 'bold',
-                    }}>
-                      {friend.name.charAt(0)}
-                    </div>
-                    <div>
-                      <div style={{ fontWeight: '500', color: '#111827' }}>{friend.name}</div>
-                      <div style={{ fontSize: '12px', color: friend.status === 'online' ? '#10b981' : '#9ca3af' }}>
-                        {friend.status === 'online' ? '● Online' : '● Offline'}
+              {filteredFriends.map((friend) => {
+                const isOnline = onlineUsers.has(friend.id);
+                return (
+                  <button
+                    key={friend.id}
+                    onClick={() => handleStartConversation(friend)}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      textAlign: 'left',
+                      border: 'none',
+                      borderBottom: '1px solid #f0f0f0',
+                      backgroundColor: 'transparent',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      transition: 'background-color 0.2s',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#f9fafb')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ position: 'relative' }}>
+                        <div style={{
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '50%',
+                          backgroundColor: '#3b82f6',
+                          color: '#ffffff',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '12px',
+                          fontWeight: 'bold',
+                        }}>
+                          {friend.name?.charAt(0) || friend.profile?.displayName?.charAt(0)}
+                        </div>
+                        {isOnline && (
+                          <div style={{
+                            position: 'absolute',
+                            bottom: 0,
+                            right: 0,
+                            width: '12px',
+                            height: '12px',
+                            borderRadius: '50%',
+                            backgroundColor: '#10b981',
+                            border: '2px solid white',
+                          }} />
+                        )}
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: '500', color: '#111827' }}>
+                          {friend.profile?.displayName || friend.name}
+                        </div>
+                        <div style={{ fontSize: '12px', color: isOnline ? '#10b981' : '#9ca3af' }}>
+                          {isOnline ? '● Online' : '● Offline'}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </button>
-              ))}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
@@ -416,7 +463,9 @@ export default function MessagesPage() {
             <div className={styles.chatHeader}>
               <div className={styles.chatHeaderInfo}>
                 <h2>{selectedConversation.participantName}</h2>
-                <p>Online</p>
+                <p style={{ color: onlineUsers.has(selectedConversation.participantId) ? '#10b981' : '#9ca3af' }}>
+                  {onlineUsers.has(selectedConversation.participantId) ? '● Online' : '● Offline'}
+                </p>
               </div>
               <div className={styles.chatHeaderActions}>
                 {/* Chat Retention Settings Button */}
@@ -571,6 +620,14 @@ export default function MessagesPage() {
                   <p>Start chatting with {selectedConversation.participantName}</p>
                 </div>
               )}
+
+              {/* Typing Indicator */}
+              {typingUsers[selectedConversationId] && typingUsers[selectedConversationId].size > 0 && (
+                <div style={{ padding: '12px', fontSize: '14px', color: '#9ca3af', fontStyle: 'italic' }}>
+                  {Array.from(typingUsers[selectedConversationId]).join(', ')} is typing...
+                </div>
+              )}
+
               <div ref={messagesEndRef} />
             </div>
 
@@ -580,7 +637,7 @@ export default function MessagesPage() {
                 type="text"
                 placeholder="Type a message..."
                 value={messageInput}
-                onChange={(e) => setMessageInput(e.target.value)}
+                onChange={handleMessageInputChange}
                 onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                 className={styles.messageInput}
               />
