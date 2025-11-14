@@ -115,7 +115,7 @@ export default function MessagesPage() {
     new Map([...filteredLocalFriends, ...searchResults].map(f => [f.id, f])).values()
   );
 
-  // Handle search input with debouncing
+  // Handle search input with debouncing - Two-tier search (followers/following first, then all users)
   const handleSearchChange = useCallback((query: string) => {
     setSearchQuery(query);
     setShowFriendsDropdown(query.length > 0);
@@ -134,11 +134,10 @@ export default function MessagesPage() {
     setIsSearching(true);
     searchTimeoutRef.current = setTimeout(async () => {
       try {
-        // Search in followers
+        // Step 1: Search in followers and following (first tier)
         const followersRes = await fetch(
           `/api/users/followers-following?type=followers&search=${encodeURIComponent(query)}`
         );
-        // Search in following
         const followingRes = await fetch(
           `/api/users/followers-following?type=following&search=${encodeURIComponent(query)}`
         );
@@ -146,13 +145,29 @@ export default function MessagesPage() {
         const followersData = followersRes.ok ? await followersRes.json() : { users: [] };
         const followingData = followingRes.ok ? await followingRes.json() : { users: [] };
 
-        // Combine results and remove duplicates
-        const allResults = [...followersData.users, ...followingData.users];
-        const uniqueResults = Array.from(
-          new Map(allResults.map(u => [u.id, u])).values()
+        // Combine followers and following results
+        const followersFollowingResults = [...followersData.users, ...followingData.users];
+        const followersFollowingMap = new Map(
+          followersFollowingResults.map(u => [u.id, u])
         );
 
-        setSearchResults(uniqueResults);
+        // Step 2: Search all platform users (second tier) - for discovery
+        const allUsersRes = await fetch(
+          `/api/search/users?search=${encodeURIComponent(query)}`
+        );
+        const allUsersData = allUsersRes.ok ? await allUsersRes.json() : { users: [] };
+
+        // Combine all results: followers/following prioritized, then new users
+        const combinedResults = Array.from(followersFollowingMap.values());
+
+        // Add all platform users that aren't already in followers/following
+        const newUsersNotInFollowersFollowing = allUsersData.users.filter(
+          (user: Friend) => !followersFollowingMap.has(user.id)
+        );
+
+        const finalResults = [...combinedResults, ...newUsersNotInFollowersFollowing];
+
+        setSearchResults(finalResults);
         setIsSearching(false);
       } catch (error) {
         console.error('Search failed:', error);
