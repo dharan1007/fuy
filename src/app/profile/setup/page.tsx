@@ -44,7 +44,7 @@ export default function ProfileSetupPage() {
       // Give the database a moment to finalize the write, then redirect
       setTimeout(() => {
         router.push("/dashboard");
-      }, 300);
+      }, 1200);
     } catch (err) {
       setError("Something went wrong. Please try again.");
       setLoading(false);

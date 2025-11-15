@@ -12,50 +12,28 @@ export default withAuth(
       req.nextUrl.pathname.startsWith("/join") ||
       req.nextUrl.pathname.startsWith("/passkeys");
 
-    const isPublicPage = req.nextUrl.pathname === "/" || req.nextUrl.pathname.startsWith("/shop");
-
     // If user is on auth page and already logged in, redirect to home
     if (isAuthPage && isAuth) {
       return NextResponse.redirect(new URL("/", req.url));
     }
 
-    // Allow access to public pages and auth pages
-    if (isPublicPage || isAuthPage) {
-      return NextResponse.next();
-    }
-
-    // Redirect unauthenticated users to login for protected routes
-    if (!isAuth) {
-      let from = req.nextUrl.pathname;
-      if (req.nextUrl.search) {
-        from += req.nextUrl.search;
-      }
-
-      return NextResponse.redirect(
-        new URL(`/login?from=${encodeURIComponent(from)}`, req.url)
-      );
-    }
-
+    // Allow all requests through - let client-side useSession() handle authentication
+    // This prevents premature redirects before the session is fully established
     return NextResponse.next();
   },
   {
     callbacks: {
-      authorized: () => true, // We handle authorization in the middleware function above
+      authorized: () => true, // Allow all requests through, client-side will handle auth
     },
   }
 );
 
-// Protect routes except public ones
+// Only match auth pages to redirect logged-in users away from login/signup
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder
-     * - API routes
-     */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\..*|api).*)",
+    "/login",
+    "/signup",
+    "/join",
+    "/passkeys",
   ],
 };

@@ -179,6 +179,34 @@ export default function Home() {
 
   if (!isMounted) return null;
 
+  // Show login prompt if user is not authenticated
+  if (status === 'unauthenticated') {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4 bg-white">
+        <div className="text-center space-y-6">
+          <div>
+            <h1 className="text-4xl font-bold text-gray-900 mb-3">Welcome to FUY Media</h1>
+            <p className="text-lg text-gray-600">Connect, share, and grow together</p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link
+              href="/login"
+              className="px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Login
+            </Link>
+            <Link
+              href="/signup"
+              className="px-8 py-3 bg-gray-200 text-gray-900 font-semibold rounded-lg hover:bg-gray-300 transition-colors"
+            >
+              Sign Up
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const displayName = userProfile?.profile?.displayName || userProfile?.name || 'User';
   const avatarUrl = userProfile?.profile?.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${displayName}`;
 

@@ -66,8 +66,8 @@ export default function SignupPage() {
       });
 
       if (signInRes?.ok) {
-        // Add delay to ensure session is established
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Add delay to ensure session is properly established and available to pages
+        await new Promise(resolve => setTimeout(resolve, 1200));
         router.push("/profile/setup");
       } else {
         setError("Account created but failed to sign in. Please try logging in.");

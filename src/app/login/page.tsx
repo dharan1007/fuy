@@ -54,8 +54,8 @@ export default function LoginPage() {
       });
 
       if (signInResult?.ok) {
-        // Add delay to ensure session is established
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Add delay to ensure session is properly established and available to pages
+        await new Promise(resolve => setTimeout(resolve, 1200));
         router.push("/");
       } else {
         setError("Failed to authenticate");
@@ -84,8 +84,8 @@ export default function LoginPage() {
         setError("Invalid email or password");
         setLoading(false);
       } else if (res?.ok) {
-        // Add a small delay to ensure session is properly established
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Add delay to ensure session is properly established and available to pages
+        await new Promise(resolve => setTimeout(resolve, 1200));
         router.push("/");
       } else {
         setError("Failed to sign in. Please try again.");
