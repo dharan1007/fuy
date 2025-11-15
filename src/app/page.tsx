@@ -209,22 +209,23 @@ export default function Home() {
 
   const displayName = userProfile?.profile?.displayName || userProfile?.name || 'User';
   const avatarUrl = userProfile?.profile?.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${displayName}`;
+  const [showNavMenu, setShowNavMenu] = React.useState(false);
 
   return (
     <div className="min-h-screen bg-white text-black flex flex-col relative overflow-hidden">
       {/* HEADER - Minimal Floating */}
-      <header className="sticky top-0 z-40 px-6 py-4 pointer-events-none">
-        <div className="flex items-center justify-between gap-4">
+      <header className="sticky top-0 z-40 px-3 sm:px-6 py-4 pointer-events-none">
+        <div className="flex items-center justify-between gap-2 sm:gap-4">
           {/* Logo/Explore Module */}
-          <div className="bg-white/40 backdrop-blur-md border border-white/40 rounded-2xl px-6 py-3 shadow-sm pointer-events-auto hover:bg-white/50 transition-all">
+          <div className="bg-white/40 backdrop-blur-md border border-white/40 rounded-xl sm:rounded-2xl px-3 sm:px-6 py-2 sm:py-3 shadow-sm pointer-events-auto hover:bg-white/50 transition-all">
             <Link href="/" className="flex items-center gap-2">
-              <span className="text-2xl">◌</span>
-              <span className="text-sm font-semibold text-gray-700">Explore</span>
+              <span className="text-lg sm:text-2xl">◌</span>
+              <span className="hidden sm:inline text-sm font-semibold text-gray-700">Explore</span>
             </Link>
           </div>
 
-          {/* Navigation Module */}
-          <div className="bg-white/40 backdrop-blur-md border border-white/40 rounded-2xl px-6 py-3 shadow-sm pointer-events-auto hover:bg-white/50 transition-all flex items-center gap-6">
+          {/* Navigation Module - Desktop Only */}
+          <div className="hidden sm:flex bg-white/40 backdrop-blur-md border border-white/40 rounded-2xl px-6 py-3 shadow-sm pointer-events-auto hover:bg-white/50 transition-all items-center gap-6">
             {/* Canvas */}
             <Link href="/journal" className="text-sm font-semibold text-gray-700 hover:text-blue-600 transition-colors">
               ▭
@@ -246,13 +247,39 @@ export default function Home() {
             </Link>
           </div>
 
+          {/* Navigation Menu - Mobile Only */}
+          <div className="sm:hidden relative">
+            <button
+              onClick={() => setShowNavMenu(!showNavMenu)}
+              className="bg-white/40 backdrop-blur-md border border-white/40 rounded-xl px-3 py-2 shadow-sm pointer-events-auto hover:bg-white/50 transition-all text-gray-700 font-semibold"
+            >
+              ≡
+            </button>
+            {showNavMenu && (
+              <div className="absolute right-0 mt-2 w-40 bg-white border border-black/10 rounded-lg shadow-lg p-2 space-y-1 pointer-events-auto">
+                <Link href="/journal" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors">
+                  ▭ Canvas
+                </Link>
+                <Link href="/hopin" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors">
+                  ⊞ Hopin
+                </Link>
+                <Link href="/shop" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors">
+                  ◆ Shop
+                </Link>
+                <Link href="/dashboard" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors">
+                  ⊕ Dashboard
+                </Link>
+              </div>
+            )}
+          </div>
+
           {/* User Profile Module */}
-          <div className="bg-white/40 backdrop-blur-md border border-white/40 rounded-2xl px-4 py-2 shadow-sm pointer-events-auto hover:bg-white/50 transition-all">
+          <div className="bg-white/40 backdrop-blur-md border border-white/40 rounded-xl sm:rounded-2xl px-2 sm:px-4 py-2 shadow-sm pointer-events-auto hover:bg-white/50 transition-all ml-auto">
             <Link href="/profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
               <img
                 src={avatarUrl}
                 alt={displayName}
-                className="w-8 h-8 rounded-full border-2 border-blue-400"
+                className="w-6 sm:w-8 h-6 sm:h-8 rounded-full border-2 border-blue-400"
               />
               <div className="hidden sm:flex flex-col">
                 <div className="text-xs font-semibold text-gray-800">{displayName}</div>
