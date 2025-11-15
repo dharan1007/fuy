@@ -129,6 +129,9 @@ export default function ITPPage() {
   });
   const [saving, setSaving] = useState(false);
   const [detailPlan, setDetailPlan] = useState<ITPPlan | null>(null);
+  const [showSidebarOnMobile, setShowSidebarOnMobile] = useState(false);
+  const [mobileViewMode, setMobileViewMode] = useState<"kanban" | "timeline">("kanban");
+  const [isMobileScreen, setIsMobileScreen] = useState(false);
   const liveInterval = useRef<NodeJS.Timeout | number | null>(null);
 
   // FAKE USER DATA
@@ -146,6 +149,17 @@ export default function ITPPage() {
     if (typeof window === "undefined") return;
     try { localStorage.setItem(LS_KEY, JSON.stringify(plans)); } catch {}
   }, [plans]);
+
+  // Detect mobile screen size
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handleResize = () => {
+      setIsMobileScreen(window.innerWidth < 768);
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   // Live tracker update
   const [, forceUpdate] = useState(0);
@@ -591,8 +605,33 @@ export default function ITPPage() {
   // LAYOUT RENDER
   return (
     <div className="flex flex-col min-h-screen bg-neutral-50 dark:bg-neutral-950 text-neutral-900 dark:text-neutral-50">
+      {/* Mobile Header with Controls */}
+      <div className="md:hidden flex items-center justify-between bg-gradient-to-r from-purple-500 via-indigo-500 to-blue-500 text-white p-3 gap-2">
+        <button
+          onClick={() => setShowSidebarOnMobile(!showSidebarOnMobile)}
+          className="px-3 py-2 rounded hover:bg-white/20"
+          title="Toggle menu"
+        >
+          ☰
+        </button>
+        <div className="flex-1 flex gap-2">
+          <button
+            onClick={() => setMobileViewMode("kanban")}
+            className={`px-3 py-1 rounded text-sm font-medium ${mobileViewMode === "kanban" ? "bg-white/30" : "bg-white/10"}`}
+          >
+            Kanban
+          </button>
+          <button
+            onClick={() => setMobileViewMode("timeline")}
+            className={`px-3 py-1 rounded text-sm font-medium ${mobileViewMode === "timeline" ? "bg-white/30" : "bg-white/10"}`}
+          >
+            Timeline
+          </button>
+        </div>
+      </div>
+
       {/* Top Header/Dashboard */}
-      <header className="bg-gradient-to-r from-purple-500 via-indigo-500 to-blue-500 text-white p-8 md:p-12 shadow-lg relative overflow-hidden">
+      <header className="bg-gradient-to-r from-purple-500 via-indigo-500 to-blue-500 text-white p-6 md:p-8 lg:p-12 shadow-lg relative overflow-hidden">
         <div className="absolute inset-0 z-0 opacity-20">
           <div className="bg-white/10 w-96 h-96 rounded-full -top-20 -left-20 animate-[pulse_10s_infinite]" />
           <div className="bg-white/10 w-80 h-80 rounded-full -bottom-10 -right-10 animate-[pulse_12s_infinite]" />
@@ -650,13 +689,28 @@ export default function ITPPage() {
       </header>
 
       {/* Main Content Area */}
-      <main className="flex flex-1 max-w-7xl mx-auto w-full p-8 grid gap-8 grid-cols-1 xl:grid-cols-[280px_minmax(0,1fr)]">
+      <main className="flex flex-1 max-w-7xl mx-auto w-full p-4 md:p-8 grid gap-8 grid-cols-1 xl:grid-cols-[280px_minmax(0,1fr)]">
         {/* Left Sidebar - Filters & Creation */}
-        <aside className="space-y-6">
+        <aside className={`space-y-6 ${
+          showSidebarOnMobile
+            ? 'fixed md:relative left-0 top-0 h-screen md:h-auto z-40 w-full md:w-auto bg-white dark:bg-neutral-800 overflow-y-auto'
+            : 'hidden md:block'
+        }`}>
           <div className="bg-white dark:bg-neutral-800 rounded-3xl p-6 shadow-xl sticky top-8 z-10">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold">Create Plan</h2>
-              <button className="text-sm text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 transition" onClick={() => setDraft(newDraft())}>Reset</button>
+              <div className="flex items-center gap-2">
+                <button className="text-sm text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 transition" onClick={() => setDraft(newDraft())}>Reset</button>
+                {showSidebarOnMobile && (
+                  <button
+                    className="md:hidden text-sm text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 transition"
+                    onClick={() => setShowSidebarOnMobile(false)}
+                    title="Close sidebar"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
             </div>
             <div className="space-y-3">
               <input className="input" placeholder="Plan Title" value={draft.title} onChange={(e)=>setDraft({ ...draft, title: e.target.value })} />
@@ -707,6 +761,7 @@ export default function ITPPage() {
         {/* Main Kanban/Timeline Area */}
         <section className="space-y-8">
           {/* Kanban Board */}
+          {(mobileViewMode === "kanban" || !isMobileScreen) && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {STAGES.map(stage => (
               <div
@@ -732,8 +787,10 @@ export default function ITPPage() {
               </div>
             ))}
           </div>
+          )}
 
           {/* Timeline View */}
+          {(mobileViewMode === "timeline" || !isMobileScreen) && (
           <div className="bg-white dark:bg-neutral-800 rounded-3xl p-6 shadow-xl">
             <h3 className="font-semibold text-lg mb-4">All Plans</h3>
             <div className="grid gap-4">
@@ -763,6 +820,7 @@ export default function ITPPage() {
               ))}
             </div>
           </div>
+          )}
         </section>
       </main>
 
