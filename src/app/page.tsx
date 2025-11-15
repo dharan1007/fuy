@@ -55,6 +55,7 @@ export default function Home() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [showNavMenu, setShowNavMenu] = useState(false);
 
   // Create post state
   const [createPostTab, setCreatePostTab] = useState<CreatePostTab>('text');
@@ -209,7 +210,6 @@ export default function Home() {
 
   const displayName = userProfile?.profile?.displayName || userProfile?.name || 'User';
   const avatarUrl = userProfile?.profile?.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${displayName}`;
-  const [showNavMenu, setShowNavMenu] = React.useState(false);
 
   return (
     <div className="min-h-screen bg-white text-black flex flex-col relative overflow-hidden">
