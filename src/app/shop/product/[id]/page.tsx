@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useCartStore } from "@/lib/cartStore";
 import AppHeader from "@/components/AppHeader";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 interface Product {
   id: string;
@@ -144,7 +145,7 @@ const DUMMY_REVIEWS: Review[] = [
 
 export default function ProductDetailPage() {
   const params = useParams();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const productId = params.id as string;
   const addItemToCart = useCartStore((state) => state.addItem);
 
@@ -152,6 +153,11 @@ export default function ProductDetailPage() {
   const [quantity, setQuantity] = useState(1);
   const [selectedSize, setSelectedSize] = useState("M");
   const [addedToCart, setAddedToCart] = useState(false);
+
+  // Show loading spinner while session is authenticating
+  if (status === 'loading') {
+    return <LoadingSpinner message="Loading product details..." />;
+  }
 
   if (!product) {
     return (

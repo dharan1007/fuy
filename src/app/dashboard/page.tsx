@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 /* ========================================================================================
    TYPES
@@ -124,7 +125,7 @@ function useLSWatch<T>(
 ======================================================================================== */
 
 export default function DashboardPage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [goals, setGoals] = useState<EssenzGoal[]>([]);
@@ -138,13 +139,18 @@ export default function DashboardPage() {
   });
   const [plans, setPlans] = useState<ITPPlan[]>([]);
   const [selectedGoal, setSelectedGoal] = useState<string | null>(null);
+  const [isLoadingData, setIsLoadingData] = useState(true);
 
   useEffect(() => {
-    if (!session?.user?.id) return;
-    loadDashboardData();
-  }, [session?.user?.id]);
+    if (status === 'authenticated' && session?.user?.id) {
+      loadDashboardData();
+    } else if (status === 'unauthenticated') {
+      setIsLoadingData(false);
+    }
+  }, [status, session?.user?.id]);
 
   const loadDashboardData = async () => {
+    setIsLoadingData(true);
     try {
       const res = await fetch("/api/essenz");
       if (res.ok) {
@@ -161,6 +167,8 @@ export default function DashboardPage() {
       }
     } catch (err) {
       console.error("Failed to load dashboard data:", err);
+    } finally {
+      setIsLoadingData(false);
     }
 
     // Load ITP plans
@@ -182,9 +190,13 @@ export default function DashboardPage() {
   );
 
   const doneCount = useMemo(() => plans.filter((p) => p.doneToday).length, [plans]);
-  const progressPercent = plans.length > 0 ? Math.round((doneCount / plans.length) * 100) : 0;
 
-  if (!session) {
+  // Show loading spinner while session is being authenticated
+  if (status === 'loading') {
+    return <LoadingSpinner message="Loading your dashboard..." />;
+  }
+
+  if (status === 'unauthenticated') {
     return (
       <div className="min-h-screen flex items-center justify-center px-4" style={{ backgroundColor: "#0a0a0a" }}>
         <div className="text-center">
@@ -314,7 +326,7 @@ export default function DashboardPage() {
                 💬
               </button>
               <div className="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-white" style={{ backgroundColor: "#1f2937" }}>
-                {session.user?.name?.charAt(0) || "U"}
+                {session?.user?.name?.charAt(0) || "U"}
               </div>
             </div>
           </div>

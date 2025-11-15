@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import AppHeader from "@/components/AppHeader";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 interface Product {
   id: string;
@@ -152,8 +153,13 @@ const DUMMY_BRANDS: Brand[] = [
 ];
 
 export default function ShopPage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Show loading spinner while session is authenticating
+  if (status === 'loading') {
+    return <LoadingSpinner message="Loading the shop..." />;
+  }
 
   const newArrivals = DUMMY_PRODUCTS.slice(0, 4);
   const trendingProducts = DUMMY_PRODUCTS.filter((p) => p.isTrending);

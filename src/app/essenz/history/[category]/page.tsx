@@ -4,9 +4,10 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 export default function HistoryPage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const params = useParams();
   const router = useRouter();
   const category = typeof params.category === "string" ? params.category : "";
@@ -36,6 +37,11 @@ export default function HistoryPage() {
       }
     }
   }, [category]);
+
+  // Show loading spinner while session is authenticating
+  if (status === 'loading') {
+    return <LoadingSpinner message="Loading history..." />;
+  }
 
   if (!session) {
     return (

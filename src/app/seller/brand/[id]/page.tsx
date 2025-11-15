@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 interface Product {
   id: string;
@@ -32,7 +33,7 @@ interface Brand {
 }
 
 export default function BrandDashboardPage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const router = useRouter();
   const params = useParams();
   const brandId = params.id as string;
@@ -42,10 +43,12 @@ export default function BrandDashboardPage() {
   const [products, setProducts] = useState<Product[]>([]);
 
   useEffect(() => {
-    if (session?.user?.id) {
+    if (status === 'authenticated' && session?.user?.id) {
       loadBrandData();
+    } else if (status === 'unauthenticated') {
+      setLoading(false);
     }
-  }, [session?.user?.id]);
+  }, [status, session?.user?.id]);
 
   const loadBrandData = async () => {
     try {
@@ -61,6 +64,11 @@ export default function BrandDashboardPage() {
       setLoading(false);
     }
   };
+
+  // Show loading spinner while session is authenticating
+  if (status === 'loading') {
+    return <LoadingSpinner message="Loading your brand dashboard..." />;
+  }
 
   if (!session) {
     return <div className="min-h-screen flex items-center justify-center">Please log in</div>;

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import AppHeader from "@/components/AppHeader";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 type Notification = {
   id: string;
@@ -32,10 +33,15 @@ type Notification = {
 
 export default function NotificationsPage() {
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "unread">("all");
+
+  // Show loading spinner while session is authenticating
+  if (status === 'loading') {
+    return <LoadingSpinner message="Loading your notifications..." />;
+  }
 
   useEffect(() => {
     loadNotifications();

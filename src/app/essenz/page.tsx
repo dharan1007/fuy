@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 // ============================================================================
 // TYPES
@@ -451,7 +452,7 @@ function HopinNode({ data, onUpdate }: { data: HopinData; onUpdate: (data: Hopin
 // ============================================================================
 
 export default function EssenzPage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [draggedNode, setDraggedNode] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
@@ -795,6 +796,11 @@ export default function EssenzPage() {
   const handleCanvasMouseUp = () => {
     setIsPanning(false);
   };
+
+  // Show loading spinner while session is authenticating
+  if (status === 'loading') {
+    return <LoadingSpinner message="Loading Essenz..." />;
+  }
 
   if (!session) {
     return (

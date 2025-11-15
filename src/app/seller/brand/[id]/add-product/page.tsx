@@ -4,9 +4,10 @@ import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 export default function AddProductPage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const router = useRouter();
   const params = useParams();
   const brandId = params.id as string;
@@ -143,6 +144,11 @@ export default function AddProductPage() {
       setLoading(false);
     }
   };
+
+  // Show loading spinner while session is authenticating
+  if (status === 'loading') {
+    return <LoadingSpinner message="Preparing product form..." />;
+  }
 
   if (!session) {
     return (

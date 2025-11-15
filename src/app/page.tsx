@@ -7,6 +7,7 @@ import SearchModal from '@/components/SearchModal';
 import NotificationsModal from '@/components/NotificationsModal';
 import HopinProgramsCard from '@/components/HopinProgramsCard';
 import RankingCard from '@/components/RankingCard';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 interface UserProfile {
   name: string | null;
@@ -46,7 +47,7 @@ interface PostData {
 type CreatePostTab = 'text' | 'media' | 'link';
 
 export default function Home() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const [isMounted, setIsMounted] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [posts, setPosts] = useState<PostData[]>([]);
@@ -157,10 +158,24 @@ export default function Home() {
 
   useEffect(() => {
     setIsMounted(true);
-    fetchUserProfile();
-    fetchPosts();
-    fetchUnreadCount();
-  }, []);
+    // Only load data if session is authenticated
+    if (status === 'authenticated') {
+      setLoading(true);
+      // Fetch all data in parallel instead of sequentially
+      Promise.all([
+        fetchUserProfile(),
+        fetchPosts(),
+        fetchUnreadCount(),
+      ]).finally(() => {
+        setLoading(false);
+      });
+    }
+  }, [status]);
+
+  // Show loading spinner while session is loading
+  if (status === 'loading') {
+    return <LoadingSpinner message="Authenticating your session..." />;
+  }
 
   if (!isMounted) return null;
 
