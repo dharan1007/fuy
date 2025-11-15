@@ -5,6 +5,7 @@ import { signIn } from "next-auth/react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 const DEMO_USERS = [
   { email: "jasmine@example.com", name: "Jasmine" },
@@ -54,8 +55,8 @@ export default function LoginPage() {
       });
 
       if (signInResult?.ok) {
-        // Add delay to ensure session is properly established and available to pages
-        await new Promise(resolve => setTimeout(resolve, 1200));
+        // Short delay to ensure session is established, then redirect
+        await new Promise(resolve => setTimeout(resolve, 300));
         router.push("/");
       } else {
         setError("Failed to authenticate");
@@ -84,8 +85,8 @@ export default function LoginPage() {
         setError("Invalid email or password");
         setLoading(false);
       } else if (res?.ok) {
-        // Add delay to ensure session is properly established and available to pages
-        await new Promise(resolve => setTimeout(resolve, 1200));
+        // Short delay to ensure session is established, then redirect
+        await new Promise(resolve => setTimeout(resolve, 300));
         router.push("/");
       } else {
         setError("Failed to sign in. Please try again.");
@@ -106,6 +107,11 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  // Show loading spinner while authenticating
+  if (loading) {
+    return <LoadingSpinner variant="auth" message="Signing in..." estimatedTime={2} />;
   }
 
   return (

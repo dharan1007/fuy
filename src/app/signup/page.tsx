@@ -4,6 +4,7 @@ import { signIn } from "next-auth/react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -66,8 +67,8 @@ export default function SignupPage() {
       });
 
       if (signInRes?.ok) {
-        // Add delay to ensure session is properly established and available to pages
-        await new Promise(resolve => setTimeout(resolve, 1200));
+        // Short delay to ensure session is properly established and available to pages
+        await new Promise(resolve => setTimeout(resolve, 300));
         router.push("/profile/setup");
       } else {
         setError("Account created but failed to sign in. Please try logging in.");
@@ -78,6 +79,11 @@ export default function SignupPage() {
       setError("Something went wrong. Please try again.");
       setLoading(false);
     }
+  }
+
+  // Show loading spinner while creating account and signing in
+  if (loading) {
+    return <LoadingSpinner variant="auth" message="Creating your account..." estimatedTime={3} />;
   }
 
   return (

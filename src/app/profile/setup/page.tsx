@@ -41,10 +41,10 @@ export default function ProfileSetupPage() {
         return;
       }
 
-      // Give the database a moment to finalize the write, then redirect
+      // Short delay then redirect
       setTimeout(() => {
         router.push("/dashboard");
-      }, 1200);
+      }, 300);
     } catch (err) {
       setError("Something went wrong. Please try again.");
       setLoading(false);
@@ -57,6 +57,11 @@ export default function ProfileSetupPage() {
 
   if (status === "loading") {
     return <LoadingSpinner message="Setting up your profile..." />;
+  }
+
+  // Show loading spinner while saving profile
+  if (loading) {
+    return <LoadingSpinner variant="auth" message="Saving your profile..." estimatedTime={2} />;
   }
 
   return (
