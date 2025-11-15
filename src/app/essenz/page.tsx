@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -454,6 +454,7 @@ function HopinNode({ data, onUpdate }: { data: HopinData; onUpdate: (data: Hopin
 export default function EssenzPage() {
   const { data: session, status } = useSession();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mobileView, setMobileView] = useState<'list' | 'canvas'>('list');
   const [draggedNode, setDraggedNode] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
   const [panX, setPanX] = useState(0);
@@ -464,6 +465,7 @@ export default function EssenzPage() {
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStartPos, setPanStartPos] = useState({ x: 0, y: 0 });
+  const [isMobile, setIsMobile] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
 
   const [nodes, setNodes] = useState<EssenzNodeData[]>([
@@ -797,6 +799,20 @@ export default function EssenzPage() {
     setIsPanning(false);
   };
 
+  // Detect mobile screen size
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024);
+      if (window.innerWidth < 1024) {
+        setMobileView('list');
+        setSidebarOpen(false);
+      }
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   // Show loading spinner while session is authenticating
   if (status === 'loading') {
     return <LoadingSpinner message="Loading Essenz..." />;
@@ -843,22 +859,96 @@ export default function EssenzPage() {
         ::-webkit-scrollbar-thumb:hover {
           background: rgba(59, 130, 246, 0.5);
         }
+        @media (max-width: 1023px) {
+          .essenz-container {
+            flex-direction: column;
+          }
+          .essenz-sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100vh;
+            max-width: 100%;
+            background: rgba(15, 20, 25, 0.95) !important;
+            z-index: 1000;
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+          }
+          .essenz-sidebar.open {
+            transform: translateX(0);
+          }
+          .essenz-main {
+            width: 100%;
+            height: 100%;
+          }
+          .essenz-right-panel {
+            display: none;
+          }
+          .essenz-mobile-header {
+            display: flex;
+          }
+        }
+        @media (min-width: 1024px) {
+          .essenz-mobile-header {
+            display: none !important;
+          }
+        }
       `}</style>
 
-      <div className="flex h-screen" style={{ backgroundColor: "#1a1a1a" }}>
+      <div className="flex h-screen essenz-container" style={{ backgroundColor: "#1a1a1a" }}>
+        {/* MOBILE HEADER */}
+        {isMobile && (
+          <div className="essenz-mobile-header absolute top-0 left-0 right-0 h-16 bg-gray-900 border-b border-blue-500/20 items-center px-4 z-50 gap-4">
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="p-2 rounded text-blue-400 hover:bg-gray-800"
+            >
+              ☰ Menu
+            </button>
+            <div className="flex-1 flex gap-2">
+              <button
+                onClick={() => setMobileView('list')}
+                className="px-3 py-1 rounded text-sm"
+                style={{
+                  backgroundColor: mobileView === 'list' ? 'rgba(96, 165, 250, 0.3)' : 'transparent',
+                  color: mobileView === 'list' ? '#60a5fa' : 'rgba(226, 232, 240, 0.7)',
+                }}
+              >
+                List
+              </button>
+              <button
+                onClick={() => setMobileView('canvas')}
+                className="px-3 py-1 rounded text-sm"
+                style={{
+                  backgroundColor: mobileView === 'canvas' ? 'rgba(96, 165, 250, 0.3)' : 'transparent',
+                  color: mobileView === 'canvas' ? '#60a5fa' : 'rgba(226, 232, 240, 0.7)',
+                }}
+              >
+                Canvas
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* LEFT SIDEBAR */}
         <div
-          className="flex flex-col transition-all duration-300 border-r"
+          className={`flex flex-col transition-all duration-300 border-r ${isMobile ? 'essenz-sidebar' : ''} ${isMobile && sidebarOpen ? 'open' : ''}`}
           style={{
-            width: sidebarOpen ? "280px" : "60px",
+            width: isMobile && sidebarOpen ? "100%" : (sidebarOpen ? "280px" : "60px"),
             backgroundColor: "#0f0f0f",
             borderColor: "rgba(59, 130, 246, 0.1)",
           }}
         >
-          <div className="p-3 border-b" style={{ borderColor: "rgba(59, 130, 246, 0.1)" }}>
+          <div className="p-3 border-b flex items-center justify-between" style={{ borderColor: "rgba(59, 130, 246, 0.1)" }}>
             <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2" style={{ color: "#60a5fa" }}>
               [MENU]
             </button>
+            {isMobile && (
+              <button onClick={() => setSidebarOpen(false)} className="p-2 text-red-400 hover:bg-gray-800 rounded" title="Close menu">
+                ✕
+              </button>
+            )}
           </div>
 
           {sidebarOpen && (
@@ -954,11 +1044,67 @@ export default function EssenzPage() {
 
         {/* MAIN CANVAS */}
         <div
-          className="flex-1 relative overflow-auto flex flex-col"
+          className="flex-1 relative overflow-auto flex flex-col essenz-main"
           style={{
             backgroundColor: "#000",
+            paddingTop: isMobile ? "64px" : "0",
           }}
         >
+          {/* MOBILE LIST VIEW */}
+          {isMobile && mobileView === 'list' && (
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              <div style={{ color: "rgba(226, 232, 240, 0.7)", fontSize: "12px", marginBottom: "16px", paddingLeft: "8px" }}>
+                [NODES]
+              </div>
+              {nodes.map((node) => (
+                <div
+                  key={node.id}
+                  onClick={() => toggleNode(node.id)}
+                  className="p-4 rounded-lg border cursor-pointer transition-all"
+                  style={{
+                    backgroundColor: "rgba(15, 20, 25, 0.7)",
+                    borderColor: nodeHasData(node) ? "rgba(96, 165, 250, 0.5)" : "rgba(59, 130, 246, 0.3)",
+                    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.3)",
+                  }}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{node.icon}</span>
+                      <h3 style={{ color: "#60a5fa", fontSize: "14px", fontWeight: "600", margin: 0 }}>
+                        {node.title}
+                      </h3>
+                    </div>
+                    <span style={{ color: "#60a5fa", fontSize: "12px" }}>
+                      {node.expanded ? "[-]" : "[+]"}
+                    </span>
+                  </div>
+                  {nodeHasData(node) && (
+                    <div style={{ fontSize: "11px", color: "rgba(16, 185, 129, 1)", marginBottom: "8px" }}>
+                      [DATA]
+                    </div>
+                  )}
+                  {node.expanded && (
+                    <div className="border-t border-blue-500/20 pt-3 mt-3">
+                      <div style={{ color: "rgba(226, 232, 240, 0.8)", fontSize: "13px" }}>
+                        {node.type === "goal" && <GoalNode data={node.data as GoalData} onUpdate={(data) => updateNodeData(node.id, data)} />}
+                        {node.type === "steps" && <StepsNode data={node.data as StepData} onUpdate={(data) => updateNodeData(node.id, data)} />}
+                        {node.type === "prioritize" && <PrioritizeNode data={node.data as PriorityData} onUpdate={(data) => updateNodeData(node.id, data)} />}
+                        {node.type === "todo" && <TodoNode data={node.data as TodoData} onUpdate={(data) => updateNodeData(node.id, data)} />}
+                        {node.type === "diary" && <DiaryNode data={node.data as DiaryData} onUpdate={(data) => updateNodeData(node.id, data)} />}
+                        {node.type === "resources" && <ResourcesNode data={node.data as ResourceData} onUpdate={(data) => updateNodeData(node.id, data)} />}
+                        {node.type === "watchlist" && <WatchlistNode data={node.data as WatchlistData} onUpdate={(data) => updateNodeData(node.id, data)} />}
+                        {node.type === "hopin" && <HopinNode data={node.data as HopinData} onUpdate={(data) => updateNodeData(node.id, data)} />}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* CANVAS VIEW (DESKTOP & MOBILE CANVAS MODE) */}
+          {(!isMobile || mobileView === 'canvas') && (
+          <>
           {/* Zoom Controls */}
           <div className="absolute top-4 right-4 z-20 flex gap-2 p-2 rounded-lg" style={{ backgroundColor: "rgba(15, 20, 25, 0.8)" }}>
             <button
@@ -1147,11 +1293,13 @@ export default function EssenzPage() {
                 })}
             </div>
           </div>
+        </>
+          )}
         </div>
 
         {/* RIGHT SIDEBAR */}
         <div
-          className="w-64 border-l overflow-y-auto p-4 flex flex-col"
+          className="w-64 border-l overflow-y-auto p-4 flex flex-col essenz-right-panel"
           style={{
             borderColor: "rgba(59, 130, 246, 0.1)",
             backgroundColor: "#0f0f0f",
