@@ -29,6 +29,8 @@ import CanvasArea from "./CanvasArea";
 import TemplateCard from "./TemplateCard";
 import TemplatePreview from "./TemplatePreview";
 import generatePlan, { AIPlan, AIBlockPlan, AIOptions } from "@/lib/ai";
+import AISuggestionsPanel from "./AISuggestionsPanel";
+import { SuggestionsResponse } from "@/lib/ai-suggestions";
 
 export default function JournalEditor() {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
@@ -58,6 +60,12 @@ export default function JournalEditor() {
   const [aiOpen, setAiOpen] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
+
+  // AI Suggestions
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [suggestions, setSuggestions] = useState<SuggestionsResponse | null>(null);
+  const [suggestionsError, setSuggestionsError] = useState<string | null>(null);
 
   // sensible defaults; generator mainly relies on aiPrompt text
   const aiOptRef = useRef<AIOptions>({
@@ -582,7 +590,7 @@ export default function JournalEditor() {
   async function handleGenerateAI() {
     const prompt = aiPrompt.trim();
     if (!prompt) {
-      alert("Tell me what you want (e.g., “Morning routine + groceries + reminders”).");
+      alert(`Tell me what you want (e.g., "Morning routine + groceries + reminders").`);
       return;
     }
     try {
@@ -596,6 +604,29 @@ export default function JournalEditor() {
       alert("Could not create content from your request.");
     } finally {
       setAiLoading(false);
+    }
+  }
+
+  async function handleSuggestionsRequest(goalText: string) {
+    setSuggestionsLoading(true);
+    setSuggestionsError(null);
+    try {
+      const response = await fetch("/api/ai/suggestions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ goalText, type: "goal" }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setSuggestions(data);
+      } else {
+        setSuggestionsError(data.error || "Failed to generate suggestions");
+      }
+    } catch (error) {
+      console.error(error);
+      setSuggestionsError("Error fetching suggestions. Please try again.");
+    } finally {
+      setSuggestionsLoading(false);
     }
   }
 
@@ -829,6 +860,7 @@ export default function JournalEditor() {
             </Btn>
 
             <div className="ml-auto" />
+            <Btn variant="solid" onClick={() => setSuggestionsOpen((s) => !s)}>✨ AI Suggestions</Btn>
             <Btn variant="solid" onClick={() => setAiOpen((s) => !s)}>🤖 AI</Btn>
           </div>
 
@@ -867,6 +899,15 @@ export default function JournalEditor() {
       </section>
 
       {previewTpl && <TemplatePreview tpl={previewTpl} />}
+
+      <AISuggestionsPanel
+        isOpen={suggestionsOpen}
+        onClose={() => setSuggestionsOpen(false)}
+        onGoalSubmit={handleSuggestionsRequest}
+        isLoading={suggestionsLoading}
+        suggestions={suggestions}
+        error={suggestionsError || undefined}
+      />
     </div>
   );
 }
