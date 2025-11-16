@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { Suggestion, SuggestionsResponse } from '@/lib/ai-suggestions';
 
 interface AISuggestionsPanelProps {
@@ -23,6 +23,7 @@ export default function AISuggestionsPanel({
   const [goalInput, setGoalInput] = useState('');
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [itemsPerCategory, setItemsPerCategory] = useState({ videos: 5, podcasts: 5, songs: 5, websites: 5, books: 5 });
+  const [selectedPreview, setSelectedPreview] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,159 +46,158 @@ export default function AISuggestionsPanel({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+      <div className="bg-white rounded-lg max-w-6xl w-full max-h-[95vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6 flex items-center justify-between">
+        <div className="sticky top-0 bg-black text-white px-8 py-6 flex items-center justify-between border-b border-black">
           <div>
-            <h2 className="text-2xl font-bold">✨ AI Suggestions</h2>
-            <p className="text-blue-100 mt-1">Get personalized recommendations for your goals</p>
+            <h2 className="text-3xl font-light tracking-tight">Resources</h2>
           </div>
           <button
             onClick={onClose}
-            className="text-white hover:bg-white/20 rounded-full p-2 transition-colors"
+            className="text-white hover:bg-white/10 rounded-full p-2 transition-colors"
           >
-            ✕
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
         </div>
 
-        {/* Goal Input Section */}
-        <div className="p-6 bg-gray-50 border-b">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                What's your goal or intention?
-              </label>
-              <textarea
-                value={goalInput}
-                onChange={(e) => setGoalInput(e.target.value)}
-                placeholder="e.g., 'I want to improve my productivity and focus while dealing with anxiety' or 'Learn web development from scratch'"
-                className="w-full h-24 p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                disabled={isLoading}
-              />
-              <p className="text-xs text-gray-500 mt-2">
-                Be specific about what you want to achieve. The more detail, the better suggestions we can generate.
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto">
+          {/* Goal Input Section */}
+          <div className="border-b border-gray-200 px-8 py-8">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-black mb-3">
+                  What would you like resources for?
+                </label>
+                <textarea
+                  value={goalInput}
+                  onChange={(e) => setGoalInput(e.target.value)}
+                  placeholder="Describe your goal, interest, or what you want to learn..."
+                  className="w-full h-20 p-4 border border-gray-300 bg-white text-black placeholder-gray-500 focus:outline-none focus:border-black transition-colors resize-none"
+                  disabled={isLoading}
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={isLoading || !goalInput.trim()}
+                className="w-full bg-black text-white font-medium py-3 hover:bg-gray-900 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+              >
+                {isLoading ? 'Analyzing...' : 'Find Resources'}
+              </button>
+            </form>
+          </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="px-8 py-4 bg-white border-b border-gray-200">
+              <p className="text-sm text-black bg-gray-100 p-3 rounded">
+                {error}
               </p>
             </div>
-            <button
-              type="submit"
-              disabled={isLoading || !goalInput.trim()}
-              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold py-3 rounded-lg hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoading ? '🔄 Analyzing & Finding Resources...' : '🚀 Get Suggestions'}
-            </button>
-          </form>
+          )}
+
+          {/* Suggestions Display */}
+          {suggestions && (
+            <div className="px-8 py-8 space-y-8">
+              {/* Core Intention */}
+              <div className="border-b border-gray-200 pb-8">
+                <p className="text-xs font-semibold uppercase text-gray-600 mb-2">Your Goal</p>
+                <p className="text-lg text-black mb-3">{suggestions.goal}</p>
+                <p className="text-sm text-gray-700">
+                  <span className="font-medium">Core Focus:</span> {suggestions.coreIntention}
+                </p>
+              </div>
+
+              {/* Categories */}
+              <div className="space-y-8">
+                <SuggestionCategory
+                  title="Videos"
+                  label="Video"
+                  items={suggestions.suggestions.videos.slice(0, itemsPerCategory.videos)}
+                  category="videos"
+                  isExpanded={expandedCategory === 'videos'}
+                  onToggle={() => toggleCategory('videos')}
+                  onLoadMore={() => handleLoadMore('videos')}
+                  hasMore={itemsPerCategory.videos < suggestions.suggestions.videos.length}
+                  selectedPreview={selectedPreview}
+                  onSelectPreview={setSelectedPreview}
+                />
+
+                <SuggestionCategory
+                  title="Podcasts"
+                  label="Podcast"
+                  items={suggestions.suggestions.podcasts.slice(0, itemsPerCategory.podcasts)}
+                  category="podcasts"
+                  isExpanded={expandedCategory === 'podcasts'}
+                  onToggle={() => toggleCategory('podcasts')}
+                  onLoadMore={() => handleLoadMore('podcasts')}
+                  hasMore={itemsPerCategory.podcasts < suggestions.suggestions.podcasts.length}
+                  selectedPreview={selectedPreview}
+                  onSelectPreview={setSelectedPreview}
+                />
+
+                <SuggestionCategory
+                  title="Music"
+                  label="Song"
+                  items={suggestions.suggestions.songs.slice(0, itemsPerCategory.songs)}
+                  category="songs"
+                  isExpanded={expandedCategory === 'songs'}
+                  onToggle={() => toggleCategory('songs')}
+                  onLoadMore={() => handleLoadMore('songs')}
+                  hasMore={itemsPerCategory.songs < suggestions.suggestions.songs.length}
+                  selectedPreview={selectedPreview}
+                  onSelectPreview={setSelectedPreview}
+                />
+
+                <SuggestionCategory
+                  title="Websites"
+                  label="Website"
+                  items={suggestions.suggestions.websites.slice(0, itemsPerCategory.websites)}
+                  category="websites"
+                  isExpanded={expandedCategory === 'websites'}
+                  onToggle={() => toggleCategory('websites')}
+                  onLoadMore={() => handleLoadMore('websites')}
+                  hasMore={itemsPerCategory.websites < suggestions.suggestions.websites.length}
+                  selectedPreview={selectedPreview}
+                  onSelectPreview={setSelectedPreview}
+                />
+
+                <SuggestionCategory
+                  title="Books"
+                  label="Book"
+                  items={suggestions.suggestions.books.slice(0, itemsPerCategory.books)}
+                  category="books"
+                  isExpanded={expandedCategory === 'books'}
+                  onToggle={() => toggleCategory('books')}
+                  onLoadMore={() => handleLoadMore('books')}
+                  hasMore={itemsPerCategory.books < suggestions.suggestions.books.length}
+                  selectedPreview={selectedPreview}
+                  onSelectPreview={setSelectedPreview}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Empty State */}
+          {!suggestions && !isLoading && (
+            <div className="px-8 py-16 text-center">
+              <p className="text-gray-500 text-base">Enter your goal above to discover relevant resources</p>
+            </div>
+          )}
+
+          {isLoading && (
+            <div className="px-8 py-16 text-center">
+              <div className="inline-block">
+                <div className="w-8 h-8 border-2 border-gray-300 border-t-black rounded-full animate-spin" />
+              </div>
+              <p className="text-gray-600 text-sm mt-4">Finding resources...</p>
+            </div>
+          )}
         </div>
-
-        {/* Error Message */}
-        {error && (
-          <div className="mx-6 mt-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-            ⚠️ {error}
-          </div>
-        )}
-
-        {/* Suggestions Display */}
-        {suggestions && (
-          <div className="p-6 space-y-6">
-            {/* Core Intention */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h3 className="font-semibold text-blue-900 mb-2">🎯 Your Goal</h3>
-              <p className="text-blue-800 mb-2">{suggestions.goal}</p>
-              <p className="text-sm text-blue-700 font-medium">
-                Core Intention: {suggestions.coreIntention}
-              </p>
-            </div>
-
-            {/* Suggestions Summary */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              <SuggestionCount icon="🎥" label="Videos" count={suggestions.suggestions.videos.length} />
-              <SuggestionCount icon="🎙️" label="Podcasts" count={suggestions.suggestions.podcasts.length} />
-              <SuggestionCount icon="🎵" label="Songs" count={suggestions.suggestions.songs.length} />
-              <SuggestionCount icon="🌐" label="Websites" count={suggestions.suggestions.websites.length} />
-              <SuggestionCount icon="📚" label="Books" count={suggestions.suggestions.books.length} />
-            </div>
-
-            {/* Suggestion Categories */}
-            <div className="space-y-4">
-              <SuggestionCategory
-                title="🎥 Videos"
-                icon="🎥"
-                items={suggestions.suggestions.videos.slice(0, itemsPerCategory.videos)}
-                category="videos"
-                isExpanded={expandedCategory === 'videos'}
-                onToggle={() => toggleCategory('videos')}
-                onLoadMore={() => handleLoadMore('videos')}
-                hasMore={itemsPerCategory.videos < suggestions.suggestions.videos.length}
-              />
-
-              <SuggestionCategory
-                title="🎙️ Podcasts"
-                icon="🎙️"
-                items={suggestions.suggestions.podcasts.slice(0, itemsPerCategory.podcasts)}
-                category="podcasts"
-                isExpanded={expandedCategory === 'podcasts'}
-                onToggle={() => toggleCategory('podcasts')}
-                onLoadMore={() => handleLoadMore('podcasts')}
-                hasMore={itemsPerCategory.podcasts < suggestions.suggestions.podcasts.length}
-              />
-
-              <SuggestionCategory
-                title="🎵 Songs & Music"
-                icon="🎵"
-                items={suggestions.suggestions.songs.slice(0, itemsPerCategory.songs)}
-                category="songs"
-                isExpanded={expandedCategory === 'songs'}
-                onToggle={() => toggleCategory('songs')}
-                onLoadMore={() => handleLoadMore('songs')}
-                hasMore={itemsPerCategory.songs < suggestions.suggestions.songs.length}
-              />
-
-              <SuggestionCategory
-                title="🌐 Websites & Resources"
-                icon="🌐"
-                items={suggestions.suggestions.websites.slice(0, itemsPerCategory.websites)}
-                category="websites"
-                isExpanded={expandedCategory === 'websites'}
-                onToggle={() => toggleCategory('websites')}
-                onLoadMore={() => handleLoadMore('websites')}
-                hasMore={itemsPerCategory.websites < suggestions.suggestions.websites.length}
-              />
-
-              <SuggestionCategory
-                title="📚 Books"
-                icon="📚"
-                items={suggestions.suggestions.books.slice(0, itemsPerCategory.books)}
-                category="books"
-                isExpanded={expandedCategory === 'books'}
-                onToggle={() => toggleCategory('books')}
-                onLoadMore={() => handleLoadMore('books')}
-                hasMore={itemsPerCategory.books < suggestions.suggestions.books.length}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Empty State */}
-        {!suggestions && !isLoading && (
-          <div className="p-12 text-center text-gray-500">
-            <div className="text-4xl mb-4">💭</div>
-            <p>Enter your goal above to get personalized suggestions</p>
-          </div>
-        )}
       </div>
-    </div>
-  );
-}
-
-/**
- * Suggestion Count Card
- */
-function SuggestionCount({ icon, label, count }: { icon: string; label: string; count: number }) {
-  return (
-    <div className="bg-gradient-to-br from-blue-50 to-purple-50 border border-blue-200 rounded-lg p-3 text-center">
-      <div className="text-2xl mb-1">{icon}</div>
-      <div className="text-2xl font-bold text-gray-800">{count}</div>
-      <div className="text-xs text-gray-600">{label}</div>
     </div>
   );
 }
@@ -207,49 +207,69 @@ function SuggestionCount({ icon, label, count }: { icon: string; label: string; 
  */
 function SuggestionCategory({
   title,
-  icon,
+  label,
   items,
   category,
   isExpanded,
   onToggle,
   onLoadMore,
   hasMore,
+  selectedPreview,
+  onSelectPreview,
 }: {
   title: string;
-  icon: string;
+  label: string;
   items: Suggestion[];
   category: string;
   isExpanded: boolean;
   onToggle: () => void;
   onLoadMore: () => void;
   hasMore: boolean;
+  selectedPreview: string | null;
+  onSelectPreview: (id: string | null) => void;
 }) {
   return (
-    <div className="border border-gray-200 rounded-lg overflow-hidden">
+    <div className="border-b border-gray-200 pb-8 last:border-0">
       <button
         onClick={onToggle}
-        className="w-full bg-gray-50 hover:bg-gray-100 p-4 flex items-center justify-between transition-colors"
+        className="w-full flex items-center justify-between mb-4 group"
       >
-        <span className="font-semibold text-gray-800">{title}</span>
-        <span className="text-xl">{isExpanded ? '▼' : '▶'}</span>
+        <h3 className="text-xl font-light text-black group-hover:text-gray-700 transition-colors">{title}</h3>
+        <div className="text-gray-400 group-hover:text-black transition-colors">
+          {isExpanded ? (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+            </svg>
+          ) : (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+            </svg>
+          )}
+        </div>
       </button>
 
       {isExpanded && (
-        <div className="p-4 space-y-3 bg-white">
+        <div className="space-y-3">
           {items.length === 0 ? (
-            <p className="text-gray-500 text-center py-4">No suggestions found in this category</p>
+            <p className="text-gray-400 text-center py-6">No resources found</p>
           ) : (
             <>
               {items.map((item) => (
-                <SuggestionItem key={item.id} item={item} />
+                <SuggestionItem
+                  key={item.id}
+                  item={item}
+                  label={label}
+                  isPreviewSelected={selectedPreview === item.id}
+                  onSelectPreview={() => onSelectPreview(selectedPreview === item.id ? null : item.id)}
+                />
               ))}
 
               {hasMore && (
                 <button
                   onClick={onLoadMore}
-                  className="w-full mt-4 py-2 text-blue-600 hover:text-blue-700 font-semibold border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
+                  className="w-full mt-4 py-3 text-black font-medium border border-black hover:bg-black hover:text-white transition-colors"
                 >
-                  📌 Load More
+                  Load More
                 </button>
               )}
             </>
@@ -263,60 +283,172 @@ function SuggestionCategory({
 /**
  * Individual Suggestion Item
  */
-function SuggestionItem({ item }: { item: Suggestion }) {
-  const getRelevanceBadge = (score: number) => {
-    if (score >= 0.9) return <span className="text-green-600 font-semibold">⭐ Perfect Match</span>;
-    if (score >= 0.8) return <span className="text-green-600 font-semibold">⭐ Highly Relevant</span>;
-    if (score >= 0.7) return <span className="text-blue-600 font-semibold">💡 Relevant</span>;
-    return <span className="text-gray-600">👍 Useful</span>;
+function SuggestionItem({
+  item,
+  label,
+  isPreviewSelected,
+  onSelectPreview,
+}: {
+  item: Suggestion;
+  label: string;
+  isPreviewSelected: boolean;
+  onSelectPreview: () => void;
+}) {
+  const getRelevanceLevel = (score: number) => {
+    if (score >= 0.9) return 'Perfect match';
+    if (score >= 0.8) return 'Highly relevant';
+    if (score >= 0.7) return 'Relevant';
+    return 'Useful';
   };
 
   return (
-    <div className="bg-gray-50 hover:bg-gray-100 p-4 rounded-lg border border-gray-200 hover:border-blue-300 transition-colors">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1 min-w-0">
-          <h4 className="font-semibold text-gray-900 text-sm sm:text-base truncate">
-            {item.title}
-          </h4>
-
-          {item.description && (
-            <p className="text-sm text-gray-600 mt-1 line-clamp-2">
-              {item.description}
-            </p>
-          )}
-
-          <div className="flex items-center gap-3 mt-2 flex-wrap">
-            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
-              {item.type === 'video' ? '▶️ Video' : item.type === 'podcast' ? '🎙️ Podcast' : item.type === 'song' ? '🎵 Song' : item.type === 'website' ? '🌐 Website' : '📚 Book'}
-            </span>
-
-            {item.duration && (
-              <span className="text-xs text-gray-500">
-                ⏱️ {item.duration}
-              </span>
-            )}
-
-            {getRelevanceBadge(item.relevanceScore)}
+    <div className="border border-gray-200 hover:border-black transition-colors">
+      <div className="p-4">
+        <div className="flex items-start justify-between gap-4 mb-2">
+          <div className="flex-1 min-w-0">
+            <h4 className="font-medium text-black text-sm leading-tight">
+              {item.title}
+            </h4>
           </div>
-
-          {item.reason && (
-            <p className="text-xs text-gray-500 mt-2 italic">
-              💡 {item.reason}
-            </p>
-          )}
+          <span className="text-xs font-medium text-gray-600 uppercase tracking-wide flex-shrink-0">
+            {label}
+          </span>
         </div>
 
-        {item.url && (
-          <a
-            href={item.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex-shrink-0 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded transition-colors whitespace-nowrap"
-          >
-            View
-          </a>
+        {item.description && (
+          <p className="text-xs text-gray-600 mb-3 line-clamp-2">
+            {item.description}
+          </p>
         )}
+
+        <div className="flex items-center gap-2 mb-3 flex-wrap">
+          {item.duration && (
+            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1">
+              {item.duration}
+            </span>
+          )}
+          <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1">
+            {getRelevanceLevel(item.relevanceScore)}
+          </span>
+        </div>
+
+        {item.reason && (
+          <p className="text-xs text-gray-600 mb-4 leading-relaxed">
+            {item.reason}
+          </p>
+        )}
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onSelectPreview}
+            className="text-xs font-medium text-black border border-black px-3 py-2 hover:bg-black hover:text-white transition-colors"
+          >
+            {isPreviewSelected ? 'Hide Preview' : 'Preview'}
+          </button>
+          {item.url && (
+            <a
+              href={item.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs font-medium text-black border border-black px-3 py-2 hover:bg-black hover:text-white transition-colors"
+            >
+              Visit
+            </a>
+          )}
+        </div>
       </div>
+
+      {/* Preview Section */}
+      {isPreviewSelected && (
+        <div className="bg-gray-50 border-t border-gray-200 p-4">
+          <PreviewContent item={item} />
+        </div>
+      )}
     </div>
   );
+}
+
+/**
+ * Preview Content based on resource type
+ */
+function PreviewContent({ item }: { item: Suggestion }) {
+  switch (item.type) {
+    case 'video':
+      return (
+        <div className="space-y-2">
+          <div className="aspect-video bg-black text-white flex items-center justify-center text-sm">
+            Video Preview: {item.title}
+          </div>
+          <p className="text-xs text-gray-600">{item.description}</p>
+        </div>
+      );
+
+    case 'podcast':
+      return (
+        <div className="space-y-3">
+          <div className="bg-black text-white p-4 rounded">
+            <p className="text-xs font-medium mb-2">Audio Preview</p>
+            <div className="flex items-center gap-2">
+              <button className="w-8 h-8 rounded-full bg-white text-black flex items-center justify-center flex-shrink-0 hover:bg-gray-200 transition-colors">
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </button>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-white truncate">{item.title}</p>
+                <p className="text-xs text-gray-300">{item.duration || '45 min'}</p>
+              </div>
+            </div>
+          </div>
+          <p className="text-xs text-gray-600">{item.description}</p>
+        </div>
+      );
+
+    case 'song':
+      return (
+        <div className="space-y-3">
+          <div className="bg-black text-white p-4 rounded">
+            <p className="text-xs font-medium mb-2">Track Preview</p>
+            <div className="flex items-center gap-2">
+              <button className="w-8 h-8 rounded-full bg-white text-black flex items-center justify-center flex-shrink-0 hover:bg-gray-200 transition-colors">
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </button>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-white truncate">{item.title}</p>
+                <p className="text-xs text-gray-300">{item.duration || '3:45'}</p>
+              </div>
+            </div>
+          </div>
+          <p className="text-xs text-gray-600">{item.description}</p>
+        </div>
+      );
+
+    case 'website':
+      return (
+        <div className="space-y-2">
+          <div className="bg-gray-100 border border-gray-300 p-3 rounded aspect-video flex items-center justify-center">
+            <p className="text-xs text-gray-600 text-center">Website Preview</p>
+          </div>
+          <p className="text-xs text-gray-600">{item.description}</p>
+          {item.url && (
+            <p className="text-xs text-gray-500 break-all">{item.url}</p>
+          )}
+        </div>
+      );
+
+    case 'book':
+      return (
+        <div className="space-y-2">
+          <div className="bg-black text-white p-6 rounded flex items-center justify-center aspect-video">
+            <p className="text-center text-xs font-medium">{item.title}</p>
+          </div>
+          <p className="text-xs text-gray-600">{item.description}</p>
+        </div>
+      );
+
+    default:
+      return <p className="text-xs text-gray-600">{item.description}</p>;
+  }
 }
