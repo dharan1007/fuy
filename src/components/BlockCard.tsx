@@ -27,51 +27,104 @@ export default function BlockCard({ block, active }: Props) {
     const el = ref.current;
     if (!el) return;
 
-    const mousedown = (e: MouseEvent) => {
-      const t = e.target as HTMLElement;
-      if (t.closest("[data-resizer]") || t.closest("[data-no-drag]") || t.closest("[data-block-toolbar]")) return;
-      if (e.button !== 0) return;
-      drag.current = { down: true, sx: e.clientX, sy: e.clientY, ox: block.x, oy: block.y };
+    const handleDragStart = (x: number, y: number) => {
+      drag.current = { down: true, sx: x, sy: y, ox: block.x, oy: block.y };
       emit("block:activate", { id: block.id });
     };
-    const mousemove = (e: MouseEvent) => {
+
+    const handleDragMove = (x: number, y: number) => {
       if (!drag.current.down) return;
-      const dx = e.clientX - drag.current.sx;
-      const dy = e.clientY - drag.current.sy;
+      const dx = x - drag.current.sx;
+      const dy = y - drag.current.sy;
       const nx = Math.round(drag.current.ox + dx);
       const ny = Math.round(drag.current.oy + dy);
       emit("block:move", { id: block.id, x: nx, y: ny });
     };
-    const mouseup = () => {
+
+    const handleDragEnd = () => {
       drag.current.down = false;
     };
 
+    const mousedown = (e: MouseEvent) => {
+      const t = e.target as HTMLElement;
+      if (t.closest("[data-resizer]") || t.closest("[data-no-drag]") || t.closest("[data-block-toolbar]")) return;
+      if (e.button !== 0) return;
+      handleDragStart(e.clientX, e.clientY);
+    };
+
+    const touchstart = (e: TouchEvent) => {
+      const t = e.target as HTMLElement;
+      if (t.closest("[data-resizer]") || t.closest("[data-no-drag]") || t.closest("[data-block-toolbar]")) return;
+      if (e.touches.length !== 1) return;
+      const touch = e.touches[0];
+      handleDragStart(touch.clientX, touch.clientY);
+    };
+
+    const mousemove = (e: MouseEvent) => {
+      handleDragMove(e.clientX, e.clientY);
+    };
+
+    const touchmove = (e: TouchEvent) => {
+      if (!drag.current.down || e.touches.length !== 1) return;
+      e.preventDefault();
+      const touch = e.touches[0];
+      handleDragMove(touch.clientX, touch.clientY);
+    };
+
+    const mouseup = handleDragEnd;
+    const touchend = handleDragEnd;
+
     el.addEventListener("mousedown", mousedown);
+    el.addEventListener("touchstart", touchstart, { passive: true });
     window.addEventListener("mousemove", mousemove);
+    window.addEventListener("touchmove", touchmove, { passive: false });
     window.addEventListener("mouseup", mouseup);
+    window.addEventListener("touchend", touchend);
+
     return () => {
       el.removeEventListener("mousedown", mousedown);
+      el.removeEventListener("touchstart", touchstart);
       window.removeEventListener("mousemove", mousemove);
+      window.removeEventListener("touchmove", touchmove);
       window.removeEventListener("mouseup", mouseup);
+      window.removeEventListener("touchend", touchend);
     };
   }, [block.id, block.x, block.y]);
 
   // resize
   useEffect(() => {
-    const onMove = (e: MouseEvent) => {
+    const handleResize = (x: number, y: number) => {
       if (!res.current.down) return;
-      const dw = e.clientX - res.current.sx;
-      const dh = e.clientY - res.current.sy;
+      const dw = x - res.current.sx;
+      const dh = y - res.current.sy;
       const w = Math.max(MIN_W_CARD, res.current.sw + dw);
       const h = Math.max(MIN_H_CARD, res.current.sh + dh);
       emit("block:resize", { id: block.id, w, h });
     };
-    const onUp = () => (res.current.down = false);
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
+
+    const onMouseMove = (e: MouseEvent) => {
+      handleResize(e.clientX, e.clientY);
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (!res.current.down || e.touches.length !== 1) return;
+      e.preventDefault();
+      const touch = e.touches[0];
+      handleResize(touch.clientX, touch.clientY);
+    };
+
+    const onEnd = () => (res.current.down = false);
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
+    window.addEventListener("mouseup", onEnd);
+    window.addEventListener("touchend", onEnd);
+
     return () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("mouseup", onEnd);
+      window.removeEventListener("touchend", onEnd);
     };
   }, [block.id]);
 

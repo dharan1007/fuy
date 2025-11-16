@@ -29,7 +29,7 @@ import CanvasArea from "./CanvasArea";
 import TemplateCard from "./TemplateCard";
 import TemplatePreview from "./TemplatePreview";
 import generatePlan, { AIPlan, AIBlockPlan, AIOptions } from "@/lib/ai";
-import AISuggestionsPanel from "./AISuggestionsPanel";
+import DbotModal from "./DbotModal";
 import { SuggestionsResponse } from "@/lib/ai-suggestions";
 
 export default function JournalEditor() {
@@ -56,16 +56,11 @@ export default function JournalEditor() {
 
   const [previewTpl, setPreviewTpl] = useState<TemplateFull | null>(null);
 
-  // AI (single free-text input—no selections)
-  const [aiOpen, setAiOpen] = useState(false);
-  const [aiPrompt, setAiPrompt] = useState("");
-  const [aiLoading, setAiLoading] = useState(false);
-
-  // AI Suggestions
-  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
-  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  // dbot (combined AI + Suggestions)
+  const [dbotOpen, setDbotOpen] = useState(false);
+  const [dbotLoading, setDbotLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<SuggestionsResponse | null>(null);
-  const [suggestionsError, setSuggestionsError] = useState<string | null>(null);
+  const [dbotError, setDbotError] = useState<string | null>(null);
 
   // sensible defaults; generator mainly relies on aiPrompt text
   const aiOptRef = useRef<AIOptions>({
@@ -131,17 +126,17 @@ export default function JournalEditor() {
     };
   }, [offset.x, offset.y]);
 
-  /* ------------ AI regenerate from “Questions” (⌘/Ctrl+Enter) ------------- */
+  /* ------------ AI regenerate from "Questions" (⌘/Ctrl+Enter) ------------- */
   async function regenerateFrom(text: string) {
     try {
-      setAiLoading(true);
+      setDbotLoading(true);
       const plan = await generatePlan(text, aiOptRef.current);
       insertFromPlan(plan);
     } catch (e) {
       console.error(e);
       alert("Could not regenerate from your reply.");
     } finally {
-      setAiLoading(false);
+      setDbotLoading(false);
     }
   }
 
@@ -587,29 +582,29 @@ export default function JournalEditor() {
     }
   }
 
-  async function handleGenerateAI() {
-    const prompt = aiPrompt.trim();
-    if (!prompt) {
+  async function handleGenerateAI(prompt: string) {
+    if (!prompt.trim()) {
       alert(`Tell me what you want (e.g., "Morning routine + groceries + reminders").`);
       return;
     }
     try {
-      setAiLoading(true);
+      setDbotLoading(true);
+      setDbotError(null);
       const plan = await generatePlan(prompt, aiOptRef.current);
       insertFromPlan(plan);
-      setAiOpen(false);
-      setAiPrompt("");
+      setDbotOpen(false);
+      setSuggestions(null);
     } catch (e) {
       console.error(e);
-      alert("Could not create content from your request.");
+      setDbotError("Could not create content from your request.");
     } finally {
-      setAiLoading(false);
+      setDbotLoading(false);
     }
   }
 
-  async function handleSuggestionsRequest(goalText: string) {
-    setSuggestionsLoading(true);
-    setSuggestionsError(null);
+  async function handleFindResources(goalText: string) {
+    setDbotLoading(true);
+    setDbotError(null);
     try {
       const response = await fetch("/api/ai/suggestions", {
         method: "POST",
@@ -620,13 +615,13 @@ export default function JournalEditor() {
       if (response.ok) {
         setSuggestions(data);
       } else {
-        setSuggestionsError(data.error || "Failed to generate suggestions");
+        setDbotError(data.error || "Failed to find resources");
       }
     } catch (error) {
       console.error(error);
-      setSuggestionsError("Error fetching suggestions. Please try again.");
+      setDbotError("Error fetching resources. Please try again.");
     } finally {
-      setSuggestionsLoading(false);
+      setDbotLoading(false);
     }
   }
 
@@ -804,88 +799,136 @@ export default function JournalEditor() {
           </select>
 
           <div className="hidden items-center gap-1 md:flex">
-            <Btn variant="outline" onClick={() => setZoom((z) => clamp(z - 0.1, 0.3, 2))}>－</Btn>
-            <div className="w-10 select-none text-center text-sm">{(zoom * 100).toFixed(0)}%</div>
-            <Btn variant="outline" onClick={() => setZoom((z) => clamp(z + 0.1, 0.3, 2))}>＋</Btn>
+            <Btn variant="outline" onClick={() => setZoom((z) => clamp(z - 0.1, 0.3, 2))} title="Zoom out">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM13 10H7" />
+              </svg>
+            </Btn>
+            <div className="w-10 select-none text-center text-xs">{(zoom * 100).toFixed(0)}%</div>
+            <Btn variant="outline" onClick={() => setZoom((z) => clamp(z + 0.1, 0.3, 2))} title="Zoom in">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
+              </svg>
+            </Btn>
             <Btn
               variant="outline"
               onClick={() => {
                 setOffset({ x: 0, y: 0 });
                 setZoom(1);
               }}
+              title="Reset zoom"
             >
-              ⟲
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
             </Btn>
           </div>
 
           <Btn
             variant="outline"
             onClick={fs.toggle}
-            title={fs.isFullscreen ? "Exit fullscreen (Esc)" : "Enter fullscreen"}
+            title={fs.isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
           >
-            {fs.isFullscreen ? "🗗 Fullscreen Off" : "⛶ Fullscreen"}
+            {fs.isFullscreen ? (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5" />
+              </svg>
+            )}
           </Btn>
 
-          <Btn variant="soft" onClick={saveEntry}>💾 Save</Btn>
-          <Btn variant="soft" onClick={() => entries[0] && openEntry(entries[0])}>📂 Open last</Btn>
+          <Btn variant="soft" onClick={saveEntry} title="Save entry">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+            </svg>
+          </Btn>
+          <Btn variant="soft" onClick={() => entries[0] && openEntry(entries[0])} title="Open last entry">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m4-3H8m7-9a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </Btn>
         </div>
 
         {/* Toolbar */}
         <div className="sticky top-[52px] z-10 border-b border-black/10 bg-white p-2">
           <div className="flex flex-wrap items-center gap-2">
-            <Btn variant="soft" onClick={() =>
-              addBlock({ type: "TEXT", text: "## Reflection\nWrite thoughts here…", editor: "MARKDOWN", w: 380, h: 220 })
-            }>
-              ✍️ Text
+            <Btn
+              variant="soft"
+              onClick={() =>
+                addBlock({ type: "TEXT", text: "## Reflection\nWrite thoughts here…", editor: "MARKDOWN", w: 380, h: 220 })
+              }
+              title="Add text block"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
             </Btn>
-            <Btn variant="soft" onClick={() =>
-              addBlock({
-                type: "CHECKLIST",
-                checklist: [
-                  { id: uid(), text: "Task 1", done: false },
-                  { id: uid(), text: "Task 2", done: false },
-                ],
-                w: 320, h: 200,
-              })
-            }>
-              ☑️ Checklist
+            <Btn
+              variant="soft"
+              onClick={() =>
+                addBlock({
+                  type: "CHECKLIST",
+                  checklist: [
+                    { id: uid(), text: "Task 1", done: false },
+                    { id: uid(), text: "Task 2", done: false },
+                  ],
+                  w: 320,
+                  h: 200,
+                })
+              }
+              title="Add checklist"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+              </svg>
             </Btn>
-            <Btn variant="soft" onClick={() => addBlock({ type: "IMAGE", w: 440, h: 300 })}>🖼️ Image</Btn>
-            <Btn variant="soft" onClick={() => addBlock({ type: "VIDEO", w: 440, h: 280 })}>📹 Video</Btn>
-            <Btn variant="soft" onClick={() => addBlock({ type: "AUDIO", w: 380, h: 140 })}>🎙️ Audio</Btn>
-            <Btn variant="soft" onClick={() =>
-              addBlock({ type: "DRAW", drawing: { stroke: "#000000", strokeWidth: 2, paths: [] }, w: 480, h: 320 })
-            }>
-              ✏️ Draw
+            <Btn
+              variant="soft"
+              onClick={() => addBlock({ type: "IMAGE", w: 440, h: 300 })}
+              title="Add image"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </Btn>
+            <Btn
+              variant="soft"
+              onClick={() => addBlock({ type: "VIDEO", w: 440, h: 280 })}
+              title="Add video"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </Btn>
+            <Btn
+              variant="soft"
+              onClick={() => addBlock({ type: "AUDIO", w: 380, h: 140 })}
+              title="Add audio"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+              </svg>
+            </Btn>
+            <Btn
+              variant="soft"
+              onClick={() =>
+                addBlock({ type: "DRAW", drawing: { stroke: "#000000", strokeWidth: 2, paths: [] }, w: 480, h: 320 })
+              }
+              title="Add drawing"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21H3v-3.5L16.732 3.732z" />
+              </svg>
             </Btn>
 
             <div className="ml-auto" />
-            <Btn variant="solid" onClick={() => setSuggestionsOpen((s) => !s)}>✨ AI Suggestions</Btn>
-            <Btn variant="solid" onClick={() => setAiOpen((s) => !s)}>🤖 AI</Btn>
+            <Btn variant="solid" onClick={() => setDbotOpen((s) => !s)} title="Open dbot - AI Assistant & Resources">
+              dbot
+            </Btn>
           </div>
-
-          {aiOpen && (
-            <div className="mt-3 rounded-xl border border-black/15 bg-white p-3">
-              <div className="flex flex-col gap-2">
-                <label className="text-sm">Tell me (in plain text) what to create</label>
-                <textarea
-                  className="min-h-[110px] w-full rounded-lg border border-black/20 bg-white p-2 text-sm outline-none"
-                  placeholder={`e.g., “Create a morning routine, add groceries: apples x4, oat milk, chicken 1kg; remind me to call mom at 7pm; walk the dog at 7am & 8pm; math homework due Friday; and list 3 MITs.”`}
-                  value={aiPrompt}
-                  onChange={(e) => setAiPrompt(e.target.value)}
-                />
-                <div className="flex items-center justify-end gap-2">
-                  <Btn variant="outline" onClick={() => setAiOpen(false)}>Close</Btn>
-                  <Btn variant="solid" onClick={handleGenerateAI}>
-                    {aiLoading ? "Creating…" : "Create"}
-                  </Btn>
-                </div>
-                <div className="text-xs text-black/60">
-                  Tip: after it adds a <em>Questions</em> block, edit it and press <b>⌘/Ctrl+Enter</b> to regenerate.
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Canvas */}
@@ -900,13 +943,17 @@ export default function JournalEditor() {
 
       {previewTpl && <TemplatePreview tpl={previewTpl} />}
 
-      <AISuggestionsPanel
-        isOpen={suggestionsOpen}
-        onClose={() => setSuggestionsOpen(false)}
-        onGoalSubmit={handleSuggestionsRequest}
-        isLoading={suggestionsLoading}
+      <DbotModal
+        isOpen={dbotOpen}
+        onClose={() => {
+          setDbotOpen(false);
+          setSuggestions(null);
+        }}
+        onGenerateAI={handleGenerateAI}
+        onFindResources={handleFindResources}
+        isLoading={dbotLoading}
         suggestions={suggestions}
-        error={suggestionsError || undefined}
+        error={dbotError || undefined}
       />
     </div>
   );
