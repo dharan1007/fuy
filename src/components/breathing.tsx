@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import clsx from "clsx";
+import TargetCursor from "./TargetCursor";
 
 // Global animations helper (initialized in component useEffect)
 const addGlobalAnimations = () => {
@@ -789,7 +790,7 @@ function ReactionIcon({
       {/* Like Button */}
       <button
         onClick={onLike}
-        className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition-all ${
+        className={`cursor-target flex items-center gap-1.5 px-3 py-2 rounded-lg transition-all ${
           userLiked
             ? "bg-emerald-500 text-white shadow-sm"
             : "bg-white/50 hover:bg-white/80 text-gray-700"
@@ -814,7 +815,7 @@ function ReactionIcon({
       {/* Dislike Button */}
       <button
         onClick={onDislike}
-        className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition-all ${
+        className={`cursor-target flex items-center gap-1.5 px-3 py-2 rounded-lg transition-all ${
           userDisliked
             ? "bg-red-500 text-white shadow-sm"
             : "bg-white/50 hover:bg-white/80 text-gray-700"
@@ -839,7 +840,7 @@ function ReactionIcon({
       {/* Opinion Button */}
       <button
         onClick={onOpenOpinions}
-        className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/50 hover:bg-white/80 text-gray-700 transition-all"
+        className="cursor-target flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/50 hover:bg-white/80 text-gray-700 transition-all"
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
@@ -1115,7 +1116,7 @@ function BreathingCard({
     <div className="bg-white/60 backdrop-blur border border-white/70 rounded-2xl overflow-hidden hover:shadow-lg transition-all animate-fadeIn">
       <button
         onClick={onToggle}
-        className="w-full p-6 text-left hover:bg-white/40 transition-colors"
+        className="cursor-target w-full p-6 text-left hover:bg-white/40 transition-colors"
       >
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1">
@@ -1186,7 +1187,7 @@ function BreathingCard({
 
           <button
             onClick={onStart}
-            className="w-full mt-4 px-4 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+            className="cursor-target w-full mt-4 px-4 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
               <path d="M8 5v14l11-7z" />
@@ -1526,7 +1527,7 @@ function ActiveBreathingSession({
           </p>
           <button
             onClick={onComplete}
-            className="px-8 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-xl transition-colors"
+            className="cursor-target px-8 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-xl transition-colors"
           >
             Back to Techniques
           </button>
@@ -1547,7 +1548,7 @@ function ActiveBreathingSession({
         <div className="absolute top-6 left-6 right-6 flex justify-between items-center">
           <button
             onClick={onComplete}
-            className="px-4 py-2 rounded-lg bg-white/60 hover:bg-white/80 text-black transition-colors"
+            className="cursor-target px-4 py-2 rounded-lg bg-white/60 hover:bg-white/80 text-black transition-colors"
           >
             ← Back
           </button>
@@ -1596,7 +1597,7 @@ function ActiveBreathingSession({
           <div className="flex gap-4">
             <button
               onClick={() => setIsRunning(!isRunning)}
-              className="px-8 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-xl transition-colors flex items-center gap-2"
+              className="cursor-target px-8 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-xl transition-colors flex items-center gap-2"
             >
               {isRunning ? (
                 <>
@@ -1616,7 +1617,7 @@ function ActiveBreathingSession({
             </button>
             <button
               onClick={onComplete}
-              className="px-8 py-3 bg-white/60 hover:bg-white/80 text-black font-semibold rounded-xl transition-colors"
+              className="cursor-target px-8 py-3 bg-white/60 hover:bg-white/80 text-black font-semibold rounded-xl transition-colors"
             >
               Exit
             </button>
@@ -1740,6 +1741,9 @@ export function BreathingSession() {
 
   return (
     <div className="relative min-h-[100svh] w-full overflow-hidden bg-gradient-to-br from-purple-100 via-pink-100 to-blue-100 text-neutral-900">
+      {/* Custom Target Cursor */}
+      <TargetCursor targetSelector=".cursor-target" spinDuration={3} parallaxOn={true} />
+
       {/* Duplicating Dots Canvas Animation */}
       <DuplicatingDotsBackground />
 
@@ -1792,7 +1796,7 @@ export function BreathingSession() {
             <button
               onClick={() => setSortBy("name")}
               className={clsx(
-                "px-4 py-2 rounded-lg font-medium transition-all",
+                "cursor-target px-4 py-2 rounded-lg font-medium transition-all",
                 sortBy === "name"
                   ? "bg-emerald-500 text-white shadow-lg"
                   : "bg-white/60 backdrop-blur border border-white/70 text-black hover:bg-white/80"
@@ -1803,7 +1807,7 @@ export function BreathingSession() {
             <button
               onClick={() => setSortBy("likes")}
               className={clsx(
-                "px-4 py-2 rounded-lg font-medium transition-all",
+                "cursor-target px-4 py-2 rounded-lg font-medium transition-all",
                 sortBy === "likes"
                   ? "bg-emerald-500 text-white shadow-lg"
                   : "bg-white/60 backdrop-blur border border-white/70 text-black hover:bg-white/80"
@@ -1814,7 +1818,7 @@ export function BreathingSession() {
             <button
               onClick={() => setSortBy("dislikes")}
               className={clsx(
-                "px-4 py-2 rounded-lg font-medium transition-all",
+                "cursor-target px-4 py-2 rounded-lg font-medium transition-all",
                 sortBy === "dislikes"
                   ? "bg-emerald-500 text-white shadow-lg"
                   : "bg-white/60 backdrop-blur border border-white/70 text-black hover:bg-white/80"
@@ -1858,7 +1862,7 @@ export function BreathingSession() {
               <button
                 onClick={() => setSelectedCategory(null)}
                 className={clsx(
-                  "snap-center flex-shrink-0 px-5 py-2 rounded-full font-medium transition-all whitespace-nowrap",
+                  "cursor-target snap-center flex-shrink-0 px-5 py-2 rounded-full font-medium transition-all whitespace-nowrap",
                   selectedCategory === null
                     ? "bg-emerald-500 text-white shadow-lg"
                     : "bg-white/60 backdrop-blur border border-white/70 text-black hover:bg-white/80"
@@ -1875,7 +1879,7 @@ export function BreathingSession() {
                     key={cat}
                     onClick={() => setSelectedCategory(cat)}
                     className={clsx(
-                      "snap-center flex-shrink-0 px-5 py-2 rounded-full font-medium transition-all whitespace-nowrap",
+                      "cursor-target snap-center flex-shrink-0 px-5 py-2 rounded-full font-medium transition-all whitespace-nowrap",
                       selectedCategory === cat
                         ? "bg-emerald-500 text-white shadow-lg"
                         : "bg-white/60 backdrop-blur border border-white/70 text-black hover:bg-white/80"
@@ -1890,7 +1894,7 @@ export function BreathingSession() {
             {/* Scroll arrows */}
             <button
               onClick={() => scrollHorizontally("left")}
-              className="absolute left-0 top-1/2 -translate-y-1/2 -ml-4 z-20 hidden md:flex items-center justify-center w-8 h-8 rounded-full bg-white/70 backdrop-blur border border-white/50 hover:bg-white"
+              className="cursor-target absolute left-0 top-1/2 -translate-y-1/2 -ml-4 z-20 hidden md:flex items-center justify-center w-8 h-8 rounded-full bg-white/70 backdrop-blur border border-white/50 hover:bg-white"
             >
               <svg
                 width="16"
@@ -1905,7 +1909,7 @@ export function BreathingSession() {
             </button>
             <button
               onClick={() => scrollHorizontally("right")}
-              className="absolute right-0 top-1/2 -translate-y-1/2 -mr-4 z-20 hidden md:flex items-center justify-center w-8 h-8 rounded-full bg-white/70 backdrop-blur border border-white/50 hover:bg-white"
+              className="cursor-target absolute right-0 top-1/2 -translate-y-1/2 -mr-4 z-20 hidden md:flex items-center justify-center w-8 h-8 rounded-full bg-white/70 backdrop-blur border border-white/50 hover:bg-white"
             >
               <svg
                 width="16"

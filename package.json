@@ -28,6 +28,7 @@
     "clsx": "2.1.1",
     "date-fns": "^4.1.0",
     "gpxparser": "3.0.8",
+    "gsap": "^3.13.0",
     "jose": "^6.0.13",
     "leaflet": "1.9.4",
     "leaflet-draw": "1.0.4",
