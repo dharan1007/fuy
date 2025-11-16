@@ -5,7 +5,9 @@
       "Bash(npx prisma db push:*)",
       "Bash(npm install:*)",
       "Bash(powershell:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(npm run build:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []

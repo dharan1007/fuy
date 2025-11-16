@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect } from "react";
 import clsx from "clsx";
 
 /** ==================== Types ==================== */
@@ -530,10 +530,12 @@ function BreathingCard({
   technique,
   isExpanded,
   onToggle,
+  onStart,
 }: {
   technique: BreathingTechnique;
   isExpanded: boolean;
   onToggle: () => void;
+  onStart: () => void;
 }) {
   return (
     <div className="bg-white/60 backdrop-blur border border-white/70 rounded-2xl overflow-hidden hover:shadow-lg transition-all">
@@ -593,8 +595,304 @@ function BreathingCard({
               ))}
             </div>
           </div>
+
+          <button
+            onClick={onStart}
+            className="w-full mt-4 px-4 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+          >
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+            Start Practice
+          </button>
         </div>
       )}
+    </div>
+  );
+}
+
+/** ==================== Breathing Session Screen ==================== */
+
+interface BreathingConfig {
+  inhale: number;
+  hold1: number;
+  exhale: number;
+  hold2: number;
+}
+
+function extractTimingFromInstructions(instructions: string): BreathingConfig {
+  // Default config
+  let config: BreathingConfig = { inhale: 4, hold1: 0, exhale: 4, hold2: 0 };
+
+  const numbers = (instructions.match(/\d+/g) || []).map(Number);
+  if (numbers.length >= 4) {
+    config.inhale = numbers[0];
+    config.hold1 = numbers[1] || 0;
+    config.exhale = numbers[2];
+    config.hold2 = numbers[3] || 0;
+  } else if (numbers.length === 3) {
+    config.inhale = numbers[0];
+    config.hold1 = numbers[1];
+    config.exhale = numbers[2];
+  } else if (numbers.length === 2) {
+    config.inhale = numbers[0];
+    config.exhale = numbers[1];
+  }
+
+  return config;
+}
+
+function BreathingVisualizer({
+  phase,
+  progress,
+}: {
+  phase: PhaseKey;
+  progress: number;
+}) {
+  const scale = (() => {
+    if (phase === "inhale") return 0.7 + 0.5 * progress;
+    if (phase === "exhale") return 1.2 - 0.5 * progress;
+    if (phase === "hold1" || phase === "hold2") return 1.2;
+    return 0.7;
+  })();
+
+  const opacity = (() => {
+    if (phase === "hold1" || phase === "hold2") return 0.9;
+    return 0.8 + 0.2 * (1 - Math.abs(progress - 0.5) * 2);
+  })();
+
+  return (
+    <div className="relative w-80 h-80 flex items-center justify-center">
+      {/* Outer glow circle */}
+      <div
+        className="absolute rounded-full blur-3xl bg-gradient-to-br from-emerald-400 to-teal-400 transition-all duration-75"
+        style={{
+          width: `${200 * scale}px`,
+          height: `${200 * scale}px`,
+          opacity: opacity * 0.3,
+        }}
+      />
+
+      {/* Main breathing blob */}
+      <div
+        className="absolute rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 shadow-2xl transition-all duration-75"
+        style={{
+          width: `${160 * scale}px`,
+          height: `${160 * scale}px`,
+          opacity: opacity,
+          filter: `drop-shadow(0 0 ${30 * scale}px rgba(16,185,129,0.5))`,
+        }}
+      />
+
+      {/* Center text */}
+      <div className="absolute text-center z-10">
+        <div className="text-white/80 text-sm font-medium uppercase tracking-widest mb-2">
+          {phase === "hold1" || phase === "hold2" ? "Hold" : phase}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ActiveBreathingSession({
+  technique,
+  onComplete,
+}: {
+  technique: BreathingTechnique;
+  onComplete: () => void;
+}) {
+  const config = extractTimingFromInstructions(technique.instructions);
+  const [isRunning, setIsRunning] = useState(true);
+  const [elapsed, setElapsed] = useState(0);
+  const [cycles, setCycles] = useState(0);
+  const [duration, setDuration] = useState(5); // 5 minutes default
+  const [phase, setPhase] = useState<PhaseKey>("inhale");
+  const [phaseProgress, setPhaseProgress] = useState(0);
+
+  const cycleDuration = config.inhale + config.hold1 + config.exhale + config.hold2;
+  const totalDuration = duration * 60; // Convert minutes to seconds
+
+  useEffect(() => {
+    if (!isRunning) return;
+
+    const interval = setInterval(() => {
+      setElapsed((prev) => {
+        const next = prev + 1;
+        if (next >= totalDuration) {
+          setIsRunning(false);
+          return totalDuration;
+        }
+        return next;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isRunning, totalDuration]);
+
+  useEffect(() => {
+    const posInCycle = elapsed % cycleDuration;
+    let currentPhase: PhaseKey = "inhale";
+    let phaseStart = 0;
+    let phaseDuration = config.inhale;
+
+    if (posInCycle >= config.inhale) {
+      phaseStart = config.inhale;
+      currentPhase = "hold1";
+      phaseDuration = config.hold1;
+
+      if (posInCycle >= config.inhale + config.hold1) {
+        phaseStart = config.inhale + config.hold1;
+        currentPhase = "exhale";
+        phaseDuration = config.exhale;
+
+        if (
+          posInCycle >=
+          config.inhale + config.hold1 + config.exhale
+        ) {
+          phaseStart = config.inhale + config.hold1 + config.exhale;
+          currentPhase = "hold2";
+          phaseDuration = config.hold2;
+        }
+      }
+    }
+
+    setPhase(currentPhase);
+    const progress = phaseDuration > 0 ? (posInCycle - phaseStart) / phaseDuration : 0;
+    setPhaseProgress(Math.max(0, Math.min(1, progress)));
+
+    const newCycles = Math.floor(elapsed / cycleDuration);
+    setCycles(newCycles);
+  }, [elapsed, config, cycleDuration]);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  const isComplete = elapsed >= totalDuration;
+
+  if (isComplete) {
+    return (
+      <div className="relative min-h-[100svh] w-full overflow-hidden bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 flex items-center justify-center">
+        <div className="text-center z-20">
+          <div className="mb-8">
+            <svg className="w-24 h-24 mx-auto text-emerald-500 mb-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h2 className="text-4xl font-bold text-black mb-3">
+            Great Work!
+          </h2>
+          <p className="text-lg text-gray-600 mb-2">
+            You completed {cycles} cycles of {technique.name}
+          </p>
+          <p className="text-sm text-gray-500 mb-8">
+            Total time: {formatTime(totalDuration)}
+          </p>
+          <button
+            onClick={onComplete}
+            className="px-8 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-xl transition-colors"
+          >
+            Back to Techniques
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative min-h-[100svh] w-full overflow-hidden bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50">
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-200/20 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-teal-200/20 rounded-full blur-3xl" />
+      </div>
+
+      <div className="relative z-10 h-full flex flex-col items-center justify-center p-6">
+        {/* Header */}
+        <div className="absolute top-6 left-6 right-6 flex justify-between items-center">
+          <button
+            onClick={onComplete}
+            className="px-4 py-2 rounded-lg bg-white/60 hover:bg-white/80 text-black transition-colors"
+          >
+            ← Back
+          </button>
+          <h1 className="text-2xl font-bold text-black">{technique.name}</h1>
+          <div className="w-20" /> {/* Spacer for alignment */}
+        </div>
+
+        {/* Main content */}
+        <div className="flex flex-col items-center gap-8 max-w-2xl">
+          {/* Visualizer */}
+          <BreathingVisualizer phase={phase} progress={phaseProgress} />
+
+          {/* Phase display */}
+          <div className="text-center">
+            <div className="text-6xl font-bold text-black mb-2">
+              {phase === "hold1" || phase === "hold2" ? "Hold" : phase.charAt(0).toUpperCase() + phase.slice(1)}
+            </div>
+            <div className="text-2xl font-semibold text-gray-600">
+              {Math.ceil((phase === "inhale" ? config.inhale : phase === "exhale" ? config.exhale : phase === "hold1" ? config.hold1 : config.hold2) * (1 - phaseProgress))} seconds
+            </div>
+          </div>
+
+          {/* Stats */}
+          <div className="flex gap-12 justify-center bg-white/60 backdrop-blur px-8 py-6 rounded-2xl">
+            <div className="text-center">
+              <div className="text-3xl font-bold text-emerald-600">{cycles}</div>
+              <div className="text-sm text-gray-600 mt-1">Cycles</div>
+            </div>
+            <div className="border-l border-white/40" />
+            <div className="text-center">
+              <div className="text-3xl font-bold text-emerald-600">{formatTime(elapsed)}</div>
+              <div className="text-sm text-gray-600 mt-1">Elapsed</div>
+            </div>
+            <div className="border-l border-white/40" />
+            <div className="text-center">
+              <div className="text-3xl font-bold text-emerald-600">{formatTime(totalDuration - elapsed)}</div>
+              <div className="text-sm text-gray-600 mt-1">Remaining</div>
+            </div>
+          </div>
+
+          {/* Controls */}
+          <div className="flex gap-4">
+            <button
+              onClick={() => setIsRunning(!isRunning)}
+              className="px-8 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-xl transition-colors flex items-center gap-2"
+            >
+              {isRunning ? (
+                <>
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+                  </svg>
+                  Pause
+                </>
+              ) : (
+                <>
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                  Resume
+                </>
+              )}
+            </button>
+            <button
+              onClick={onComplete}
+              className="px-8 py-3 bg-white/60 hover:bg-white/80 text-black font-semibold rounded-xl transition-colors"
+            >
+              Exit
+            </button>
+          </div>
+
+          {/* Instructions */}
+          <div className="mt-4 p-6 bg-white/60 backdrop-blur rounded-2xl max-w-lg text-center">
+            <h3 className="font-semibold text-black mb-2">Instructions</h3>
+            <p className="text-sm text-gray-700 leading-relaxed">
+              {technique.instructions}
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -603,6 +901,7 @@ export function BreathingSession() {
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [sessionTechnique, setSessionTechnique] = useState<BreathingTechnique | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Filter techniques
@@ -634,6 +933,16 @@ export function BreathingSession() {
       behavior: "smooth",
     });
   };
+
+  // Show active session if a technique has been selected
+  if (sessionTechnique) {
+    return (
+      <ActiveBreathingSession
+        technique={sessionTechnique}
+        onComplete={() => setSessionTechnique(null)}
+      />
+    );
+  }
 
   return (
     <div className="relative min-h-[100svh] w-full overflow-hidden bg-emerald-50 text-neutral-900">
@@ -770,6 +1079,7 @@ export function BreathingSession() {
                 onToggle={() =>
                   setExpandedId(expandedId === technique.id ? null : technique.id)
                 }
+                onStart={() => setSessionTechnique(technique)}
               />
             ))}
           </div>
