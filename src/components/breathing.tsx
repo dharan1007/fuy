@@ -3,6 +3,29 @@
 import { useState, useRef, useEffect } from "react";
 import clsx from "clsx";
 
+// Global animations helper (initialized in component useEffect)
+const addGlobalAnimations = () => {
+  if (typeof document === "undefined") return;
+  if (document.getElementById("breathing-animations")) return;
+
+  const style = document.createElement("style");
+  style.id = "breathing-animations";
+  style.textContent = `
+    @keyframes slideGrid {
+      0% { background-position: 0 0; }
+      100% { background-position: 50px 50px; }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fadeIn {
+      animation: fadeIn 0.5s ease-out;
+    }
+  `;
+  document.head.appendChild(style);
+};
+
 /** ==================== Types ==================== */
 
 type BreathingTechnique = {
@@ -12,9 +35,16 @@ type BreathingTechnique = {
   primaryUses: string[];
   category?: string;
   difficulty?: "Beginner" | "Intermediate" | "Advanced";
+  animationStyle?: "box" | "wave" | "pulse" | "spiral" | "flower" | "infinity";
+  reactions?: {
+    loved: number;
+    helpful: number;
+    peaceful: number;
+  };
 };
 
 type PhaseKey = "inhale" | "hold1" | "exhale" | "hold2";
+type ReactionType = "loved" | "helpful" | "peaceful";
 
 /** ==================== Breathing Techniques Data ==================== */
 
@@ -27,6 +57,8 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Stress Relief", "Focus", "Sleep"],
     category: "Foundational",
     difficulty: "Beginner",
+    animationStyle: "box",
+    reactions: { loved: 342, helpful: 521, peaceful: 389 },
   },
   {
     id: 2,
@@ -36,6 +68,8 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Sleep", "Relaxation", "Anxiety"],
     category: "Relaxation",
     difficulty: "Intermediate",
+    animationStyle: "wave",
+    reactions: { loved: 456, helpful: 623, peaceful: 567 },
   },
   {
     id: 3,
@@ -45,6 +79,8 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Stress Relief", "Quick Calm", "Anxiety"],
     category: "Quick Reset",
     difficulty: "Beginner",
+    animationStyle: "pulse",
+    reactions: { loved: 234, helpful: 456, peaceful: 289 },
   },
   {
     id: 4,
@@ -54,6 +90,8 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Deep Relaxation", "Blood Pressure", "Energy"],
     category: "Foundational",
     difficulty: "Beginner",
+    animationStyle: "box",
+    reactions: { loved: 173, helpful: 354, peaceful: 197 },
   },
   {
     id: 5,
@@ -63,6 +101,8 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Balance", "Mental Clarity", "Calm"],
     category: "Yoga",
     difficulty: "Intermediate",
+    animationStyle: "wave",
+    reactions: { loved: 381, helpful: 379, peaceful: 575 },
   },
   {
     id: 6,
@@ -72,6 +112,8 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Control", "Anxiety", "COPD Support"],
     category: "Therapeutic",
     difficulty: "Beginner",
+    animationStyle: "pulse",
+    reactions: { loved: 283, helpful: 672, peaceful: 562 },
   },
   {
     id: 7,
@@ -81,6 +123,8 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Calm", "Heart Health", "Balance"],
     category: "Advanced",
     difficulty: "Intermediate",
+    animationStyle: "spiral",
+    reactions: { loved: 259, helpful: 674, peaceful: 470 },
   },
   {
     id: 8,
@@ -90,6 +134,8 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Energy", "Mental Clarity", "Detox"],
     category: "Yoga",
     difficulty: "Advanced",
+    animationStyle: "flower",
+    reactions: { loved: 282, helpful: 649, peaceful: 451 },
   },
   {
     id: 9,
@@ -99,6 +145,8 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Energy", "Face Tension", "Confidence"],
     category: "Yoga",
     difficulty: "Intermediate",
+    animationStyle: "infinity",
+    reactions: { loved: 212, helpful: 381, peaceful: 540 },
   },
   {
     id: 10,
@@ -108,6 +156,8 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Sleep", "Headache", "Throat Chakra"],
     category: "Yoga",
     difficulty: "Beginner",
+    animationStyle: "box",
+    reactions: { loved: 433, helpful: 389, peaceful: 409 },
   },
   {
     id: 11,
@@ -117,6 +167,8 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Focus", "Warmth", "Meditation"],
     category: "Yoga",
     difficulty: "Intermediate",
+    animationStyle: "wave",
+    reactions: { loved: 377, helpful: 440, peaceful: 260 },
   },
   {
     id: 12,
@@ -126,6 +178,8 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Balance", "Energy", "Sleep"],
     category: "Yoga",
     difficulty: "Intermediate",
+    animationStyle: "pulse",
+    reactions: { loved: 302, helpful: 488, peaceful: 490 },
   },
   {
     id: 13,
@@ -135,6 +189,9 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Sleep", "Relaxation", "Stress"],
     category: "Relaxation",
     difficulty: "Beginner",
+    animationStyle: "spiral",
+    reactions: { loved: 525, helpful: 630, peaceful: 573 },
+    
   },
   {
     id: 14,
@@ -144,6 +201,9 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Heart Rate", "Stress", "Balance"],
     category: "Scientific",
     difficulty: "Intermediate",
+    animationStyle: "flower",
+    reactions: { loved: 180, helpful: 365, peaceful: 569 },
+    
   },
   {
     id: 15,
@@ -153,6 +213,9 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Energy", "Focus", "Alertness"],
     category: "Energizing",
     difficulty: "Intermediate",
+    animationStyle: "infinity",
+    reactions: { loved: 265, helpful: 605, peaceful: 499 },
+    
   },
   {
     id: 16,
@@ -162,6 +225,9 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Balance", "Calm", "Meditation"],
     category: "Yoga",
     difficulty: "Beginner",
+    animationStyle: "box",
+    reactions: { loved: 109, helpful: 506, peaceful: 425 },
+    
   },
   {
     id: 17,
@@ -171,6 +237,9 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Energy", "Immune System", "Cold Exposure"],
     category: "Advanced",
     difficulty: "Advanced",
+    animationStyle: "wave",
+    reactions: { loved: 303, helpful: 468, peaceful: 123 },
+    
   },
   {
     id: 18,
@@ -180,6 +249,9 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Balance", "Purity", "Meditation"],
     category: "Yoga",
     difficulty: "Intermediate",
+    animationStyle: "pulse",
+    reactions: { loved: 188, helpful: 292, peaceful: 174 },
+    
   },
   {
     id: 19,
@@ -189,6 +261,9 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Anxiety", "Sleep", "Clarity"],
     category: "Yoga",
     difficulty: "Beginner",
+    animationStyle: "spiral",
+    reactions: { loved: 287, helpful: 246, peaceful: 420 },
+    
   },
   {
     id: 20,
@@ -198,6 +273,9 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Energy", "Control", "Advanced Practice"],
     category: "Yoga",
     difficulty: "Advanced",
+    animationStyle: "flower",
+    reactions: { loved: 453, helpful: 324, peaceful: 152 },
+    
   },
   {
     id: 21,
@@ -207,6 +285,9 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Cool Down", "Heat", "Stress"],
     category: "Yoga",
     difficulty: "Intermediate",
+    animationStyle: "infinity",
+    reactions: { loved: 396, helpful: 254, peaceful: 348 },
+    
   },
   {
     id: 22,
@@ -216,6 +297,9 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Cooling", "Anxiety", "Digestion"],
     category: "Yoga",
     difficulty: "Intermediate",
+    animationStyle: "box",
+    reactions: { loved: 519, helpful: 610, peaceful: 152 },
+    
   },
   {
     id: 23,
@@ -225,6 +309,9 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Nasal Health", "Energy", "Awareness"],
     category: "Technique",
     difficulty: "Beginner",
+    animationStyle: "wave",
+    reactions: { loved: 481, helpful: 640, peaceful: 475 },
+    
   },
   {
     id: 24,
@@ -234,6 +321,9 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Focus", "Calm", "Grounding"],
     category: "Visualization",
     difficulty: "Beginner",
+    animationStyle: "pulse",
+    reactions: { loved: 225, helpful: 442, peaceful: 229 },
+    
   },
   {
     id: 25,
@@ -243,6 +333,9 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Anxiety", "Presence", "Grounding"],
     category: "Mindfulness",
     difficulty: "Intermediate",
+    animationStyle: "spiral",
+    reactions: { loved: 557, helpful: 401, peaceful: 393 },
+    
   },
   {
     id: 26,
@@ -252,6 +345,9 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Sleep", "Relaxation", "Calm"],
     category: "Relaxation",
     difficulty: "Beginner",
+    animationStyle: "flower",
+    reactions: { loved: 475, helpful: 423, peaceful: 184 },
+    
   },
   {
     id: 27,
@@ -261,6 +357,9 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Energy", "Heat", "Stamina"],
     category: "Yoga",
     difficulty: "Advanced",
+    animationStyle: "infinity",
+    reactions: { loved: 172, helpful: 411, peaceful: 423 },
+    
   },
   {
     id: 28,
@@ -270,6 +369,9 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Meditation", "Focus", "Mindfulness"],
     category: "Meditation",
     difficulty: "Beginner",
+    animationStyle: "box",
+    reactions: { loved: 196, helpful: 697, peaceful: 375 },
+    
   },
   {
     id: 29,
@@ -279,6 +381,9 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Stress Relief", "Relaxation", "Healing"],
     category: "Visualization",
     difficulty: "Intermediate",
+    animationStyle: "wave",
+    reactions: { loved: 544, helpful: 199, peaceful: 568 },
+    
   },
   {
     id: 30,
@@ -288,6 +393,9 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Control", "Pressure", "Calm"],
     category: "Therapeutic",
     difficulty: "Beginner",
+    animationStyle: "pulse",
+    reactions: { loved: 431, helpful: 380, peaceful: 351 },
+    
   },
   {
     id: 31,
@@ -297,6 +405,9 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Sleep", "Meditation", "Baseline"],
     category: "Foundational",
     difficulty: "Beginner",
+    animationStyle: "spiral",
+    reactions: { loved: 274, helpful: 681, peaceful: 219 },
+    
   },
   {
     id: 32,
@@ -306,6 +417,9 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Energy", "Alertness", "Focus"],
     category: "Energizing",
     difficulty: "Intermediate",
+    animationStyle: "flower",
+    reactions: { loved: 457, helpful: 544, peaceful: 254 },
+    
   },
   {
     id: 33,
@@ -315,6 +429,9 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Sleep", "Calm", "Feminine Energy"],
     category: "Yoga",
     difficulty: "Intermediate",
+    animationStyle: "infinity",
+    reactions: { loved: 260, helpful: 638, peaceful: 226 },
+    
   },
   {
     id: 34,
@@ -324,6 +441,9 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Energy", "Warmth", "Masculine Energy"],
     category: "Yoga",
     difficulty: "Intermediate",
+    animationStyle: "box",
+    reactions: { loved: 214, helpful: 484, peaceful: 132 },
+    
   },
   {
     id: 35,
@@ -333,6 +453,9 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Compassion", "Love", "Healing"],
     category: "Mindfulness",
     difficulty: "Beginner",
+    animationStyle: "wave",
+    reactions: { loved: 364, helpful: 440, peaceful: 119 },
+    
   },
   {
     id: 36,
@@ -342,6 +465,9 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Balance", "Meditation", "Calm"],
     category: "Foundational",
     difficulty: "Intermediate",
+    animationStyle: "pulse",
+    reactions: { loved: 392, helpful: 154, peaceful: 217 },
+    
   },
   {
     id: 37,
@@ -351,6 +477,9 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Deep Relaxation", "Awareness", "Calm"],
     category: "Foundational",
     difficulty: "Beginner",
+    animationStyle: "spiral",
+    reactions: { loved: 463, helpful: 258, peaceful: 167 },
+    
   },
   {
     id: 38,
@@ -360,6 +489,9 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Energy", "Alertness", "Athletic"],
     category: "Energizing",
     difficulty: "Beginner",
+    animationStyle: "flower",
+    reactions: { loved: 236, helpful: 400, peaceful: 406 },
+    
   },
   {
     id: 39,
@@ -369,6 +501,9 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Complete Oxygenation", "Capacity", "Healing"],
     category: "Yoga",
     difficulty: "Intermediate",
+    animationStyle: "infinity",
+    reactions: { loved: 457, helpful: 587, peaceful: 427 },
+    
   },
   {
     id: 40,
@@ -378,6 +513,9 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Advanced Practice", "Balance", "Energy"],
     category: "Yoga",
     difficulty: "Advanced",
+    animationStyle: "box",
+    reactions: { loved: 265, helpful: 251, peaceful: 346 },
+    
   },
   {
     id: 41,
@@ -387,6 +525,9 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Fear Release", "Courage", "Confidence"],
     category: "Emotional Release",
     difficulty: "Intermediate",
+    animationStyle: "wave",
+    reactions: { loved: 150, helpful: 743, peaceful: 484 },
+    
   },
   {
     id: 42,
@@ -396,6 +537,9 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Appreciation", "Mood", "Positivity"],
     category: "Mindfulness",
     difficulty: "Beginner",
+    animationStyle: "pulse",
+    reactions: { loved: 137, helpful: 579, peaceful: 392 },
+    
   },
   {
     id: 43,
@@ -405,6 +549,9 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Grounding", "Anxiety", "Presence"],
     category: "Mindfulness",
     difficulty: "Beginner",
+    animationStyle: "spiral",
+    reactions: { loved: 338, helpful: 482, peaceful: 160 },
+    
   },
   {
     id: 44,
@@ -414,6 +561,9 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Expansion", "Peace", "Perspective"],
     category: "Nature",
     difficulty: "Beginner",
+    animationStyle: "flower",
+    reactions: { loved: 553, helpful: 596, peaceful: 283 },
+    
   },
   {
     id: 45,
@@ -423,6 +573,9 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Compassion", "Empathy", "Healing"],
     category: "Spiritual",
     difficulty: "Intermediate",
+    animationStyle: "infinity",
+    reactions: { loved: 225, helpful: 446, peaceful: 541 },
+    
   },
   {
     id: 46,
@@ -432,6 +585,9 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Self-Love", "Confidence", "Healing"],
     category: "Emotional",
     difficulty: "Beginner",
+    animationStyle: "box",
+    reactions: { loved: 577, helpful: 215, peaceful: 268 },
+    
   },
   {
     id: 47,
@@ -441,6 +597,9 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Muscle Tension", "Relaxation", "Awareness"],
     category: "Therapeutic",
     difficulty: "Intermediate",
+    animationStyle: "wave",
+    reactions: { loved: 324, helpful: 362, peaceful: 490 },
+    
   },
   {
     id: 48,
@@ -450,6 +609,9 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Energy", "Confidence", "Presence"],
     category: "Energizing",
     difficulty: "Intermediate",
+    animationStyle: "pulse",
+    reactions: { loved: 120, helpful: 542, peaceful: 524 },
+    
   },
   {
     id: 49,
@@ -459,6 +621,9 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Pain Relief", "Comfort", "Healing"],
     category: "Therapeutic",
     difficulty: "Intermediate",
+    animationStyle: "spiral",
+    reactions: { loved: 378, helpful: 440, peaceful: 295 },
+    
   },
   {
     id: 50,
@@ -468,6 +633,9 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Healing", "Recovery", "Wellness"],
     category: "Spiritual",
     difficulty: "Intermediate",
+    animationStyle: "flower",
+    reactions: { loved: 123, helpful: 559, peaceful: 460 },
+    
   },
   {
     id: 51,
@@ -477,6 +645,9 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Energy Balance", "Advanced Practice", "Chakras"],
     category: "Yoga",
     difficulty: "Advanced",
+    animationStyle: "infinity",
+    reactions: { loved: 332, helpful: 185, peaceful: 596 },
+    
   },
   {
     id: 52,
@@ -486,6 +657,9 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Chakra Activation", "Energy", "Spirituality"],
     category: "Spiritual",
     difficulty: "Advanced",
+    animationStyle: "box",
+    reactions: { loved: 252, helpful: 242, peaceful: 191 },
+    
   },
   {
     id: 53,
@@ -495,6 +669,9 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Meditation", "Focus", "Spirituality"],
     category: "Meditation",
     difficulty: "Intermediate",
+    animationStyle: "wave",
+    reactions: { loved: 104, helpful: 411, peaceful: 482 },
+    
   },
   {
     id: 54,
@@ -504,6 +681,9 @@ const breathingTechniques: BreathingTechnique[] = [
     primaryUses: ["Mindfulness", "Meditation", "Foundation"],
     category: "Mindfulness",
     difficulty: "Beginner",
+    animationStyle: "pulse",
+    reactions: { loved: 411, helpful: 459, peaceful: 428 },
+    
   },
 ];
 
@@ -526,19 +706,74 @@ function DifficultyBadge({ difficulty }: { difficulty?: string }) {
   );
 }
 
+/** ==================== Reaction Icons Component ==================== */
+
+function ReactionIcon({
+  type,
+  count,
+  onReact,
+}: {
+  type: ReactionType;
+  count: number;
+  onReact: (type: ReactionType) => void;
+}) {
+  const icons = {
+    loved: (
+      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+      </svg>
+    ),
+    helpful: (
+      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M9 12l2 2 4-4m7 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+    peaceful: (
+      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M14.828 14.828a4 4 0 01-5.656 0M17.657 17.657a8 8 0 00-11.314-11.314M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+  };
+
+  const labels = {
+    loved: "Loved",
+    helpful: "Helpful",
+    peaceful: "Peaceful",
+  };
+
+  const colors = {
+    loved: "text-red-500 hover:bg-red-50",
+    helpful: "text-emerald-500 hover:bg-emerald-50",
+    peaceful: "text-blue-500 hover:bg-blue-50",
+  };
+
+  return (
+    <button
+      onClick={() => onReact(type)}
+      className={`flex items-center gap-1 px-3 py-1.5 rounded-lg transition-colors ${colors[type]}`}
+    >
+      {icons[type]}
+      <span className="text-xs font-medium">{count}</span>
+      <span className="text-xs opacity-0 group-hover:opacity-100 transition-opacity">{labels[type]}</span>
+    </button>
+  );
+}
+
 function BreathingCard({
   technique,
   isExpanded,
   onToggle,
   onStart,
+  onReact,
 }: {
   technique: BreathingTechnique;
   isExpanded: boolean;
   onToggle: () => void;
   onStart: () => void;
+  onReact: (type: ReactionType) => void;
 }) {
   return (
-    <div className="bg-white/60 backdrop-blur border border-white/70 rounded-2xl overflow-hidden hover:shadow-lg transition-all">
+    <div className="bg-white/60 backdrop-blur border border-white/70 rounded-2xl overflow-hidden hover:shadow-lg transition-all animate-fadeIn">
       <button
         onClick={onToggle}
         className="w-full p-6 text-left hover:bg-white/40 transition-colors"
@@ -548,7 +783,7 @@ function BreathingCard({
             <h3 className="text-lg font-semibold text-black mb-2">
               {technique.name}
             </h3>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 mb-3">
               {technique.difficulty && (
                 <DifficultyBadge difficulty={technique.difficulty} />
               )}
@@ -558,6 +793,27 @@ function BreathingCard({
                 </span>
               )}
             </div>
+
+            {/* Reaction Icons */}
+            {technique.reactions && (
+              <div className="flex gap-2">
+                <ReactionIcon
+                  type="loved"
+                  count={technique.reactions.loved}
+                  onReact={onReact}
+                />
+                <ReactionIcon
+                  type="helpful"
+                  count={technique.reactions.helpful}
+                  onReact={onReact}
+                />
+                <ReactionIcon
+                  type="peaceful"
+                  count={technique.reactions.peaceful}
+                  onReact={onReact}
+                />
+              </div>
+            )}
           </div>
           <div className="text-gray-400 flex-shrink-0">
             {isExpanded ? (
@@ -642,12 +898,16 @@ function extractTimingFromInstructions(instructions: string): BreathingConfig {
   return config;
 }
 
+/** ==================== Breathing Visualizers by Style ==================== */
+
 function BreathingVisualizer({
   phase,
   progress,
+  style = "pulse",
 }: {
   phase: PhaseKey;
   progress: number;
+  style?: string;
 }) {
   const scale = (() => {
     if (phase === "inhale") return 0.7 + 0.5 * progress;
@@ -661,6 +921,148 @@ function BreathingVisualizer({
     return 0.8 + 0.2 * (1 - Math.abs(progress - 0.5) * 2);
   })();
 
+  // Box visualization
+  if (style === "box") {
+    return (
+      <div className="relative w-80 h-80 flex items-center justify-center">
+        <div
+          className="absolute border-4 border-emerald-500 transition-all duration-75"
+          style={{
+            width: `${100 * scale}px`,
+            height: `${100 * scale}px`,
+            opacity: opacity,
+            borderRadius: "8px",
+          }}
+        />
+        <div
+          className="absolute bg-emerald-500/20 transition-all duration-75"
+          style={{
+            width: `${100 * scale}px`,
+            height: `${100 * scale}px`,
+            opacity: opacity * 0.3,
+            borderRadius: "8px",
+          }}
+        />
+      </div>
+    );
+  }
+
+  // Wave visualization
+  if (style === "wave") {
+    return (
+      <div className="relative w-80 h-80 flex items-center justify-center">
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            className="absolute rounded-full border-2 border-emerald-500 transition-all duration-75"
+            style={{
+              width: `${80 + i * 60 + progress * 40}px`,
+              height: `${80 + i * 60 + progress * 40}px`,
+              opacity: Math.max(0, 0.6 - i * 0.2),
+            }}
+          />
+        ))}
+        <div
+          className="absolute rounded-full bg-emerald-500/30 transition-all duration-75"
+          style={{
+            width: `${120 * scale}px`,
+            height: `${120 * scale}px`,
+            opacity: opacity,
+          }}
+        />
+      </div>
+    );
+  }
+
+  // Spiral visualization
+  if (style === "spiral") {
+    return (
+      <div className="relative w-80 h-80 flex items-center justify-center">
+        <svg width="320" height="320" viewBox="0 0 320 320" className="absolute">
+          <path
+            d="M 160 160 Q 160 80, 240 80 Q 240 160, 160 160"
+            fill="none"
+            stroke="rgb(16, 185, 129)"
+            strokeWidth="4"
+            opacity={opacity}
+            style={{
+              strokeDasharray: `${200 * progress} 200`,
+              transform: `rotate(${progress * 360}deg)`,
+              transformOrigin: "160px 160px",
+              transition: "stroke-dasharray 0.1s linear",
+            }}
+          />
+        </svg>
+        <div
+          className="absolute rounded-full bg-gradient-to-br from-emerald-400 to-teal-400"
+          style={{
+            width: `${80 * scale}px`,
+            height: `${80 * scale}px`,
+            opacity: opacity * 0.5,
+          }}
+        />
+      </div>
+    );
+  }
+
+  // Flower visualization
+  if (style === "flower") {
+    return (
+      <div className="relative w-80 h-80 flex items-center justify-center">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <div
+            key={i}
+            className="absolute rounded-full bg-emerald-500 transition-all duration-75"
+            style={{
+              width: `${50 * scale}px`,
+              height: `${50 * scale}px`,
+              opacity: opacity,
+              transform: `rotate(${(i * 72) + progress * 360}deg) translateY(-80px)`,
+            }}
+          />
+        ))}
+        <div
+          className="absolute rounded-full bg-emerald-600 transition-all duration-75"
+          style={{
+            width: `${40 * scale}px`,
+            height: `${40 * scale}px`,
+            opacity: opacity,
+          }}
+        />
+      </div>
+    );
+  }
+
+  // Infinity visualization
+  if (style === "infinity") {
+    return (
+      <div className="relative w-80 h-80 flex items-center justify-center">
+        <svg width="320" height="200" viewBox="0 0 320 200" className="absolute">
+          <path
+            d="M 80 100 Q 100 80, 120 100 T 160 100 M 160 100 Q 180 80, 200 100 T 240 100"
+            fill="none"
+            stroke="rgb(16, 185, 129)"
+            strokeWidth="4"
+            opacity={opacity}
+            style={{
+              strokeDasharray: `${400 * progress} 400`,
+              transition: "stroke-dasharray 0.1s linear",
+            }}
+          />
+        </svg>
+        <div
+          className="absolute rounded-full blur-2xl bg-emerald-400"
+          style={{
+            width: `${150 * scale}px`,
+            height: `${75 * scale}px`,
+            opacity: opacity * 0.2,
+          }}
+        />
+      </div>
+    );
+  }
+
+  // Default pulse visualization
   return (
     <div className="relative w-80 h-80 flex items-center justify-center">
       {/* Outer glow circle */}
@@ -824,7 +1226,11 @@ function ActiveBreathingSession({
         {/* Main content */}
         <div className="flex flex-col items-center gap-8 max-w-2xl">
           {/* Visualizer */}
-          <BreathingVisualizer phase={phase} progress={phaseProgress} />
+          <BreathingVisualizer
+            phase={phase}
+            progress={phaseProgress}
+            style={technique.animationStyle}
+          />
 
           {/* Phase display */}
           <div className="text-center">
@@ -902,10 +1308,23 @@ export function BreathingSession() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [sessionTechnique, setSessionTechnique] = useState<BreathingTechnique | null>(null);
+  const [sortBy, setSortBy] = useState<"name" | "helpful" | "peaceful" | "loved">("name");
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Initialize animations and track mouse for parallax effect
+  useEffect(() => {
+    addGlobalAnimations();
+
+    const handleMouseMove = (e: MouseEvent) => {
+      setMousePos({ x: e.clientX, y: e.clientY });
+    };
+    window.addEventListener("mousemove", handleMouseMove);
+    return () => window.removeEventListener("mousemove", handleMouseMove);
+  }, []);
+
   // Filter techniques
-  const filteredTechniques = breathingTechniques.filter((tech) => {
+  let filteredTechniques = breathingTechniques.filter((tech) => {
     const matchesSearch =
       searchQuery === "" ||
       tech.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -918,6 +1337,16 @@ export function BreathingSession() {
       selectedCategory === null || tech.category === selectedCategory;
 
     return matchesSearch && matchesCategory;
+  });
+
+  // Sort techniques
+  filteredTechniques = [...filteredTechniques].sort((a, b) => {
+    if (sortBy === "name") return a.name.localeCompare(b.name);
+    if (!a.reactions || !b.reactions) return 0;
+    if (sortBy === "helpful") return b.reactions.helpful - a.reactions.helpful;
+    if (sortBy === "peaceful") return b.reactions.peaceful - a.reactions.peaceful;
+    if (sortBy === "loved") return b.reactions.loved - a.reactions.loved;
+    return 0;
   });
 
   // Get unique categories
@@ -934,6 +1363,11 @@ export function BreathingSession() {
     });
   };
 
+  const handleReaction = (techniqueId: number, reactionType: ReactionType) => {
+    // This would integrate with backend in production
+    console.log(`User reacted to technique ${techniqueId} with: ${reactionType}`);
+  };
+
   // Show active session if a technique has been selected
   if (sessionTechnique) {
     return (
@@ -946,10 +1380,30 @@ export function BreathingSession() {
 
   return (
     <div className="relative min-h-[100svh] w-full overflow-hidden bg-emerald-50 text-neutral-900">
-      {/* Decorative background */}
+      {/* Grid background animation */}
+      <div
+        className="absolute inset-0 pointer-events-none opacity-5"
+        style={{
+          backgroundImage: `linear-gradient(0deg, transparent 24%, rgba(16, 185, 129, .1) 25%, rgba(16, 185, 129, .1) 26%, transparent 27%, transparent 74%, rgba(16, 185, 129, .1) 75%, rgba(16, 185, 129, .1) 76%, transparent 77%, transparent), linear-gradient(90deg, transparent 24%, rgba(16, 185, 129, .1) 25%, rgba(16, 185, 129, .1) 26%, transparent 27%, transparent 74%, rgba(16, 185, 129, .1) 75%, rgba(16, 185, 129, .1) 76%, transparent 77%, transparent)`,
+          backgroundSize: "50px 50px",
+          animation: "slideGrid 20s linear infinite",
+        }}
+      />
+
+      {/* Decorative background with parallax */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-200/30 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-teal-200/20 rounded-full blur-3xl" />
+        <div
+          className="absolute top-0 right-0 w-96 h-96 bg-emerald-200/30 rounded-full blur-3xl transition-transform duration-300"
+          style={typeof window !== "undefined" ? {
+            transform: `translate(${(mousePos.x / window.innerWidth) * 30}px, ${(mousePos.y / window.innerHeight) * 30}px)`,
+          } : undefined}
+        />
+        <div
+          className="absolute bottom-0 left-0 w-96 h-96 bg-teal-200/20 rounded-full blur-3xl transition-transform duration-300"
+          style={typeof window !== "undefined" ? {
+            transform: `translate(${-(mousePos.x / window.innerWidth) * 30}px, ${-(mousePos.y / window.innerHeight) * 30}px)`,
+          } : undefined}
+        />
       </div>
 
       <div className="relative z-10 mx-auto max-w-7xl p-6 md:p-10">
@@ -965,6 +1419,54 @@ export function BreathingSession() {
 
         {/* Search and Filter */}
         <div className="mb-8 space-y-4">
+          {/* Sort Options */}
+          <div className="flex gap-2 flex-wrap">
+            <button
+              onClick={() => setSortBy("name")}
+              className={clsx(
+                "px-4 py-2 rounded-lg font-medium transition-all",
+                sortBy === "name"
+                  ? "bg-emerald-500 text-white shadow-lg"
+                  : "bg-white/60 backdrop-blur border border-white/70 text-black hover:bg-white/80"
+              )}
+            >
+              Name
+            </button>
+            <button
+              onClick={() => setSortBy("helpful")}
+              className={clsx(
+                "px-4 py-2 rounded-lg font-medium transition-all",
+                sortBy === "helpful"
+                  ? "bg-emerald-500 text-white shadow-lg"
+                  : "bg-white/60 backdrop-blur border border-white/70 text-black hover:bg-white/80"
+              )}
+            >
+              Most Helpful
+            </button>
+            <button
+              onClick={() => setSortBy("peaceful")}
+              className={clsx(
+                "px-4 py-2 rounded-lg font-medium transition-all",
+                sortBy === "peaceful"
+                  ? "bg-emerald-500 text-white shadow-lg"
+                  : "bg-white/60 backdrop-blur border border-white/70 text-black hover:bg-white/80"
+              )}
+            >
+              Most Peaceful
+            </button>
+            <button
+              onClick={() => setSortBy("loved")}
+              className={clsx(
+                "px-4 py-2 rounded-lg font-medium transition-all",
+                sortBy === "loved"
+                  ? "bg-emerald-500 text-white shadow-lg"
+                  : "bg-white/60 backdrop-blur border border-white/70 text-black hover:bg-white/80"
+              )}
+            >
+              Most Loved
+            </button>
+          </div>
+
           {/* Search Input */}
           <div className="relative">
             <input
@@ -1080,6 +1582,7 @@ export function BreathingSession() {
                   setExpandedId(expandedId === technique.id ? null : technique.id)
                 }
                 onStart={() => setSessionTechnique(technique)}
+                onReact={(reactionType) => handleReaction(technique.id, reactionType)}
               />
             ))}
           </div>
