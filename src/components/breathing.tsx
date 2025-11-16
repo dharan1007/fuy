@@ -11,10 +11,6 @@ const addGlobalAnimations = () => {
   const style = document.createElement("style");
   style.id = "breathing-animations";
   style.textContent = `
-    @keyframes slideGrid {
-      0% { background-position: 0 0; }
-      100% { background-position: 50px 50px; }
-    }
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(10px); }
       to { opacity: 1; transform: translateY(0); }
@@ -27,9 +23,47 @@ const addGlobalAnimations = () => {
       0%, 100% { opacity: 0.3; }
       50% { opacity: 0.6; }
     }
-    @keyframes rotate-slow {
-      from { transform: rotate(0deg); }
-      to { transform: rotate(360deg); }
+    @keyframes dotGrow {
+      0% {
+        r: 2px;
+        opacity: 0.8;
+        filter: blur(0px);
+      }
+      50% {
+        opacity: 1;
+      }
+      100% {
+        r: 8px;
+        opacity: 0;
+        filter: blur(1px);
+      }
+    }
+    @keyframes dotGlitch {
+      0%, 100% {
+        transform: translate(0, 0);
+      }
+      20% {
+        transform: translate(-2px, 2px);
+      }
+      40% {
+        transform: translate(2px, -2px);
+      }
+      60% {
+        transform: translate(-1px, 1px);
+      }
+      80% {
+        transform: translate(1px, -1px);
+      }
+    }
+    @keyframes chainReaction {
+      0% {
+        transform: scale(1);
+        opacity: 1;
+      }
+      100% {
+        transform: scale(2);
+        opacity: 0;
+      }
     }
     .animate-fadeIn {
       animation: fadeIn 0.5s ease-out;
@@ -821,6 +855,182 @@ function ReactionIcon({
   );
 }
 
+/** ==================== Duplicating Dots Background Animation ==================== */
+
+function DuplicatingDotsBackground() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // Set canvas size
+    const setCanvasSize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+    setCanvasSize();
+    window.addEventListener("resize", setCanvasSize);
+
+    // Pastel color palette
+    const pastelColors = [
+      "#FFB3BA", // pastel pink
+      "#FFCCCB", // pastel light pink
+      "#FFE0B2", // pastel peach
+      "#FFFACD", // pastel pale yellow
+      "#B4E7FF", // pastel light blue
+      "#C1FFF0", // pastel mint
+      "#E0BBE4", // pastel lavender
+      "#D4F1F4", // pastel cyan
+      "#F8B4D6", // pastel rose
+      "#FFFEC1", // pastel yellow
+    ];
+
+    interface Particle {
+      x: number;
+      y: number;
+      size: number;
+      maxSize: number;
+      age: number;
+      duration: number;
+      color: string;
+      vx: number;
+      vy: number;
+      glitchAmount: number;
+    }
+
+    const particles: Particle[] = [];
+
+    // Create initial seed particles
+    const createInitialParticles = () => {
+      const particleCount = 8;
+      for (let i = 0; i < particleCount; i++) {
+        particles.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          size: 2,
+          maxSize: 2 + Math.random() * 8,
+          age: 0,
+          duration: 2000 + Math.random() * 2000,
+          color: pastelColors[Math.floor(Math.random() * pastelColors.length)],
+          vx: (Math.random() - 0.5) * 0.5,
+          vy: (Math.random() - 0.5) * 0.5,
+          glitchAmount: 0,
+        });
+      }
+    };
+
+    createInitialParticles();
+
+    let lastSpawnTime = Date.now();
+
+    const animate = () => {
+      // Clear canvas with slight fade
+      ctx.fillStyle = "rgba(255, 255, 255, 0.02)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      const now = Date.now();
+
+      // Spawn new particles at intervals (chain reaction effect)
+      if (now - lastSpawnTime > 800) {
+        lastSpawnTime = now;
+        const randomParticle = particles[Math.floor(Math.random() * particles.length)];
+        if (randomParticle) {
+          // Create duplicate particles around the parent
+          for (let i = 0; i < 2; i++) {
+            particles.push({
+              x: randomParticle.x + (Math.random() - 0.5) * 30,
+              y: randomParticle.y + (Math.random() - 0.5) * 30,
+              size: 2,
+              maxSize: 2 + Math.random() * 8,
+              age: 0,
+              duration: 2000 + Math.random() * 2000,
+              color: pastelColors[Math.floor(Math.random() * pastelColors.length)],
+              vx: (Math.random() - 0.5) * 0.8,
+              vy: (Math.random() - 0.5) * 0.8,
+              glitchAmount: 0,
+            });
+          }
+        }
+
+        // Limit particle count
+        if (particles.length > 150) {
+          particles.splice(0, 5);
+        }
+      }
+
+      // Update and draw particles
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.age += 16; // Approximate delta time
+
+        // Calculate progress (0 to 1)
+        const progress = p.age / p.duration;
+
+        // Size animation
+        p.size = p.maxSize * Math.sin(progress * Math.PI);
+
+        // Glitch effect
+        p.glitchAmount = Math.sin(p.age * 0.01) * 2;
+        if (Math.random() < 0.05) {
+          p.glitchAmount = (Math.random() - 0.5) * 6;
+        }
+
+        // Movement
+        p.x += p.vx;
+        p.y += p.vy;
+
+        // Slow down over time
+        p.vx *= 0.98;
+        p.vy *= 0.98;
+
+        // Opacity based on progress
+        const opacity = Math.max(0, 1 - progress);
+
+        // Draw particle
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = opacity * 0.6;
+        ctx.beginPath();
+        ctx.arc(p.x + p.glitchAmount, p.y + p.glitchAmount, p.size, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Draw glow/halo
+        ctx.strokeStyle = p.color;
+        ctx.globalAlpha = opacity * 0.2;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(p.x + p.glitchAmount, p.y + p.glitchAmount, p.size + 2, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Remove dead particles
+        if (progress >= 1) {
+          particles.splice(i, 1);
+        }
+      }
+
+      ctx.globalAlpha = 1;
+      requestAnimationFrame(animate);
+    };
+
+    animate();
+
+    return () => {
+      window.removeEventListener("resize", setCanvasSize);
+    };
+  }, []);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="absolute inset-0 pointer-events-none"
+      style={{ background: "transparent" }}
+    />
+  );
+}
+
 /** ==================== Opinion Modal Component ==================== */
 
 function OpinionModal({
@@ -1529,64 +1739,40 @@ export function BreathingSession() {
   }
 
   return (
-    <div className="relative min-h-[100svh] w-full overflow-hidden bg-gradient-to-br from-emerald-50 via-cyan-50 to-teal-50 text-neutral-900">
-      {/* Animated Grid background */}
-      <div
-        className="absolute inset-0 pointer-events-none opacity-[0.08]"
-        style={{
-          backgroundImage: `linear-gradient(0deg, transparent 24%, rgba(16, 185, 129, .1) 25%, rgba(16, 185, 129, .1) 26%, transparent 27%, transparent 74%, rgba(16, 185, 129, .1) 75%, rgba(16, 185, 129, .1) 76%, transparent 77%, transparent), linear-gradient(90deg, transparent 24%, rgba(16, 185, 129, .1) 25%, rgba(16, 185, 129, .1) 26%, transparent 27%, transparent 74%, rgba(16, 185, 129, .1) 75%, rgba(16, 185, 129, .1) 76%, transparent 77%, transparent)`,
-          backgroundSize: "50px 50px",
-          animation: "slideGrid 25s linear infinite",
-        }}
-      />
+    <div className="relative min-h-[100svh] w-full overflow-hidden bg-gradient-to-br from-purple-100 via-pink-100 to-blue-100 text-neutral-900">
+      {/* Duplicating Dots Canvas Animation */}
+      <DuplicatingDotsBackground />
 
-      {/* Animated Wave Pattern */}
-      <svg
-        className="absolute inset-0 pointer-events-none opacity-[0.06]"
-        width="100%"
-        height="100%"
-        preserveAspectRatio="none"
-      >
-        <defs>
-          <pattern id="wave1" x="0" y="0" width="100" height="100" patternUnits="userSpaceOnUse">
-            <path
-              d="M0,50 Q25,40 50,50 T100,50"
-              stroke="rgb(16, 185, 129)"
-              strokeWidth="1"
-              fill="none"
-            />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill="url(#wave1)" />
-      </svg>
-
-      {/* Decorative background with cursor parallax */}
+      {/* Decorative background with cursor parallax - pastel blobs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {/* Top-right blob - follows cursor */}
+        {/* Top-right blob - follows cursor - pastel pink */}
         <div
-          className="absolute top-0 right-0 w-96 h-96 bg-emerald-300/20 rounded-full blur-3xl transition-transform duration-500"
-          style={typeof window !== "undefined" ? {
-            transform: `translate(${(mousePos.x / window.innerWidth) * 50}px, ${(mousePos.y / window.innerHeight) * 50}px)`,
-          } : undefined}
+          className="absolute top-0 right-0 w-96 h-96 rounded-full blur-3xl transition-transform duration-500"
+          style={{
+            background: "radial-gradient(circle, rgba(255, 179, 186, 0.25), transparent 70%)",
+            transform: typeof window !== "undefined" ? `translate(${(mousePos.x / window.innerWidth) * 50}px, ${(mousePos.y / window.innerHeight) * 50}px)` : undefined,
+          }}
         />
-        {/* Bottom-left blob - inverse parallax */}
+        {/* Bottom-left blob - inverse parallax - pastel blue */}
         <div
-          className="absolute bottom-0 left-0 w-96 h-96 bg-cyan-300/15 rounded-full blur-3xl transition-transform duration-500"
-          style={typeof window !== "undefined" ? {
-            transform: `translate(${-(mousePos.x / window.innerWidth) * 50}px, ${-(mousePos.y / window.innerHeight) * 50}px)`,
-          } : undefined}
+          className="absolute bottom-0 left-0 w-96 h-96 rounded-full blur-3xl transition-transform duration-500"
+          style={{
+            background: "radial-gradient(circle, rgba(180, 231, 255, 0.25), transparent 70%)",
+            transform: typeof window !== "undefined" ? `translate(${-(mousePos.x / window.innerWidth) * 50}px, ${-(mousePos.y / window.innerHeight) * 50}px)` : undefined,
+          }}
         />
-        {/* Center blob - subtle movement */}
+        {/* Center blob - subtle movement - pastel lavender */}
         <div
-          className="absolute top-1/2 left-1/2 w-72 h-72 bg-teal-200/10 rounded-full blur-3xl transition-transform duration-700"
-          style={typeof window !== "undefined" ? {
-            transform: `translate(-50%, -50%) translate(${(mousePos.x / window.innerWidth) * 20}px, ${(mousePos.y / window.innerHeight) * 20}px)`,
-          } : undefined}
+          className="absolute top-1/2 left-1/2 w-72 h-72 rounded-full blur-3xl transition-transform duration-700"
+          style={{
+            background: "radial-gradient(circle, rgba(224, 187, 228, 0.15), transparent 70%)",
+            transform: typeof window !== "undefined" ? `translate(-50%, -50%) translate(${(mousePos.x / window.innerWidth) * 20}px, ${(mousePos.y / window.innerHeight) * 20}px)` : undefined,
+          }}
         />
       </div>
 
       {/* Fade overlay for depth */}
-      <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-transparent via-transparent to-white/5" />
+      <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-transparent via-transparent to-white/10" />
 
       <div className="relative z-10 mx-auto max-w-7xl p-6 md:p-10">
         {/* Header */}
