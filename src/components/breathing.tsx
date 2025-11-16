@@ -1112,22 +1112,22 @@ function BreathingCard({
   onOpenOpinions: () => void;
 }) {
   return (
-    <div className="bg-white/60 backdrop-blur border border-white/70 rounded-2xl overflow-hidden hover:shadow-lg transition-all animate-fadeIn">
+    <div className="bg-white/70 backdrop-blur border border-white/50 rounded-xl overflow-hidden hover:shadow-md transition-all duration-300 animate-fadeIn group">
       <button
         onClick={onToggle}
-        className="cursor-target w-full p-6 text-left hover:bg-white/40 transition-colors"
+        className="cursor-target w-full px-6 py-5 text-left hover:bg-white/50 transition-colors"
       >
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1">
-            <h3 className="text-lg font-semibold text-black mb-2">
+            <h3 className="text-lg font-semibold text-gray-900 mb-3">
               {technique.name}
             </h3>
-            <div className="flex flex-wrap gap-2 mb-3">
+            <div className="flex flex-wrap gap-2 mb-4">
               {technique.difficulty && (
                 <DifficultyBadge difficulty={technique.difficulty} />
               )}
               {technique.category && (
-                <span className="text-xs bg-emerald-100 text-emerald-800 px-2 py-1 rounded-full">
+                <span className="text-xs bg-emerald-100 text-emerald-800 px-3 py-1.5 rounded-full font-medium">
                   {technique.category}
                 </span>
               )}
@@ -1162,21 +1162,21 @@ function BreathingCard({
       </button>
 
       {isExpanded && (
-        <div className="border-t border-white/50 px-6 py-6 bg-white/30 space-y-4">
+        <div className="border-t border-white/40 px-6 py-6 bg-white/50 space-y-5">
           <div>
-            <h4 className="font-semibold text-sm text-black mb-2">How to Do It</h4>
+            <h4 className="font-semibold text-sm text-gray-900 mb-2.5 uppercase tracking-wide">Instructions</h4>
             <p className="text-sm text-gray-700 leading-relaxed">
               {technique.instructions}
             </p>
           </div>
 
           <div>
-            <h4 className="font-semibold text-sm text-black mb-2">Primary Uses</h4>
+            <h4 className="font-semibold text-sm text-gray-900 mb-2.5 uppercase tracking-wide">Benefits</h4>
             <div className="flex flex-wrap gap-2">
               {technique.primaryUses.map((use, idx) => (
                 <span
                   key={idx}
-                  className="text-xs bg-emerald-50 border border-emerald-200 text-emerald-800 px-3 py-1 rounded-full"
+                  className="text-xs bg-emerald-50 border border-emerald-200 text-emerald-800 px-3 py-1.5 rounded-full font-medium"
                 >
                   {use}
                 </span>
@@ -1186,7 +1186,7 @@ function BreathingCard({
 
           <button
             onClick={onStart}
-            className="cursor-target w-full mt-4 px-4 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+            className="cursor-target w-full mt-2 px-4 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-lg transition-colors duration-200 flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
               <path d="M8 5v14l11-7z" />
@@ -1774,28 +1774,29 @@ export function BreathingSession() {
       {/* Fade overlay for depth */}
       <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-transparent via-transparent to-white/10" />
 
-      <div className="relative z-10 mx-auto max-w-7xl p-6 md:p-10">
+      <div className="relative z-10 mx-auto max-w-7xl px-6 md:px-8 py-8 md:py-12">
         {/* Header */}
-        <div className="mb-10">
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-black mb-3">
+        <div className="mb-12">
+          <h1 className="text-5xl md:text-6xl font-bold tracking-tight text-black mb-4">
             Breathing Practices
           </h1>
-          <p className="text-lg text-gray-600 max-w-2xl">
-            Discover 54 breathing techniques for any need. From foundational practices to advanced yoga techniques.
+          <p className="text-lg text-gray-700 max-w-2xl font-light">
+            Discover 54 breathing techniques designed for any need. From foundational practices to advanced yoga techniques.
           </p>
         </div>
 
         {/* Search and Filter */}
-        <div className="mb-8 space-y-4">
+        <div className="mb-10 space-y-5">
           {/* Sort Options */}
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-3 flex-wrap items-center">
+            <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Sort:</span>
             <button
               onClick={() => setSortBy("name")}
               className={clsx(
-                "cursor-target px-4 py-2 rounded-lg font-medium transition-all",
+                "cursor-target px-5 py-2.5 rounded-full font-medium transition-all text-sm",
                 sortBy === "name"
-                  ? "bg-emerald-500 text-white shadow-lg"
-                  : "bg-white/60 backdrop-blur border border-white/70 text-black hover:bg-white/80"
+                  ? "bg-emerald-500 text-white shadow-md hover:shadow-lg"
+                  : "bg-white/70 backdrop-blur border border-white/50 text-black hover:bg-white/80"
               )}
             >
               Name
@@ -1803,10 +1804,10 @@ export function BreathingSession() {
             <button
               onClick={() => setSortBy("likes")}
               className={clsx(
-                "cursor-target px-4 py-2 rounded-lg font-medium transition-all",
+                "cursor-target px-5 py-2.5 rounded-full font-medium transition-all text-sm",
                 sortBy === "likes"
-                  ? "bg-emerald-500 text-white shadow-lg"
-                  : "bg-white/60 backdrop-blur border border-white/70 text-black hover:bg-white/80"
+                  ? "bg-emerald-500 text-white shadow-md hover:shadow-lg"
+                  : "bg-white/70 backdrop-blur border border-white/50 text-black hover:bg-white/80"
               )}
             >
               Most Liked
@@ -1814,10 +1815,10 @@ export function BreathingSession() {
             <button
               onClick={() => setSortBy("dislikes")}
               className={clsx(
-                "cursor-target px-4 py-2 rounded-lg font-medium transition-all",
+                "cursor-target px-5 py-2.5 rounded-full font-medium transition-all text-sm",
                 sortBy === "dislikes"
-                  ? "bg-emerald-500 text-white shadow-lg"
-                  : "bg-white/60 backdrop-blur border border-white/70 text-black hover:bg-white/80"
+                  ? "bg-emerald-500 text-white shadow-md hover:shadow-lg"
+                  : "bg-white/70 backdrop-blur border border-white/50 text-black hover:bg-white/80"
               )}
             >
               Most Disliked
@@ -1825,16 +1826,16 @@ export function BreathingSession() {
           </div>
 
           {/* Search Input */}
-          <div className="relative">
+          <div className="relative max-w-2xl">
             <input
               type="text"
-              placeholder="Search techniques by name, benefit, or how to do..."
+              placeholder="Search by name, benefit, or technique..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-6 py-4 bg-white/60 backdrop-blur border border-white/70 rounded-2xl shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:border-transparent text-black placeholder-gray-500"
+              className="w-full px-6 py-3.5 bg-white/70 backdrop-blur border border-white/50 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-black placeholder-gray-600 transition-all"
             />
             <svg
-              className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"
+              className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -1850,23 +1851,26 @@ export function BreathingSession() {
 
           {/* Category Filter */}
           <div className="relative">
+            <div className="mb-3 flex items-center">
+              <span className="text-sm font-semibold text-gray-600 uppercase tracking-wide">Category:</span>
+            </div>
             <div
               ref={scrollRef}
-              className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory"
+              className="flex gap-3 overflow-x-auto pb-3 snap-x snap-mandatory scrollbar-hide"
               style={{ scrollBehavior: "smooth" }}
             >
               <button
                 onClick={() => setSelectedCategory(null)}
                 className={clsx(
-                  "cursor-target snap-center flex-shrink-0 px-5 py-2 rounded-full font-medium transition-all whitespace-nowrap",
+                  "cursor-target snap-center flex-shrink-0 px-6 py-2.5 rounded-full font-medium transition-all whitespace-nowrap text-sm",
                   selectedCategory === null
-                    ? "bg-emerald-500 text-white shadow-lg"
-                    : "bg-white/60 backdrop-blur border border-white/70 text-black hover:bg-white/80"
+                    ? "bg-emerald-500 text-white shadow-md hover:shadow-lg"
+                    : "bg-white/70 backdrop-blur border border-white/50 text-black hover:bg-white/80"
                 )}
               >
                 All ({breathingTechniques.length})
               </button>
-              {categories.map((cat) => {
+              {categories.map((cat: string) => {
                 const count = breathingTechniques.filter(
                   (t) => t.category === cat
                 ).length;
@@ -1875,10 +1879,10 @@ export function BreathingSession() {
                     key={cat}
                     onClick={() => setSelectedCategory(cat)}
                     className={clsx(
-                      "cursor-target snap-center flex-shrink-0 px-5 py-2 rounded-full font-medium transition-all whitespace-nowrap",
+                      "cursor-target snap-center flex-shrink-0 px-6 py-2.5 rounded-full font-medium transition-all whitespace-nowrap text-sm",
                       selectedCategory === cat
-                        ? "bg-emerald-500 text-white shadow-lg"
-                        : "bg-white/60 backdrop-blur border border-white/70 text-black hover:bg-white/80"
+                        ? "bg-emerald-500 text-white shadow-md hover:shadow-lg"
+                        : "bg-white/70 backdrop-blur border border-white/50 text-black hover:bg-white/80"
                     )}
                   >
                     {cat} ({count})
@@ -1929,7 +1933,7 @@ export function BreathingSession() {
 
         {/* Techniques Grid */}
         {filteredTechniques.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-7 mb-12">
             {filteredTechniques.map((technique) => (
               <BreathingCard
                 key={technique.id}

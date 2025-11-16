@@ -217,18 +217,18 @@ export default function Home() {
     <div className="min-h-screen bg-black text-white flex flex-col relative overflow-hidden">
       <ParticlesBackground />
       {/* HEADER - Minimal Floating */}
-      <header className="sticky top-0 z-40 px-3 sm:px-6 py-4 pointer-events-none">
-        <div className="flex items-center justify-between gap-2 sm:gap-4">
+      <header className="sticky top-0 z-40 px-4 sm:px-6 py-4 pointer-events-none">
+        <div className="flex items-center justify-between gap-3 sm:gap-4">
           {/* Logo/Explore Module */}
-          <div className="bg-white/40 backdrop-blur-md border border-white/40 rounded-xl sm:rounded-2xl px-3 sm:px-6 py-2 sm:py-3 shadow-sm pointer-events-auto hover:bg-white/50 transition-all">
+          <div className="bg-white/50 backdrop-blur-md border border-white/40 rounded-lg sm:rounded-xl px-4 sm:px-6 py-2.5 sm:py-3 shadow-sm pointer-events-auto hover:bg-white/60 transition-all">
             <Link href="/" className="flex items-center gap-2">
               <span className="text-lg sm:text-2xl">◌</span>
-              <span className="hidden sm:inline text-sm font-semibold text-gray-700">Explore</span>
+              <span className="hidden sm:inline text-sm font-semibold text-gray-800">Explore</span>
             </Link>
           </div>
 
           {/* Navigation Module - Desktop Only */}
-          <div className="hidden sm:flex bg-white/40 backdrop-blur-md border border-white/40 rounded-2xl px-6 py-3 shadow-sm pointer-events-auto hover:bg-white/50 transition-all items-center gap-6">
+          <div className="hidden sm:flex bg-white/50 backdrop-blur-md border border-white/40 rounded-xl px-6 py-3 shadow-sm pointer-events-auto hover:bg-white/60 transition-all items-center gap-6">
             {/* Canvas */}
             <Link href="/journal" className="text-sm font-semibold text-gray-700 hover:text-blue-600 transition-colors">
               ▭
@@ -254,7 +254,7 @@ export default function Home() {
           <div className="sm:hidden relative">
             <button
               onClick={() => setShowNavMenu(!showNavMenu)}
-              className="bg-white/40 backdrop-blur-md border border-white/40 rounded-xl px-3 py-2 shadow-sm pointer-events-auto hover:bg-white/50 transition-all text-gray-700 font-semibold"
+              className="bg-white/50 backdrop-blur-md border border-white/40 rounded-lg px-3 py-2 shadow-sm pointer-events-auto hover:bg-white/60 transition-all text-gray-800 font-semibold"
             >
               ≡
             </button>
@@ -277,7 +277,7 @@ export default function Home() {
           </div>
 
           {/* User Profile Module */}
-          <div className="bg-white/40 backdrop-blur-md border border-white/40 rounded-xl sm:rounded-2xl px-2 sm:px-4 py-2 shadow-sm pointer-events-auto hover:bg-white/50 transition-all ml-auto">
+          <div className="bg-white/50 backdrop-blur-md border border-white/40 rounded-lg sm:rounded-xl px-3 sm:px-4 py-2.5 shadow-sm pointer-events-auto hover:bg-white/60 transition-all ml-auto">
             <Link href="/profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
               <img
                 src={avatarUrl}
@@ -294,42 +294,42 @@ export default function Home() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
+      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-10">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Left Sidebar - User Profile */}
           <aside className="md:col-span-1">
             <div className="sticky top-20 space-y-6">
               {userProfile && (
-                <div className="border border-black/10 rounded-xl p-6 bg-white">
+                <div className="border border-white/30 rounded-lg p-6 bg-white/70 backdrop-blur">
                   <div className="text-center mb-6">
-                    <img src={avatarUrl} alt={displayName} className="w-16 h-16 rounded-full mx-auto mb-3 border-2 border-black/10" />
-                    <h3 className="font-bold text-lg">{displayName}</h3>
-                    <p className="text-sm text-black/60">{userProfile.profile?.bio || 'No bio yet'}</p>
+                    <img src={avatarUrl} alt={displayName} className="w-16 h-16 rounded-full mx-auto mb-3 border-2 border-blue-400" />
+                    <h3 className="font-semibold text-lg text-gray-900">{displayName}</h3>
+                    <p className="text-sm text-gray-600 mt-1">{userProfile.profile?.bio || 'No bio yet'}</p>
                     {userProfile.profile?.location && (
-                      <p className="text-xs text-black/50 mt-1">{userProfile.profile.location}</p>
+                      <p className="text-xs text-gray-500 mt-2">{userProfile.profile.location}</p>
                     )}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4 pt-6 border-t border-black/10">
+                  <div className="grid grid-cols-2 gap-4 pt-6 border-t border-white/40">
                     <div className="text-center">
-                      <div className="font-bold text-lg">{userProfile.stats.posts}</div>
-                      <div className="text-xs text-black/60">Posts</div>
+                      <div className="font-bold text-lg text-gray-900">{userProfile.stats.posts}</div>
+                      <div className="text-xs text-gray-600 font-medium">Posts</div>
                     </div>
                     <div className="text-center">
-                      <div className="font-bold text-lg">{userProfile.stats.friends}</div>
-                      <div className="text-xs text-black/60">Friends</div>
+                      <div className="font-bold text-lg text-gray-900">{userProfile.stats.friends}</div>
+                      <div className="text-xs text-gray-600 font-medium">Friends</div>
                     </div>
                     <div className="text-center">
-                      <div className="font-bold text-lg">{userProfile.stats.followers}</div>
-                      <div className="text-xs text-black/60">Followers</div>
+                      <div className="font-bold text-lg text-gray-900">{userProfile.stats.followers}</div>
+                      <div className="text-xs text-gray-600 font-medium">Followers</div>
                     </div>
                     <div className="text-center">
-                      <div className="font-bold text-lg">{userProfile.stats.following}</div>
-                      <div className="text-xs text-black/60">Following</div>
+                      <div className="font-bold text-lg text-gray-900">{userProfile.stats.following}</div>
+                      <div className="text-xs text-gray-600 font-medium">Following</div>
                     </div>
                   </div>
 
-                  <Link href="/profile" className="mt-4 w-full block text-center py-2 bg-black text-white rounded-lg font-medium text-sm hover:bg-black/90 transition-colors">
+                  <Link href="/profile" className="mt-4 w-full block text-center py-2.5 bg-black text-white rounded-lg font-medium text-sm hover:bg-black/90 transition-colors duration-200">
                     View Profile
                   </Link>
                 </div>
@@ -340,7 +340,7 @@ export default function Home() {
           {/* Center Feed */}
           <div className="md:col-span-2 space-y-6">
             {/* Create Post Card */}
-            <div className="border border-black/10 rounded-xl overflow-hidden bg-white">
+            <div className="border border-white/30 rounded-lg overflow-hidden bg-white/80 backdrop-blur">
               {/* Tabs */}
               <div className="flex border-b border-black/10">
                 <button
@@ -454,12 +454,12 @@ export default function Home() {
             {/* Posts Feed */}
             <div className="space-y-4">
               {posts.length === 0 ? (
-                <div className="text-center py-12 border border-black/10 rounded-xl bg-white">
-                  <p className="text-black/60">No posts yet. Be the first to share!</p>
+                <div className="text-center py-12 border border-white/30 rounded-lg bg-white/80 backdrop-blur">
+                  <p className="text-gray-600">No posts yet. Be the first to share!</p>
                 </div>
               ) : (
                 posts.map((post) => (
-                  <div key={post.id} className="border border-black/10 rounded-xl p-6 bg-white hover:border-black/20 transition-colors">
+                  <div key={post.id} className="border border-white/30 rounded-lg p-6 bg-white/80 backdrop-blur hover:border-white/40 transition-colors">
                     <div className="flex items-start gap-4 mb-4">
                       <img
                         src={post.user.profile?.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${post.user.profile?.displayName || post.user.email}`}
@@ -509,7 +509,7 @@ export default function Home() {
           </div>
 
           {/* Right Sidebar - Features Cards */}
-          <aside className="hidden md:block md:col-span-1 rounded-2xl p-4 sm:p-6 bg-white/30 backdrop-blur-sm border border-white/40 shadow-sm overflow-y-auto max-h-[calc(100vh-200px)]">
+          <aside className="hidden md:block md:col-span-1 rounded-lg p-6 bg-white/50 backdrop-blur border border-white/30 shadow-sm overflow-y-auto max-h-[calc(100vh-200px)]">
             <HopinProgramsCard />
             <RankingCard />
           </aside>
@@ -518,7 +518,7 @@ export default function Home() {
 
       {/* Bottom Floating Curved Nav Bar */}
       <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 pointer-events-none">
-        <nav className="bg-white/40 backdrop-blur-md border border-white/40 rounded-full px-8 py-4 shadow-lg pointer-events-auto flex items-center gap-8 hover:bg-white/50 transition-all">
+        <nav className="bg-white/50 backdrop-blur-md border border-white/40 rounded-full px-8 py-4 shadow-lg pointer-events-auto flex items-center gap-8 hover:bg-white/60 transition-all">
           {/* Create Post */}
           <button
             className="text-2xl text-gray-700 hover:text-blue-600 transition-colors hover:scale-110 transform duration-200"
