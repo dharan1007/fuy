@@ -19,8 +19,26 @@ const addGlobalAnimations = () => {
       from { opacity: 0; transform: translateY(10px); }
       to { opacity: 1; transform: translateY(0); }
     }
+    @keyframes float {
+      0%, 100% { transform: translateY(0px) translateX(0px); }
+      50% { transform: translateY(-20px) translateX(10px); }
+    }
+    @keyframes pulse-glow {
+      0%, 100% { opacity: 0.3; }
+      50% { opacity: 0.6; }
+    }
+    @keyframes rotate-slow {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
     .animate-fadeIn {
       animation: fadeIn 0.5s ease-out;
+    }
+    .animate-float {
+      animation: float 6s ease-in-out infinite;
+    }
+    .animate-pulse-glow {
+      animation: pulse-glow 4s ease-in-out infinite;
     }
   `;
   document.head.appendChild(style);
@@ -37,14 +55,19 @@ type BreathingTechnique = {
   difficulty?: "Beginner" | "Intermediate" | "Advanced";
   animationStyle?: "box" | "wave" | "pulse" | "spiral" | "flower" | "infinity";
   reactions?: {
-    loved: number;
-    helpful: number;
-    peaceful: number;
+    likes: number;
+    dislikes: number;
+    opinions: string[];
   };
 };
 
 type PhaseKey = "inhale" | "hold1" | "exhale" | "hold2";
-type ReactionType = "loved" | "helpful" | "peaceful";
+type ReactionType = "like" | "dislike" | "opinion";
+
+type UserReaction = {
+  techniqueId: number;
+  type: "like" | "dislike" | null;
+};
 
 /** ==================== Breathing Techniques Data ==================== */
 
@@ -58,7 +81,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Foundational",
     difficulty: "Beginner",
     animationStyle: "box",
-    reactions: { loved: 342, helpful: 521, peaceful: 389 },
+    reactions: { likes: 342, dislikes: 521, opinions: [] },
   },
   {
     id: 2,
@@ -69,7 +92,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Relaxation",
     difficulty: "Intermediate",
     animationStyle: "wave",
-    reactions: { loved: 456, helpful: 623, peaceful: 567 },
+    reactions: { likes: 456, dislikes: 623, opinions: [] },
   },
   {
     id: 3,
@@ -80,7 +103,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Quick Reset",
     difficulty: "Beginner",
     animationStyle: "pulse",
-    reactions: { loved: 234, helpful: 456, peaceful: 289 },
+    reactions: { likes: 234, dislikes: 456, opinions: [] },
   },
   {
     id: 4,
@@ -91,7 +114,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Foundational",
     difficulty: "Beginner",
     animationStyle: "box",
-    reactions: { loved: 173, helpful: 354, peaceful: 197 },
+    reactions: { likes: 173, dislikes: 354, opinions: [] },
   },
   {
     id: 5,
@@ -102,7 +125,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Yoga",
     difficulty: "Intermediate",
     animationStyle: "wave",
-    reactions: { loved: 381, helpful: 379, peaceful: 575 },
+    reactions: { likes: 381, dislikes: 379, opinions: [] },
   },
   {
     id: 6,
@@ -113,7 +136,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Therapeutic",
     difficulty: "Beginner",
     animationStyle: "pulse",
-    reactions: { loved: 283, helpful: 672, peaceful: 562 },
+    reactions: { likes: 283, dislikes: 672, opinions: [] },
   },
   {
     id: 7,
@@ -124,7 +147,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Advanced",
     difficulty: "Intermediate",
     animationStyle: "spiral",
-    reactions: { loved: 259, helpful: 674, peaceful: 470 },
+    reactions: { likes: 259, dislikes: 674, opinions: [] },
   },
   {
     id: 8,
@@ -135,7 +158,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Yoga",
     difficulty: "Advanced",
     animationStyle: "flower",
-    reactions: { loved: 282, helpful: 649, peaceful: 451 },
+    reactions: { likes: 282, dislikes: 649, opinions: [] },
   },
   {
     id: 9,
@@ -146,7 +169,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Yoga",
     difficulty: "Intermediate",
     animationStyle: "infinity",
-    reactions: { loved: 212, helpful: 381, peaceful: 540 },
+    reactions: { likes: 212, dislikes: 381, opinions: [] },
   },
   {
     id: 10,
@@ -157,7 +180,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Yoga",
     difficulty: "Beginner",
     animationStyle: "box",
-    reactions: { loved: 433, helpful: 389, peaceful: 409 },
+    reactions: { likes: 433, dislikes: 389, opinions: [] },
   },
   {
     id: 11,
@@ -168,7 +191,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Yoga",
     difficulty: "Intermediate",
     animationStyle: "wave",
-    reactions: { loved: 377, helpful: 440, peaceful: 260 },
+    reactions: { likes: 377, dislikes: 440, opinions: [] },
   },
   {
     id: 12,
@@ -179,7 +202,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Yoga",
     difficulty: "Intermediate",
     animationStyle: "pulse",
-    reactions: { loved: 302, helpful: 488, peaceful: 490 },
+    reactions: { likes: 302, dislikes: 488, opinions: [] },
   },
   {
     id: 13,
@@ -190,7 +213,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Relaxation",
     difficulty: "Beginner",
     animationStyle: "spiral",
-    reactions: { loved: 525, helpful: 630, peaceful: 573 },
+    reactions: { likes: 525, dislikes: 630, opinions: [] },
     
   },
   {
@@ -202,7 +225,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Scientific",
     difficulty: "Intermediate",
     animationStyle: "flower",
-    reactions: { loved: 180, helpful: 365, peaceful: 569 },
+    reactions: { likes: 180, dislikes: 365, opinions: [] },
     
   },
   {
@@ -214,7 +237,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Energizing",
     difficulty: "Intermediate",
     animationStyle: "infinity",
-    reactions: { loved: 265, helpful: 605, peaceful: 499 },
+    reactions: { likes: 265, dislikes: 605, opinions: [] },
     
   },
   {
@@ -226,7 +249,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Yoga",
     difficulty: "Beginner",
     animationStyle: "box",
-    reactions: { loved: 109, helpful: 506, peaceful: 425 },
+    reactions: { likes: 109, dislikes: 506, opinions: [] },
     
   },
   {
@@ -238,7 +261,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Advanced",
     difficulty: "Advanced",
     animationStyle: "wave",
-    reactions: { loved: 303, helpful: 468, peaceful: 123 },
+    reactions: { likes: 303, dislikes: 468, opinions: [] },
     
   },
   {
@@ -250,7 +273,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Yoga",
     difficulty: "Intermediate",
     animationStyle: "pulse",
-    reactions: { loved: 188, helpful: 292, peaceful: 174 },
+    reactions: { likes: 188, dislikes: 292, opinions: [] },
     
   },
   {
@@ -262,7 +285,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Yoga",
     difficulty: "Beginner",
     animationStyle: "spiral",
-    reactions: { loved: 287, helpful: 246, peaceful: 420 },
+    reactions: { likes: 287, dislikes: 246, opinions: [] },
     
   },
   {
@@ -274,7 +297,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Yoga",
     difficulty: "Advanced",
     animationStyle: "flower",
-    reactions: { loved: 453, helpful: 324, peaceful: 152 },
+    reactions: { likes: 453, dislikes: 324, opinions: [] },
     
   },
   {
@@ -286,7 +309,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Yoga",
     difficulty: "Intermediate",
     animationStyle: "infinity",
-    reactions: { loved: 396, helpful: 254, peaceful: 348 },
+    reactions: { likes: 396, dislikes: 254, opinions: [] },
     
   },
   {
@@ -298,7 +321,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Yoga",
     difficulty: "Intermediate",
     animationStyle: "box",
-    reactions: { loved: 519, helpful: 610, peaceful: 152 },
+    reactions: { likes: 519, dislikes: 610, opinions: [] },
     
   },
   {
@@ -310,7 +333,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Technique",
     difficulty: "Beginner",
     animationStyle: "wave",
-    reactions: { loved: 481, helpful: 640, peaceful: 475 },
+    reactions: { likes: 481, dislikes: 640, opinions: [] },
     
   },
   {
@@ -322,7 +345,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Visualization",
     difficulty: "Beginner",
     animationStyle: "pulse",
-    reactions: { loved: 225, helpful: 442, peaceful: 229 },
+    reactions: { likes: 225, dislikes: 442, opinions: [] },
     
   },
   {
@@ -334,7 +357,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Mindfulness",
     difficulty: "Intermediate",
     animationStyle: "spiral",
-    reactions: { loved: 557, helpful: 401, peaceful: 393 },
+    reactions: { likes: 557, dislikes: 401, opinions: [] },
     
   },
   {
@@ -346,7 +369,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Relaxation",
     difficulty: "Beginner",
     animationStyle: "flower",
-    reactions: { loved: 475, helpful: 423, peaceful: 184 },
+    reactions: { likes: 475, dislikes: 423, opinions: [] },
     
   },
   {
@@ -358,7 +381,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Yoga",
     difficulty: "Advanced",
     animationStyle: "infinity",
-    reactions: { loved: 172, helpful: 411, peaceful: 423 },
+    reactions: { likes: 172, dislikes: 411, opinions: [] },
     
   },
   {
@@ -370,7 +393,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Meditation",
     difficulty: "Beginner",
     animationStyle: "box",
-    reactions: { loved: 196, helpful: 697, peaceful: 375 },
+    reactions: { likes: 196, dislikes: 697, opinions: [] },
     
   },
   {
@@ -382,7 +405,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Visualization",
     difficulty: "Intermediate",
     animationStyle: "wave",
-    reactions: { loved: 544, helpful: 199, peaceful: 568 },
+    reactions: { likes: 544, dislikes: 199, opinions: [] },
     
   },
   {
@@ -394,7 +417,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Therapeutic",
     difficulty: "Beginner",
     animationStyle: "pulse",
-    reactions: { loved: 431, helpful: 380, peaceful: 351 },
+    reactions: { likes: 431, dislikes: 380, opinions: [] },
     
   },
   {
@@ -406,7 +429,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Foundational",
     difficulty: "Beginner",
     animationStyle: "spiral",
-    reactions: { loved: 274, helpful: 681, peaceful: 219 },
+    reactions: { likes: 274, dislikes: 681, opinions: [] },
     
   },
   {
@@ -418,7 +441,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Energizing",
     difficulty: "Intermediate",
     animationStyle: "flower",
-    reactions: { loved: 457, helpful: 544, peaceful: 254 },
+    reactions: { likes: 457, dislikes: 544, opinions: [] },
     
   },
   {
@@ -430,7 +453,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Yoga",
     difficulty: "Intermediate",
     animationStyle: "infinity",
-    reactions: { loved: 260, helpful: 638, peaceful: 226 },
+    reactions: { likes: 260, dislikes: 638, opinions: [] },
     
   },
   {
@@ -442,7 +465,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Yoga",
     difficulty: "Intermediate",
     animationStyle: "box",
-    reactions: { loved: 214, helpful: 484, peaceful: 132 },
+    reactions: { likes: 214, dislikes: 484, opinions: [] },
     
   },
   {
@@ -454,7 +477,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Mindfulness",
     difficulty: "Beginner",
     animationStyle: "wave",
-    reactions: { loved: 364, helpful: 440, peaceful: 119 },
+    reactions: { likes: 364, dislikes: 440, opinions: [] },
     
   },
   {
@@ -466,7 +489,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Foundational",
     difficulty: "Intermediate",
     animationStyle: "pulse",
-    reactions: { loved: 392, helpful: 154, peaceful: 217 },
+    reactions: { likes: 392, dislikes: 154, opinions: [] },
     
   },
   {
@@ -478,7 +501,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Foundational",
     difficulty: "Beginner",
     animationStyle: "spiral",
-    reactions: { loved: 463, helpful: 258, peaceful: 167 },
+    reactions: { likes: 463, dislikes: 258, opinions: [] },
     
   },
   {
@@ -490,7 +513,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Energizing",
     difficulty: "Beginner",
     animationStyle: "flower",
-    reactions: { loved: 236, helpful: 400, peaceful: 406 },
+    reactions: { likes: 236, dislikes: 400, opinions: [] },
     
   },
   {
@@ -502,7 +525,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Yoga",
     difficulty: "Intermediate",
     animationStyle: "infinity",
-    reactions: { loved: 457, helpful: 587, peaceful: 427 },
+    reactions: { likes: 457, dislikes: 587, opinions: [] },
     
   },
   {
@@ -514,7 +537,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Yoga",
     difficulty: "Advanced",
     animationStyle: "box",
-    reactions: { loved: 265, helpful: 251, peaceful: 346 },
+    reactions: { likes: 265, dislikes: 251, opinions: [] },
     
   },
   {
@@ -526,7 +549,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Emotional Release",
     difficulty: "Intermediate",
     animationStyle: "wave",
-    reactions: { loved: 150, helpful: 743, peaceful: 484 },
+    reactions: { likes: 150, dislikes: 743, opinions: [] },
     
   },
   {
@@ -538,7 +561,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Mindfulness",
     difficulty: "Beginner",
     animationStyle: "pulse",
-    reactions: { loved: 137, helpful: 579, peaceful: 392 },
+    reactions: { likes: 137, dislikes: 579, opinions: [] },
     
   },
   {
@@ -550,7 +573,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Mindfulness",
     difficulty: "Beginner",
     animationStyle: "spiral",
-    reactions: { loved: 338, helpful: 482, peaceful: 160 },
+    reactions: { likes: 338, dislikes: 482, opinions: [] },
     
   },
   {
@@ -562,7 +585,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Nature",
     difficulty: "Beginner",
     animationStyle: "flower",
-    reactions: { loved: 553, helpful: 596, peaceful: 283 },
+    reactions: { likes: 553, dislikes: 596, opinions: [] },
     
   },
   {
@@ -574,7 +597,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Spiritual",
     difficulty: "Intermediate",
     animationStyle: "infinity",
-    reactions: { loved: 225, helpful: 446, peaceful: 541 },
+    reactions: { likes: 225, dislikes: 446, opinions: [] },
     
   },
   {
@@ -586,7 +609,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Emotional",
     difficulty: "Beginner",
     animationStyle: "box",
-    reactions: { loved: 577, helpful: 215, peaceful: 268 },
+    reactions: { likes: 577, dislikes: 215, opinions: [] },
     
   },
   {
@@ -598,7 +621,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Therapeutic",
     difficulty: "Intermediate",
     animationStyle: "wave",
-    reactions: { loved: 324, helpful: 362, peaceful: 490 },
+    reactions: { likes: 324, dislikes: 362, opinions: [] },
     
   },
   {
@@ -610,7 +633,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Energizing",
     difficulty: "Intermediate",
     animationStyle: "pulse",
-    reactions: { loved: 120, helpful: 542, peaceful: 524 },
+    reactions: { likes: 120, dislikes: 542, opinions: [] },
     
   },
   {
@@ -622,7 +645,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Therapeutic",
     difficulty: "Intermediate",
     animationStyle: "spiral",
-    reactions: { loved: 378, helpful: 440, peaceful: 295 },
+    reactions: { likes: 378, dislikes: 440, opinions: [] },
     
   },
   {
@@ -634,7 +657,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Spiritual",
     difficulty: "Intermediate",
     animationStyle: "flower",
-    reactions: { loved: 123, helpful: 559, peaceful: 460 },
+    reactions: { likes: 123, dislikes: 559, opinions: [] },
     
   },
   {
@@ -646,7 +669,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Yoga",
     difficulty: "Advanced",
     animationStyle: "infinity",
-    reactions: { loved: 332, helpful: 185, peaceful: 596 },
+    reactions: { likes: 332, dislikes: 185, opinions: [] },
     
   },
   {
@@ -658,7 +681,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Spiritual",
     difficulty: "Advanced",
     animationStyle: "box",
-    reactions: { loved: 252, helpful: 242, peaceful: 191 },
+    reactions: { likes: 252, dislikes: 242, opinions: [] },
     
   },
   {
@@ -670,7 +693,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Meditation",
     difficulty: "Intermediate",
     animationStyle: "wave",
-    reactions: { loved: 104, helpful: 411, peaceful: 482 },
+    reactions: { likes: 104, dislikes: 411, opinions: [] },
     
   },
   {
@@ -682,7 +705,7 @@ const breathingTechniques: BreathingTechnique[] = [
     category: "Mindfulness",
     difficulty: "Beginner",
     animationStyle: "pulse",
-    reactions: { loved: 411, helpful: 459, peaceful: 428 },
+    reactions: { likes: 411, dislikes: 459, opinions: [] },
     
   },
 ];
@@ -709,53 +732,151 @@ function DifficultyBadge({ difficulty }: { difficulty?: string }) {
 /** ==================== Reaction Icons Component ==================== */
 
 function ReactionIcon({
-  type,
-  count,
-  onReact,
+  techniqueId,
+  likes,
+  dislikes,
+  userLiked,
+  userDisliked,
+  onLike,
+  onDislike,
+  onOpenOpinions,
 }: {
-  type: ReactionType;
-  count: number;
-  onReact: (type: ReactionType) => void;
+  techniqueId: number;
+  likes: number;
+  dislikes: number;
+  userLiked: boolean;
+  userDisliked: boolean;
+  onLike: () => void;
+  onDislike: () => void;
+  onOpenOpinions: () => void;
 }) {
-  const icons = {
-    loved: (
-      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-      </svg>
-    ),
-    helpful: (
-      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-        <path d="M9 12l2 2 4-4m7 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-    ),
-    peaceful: (
-      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-        <path d="M14.828 14.828a4 4 0 01-5.656 0M17.657 17.657a8 8 0 00-11.314-11.314M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-    ),
-  };
-
-  const labels = {
-    loved: "Loved",
-    helpful: "Helpful",
-    peaceful: "Peaceful",
-  };
-
-  const colors = {
-    loved: "text-red-500 hover:bg-red-50",
-    helpful: "text-emerald-500 hover:bg-emerald-50",
-    peaceful: "text-blue-500 hover:bg-blue-50",
-  };
-
   return (
-    <button
-      onClick={() => onReact(type)}
-      className={`flex items-center gap-1 px-3 py-1.5 rounded-lg transition-colors ${colors[type]}`}
-    >
-      {icons[type]}
-      <span className="text-xs font-medium">{count}</span>
-      <span className="text-xs opacity-0 group-hover:opacity-100 transition-opacity">{labels[type]}</span>
-    </button>
+    <div className="flex gap-2">
+      {/* Like Button */}
+      <button
+        onClick={onLike}
+        className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition-all ${
+          userLiked
+            ? "bg-emerald-500 text-white shadow-sm"
+            : "bg-white/50 hover:bg-white/80 text-gray-700"
+        }`}
+      >
+        <svg
+          className="w-4 h-4"
+          fill={userLiked ? "currentColor" : "none"}
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M14 10h4.764a2 2 0 011.789 2.894l-3.646 7.23a2 2 0 01-1.789 1.106H9m0 0H7a2 2 0 01-2-2v-6a2 2 0 012-2h2.4c1.075 0 2.073.86 2.236 1.954m0 0h.02"
+          />
+        </svg>
+        <span className="text-xs font-medium">{likes}</span>
+      </button>
+
+      {/* Dislike Button */}
+      <button
+        onClick={onDislike}
+        className={`flex items-center gap-1.5 px-3 py-2 rounded-lg transition-all ${
+          userDisliked
+            ? "bg-red-500 text-white shadow-sm"
+            : "bg-white/50 hover:bg-white/80 text-gray-700"
+        }`}
+      >
+        <svg
+          className="w-4 h-4"
+          fill={userDisliked ? "currentColor" : "none"}
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M10 14H5.236a2 2 0 01-1.789-2.894l3.646-7.23a2 2 0 011.789-1.106H15m0 0h2a2 2 0 012 2v6a2 2 0 01-2 2h-2.4c-1.075 0-2.073-.86-2.236-1.954m0 0h-.02"
+          />
+        </svg>
+        <span className="text-xs font-medium">{dislikes}</span>
+      </button>
+
+      {/* Opinion Button */}
+      <button
+        onClick={onOpenOpinions}
+        className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/50 hover:bg-white/80 text-gray-700 transition-all"
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+          />
+        </svg>
+        <span className="text-xs font-medium">Opinion</span>
+      </button>
+    </div>
+  );
+}
+
+/** ==================== Opinion Modal Component ==================== */
+
+function OpinionModal({
+  techniqueName,
+  opinions,
+  onClose,
+}: {
+  techniqueName: string;
+  opinions: string[];
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl max-w-md w-full max-h-[80vh] overflow-y-auto shadow-2xl animate-fadeIn">
+        <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex justify-between items-center">
+          <h2 className="text-xl font-semibold text-black">
+            Opinions on "{techniqueName}"
+          </h2>
+          <button
+            onClick={onClose}
+            className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
+
+        <div className="p-6 space-y-4">
+          {opinions.length === 0 ? (
+            <p className="text-gray-600 text-center py-8">
+              No opinions shared yet. Be the first to share your thoughts!
+            </p>
+          ) : (
+            opinions.map((opinion, idx) => (
+              <div
+                key={idx}
+                className="p-4 bg-gray-50 rounded-lg border border-gray-200"
+              >
+                <p className="text-gray-800 text-sm leading-relaxed">"{opinion}"</p>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -764,13 +885,21 @@ function BreathingCard({
   isExpanded,
   onToggle,
   onStart,
-  onReact,
+  userLiked,
+  userDisliked,
+  onLike,
+  onDislike,
+  onOpenOpinions,
 }: {
   technique: BreathingTechnique;
   isExpanded: boolean;
   onToggle: () => void;
   onStart: () => void;
-  onReact: (type: ReactionType) => void;
+  userLiked: boolean;
+  userDisliked: boolean;
+  onLike: () => void;
+  onDislike: () => void;
+  onOpenOpinions: () => void;
 }) {
   return (
     <div className="bg-white/60 backdrop-blur border border-white/70 rounded-2xl overflow-hidden hover:shadow-lg transition-all animate-fadeIn">
@@ -796,23 +925,16 @@ function BreathingCard({
 
             {/* Reaction Icons */}
             {technique.reactions && (
-              <div className="flex gap-2">
-                <ReactionIcon
-                  type="loved"
-                  count={technique.reactions.loved}
-                  onReact={onReact}
-                />
-                <ReactionIcon
-                  type="helpful"
-                  count={technique.reactions.helpful}
-                  onReact={onReact}
-                />
-                <ReactionIcon
-                  type="peaceful"
-                  count={technique.reactions.peaceful}
-                  onReact={onReact}
-                />
-              </div>
+              <ReactionIcon
+                techniqueId={technique.id}
+                likes={technique.reactions.likes}
+                dislikes={technique.reactions.dislikes}
+                userLiked={userLiked}
+                userDisliked={userDisliked}
+                onLike={onLike}
+                onDislike={onDislike}
+                onOpenOpinions={onOpenOpinions}
+              />
             )}
           </div>
           <div className="text-gray-400 flex-shrink-0">
@@ -1308,8 +1430,10 @@ export function BreathingSession() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [sessionTechnique, setSessionTechnique] = useState<BreathingTechnique | null>(null);
-  const [sortBy, setSortBy] = useState<"name" | "helpful" | "peaceful" | "loved">("name");
+  const [sortBy, setSortBy] = useState<"name" | "likes" | "dislikes">("name");
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [userReactions, setUserReactions] = useState<Map<number, "like" | "dislike" | null>>(new Map());
+  const [selectedOpinionTechnique, setSelectedOpinionTechnique] = useState<BreathingTechnique | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Initialize animations and track mouse for parallax effect
@@ -1343,9 +1467,8 @@ export function BreathingSession() {
   filteredTechniques = [...filteredTechniques].sort((a, b) => {
     if (sortBy === "name") return a.name.localeCompare(b.name);
     if (!a.reactions || !b.reactions) return 0;
-    if (sortBy === "helpful") return b.reactions.helpful - a.reactions.helpful;
-    if (sortBy === "peaceful") return b.reactions.peaceful - a.reactions.peaceful;
-    if (sortBy === "loved") return b.reactions.loved - a.reactions.loved;
+    if (sortBy === "likes") return b.reactions.likes - a.reactions.likes;
+    if (sortBy === "dislikes") return b.reactions.dislikes - a.reactions.dislikes;
     return 0;
   });
 
@@ -1363,9 +1486,36 @@ export function BreathingSession() {
     });
   };
 
-  const handleReaction = (techniqueId: number, reactionType: ReactionType) => {
-    // This would integrate with backend in production
-    console.log(`User reacted to technique ${techniqueId} with: ${reactionType}`);
+  const handleLike = (techniqueId: number) => {
+    setUserReactions((prev) => {
+      const newReactions = new Map(prev);
+      const currentReaction = newReactions.get(techniqueId);
+
+      if (currentReaction === "like") {
+        // Toggle off - remove the like
+        newReactions.delete(techniqueId);
+      } else {
+        // Set to like
+        newReactions.set(techniqueId, "like");
+      }
+      return newReactions;
+    });
+  };
+
+  const handleDislike = (techniqueId: number) => {
+    setUserReactions((prev) => {
+      const newReactions = new Map(prev);
+      const currentReaction = newReactions.get(techniqueId);
+
+      if (currentReaction === "dislike") {
+        // Toggle off - remove the dislike
+        newReactions.delete(techniqueId);
+      } else {
+        // Set to dislike
+        newReactions.set(techniqueId, "dislike");
+      }
+      return newReactions;
+    });
   };
 
   // Show active session if a technique has been selected
@@ -1379,32 +1529,64 @@ export function BreathingSession() {
   }
 
   return (
-    <div className="relative min-h-[100svh] w-full overflow-hidden bg-emerald-50 text-neutral-900">
-      {/* Grid background animation */}
+    <div className="relative min-h-[100svh] w-full overflow-hidden bg-gradient-to-br from-emerald-50 via-cyan-50 to-teal-50 text-neutral-900">
+      {/* Animated Grid background */}
       <div
-        className="absolute inset-0 pointer-events-none opacity-5"
+        className="absolute inset-0 pointer-events-none opacity-[0.08]"
         style={{
           backgroundImage: `linear-gradient(0deg, transparent 24%, rgba(16, 185, 129, .1) 25%, rgba(16, 185, 129, .1) 26%, transparent 27%, transparent 74%, rgba(16, 185, 129, .1) 75%, rgba(16, 185, 129, .1) 76%, transparent 77%, transparent), linear-gradient(90deg, transparent 24%, rgba(16, 185, 129, .1) 25%, rgba(16, 185, 129, .1) 26%, transparent 27%, transparent 74%, rgba(16, 185, 129, .1) 75%, rgba(16, 185, 129, .1) 76%, transparent 77%, transparent)`,
           backgroundSize: "50px 50px",
-          animation: "slideGrid 20s linear infinite",
+          animation: "slideGrid 25s linear infinite",
         }}
       />
 
-      {/* Decorative background with parallax */}
+      {/* Animated Wave Pattern */}
+      <svg
+        className="absolute inset-0 pointer-events-none opacity-[0.06]"
+        width="100%"
+        height="100%"
+        preserveAspectRatio="none"
+      >
+        <defs>
+          <pattern id="wave1" x="0" y="0" width="100" height="100" patternUnits="userSpaceOnUse">
+            <path
+              d="M0,50 Q25,40 50,50 T100,50"
+              stroke="rgb(16, 185, 129)"
+              strokeWidth="1"
+              fill="none"
+            />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#wave1)" />
+      </svg>
+
+      {/* Decorative background with cursor parallax */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {/* Top-right blob - follows cursor */}
         <div
-          className="absolute top-0 right-0 w-96 h-96 bg-emerald-200/30 rounded-full blur-3xl transition-transform duration-300"
+          className="absolute top-0 right-0 w-96 h-96 bg-emerald-300/20 rounded-full blur-3xl transition-transform duration-500"
           style={typeof window !== "undefined" ? {
-            transform: `translate(${(mousePos.x / window.innerWidth) * 30}px, ${(mousePos.y / window.innerHeight) * 30}px)`,
+            transform: `translate(${(mousePos.x / window.innerWidth) * 50}px, ${(mousePos.y / window.innerHeight) * 50}px)`,
           } : undefined}
         />
+        {/* Bottom-left blob - inverse parallax */}
         <div
-          className="absolute bottom-0 left-0 w-96 h-96 bg-teal-200/20 rounded-full blur-3xl transition-transform duration-300"
+          className="absolute bottom-0 left-0 w-96 h-96 bg-cyan-300/15 rounded-full blur-3xl transition-transform duration-500"
           style={typeof window !== "undefined" ? {
-            transform: `translate(${-(mousePos.x / window.innerWidth) * 30}px, ${-(mousePos.y / window.innerHeight) * 30}px)`,
+            transform: `translate(${-(mousePos.x / window.innerWidth) * 50}px, ${-(mousePos.y / window.innerHeight) * 50}px)`,
+          } : undefined}
+        />
+        {/* Center blob - subtle movement */}
+        <div
+          className="absolute top-1/2 left-1/2 w-72 h-72 bg-teal-200/10 rounded-full blur-3xl transition-transform duration-700"
+          style={typeof window !== "undefined" ? {
+            transform: `translate(-50%, -50%) translate(${(mousePos.x / window.innerWidth) * 20}px, ${(mousePos.y / window.innerHeight) * 20}px)`,
           } : undefined}
         />
       </div>
+
+      {/* Fade overlay for depth */}
+      <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-transparent via-transparent to-white/5" />
 
       <div className="relative z-10 mx-auto max-w-7xl p-6 md:p-10">
         {/* Header */}
@@ -1433,37 +1615,26 @@ export function BreathingSession() {
               Name
             </button>
             <button
-              onClick={() => setSortBy("helpful")}
+              onClick={() => setSortBy("likes")}
               className={clsx(
                 "px-4 py-2 rounded-lg font-medium transition-all",
-                sortBy === "helpful"
+                sortBy === "likes"
                   ? "bg-emerald-500 text-white shadow-lg"
                   : "bg-white/60 backdrop-blur border border-white/70 text-black hover:bg-white/80"
               )}
             >
-              Most Helpful
+              Most Liked
             </button>
             <button
-              onClick={() => setSortBy("peaceful")}
+              onClick={() => setSortBy("dislikes")}
               className={clsx(
                 "px-4 py-2 rounded-lg font-medium transition-all",
-                sortBy === "peaceful"
+                sortBy === "dislikes"
                   ? "bg-emerald-500 text-white shadow-lg"
                   : "bg-white/60 backdrop-blur border border-white/70 text-black hover:bg-white/80"
               )}
             >
-              Most Peaceful
-            </button>
-            <button
-              onClick={() => setSortBy("loved")}
-              className={clsx(
-                "px-4 py-2 rounded-lg font-medium transition-all",
-                sortBy === "loved"
-                  ? "bg-emerald-500 text-white shadow-lg"
-                  : "bg-white/60 backdrop-blur border border-white/70 text-black hover:bg-white/80"
-              )}
-            >
-              Most Loved
+              Most Disliked
             </button>
           </div>
 
@@ -1582,7 +1753,11 @@ export function BreathingSession() {
                   setExpandedId(expandedId === technique.id ? null : technique.id)
                 }
                 onStart={() => setSessionTechnique(technique)}
-                onReact={(reactionType) => handleReaction(technique.id, reactionType)}
+                userLiked={userReactions.get(technique.id) === "like"}
+                userDisliked={userReactions.get(technique.id) === "dislike"}
+                onLike={() => handleLike(technique.id)}
+                onDislike={() => handleDislike(technique.id)}
+                onOpenOpinions={() => setSelectedOpinionTechnique(technique)}
               />
             ))}
           </div>
@@ -1605,6 +1780,15 @@ export function BreathingSession() {
               No breathing techniques found matching your search.
             </p>
           </div>
+        )}
+
+        {/* Opinion Modal */}
+        {selectedOpinionTechnique && selectedOpinionTechnique.reactions && (
+          <OpinionModal
+            techniqueName={selectedOpinionTechnique.name}
+            opinions={selectedOpinionTechnique.reactions.opinions}
+            onClose={() => setSelectedOpinionTechnique(null)}
+          />
         )}
       </div>
     </div>
