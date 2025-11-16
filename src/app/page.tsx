@@ -8,6 +8,7 @@ import NotificationsModal from '@/components/NotificationsModal';
 import HopinProgramsCard from '@/components/HopinProgramsCard';
 import RankingCard from '@/components/RankingCard';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import ParticlesBackground from '@/components/ParticlesBackground';
 
 interface UserProfile {
   name: string | null;
@@ -183,22 +184,23 @@ export default function Home() {
   // Show login prompt if user is not authenticated
   if (status === 'unauthenticated') {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4 bg-white">
-        <div className="text-center space-y-6">
+      <div className="min-h-screen flex items-center justify-center px-4 bg-black">
+        <ParticlesBackground />
+        <div className="text-center space-y-6 relative z-10">
           <div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-3">Welcome to FUY Media</h1>
-            <p className="text-lg text-gray-600">Connect, share, and grow together</p>
+            <h1 className="text-4xl font-bold text-white mb-3">Welcome to FUY Media</h1>
+            <p className="text-lg text-gray-300">Connect, share, and grow together</p>
           </div>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
               href="/login"
-              className="px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+              className="cursor-target px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
             >
               Login
             </Link>
             <Link
               href="/signup"
-              className="px-8 py-3 bg-gray-200 text-gray-900 font-semibold rounded-lg hover:bg-gray-300 transition-colors"
+              className="cursor-target px-8 py-3 bg-white text-black font-semibold rounded-lg hover:bg-gray-200 transition-colors"
             >
               Sign Up
             </Link>
@@ -212,7 +214,8 @@ export default function Home() {
   const avatarUrl = userProfile?.profile?.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${displayName}`;
 
   return (
-    <div className="min-h-screen bg-white text-black flex flex-col relative overflow-hidden">
+    <div className="min-h-screen bg-black text-white flex flex-col relative overflow-hidden">
+      <ParticlesBackground />
       {/* HEADER - Minimal Floating */}
       <header className="sticky top-0 z-40 px-3 sm:px-6 py-4 pointer-events-none">
         <div className="flex items-center justify-between gap-2 sm:gap-4">

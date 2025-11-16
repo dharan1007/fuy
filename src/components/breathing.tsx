@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect } from "react";
 import clsx from "clsx";
-import TargetCursor from "./TargetCursor";
 
 // Global animations helper (initialized in component useEffect)
 const addGlobalAnimations = () => {
@@ -1741,9 +1740,6 @@ export function BreathingSession() {
 
   return (
     <div className="relative min-h-[100svh] w-full overflow-hidden bg-gradient-to-br from-purple-100 via-pink-100 to-blue-100 text-neutral-900">
-      {/* Custom Target Cursor */}
-      <TargetCursor targetSelector=".cursor-target" spinDuration={3} parallaxOn={true} />
-
       {/* Duplicating Dots Canvas Animation */}
       <DuplicatingDotsBackground />
 
