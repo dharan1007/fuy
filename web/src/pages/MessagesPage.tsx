@@ -356,7 +356,6 @@ export default function MessagesPage() {
     grounding: '/grounding',
     breathing: '/breathing',
     plans: '/pomodoro', // Using pomodoro as plans placeholder
-    essenz: '/essenz',
     ranking: '/rankings',
   };
 
@@ -1260,14 +1259,6 @@ export default function MessagesPage() {
               <path d="M3 20h18" />
             </svg>
             <div className={styles.featureName}>Plans</div>
-          </button>
-
-          {/* Essenz */}
-          <button className={styles.featureCard} onClick={() => router.push(featureRoutes.essenz)} title="Essenz">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 2.2" />
-            </svg>
-            <div className={styles.featureName}>Essenz</div>
           </button>
 
           {/* Ranking */}

@@ -10,24 +10,6 @@ import LoadingSpinner from "@/components/LoadingSpinner";
    TYPES
 ======================================================================================== */
 
-interface EssenzGoal {
-  id: string;
-  title: string;
-  goal: string;
-  codename?: string;
-  plan?: Array<{ title: string; steps: string[] }>;
-  status: string;
-}
-
-interface EssenzStats {
-  totalGoals: number;
-  activeGoals: number;
-  completedTodos: number;
-  totalTodos: number;
-  diaryEntries: number;
-  resources: number;
-}
-
 interface ITPPlan {
   id: string;
   title: string;
@@ -128,49 +110,11 @@ export default function DashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [goals, setGoals] = useState<EssenzGoal[]>([]);
-  const [stats, setStats] = useState<EssenzStats>({
-    totalGoals: 0,
-    activeGoals: 0,
-    completedTodos: 0,
-    totalTodos: 0,
-    diaryEntries: 0,
-    resources: 0,
-  });
   const [plans, setPlans] = useState<ITPPlan[]>([]);
-  const [selectedGoal, setSelectedGoal] = useState<string | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(true);
 
   useEffect(() => {
-    if (status === 'authenticated' && session?.user?.id) {
-      loadDashboardData();
-    } else if (status === 'unauthenticated') {
-      setIsLoadingData(false);
-    }
-  }, [status, session?.user?.id]);
-
-  const loadDashboardData = async () => {
     setIsLoadingData(true);
-    try {
-      const res = await fetch("/api/essenz");
-      if (res.ok) {
-        const data = await res.json();
-        setGoals(data.essenzNodes || []);
-        setStats({
-          totalGoals: data.essenzNodes?.length || 0,
-          activeGoals: data.essenzNodes?.filter((g: EssenzGoal) => g.status === "ACTIVE").length || 0,
-          completedTodos: data.completedTodos || 0,
-          totalTodos: data.totalTodos || 0,
-          diaryEntries: data.diaryEntries || 0,
-          resources: data.resources || 0,
-        });
-      }
-    } catch (err) {
-      console.error("Failed to load dashboard data:", err);
-    } finally {
-      setIsLoadingData(false);
-    }
-
     // Load ITP plans
     if (typeof window !== "undefined") {
       try {
@@ -178,7 +122,8 @@ export default function DashboardPage() {
         if (raw) setPlans(JSON.parse(raw));
       } catch {}
     }
-  };
+    setIsLoadingData(false);
+  }, []);
 
   useLSWatch<ITPPlan[]>(
     ITP_LS_KEY,
