@@ -2,6 +2,9 @@
 
 import React, { useState, useEffect } from "react";
 import clsx from "clsx";
+import WorkoutPlanManager from "./workout-plan";
+
+type TrackerTab = "metrics" | "plans";
 
 interface UserMetrics {
   height: number; // cm
@@ -28,6 +31,7 @@ interface BodyMetrics {
 }
 
 export default function WorkoutTracker() {
+  const [activeTab, setActiveTab] = useState<TrackerTab>("metrics");
   const [metrics, setMetrics] = useState<UserMetrics>({
     height: 180,
     weight: 75,
@@ -166,10 +170,38 @@ export default function WorkoutTracker() {
     <div className="space-y-8">
       {/* Header */}
       <div className="border-b border-gray-200">
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">Workout & Fitness Tracker</h2>
-        <p className="text-gray-600">Calculate your BMI, BMR, and personalized calorie needs based on your goals</p>
+        <h2 className="text-3xl font-bold text-gray-900 mb-4">Workout & Fitness Tracker</h2>
+
+        {/* Tabs */}
+        <div className="flex gap-3 border-b border-gray-200 pb-4">
+          <button
+            onClick={() => setActiveTab("metrics")}
+            className={clsx(
+              "px-6 py-2.5 rounded-lg font-medium transition-all",
+              activeTab === "metrics"
+                ? "bg-black text-white"
+                : "bg-white border border-gray-300 text-gray-900 hover:bg-gray-50"
+            )}
+          >
+            Fitness Metrics
+          </button>
+          <button
+            onClick={() => setActiveTab("plans")}
+            className={clsx(
+              "px-6 py-2.5 rounded-lg font-medium transition-all",
+              activeTab === "plans"
+                ? "bg-black text-white"
+                : "bg-white border border-gray-300 text-gray-900 hover:bg-gray-50"
+            )}
+          >
+            Workout Plans
+          </button>
+        </div>
       </div>
 
+      {/* Tab Content */}
+      {activeTab === "metrics" ? (
+        <>
       {/* Metrics Input Section */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Basic Metrics */}
@@ -368,6 +400,10 @@ export default function WorkoutTracker() {
             </div>
           </div>
         </div>
+      )}
+        </>
+      ) : (
+        <WorkoutPlanManager />
       )}
     </div>
   );
