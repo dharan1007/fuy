@@ -160,141 +160,93 @@ export default function DashboardPage() {
     );
   }
 
-  const navItems = [
-    { label: "[DASHBOARD]", active: true },
-    { label: "[GOALS]" },
-    { label: "[WELLNESS]" },
-    { label: "[CALENDAR]" },
-    { label: "[SETTINGS]" },
-  ];
-
-  const sidebarItems = [
-    { label: "[GOALS]", icon: "[GOAL]" },
-    { label: "[WELLNESS]", icon: "[HEALTH]" },
-    { label: "[TRACKING]", icon: "[TRACK]" },
-    { label: "[INSIGHTS]", icon: "[INSIGHT]" },
-  ];
-
   return (
-    <div className="flex min-h-screen" style={{ backgroundColor: "#f8f6fc" }}>
-      {/* SIDEBAR - Hidden on mobile, visible on sm and above */}
+    <div className="min-h-screen overflow-hidden relative" style={{ backgroundColor: "#ffffff" }}>
+      {/* Animated Dotted Grid Background */}
+      <div className="fixed inset-0 pointer-events-none" style={{
+        backgroundImage: `radial-gradient(circle, #d1d5db 1px, transparent 1px)`,
+        backgroundSize: "40px 40px",
+        backgroundPosition: "0 0",
+        animation: "dotGridMotion 20s linear infinite",
+        zIndex: 0,
+      }}>
+        <style>{`
+          @keyframes dotGridMotion {
+            0% {
+              background-position: 0 0;
+            }
+            100% {
+              background-position: 40px 40px;
+            }
+          }
+        `}</style>
+      </div>
+
+      {/* TOP NAVBAR - No sidebar */}
       <div
-        className={`hidden sm:flex transition-all duration-300 border-r flex-col ${
-          sidebarOpen ? "w-64" : "w-20"
-        }`}
+        className="relative z-10 border-b p-4 sm:p-6 flex items-center justify-between"
         style={{
-          backgroundColor: "#ffffff",
-          borderColor: "#e5e7eb",
+          backgroundColor: "rgba(255, 255, 255, 0.9)",
+          backdropFilter: "blur(8px)",
+          borderColor: "rgba(209, 213, 219, 0.3)",
         }}
       >
-        {/* Logo */}
-        <div className="p-4 border-b flex items-center justify-center" style={{ borderColor: "#e5e7eb" }}>
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-lg"
-            style={{ backgroundColor: "#7c3aed", color: "#ffffff" }}
-          >
-            S
-          </button>
-        </div>
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Dashboard</h1>
 
-        {/* Navigation Items */}
-        <div className="flex-1 p-4 space-y-2 overflow-y-auto">
-          {[
-            { label: "Overview", icon: "⊕" },
-            { label: "Campaigns", icon: "◈" },
-            { label: "Keywords", icon: "◆" },
-          ].map((item, idx) => (
-            <div
-              key={idx}
-              className="p-3 rounded-lg cursor-pointer transition-colors flex items-center gap-3"
-              style={{
-                backgroundColor: idx === 0 ? "#ede9fe" : "transparent",
-                color: idx === 0 ? "#7c3aed" : "#6b7280",
-              }}
-            >
-              <span className="text-lg">{item.icon}</span>
-              {sidebarOpen && <span className="text-sm font-medium">{item.label}</span>}
-            </div>
-          ))}
-        </div>
+        <div className="flex items-center gap-2 sm:gap-6">
+          {/* Search Bar - Hidden on mobile */}
+          <input
+            type="text"
+            placeholder="Search..."
+            className="hidden sm:block px-4 py-2 rounded-lg border text-sm"
+            style={{
+              backgroundColor: "#f3f4f6",
+              borderColor: "#e5e7eb",
+              color: "#6b7280",
+            }}
+          />
 
-        {/* Footer */}
-        <div className="p-4 border-t flex items-center justify-center gap-3" style={{ borderColor: "#e5e7eb" }}>
-          <div className="w-10 h-10 rounded-lg flex items-center justify-center font-bold" style={{ backgroundColor: "#dbeafe", color: "#1e40af" }}>
-            U
+          {/* Date Range - Hidden on mobile */}
+          <div className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-lg" style={{ backgroundColor: "#f3f4f6" }}>
+            <span className="text-sm text-gray-700">30 days Oct 16 / 21 - Nov 14 / 21</span>
+            <span className="text-gray-400">▼</span>
           </div>
-          {sidebarOpen && <span className="text-sm font-medium text-gray-700">Profile</span>}
+
+          {/* Right Icons */}
+          <div className="flex items-center gap-2 sm:gap-4">
+            <button className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#f3f4f6", color: "#6b7280" }}>
+              🌍
+            </button>
+            <button className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#f3f4f6", color: "#6b7280" }}>
+              🔔
+            </button>
+            <button className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#f3f4f6", color: "#6b7280" }}>
+              💬
+            </button>
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-white" style={{ backgroundColor: "#1f2937" }}>
+              {session?.user?.name?.charAt(0) || "U"}
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* MAIN CONTENT */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* TOP NAVBAR */}
-        <div
-          className="border-b p-4 sm:p-6 flex items-center justify-between"
-          style={{
-            backgroundColor: "#ffffff",
-            borderColor: "#e5e7eb",
-          }}
-        >
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Dashboard</h1>
-
-          <div className="flex items-center gap-2 sm:gap-6">
-            {/* Search Bar - Hidden on mobile */}
-            <input
-              type="text"
-              placeholder="Search..."
-              className="hidden sm:block px-4 py-2 rounded-lg border text-sm"
-              style={{
-                backgroundColor: "#f3f4f6",
-                borderColor: "#e5e7eb",
-                color: "#6b7280",
-              }}
-            />
-
-            {/* Date Range - Hidden on mobile */}
-            <div className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-lg" style={{ backgroundColor: "#f3f4f6" }}>
-              <span className="text-sm text-gray-700">30 days Oct 16 / 21 - Nov 14 / 21</span>
-              <span className="text-gray-400">▼</span>
-            </div>
-
-            {/* Right Icons */}
-            <div className="flex items-center gap-2 sm:gap-4">
-              <button className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#f3f4f6", color: "#6b7280" }}>
-                🌍
-              </button>
-              <button className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#f3f4f6", color: "#6b7280" }}>
-                🔔
-              </button>
-              <button className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#f3f4f6", color: "#6b7280" }}>
-                💬
-              </button>
-              <div className="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-white" style={{ backgroundColor: "#1f2937" }}>
-                {session?.user?.name?.charAt(0) || "U"}
-              </div>
-            </div>
+      {/* CONTENT AREA - Full width */}
+      <div className="relative z-20 overflow-y-auto p-4 sm:p-8" style={{ minHeight: "calc(100vh - 80px)" }}>
+        <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
+          {/* PAGE TITLE */}
+          <div className="mb-6 sm:mb-8">
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">Wellness Tracking</h2>
+            <p className="text-sm sm:text-base text-gray-600">Track your daily wellness activities and progress</p>
           </div>
-        </div>
 
-        {/* CONTENT AREA */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-8" style={{ backgroundColor: "#f8f6fc" }}>
-          <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
-            {/* PAGE TITLE */}
-            <div className="mb-6 sm:mb-8">
-              <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Wellness Tracking</h2>
-              <p className="text-sm sm:text-base text-gray-600">Track your daily wellness activities and progress</p>
-            </div>
-
-            {/* WELLNESS CARDS */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-              <ITPPreview />
-              <BreathingPreview />
-              <ThoughtsPreview />
-              <GroundingPreview />
-              <SelfCompassionPreview />
-              <PomodoroPreview />
-            </div>
+          {/* WELLNESS CARDS */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            <ITPPreview />
+            <BreathingPreview />
+            <ThoughtsPreview />
+            <GroundingPreview />
+            <SelfCompassionPreview />
+            <PomodoroPreview />
           </div>
         </div>
       </div>
