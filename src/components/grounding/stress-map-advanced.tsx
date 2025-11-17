@@ -453,25 +453,31 @@ export default function StressMapAdvanced() {
             {markers.filter(m=>m.side===side).map((m)=>(
               <button
                 key={m.id}
-                className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-full border transition-transform hover:scale-[1.03] focus-visible:ring-2 focus-visible:ring-black ${selected?.id===m.id ? "ring-2 ring-black" : ""}`}
-                onClick={(e)=>{ e.stopPropagation(); setSelected(m); }}
+                className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-full border transition-all hover:scale-110 focus-visible:ring-2 focus-visible:ring-black cursor-grab active:cursor-grabbing ${selected?.id===m.id ? "ring-2 ring-black scale-110" : "opacity-80 hover:opacity-100"}`}
+                onMouseDown={(e)=>{ e.preventDefault(); e.stopPropagation(); setSelected(m); startDrag(); }}
+                onMouseUp={endDrag}
                 style={{
                   left: `${m.x*100}%`,
                   top: `${m.y*100}%`,
-                  width: `${10 + m.intensity * 2}px`,
-                  height: `${10 + m.intensity * 2}px`,
-                  backgroundColor: qualityColor(m.quality, 0.22 + m.intensity*0.05)
+                  width: `${Math.max(10, 8 + m.intensity * 2)}px`,
+                  height: `${Math.max(10, 8 + m.intensity * 2)}px`,
+                  backgroundColor: qualityColor(m.quality, 0.3 + m.intensity*0.04),
+                  boxShadow: selected?.id===m.id ? "0 0 0 3px rgba(0,0,0,0.1)" : "none"
                 }}
                 aria-label={`${regionLabel[m.region]} ${m.quality} ${m.intensity}/10`}
-                title={`${regionLabel[m.region]} • ${m.quality} • ${m.intensity}/10`}
+                title={`${regionLabel[m.region]} • ${m.quality} • ${m.intensity}/10 - Drag to move`}
               />
             ))}
 
             {/* Floating micro-toolbar for selected */}
             {selected && selected.side === side && (
               <div
-                className="absolute z-10 -translate-x-1/2 mt-2 flex items-center gap-2 px-2 py-1 rounded-full bg-white/90 border shadow-sm"
-                style={{ left: `${selected.x*100}%`, top: `calc(${selected.y*100}% + ${12 + selected.intensity}px)` }}
+                className="absolute z-10 -translate-x-1/2 flex items-center gap-2 px-2 py-1 rounded-full bg-white/95 border shadow-lg backdrop-blur"
+                style={{
+                  left: `${selected.x*100}%`,
+                  top: `calc(${selected.y*100}% + ${Math.max(16, 12 + selected.intensity)}px)`,
+                  pointerEvents: "auto"
+                }}
               >
                 <IconButton title="Less intense" onClick={() => updateSelected({ intensity: clamp(selected.intensity - 1, 1, 10) })}>–</IconButton>
                 <span className="text-xs text-neutral-700">{selected.intensity}/10</span>
@@ -812,15 +818,27 @@ function LegendFor(side: Side): RegionId[] {
     : ["head","neck","shouldersL","shouldersR","upperBack","armsL","armsR","forearmsL","forearmsR","lowerBack","hipsL","hipsR","thighsL","thighsR","calvesL","calvesR"];
 }
 function hitTestRegion(side: Side, xNorm: number, yNorm: number): RegionId | null {
-  const x = xNorm * BOARD_W;
-  const y = yNorm * BOARD_H;
+  // Clamp normalized coordinates to valid range
+  const clampedX = Math.max(0, Math.min(1, xNorm));
+  const clampedY = Math.max(0, Math.min(1, yNorm));
+
+  const x = clampedX * BOARD_W;
+  const y = clampedY * BOARD_H;
   const shapes = side === "front" ? frontShapes : backShapes;
-  for (const s of shapes) {
+
+  // Check in reverse order so topmost shapes are detected first
+  for (let i = shapes.length - 1; i >= 0; i--) {
+    const s = shapes[i];
     if (s.kind === "circle") {
       const dx = x - s.cx, dy = y - s.cy;
       if (dx*dx + dy*dy <= s.r*s.r) return s.id;
     } else {
-      if (x >= s.x && x <= s.x + s.w && y >= s.y && y <= s.y + s.h) return s.id;
+      // Add small tolerance for rect boundaries (1px)
+      const tolerance = 1;
+      if (x >= s.x - tolerance && x <= s.x + s.w + tolerance &&
+          y >= s.y - tolerance && y <= s.y + s.h + tolerance) {
+        return s.id;
+      }
     }
   }
   return null;
