@@ -182,7 +182,7 @@ export default function DashboardPage() {
         `}</style>
       </div>
 
-      {/* TOP NAVBAR - No sidebar */}
+      {/* TOP NAVBAR - Minimal design */}
       <div
         className="relative z-10 border-b p-4 sm:p-6 flex items-center justify-between"
         style={{
@@ -193,40 +193,8 @@ export default function DashboardPage() {
       >
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Dashboard</h1>
 
-        <div className="flex items-center gap-2 sm:gap-6">
-          {/* Search Bar - Hidden on mobile */}
-          <input
-            type="text"
-            placeholder="Search..."
-            className="hidden sm:block px-4 py-2 rounded-lg border text-sm"
-            style={{
-              backgroundColor: "#f3f4f6",
-              borderColor: "#e5e7eb",
-              color: "#6b7280",
-            }}
-          />
-
-          {/* Date Range - Hidden on mobile */}
-          <div className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-lg" style={{ backgroundColor: "#f3f4f6" }}>
-            <span className="text-sm text-gray-700">30 days Oct 16 / 21 - Nov 14 / 21</span>
-            <span className="text-gray-400">▼</span>
-          </div>
-
-          {/* Right Icons */}
-          <div className="flex items-center gap-2 sm:gap-4">
-            <button className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#f3f4f6", color: "#6b7280" }}>
-              🌍
-            </button>
-            <button className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#f3f4f6", color: "#6b7280" }}>
-              🔔
-            </button>
-            <button className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: "#f3f4f6", color: "#6b7280" }}>
-              💬
-            </button>
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-white" style={{ backgroundColor: "#1f2937" }}>
-              {session?.user?.name?.charAt(0) || "U"}
-            </div>
-          </div>
+        <div className="w-10 h-10 rounded-lg flex items-center justify-center font-bold text-white" style={{ backgroundColor: "#1f2937" }}>
+          {session?.user?.name?.charAt(0) || "U"}
         </div>
       </div>
 
