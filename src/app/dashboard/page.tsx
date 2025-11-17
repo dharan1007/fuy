@@ -334,30 +334,30 @@ function ITPPreview() {
 
   return (
     <div
-      className="rounded-xl p-6 border hover:shadow-md transition-all cursor-pointer backdrop-blur-sm"
+      className="rounded-2xl p-6 border hover:shadow-lg transition-all cursor-pointer backdrop-blur-md group"
       style={{
-        backgroundColor: "rgba(255, 255, 255, 0.5)",
-        borderColor: "rgba(255, 255, 255, 0.6)",
+        backgroundColor: "rgba(124, 58, 237, 0.08)",
+        borderColor: "rgba(124, 58, 237, 0.2)",
       }}
       onClick={() => router.push("/itp")}
     >
-      <h3 className="text-lg font-bold text-gray-900 mb-4">ITP — Plan Tracker</h3>
+      <h3 className="text-lg font-bold text-gray-900 mb-4 group-hover:text-purple-600 transition-colors">ITP — Plan Tracker</h3>
       <div className="space-y-3">
         <div className="flex justify-between items-center">
-          <span className="text-gray-700">Done</span>
-          <span className="text-gray-900 font-semibold">{doneCount}/{plans.length}</span>
+          <span className="text-sm text-gray-700">Done</span>
+          <span className="text-sm font-semibold text-purple-600">{doneCount}/{plans.length}</span>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-gray-700">Pending</span>
-          <span className="text-gray-900 font-semibold">{pendingCount}</span>
+          <span className="text-sm text-gray-700">Pending</span>
+          <span className="text-sm font-semibold text-gray-900">{pendingCount}</span>
         </div>
-        <div className="w-full h-2 rounded-full overflow-hidden" style={{ backgroundColor: "rgba(124, 58, 237, 0.2)" }}>
+        <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: "rgba(124, 58, 237, 0.1)" }}>
           <div
-            className="h-full transition-all"
+            className="h-full transition-all duration-500"
             style={{ width: `${percent}%`, backgroundColor: "#7c3aed" }}
           />
         </div>
-        <p className="text-xs mt-2 text-gray-600">
+        <p className="text-xs mt-3 text-gray-600">
           Click to manage plans
         </p>
       </div>
@@ -395,30 +395,30 @@ function BreathingPreview() {
 
   return (
     <div
-      className="rounded-xl p-6 border hover:shadow-md transition-all cursor-pointer backdrop-blur-sm"
+      className="rounded-2xl p-6 border hover:shadow-lg transition-all cursor-pointer backdrop-blur-md group"
       style={{
-        backgroundColor: "rgba(255, 255, 255, 0.5)",
-        borderColor: "rgba(255, 255, 255, 0.6)",
+        backgroundColor: "rgba(59, 130, 246, 0.08)",
+        borderColor: "rgba(59, 130, 246, 0.2)",
       }}
       onClick={() => router.push("/breathing")}
     >
-      <h3 className="text-lg font-bold text-gray-900 mb-4">Breathing Exercises</h3>
+      <h3 className="text-lg font-bold text-gray-900 mb-4 group-hover:text-blue-600 transition-colors">Breathing Exercises</h3>
       <div className="space-y-3">
         <div className="flex justify-between items-center">
-          <span className="text-gray-700">Preset</span>
-          <span className="text-gray-900 font-semibold">{info?.preset || "—"}</span>
+          <span className="text-sm text-gray-700">Preset</span>
+          <span className="text-sm font-semibold text-blue-600">{info?.preset || "—"}</span>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-gray-700">Cycles</span>
-          <span className="text-gray-900 font-semibold">{cycles}/12</span>
+          <span className="text-sm text-gray-700">Cycles</span>
+          <span className="text-sm font-semibold text-gray-900">{cycles}/12</span>
         </div>
-        <div className="w-full h-2 rounded-full overflow-hidden" style={{ backgroundColor: "rgba(124, 58, 237, 0.2)" }}>
+        <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: "rgba(59, 130, 246, 0.1)" }}>
           <div
-            className="h-full transition-all"
-            style={{ width: `${pct}%`, backgroundColor: "#7c3aed" }}
+            className="h-full transition-all duration-500"
+            style={{ width: `${pct}%`, backgroundColor: "#3b82f6" }}
           />
         </div>
-        <p className="text-xs mt-2 text-gray-600">
+        <p className="text-xs mt-3 text-gray-600">
           Click to start exercise
         </p>
       </div>
@@ -453,20 +453,26 @@ function ThoughtsPreview() {
 
   return (
     <div
-      className="rounded-xl p-6 border hover:shadow-md transition-all cursor-pointer backdrop-blur-sm"
+      className="rounded-2xl p-6 border hover:shadow-lg transition-all cursor-pointer backdrop-blur-md group"
       style={{
-        backgroundColor: "rgba(255, 255, 255, 0.5)",
-        borderColor: "rgba(255, 255, 255, 0.6)",
+        backgroundColor: "rgba(34, 197, 94, 0.08)",
+        borderColor: "rgba(34, 197, 94, 0.2)",
       }}
       onClick={() => router.push("/thoughts")}
     >
-      <h3 className="text-lg font-bold text-gray-900 mb-4">Thoughts Today</h3>
+      <h3 className="text-lg font-bold text-gray-900 mb-4 group-hover:text-green-600 transition-colors">Thoughts Today</h3>
       <div className="space-y-3">
         <div className="flex justify-between items-center">
-          <span className="text-gray-700">Recorded</span>
-          <span className="text-gray-900 font-semibold">{thoughts}</span>
+          <span className="text-sm text-gray-700">Recorded</span>
+          <span className="text-sm font-semibold text-green-600">{thoughts}</span>
         </div>
-        <p className="text-xs mt-2 text-gray-600">
+        <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: "rgba(34, 197, 94, 0.1)" }}>
+          <div
+            className="h-full transition-all duration-500"
+            style={{ width: `${Math.min(100, (thoughts / 10) * 100)}%`, backgroundColor: "#22c55e" }}
+          />
+        </div>
+        <p className="text-xs mt-3 text-gray-600">
           Click to log thoughts
         </p>
       </div>
@@ -475,7 +481,7 @@ function ThoughtsPreview() {
 }
 
 /* ========================================================================================
-   GROUNDING PREVIEW
+   WREX PREVIEW
 ======================================================================================== */
 
 function GroundingPreview() {
@@ -501,20 +507,29 @@ function GroundingPreview() {
 
   return (
     <div
-      className="rounded-xl p-6 border hover:shadow-md transition-all cursor-pointer backdrop-blur-sm"
+      className="rounded-2xl p-6 border hover:shadow-lg transition-all cursor-pointer backdrop-blur-md group"
       style={{
-        backgroundColor: "rgba(255, 255, 255, 0.5)",
-        borderColor: "rgba(255, 255, 255, 0.6)",
+        backgroundColor: "rgba(168, 85, 247, 0.08)",
+        borderColor: "rgba(168, 85, 247, 0.2)",
       }}
       onClick={() => router.push("/grounding")}
     >
-      <h3 className="text-lg font-bold text-gray-900 mb-4">Grounding 5-4-3-2-1</h3>
+      <h3 className="text-lg font-bold text-gray-900 mb-4 group-hover:text-purple-600 transition-colors">WREX</h3>
       <div className="space-y-3">
-        <p className="text-xs text-gray-700">
-          {info ? "Completed" : "No Data"}
-        </p>
-        <p className="text-xs mt-2 text-gray-600">
-          Click to practice
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-gray-700">Status</span>
+          <span className="text-sm font-semibold text-purple-600">
+            {info ? "✓ Complete" : "Ready"}
+          </span>
+        </div>
+        <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: "rgba(168, 85, 247, 0.1)" }}>
+          <div
+            className="h-full transition-all duration-500"
+            style={{ width: `${info ? 100 : 0}%`, backgroundColor: "#a855f7" }}
+          />
+        </div>
+        <p className="text-xs mt-3 text-gray-600">
+          Click to practice wellness
         </p>
       </div>
     </div>
@@ -548,14 +563,14 @@ function SelfCompassionPreview() {
 
   return (
     <div
-      className="rounded-xl p-6 border hover:shadow-md transition-all cursor-pointer backdrop-blur-sm"
+      className="rounded-2xl p-6 border hover:shadow-lg transition-all cursor-pointer backdrop-blur-md group"
       style={{
-        backgroundColor: "rgba(255, 255, 255, 0.5)",
-        borderColor: "rgba(255, 255, 255, 0.6)",
+        backgroundColor: "rgba(244, 63, 94, 0.08)",
+        borderColor: "rgba(244, 63, 94, 0.2)",
       }}
       onClick={() => router.push("/self-compassion")}
     >
-      <h3 className="text-lg font-bold text-gray-900 mb-4">Compassion Self-Talk</h3>
+      <h3 className="text-lg font-bold text-gray-900 mb-4 group-hover:text-red-600 transition-colors">Compassion Self-Talk</h3>
       <div className="space-y-3">
         <p className="text-xs text-gray-700">
           {info ? "Completed" : "No Data"}
@@ -608,14 +623,14 @@ function PomodoroPreview() {
 
   return (
     <div
-      className="rounded-xl p-6 border hover:shadow-md transition-all cursor-pointer backdrop-blur-sm"
+      className="rounded-2xl p-6 border hover:shadow-lg transition-all cursor-pointer backdrop-blur-md group"
       style={{
-        backgroundColor: "rgba(255, 255, 255, 0.5)",
-        borderColor: "rgba(255, 255, 255, 0.6)",
+        backgroundColor: "rgba(217, 119, 6, 0.08)",
+        borderColor: "rgba(217, 119, 6, 0.2)",
       }}
       onClick={() => router.push("/pomodoro")}
     >
-      <h3 className="text-lg font-bold text-gray-900 mb-4">Pomodoro Timer</h3>
+      <h3 className="text-lg font-bold text-gray-900 mb-4 group-hover:text-amber-600 transition-colors">Pomodoro Timer</h3>
       <div className="space-y-3">
         <div className="flex justify-between items-center">
           <span className="text-gray-700">Today</span>

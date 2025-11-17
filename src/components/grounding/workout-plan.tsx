@@ -3,16 +3,8 @@
 import React, { useState, useEffect, useCallback } from "react";
 import clsx from "clsx";
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { ChevronDown, Users, Zap, Flame, Clock, Target, TrendingUp, Bell, Check, X } from "lucide-react";
+import { ChevronDown, Users, Zap, Flame, Clock, Target, TrendingUp, Check, X } from "lucide-react";
 import { sendNotification } from "@/lib/notifications";
-
-interface GymInvitation {
-  id: string;
-  from: string;
-  workoutName: string;
-  status: "pending" | "accepted" | "rejected";
-  createdAt: string;
-}
 
 interface Exercise {
   id: string;
@@ -105,10 +97,7 @@ export default function WorkoutPlanManager() {
     { id: "p3", name: "Mike Chen", height: 178, weight: 80, isActive: false },
   ]);
   const [selectedPartner, setSelectedPartner] = useState<GymPartner | null>(null);
-  const [invitations, setInvitations] = useState<GymInvitation[]>([
-    { id: "inv1", from: "Sarah Smith", workoutName: "Push/Pull/Legs", status: "pending", createdAt: new Date().toISOString() },
-  ]);
-  const [showNotifications, setShowNotifications] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [restTimer, setRestTimer] = useState<{ exerciseIdx: number; setIdx: number; timeLeft: number } | null>(null);
   const [timerInterval, setTimerInterval] = useState<NodeJS.Timeout | null>(null);
 
@@ -274,24 +263,6 @@ export default function WorkoutPlanManager() {
   const metrics = getConsistencyMetrics();
 
   const COLORS = ["#000000", "#3B82F6", "#EF4444", "#10B981", "#F59E0B", "#8B5CF6", "#EC4899"];
-
-  // Handle gym invitation
-  const handleInvitationResponse = (invitationId: string, accepted: boolean) => {
-    setInvitations((prev) =>
-      prev.map((inv) =>
-        inv.id === invitationId ? { ...inv, status: accepted ? "accepted" : "rejected" } : inv
-      )
-    );
-
-    const invitation = invitations.find((inv) => inv.id === invitationId);
-    if (invitation) {
-      sendNotification(
-        accepted ? "Invitation Accepted" : "Invitation Rejected",
-        `You ${accepted ? "accepted" : "rejected"} ${invitation.from}'s invitation to workout together`,
-        "invitation"
-      );
-    }
-  };
 
   // Start rest timer after set completion
   const startRestTimer = (exerciseIdx: number, setIdx: number, rpe: number) => {
@@ -475,74 +446,9 @@ export default function WorkoutPlanManager() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="border-b border-gray-200 pb-6 flex items-center justify-between">
-        <div>
-          <h2 className="text-4xl font-bold text-gray-900 mb-2">Workout Plans</h2>
-          <p className="text-gray-600">Create, manage, and track your workout routines with real-time partner collaboration</p>
-        </div>
-
-        {/* Notifications Bell */}
-        <div className="relative">
-          <button
-            onClick={() => setShowNotifications(!showNotifications)}
-            className="relative p-3 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-all"
-          >
-            <Bell size={20} className="text-gray-900" />
-            {invitations.filter((inv) => inv.status === "pending").length > 0 && (
-              <span className="absolute top-0 right-0 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
-                {invitations.filter((inv) => inv.status === "pending").length}
-              </span>
-            )}
-          </button>
-
-          {/* Notifications Dropdown */}
-          {showNotifications && (
-            <div className="absolute right-0 mt-2 w-80 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden z-50">
-              <div className="p-4 border-b border-gray-200 font-semibold text-gray-900">
-                Gym Invitations
-              </div>
-
-              {invitations.filter((inv) => inv.status === "pending").length > 0 ? (
-                <div className="space-y-2 p-4">
-                  {invitations
-                    .filter((inv) => inv.status === "pending")
-                    .map((inv) => (
-                      <div key={inv.id} className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
-                        <div>
-                          <p className="font-semibold text-gray-900">{inv.from}</p>
-                          <p className="text-sm text-gray-600">Invited you to: {inv.workoutName}</p>
-                        </div>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => {
-                              handleInvitationResponse(inv.id, true);
-                              setShowNotifications(false);
-                            }}
-                            className="flex-1 px-3 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-all flex items-center justify-center gap-2"
-                          >
-                            <Check size={16} /> Accept
-                          </button>
-                          <button
-                            onClick={() => {
-                              handleInvitationResponse(inv.id, false);
-                              setShowNotifications(false);
-                            }}
-                            className="flex-1 px-3 py-2 bg-gray-300 text-gray-900 rounded-lg font-medium hover:bg-gray-400 transition-all flex items-center justify-center gap-2"
-                          >
-                            <X size={16} /> Reject
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              ) : (
-                <div className="p-8 text-center text-gray-600">
-                  <p>No pending invitations</p>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+      <div className="border-b border-gray-200 pb-6">
+        <h2 className="text-4xl font-bold text-gray-900 mb-2">Workout Plans</h2>
+        <p className="text-gray-600">Create, manage, and track your workout routines with real-time partner collaboration</p>
       </div>
 
       {/* Metrics Grid */}
@@ -840,8 +746,23 @@ export default function WorkoutPlanManager() {
           <div className="bg-white rounded-2xl p-8 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
             <h3 className="text-2xl font-bold text-gray-900 mb-6">Find Gym Partners</h3>
 
+            {/* Search Bar */}
+            <div className="mb-6">
+              <input
+                type="text"
+                placeholder="Search users by name..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/20"
+              />
+            </div>
+
             <div className="space-y-4 mb-8">
-              {gymPartners.map((partner) => (
+              {gymPartners
+                .filter((partner) =>
+                  partner.name.toLowerCase().includes(searchQuery.toLowerCase())
+                )
+                .map((partner) => (
                 <div
                   key={partner.id}
                   className={clsx(
@@ -868,6 +789,13 @@ export default function WorkoutPlanManager() {
                   </div>
                 </div>
               ))}
+              {gymPartners.filter((partner) =>
+                partner.name.toLowerCase().includes(searchQuery.toLowerCase())
+              ).length === 0 && (
+                <div className="text-center py-8 text-gray-600">
+                  <p>No users found matching "{searchQuery}"</p>
+                </div>
+              )}
             </div>
 
             <div className="flex gap-3">
@@ -888,6 +816,7 @@ export default function WorkoutPlanManager() {
                 onClick={() => {
                   setShowGymPatModal(false);
                   setSelectedPartner(null);
+                  setSearchQuery("");
                 }}
                 className="px-6 py-3 border border-gray-300 text-gray-900 rounded-xl font-semibold hover:bg-gray-50 transition-all"
               >

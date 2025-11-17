@@ -775,7 +775,7 @@ export default function MessagesPage() {
                       </div>
                       {[
                         { id: 'bonding', label: 'Bonding', icon: '👥' },
-                        { id: 'grounding', label: 'Grounding', icon: '🧘' },
+                        { id: 'grounding', label: 'WREX', icon: '🧘' },
                         { id: 'journal', label: 'Journaling', icon: '📔' },
                         { id: 'breathing', label: 'Breathing', icon: '💨' },
                       ].map((feature) => (
@@ -955,7 +955,7 @@ export default function MessagesPage() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                     <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '600', color: '#000000' }}>
                       {showFeatureModal === 'bonding' && '👥 Bonding'}
-                      {showFeatureModal === 'grounding' && '🧘 Grounding'}
+                      {showFeatureModal === 'grounding' && '🧘 WREX'}
                       {showFeatureModal === 'journal' && '📔 Journaling'}
                       {showFeatureModal === 'breathing' && '💨 Breathing'}
                     </h3>
@@ -1006,9 +1006,9 @@ export default function MessagesPage() {
                     {showFeatureModal === 'grounding' && (
                       <div>
                         <div style={{ backgroundColor: '#f9fafb', padding: '12px', borderRadius: '8px', marginBottom: '12px' }}>
-                          <p style={{ margin: '0 0 8px 0', fontWeight: '500', color: '#000000' }}>5-4-3-2-1 Grounding Exercise</p>
+                          <p style={{ margin: '0 0 8px 0', fontWeight: '500', color: '#000000' }}>5-4-3-2-1 WREX Exercise</p>
                           <p style={{ margin: 0, fontSize: '13px', color: '#666666' }}>
-                            Do this grounding exercise together. Notice 5 things you can see, 4 you can touch, 3 you can hear, 2 you can smell, and 1 you can taste.
+                            Do this WREX exercise together. Notice 5 things you can see, 4 you can touch, 3 you can hear, 2 you can smell, and 1 you can taste.
                           </p>
                         </div>
                         <div style={{ backgroundColor: '#f3f4f6', padding: '12px', borderRadius: '8px', fontSize: '13px', color: '#666666' }}>
@@ -1234,13 +1234,13 @@ export default function MessagesPage() {
             <div className={styles.featureName}>Bonding</div>
           </button>
 
-          {/* Grounding */}
-          <button className={styles.featureCard} onClick={() => router.push(featureRoutes.grounding)} title="Grounding">
+          {/* WREX */}
+          <button className={styles.featureCard} onClick={() => router.push(featureRoutes.grounding)} title="WREX">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="12" r="10" />
               <path d="M12 6v6l4 2" />
             </svg>
-            <div className={styles.featureName}>Grounding</div>
+            <div className={styles.featureName}>WREX</div>
           </button>
 
           {/* Breathing */}

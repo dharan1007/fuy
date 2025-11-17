@@ -38,6 +38,32 @@ export async function POST(
     },
   });
 
+  // Get post author to send notification
+  const post = await prisma.post.findUnique({
+    where: { id: postId },
+    select: { userId: true },
+  });
+
+  // Don't notify if commenting on own post
+  if (post && post.userId !== userId) {
+    // Get commenter's name for notification message
+    const commenter = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { name: true },
+    });
+
+    // Create notification for post author
+    await prisma.notification.create({
+      data: {
+        userId: post.userId,
+        type: "POST_COMMENT",
+        message: `${commenter?.name || "Someone"} commented on your post`,
+        postId,
+        read: false,
+      },
+    });
+  }
+
   return NextResponse.json(comment);
 }
 

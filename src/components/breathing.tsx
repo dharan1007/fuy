@@ -375,24 +375,24 @@ const breathingTechniques: BreathingTechnique[] = [
     name: "Triangle Breathing",
     instructions:
       "Inhale for 4 counts, hold for 4 counts, exhale for 4 counts. Form a mental triangle.",
-    primaryUses: ["Focus", "Calm", "Grounding"],
+    primaryUses: ["Focus", "Calm", "WREX"],
     category: "Visualization",
     difficulty: "Beginner",
     animationStyle: "pulse",
     reactions: { likes: 225, dislikes: 442, opinions: [] },
-    
+
   },
   {
     id: 25,
     name: "5-4-3-2-1 Sensory Breathing",
     instructions:
       "Breathe while focusing on 5 things you see, 4 you feel, 3 you hear, 2 you smell, 1 you taste.",
-    primaryUses: ["Anxiety", "Presence", "Grounding"],
+    primaryUses: ["Anxiety", "Presence", "WREX"],
     category: "Mindfulness",
     difficulty: "Intermediate",
     animationStyle: "spiral",
     reactions: { likes: 557, dislikes: 401, opinions: [] },
-    
+
   },
   {
     id: 26,
@@ -600,15 +600,15 @@ const breathingTechniques: BreathingTechnique[] = [
   },
   {
     id: 43,
-    name: "Grounding Breath",
+    name: "WREX Breath",
     instructions:
       "Feel feet on ground. Breathe deeply while visualizing roots extending from body into earth.",
-    primaryUses: ["Grounding", "Anxiety", "Presence"],
+    primaryUses: ["WREX", "Anxiety", "Presence"],
     category: "Mindfulness",
     difficulty: "Beginner",
     animationStyle: "spiral",
     reactions: { likes: 338, dislikes: 482, opinions: [] },
-    
+
   },
   {
     id: 44,
