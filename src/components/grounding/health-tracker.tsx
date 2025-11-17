@@ -2,6 +2,8 @@
 
 import React, { useState } from "react";
 import clsx from "clsx";
+import { foodDatabase, parseFoodInput, calculateNutrition } from "@/lib/foodDatabase";
+import { calculateNutritionRequirements, evaluateMicronutrient, getMicronutrientRecommendations } from "@/lib/nutritionScience";
 
 interface HealthCondition {
   id: string;
@@ -24,6 +26,26 @@ interface NutrientRecommendation {
   sources: string[];
   benefits: string;
   deficiencyRisks: string;
+}
+
+interface DietItem {
+  id: string;
+  foodName: string;
+  quantity: number;
+  unit: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fats: number;
+  addedAt: string;
+}
+
+interface DietPlan {
+  id: string;
+  name: string;
+  items: DietItem[];
+  createdAt: string;
+  description: string;
 }
 
 export default function HealthTracker() {
@@ -51,6 +73,14 @@ export default function HealthTracker() {
     type: "bulk_muscle",
     createdAt: new Date().toISOString(),
   });
+
+  // Diet Plan Management
+  const [dietPlans, setDietPlans] = useState<DietPlan[]>([]);
+  const [currentDietPlan, setCurrentDietPlan] = useState<DietItem[]>([]);
+  const [showDietForm, setShowDietForm] = useState(false);
+  const [foodInput, setFoodInput] = useState("");
+  const [dietPlanName, setDietPlanName] = useState("");
+  const [dietTab, setDietTab] = useState<"view" | "add">("view");
 
   // Nutrient recommendations based on fitness goal
   const getNutrientRecommendations = (goalType: string): NutrientRecommendation[] => {
@@ -183,6 +213,60 @@ export default function HealthTracker() {
       healthHistory.map((c) => (c.id === id ? { ...c, resolved: !c.resolved } : c))
     );
   };
+
+  // Diet planning functions
+  const addFoodToDiet = () => {
+    if (!foodInput.trim()) return;
+
+    const parsed = parseFoodInput(foodInput);
+    if (parsed && parsed.food) {
+      const nutrition = calculateNutrition(parsed.food, parsed.quantity);
+      const dietItem: DietItem = {
+        id: `diet-${Date.now()}`,
+        foodName: `${parsed.quantity} ${parsed.unit} of ${parsed.food.name}`,
+        quantity: parsed.quantity,
+        unit: parsed.unit,
+        calories: nutrition.calories,
+        protein: nutrition.protein,
+        carbs: nutrition.carbs,
+        fats: nutrition.fats,
+        addedAt: new Date().toISOString(),
+      };
+      setCurrentDietPlan([...currentDietPlan, dietItem]);
+      setFoodInput("");
+    }
+  };
+
+  const saveDietPlan = () => {
+    if (!dietPlanName.trim() || currentDietPlan.length === 0) return;
+
+    const newPlan: DietPlan = {
+      id: `plan-${Date.now()}`,
+      name: dietPlanName,
+      items: currentDietPlan,
+      createdAt: new Date().toISOString(),
+      description: `Diet plan with ${currentDietPlan.length} items`,
+    };
+    setDietPlans([...dietPlans, newPlan]);
+    setCurrentDietPlan([]);
+    setDietPlanName("");
+    setDietTab("view");
+  };
+
+  const removeDietItem = (id: string) => {
+    setCurrentDietPlan(currentDietPlan.filter((item) => item.id !== id));
+  };
+
+  // Calculate totals for current diet plan
+  const dietTotals = currentDietPlan.reduce(
+    (acc, item) => ({
+      calories: acc.calories + item.calories,
+      protein: acc.protein + item.protein,
+      carbs: acc.carbs + item.carbs,
+      fats: acc.fats + item.fats,
+    }),
+    { calories: 0, protein: 0, carbs: 0, fats: 0 }
+  );
 
   const nutrients = getNutrientRecommendations(selectedGoal.type);
   const activeConditions = healthHistory.filter((c) => !c.resolved);
@@ -409,6 +493,139 @@ export default function HealthTracker() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Diet Planning */}
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h3 className="text-2xl font-bold text-gray-900">Diet Plan Manager</h3>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setDietTab("view")}
+              className={`px-4 py-2 rounded-lg font-medium transition-all ${dietTab === "view" ? "bg-black text-white" : "bg-gray-200 text-gray-900"}`}
+            >
+              View Plans
+            </button>
+            <button
+              onClick={() => setDietTab("add")}
+              className={`px-4 py-2 rounded-lg font-medium transition-all ${dietTab === "add" ? "bg-black text-white" : "bg-gray-200 text-gray-900"}`}
+            >
+              + Create Plan
+            </button>
+          </div>
+        </div>
+
+        {dietTab === "add" ? (
+          <div className="bg-white border border-gray-200 rounded-2xl p-6 space-y-6">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Diet Plan Name</label>
+              <input
+                type="text"
+                placeholder="e.g., High Protein, Keto, etc."
+                value={dietPlanName}
+                onChange={(e) => setDietPlanName(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/20"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Add Food Items</label>
+              <p className="text-xs text-gray-600 mb-3">
+                Available foods: {foodDatabase.map((f) => f.name).join(", ")}
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder='e.g., "2 eggs" or "100g chicken" or "1 banana"'
+                  value={foodInput}
+                  onChange={(e) => setFoodInput(e.target.value)}
+                  onKeyPress={(e) => e.key === "Enter" && addFoodToDiet()}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/20"
+                />
+                <button
+                  onClick={addFoodToDiet}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-all"
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+
+            {currentDietPlan.length > 0 && (
+              <div className="space-y-4">
+                <h4 className="font-semibold text-gray-900">Diet Items</h4>
+                <div className="space-y-2">
+                  {currentDietPlan.map((item) => (
+                    <div key={item.id} className="bg-gray-50 border border-gray-200 rounded-lg p-4 flex items-center justify-between">
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-900">{item.foodName}</p>
+                        <p className="text-xs text-gray-600">
+                          {item.calories}cal | {item.protein}g protein | {item.carbs}g carbs | {item.fats}g fat
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => removeDietItem(item.id)}
+                        className="px-3 py-1 text-red-600 hover:bg-red-50 rounded transition-all text-sm"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-2">
+                  <p className="font-semibold text-gray-900">Daily Totals</p>
+                  <div className="grid grid-cols-4 gap-2 text-sm">
+                    <div>
+                      <p className="text-gray-600">Calories</p>
+                      <p className="font-bold text-gray-900">{Math.round(dietTotals.calories)}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-600">Protein</p>
+                      <p className="font-bold text-gray-900">{(dietTotals.protein).toFixed(1)}g</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-600">Carbs</p>
+                      <p className="font-bold text-gray-900">{(dietTotals.carbs).toFixed(1)}g</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-600">Fats</p>
+                      <p className="font-bold text-gray-900">{(dietTotals.fats).toFixed(1)}g</p>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={saveDietPlan}
+                  disabled={!dietPlanName.trim()}
+                  className="w-full px-4 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Save Diet Plan
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {dietPlans.length > 0 ? (
+              dietPlans.map((plan) => (
+                <div key={plan.id} className="bg-white border border-gray-200 rounded-2xl p-6">
+                  <h4 className="text-lg font-semibold text-gray-900 mb-2">{plan.name}</h4>
+                  <p className="text-sm text-gray-600 mb-4">{plan.description}</p>
+                  <div className="space-y-2">
+                    {plan.items.map((item) => (
+                      <p key={item.id} className="text-sm text-gray-700">
+                        {item.foodName} - {item.calories}cal
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-center text-gray-600 py-8">No diet plans yet. Create one to get started!</p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Nutrient Recommendations */}

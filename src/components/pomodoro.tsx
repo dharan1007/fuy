@@ -377,6 +377,25 @@ export function PomodoroPro() {
     };
   }, [running, phase]);
 
+  // Workout rest timer integration
+  useEffect(() => {
+    const handleWorkoutRest = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const { duration } = customEvent.detail;
+
+      // Switch to short break phase with workout rest duration
+      setPhase("short");
+      setSeconds(duration);
+      setRunning(true);
+      lastActivity.current = Date.now();
+    };
+
+    window.addEventListener("workoutRestStarted", handleWorkoutRest);
+    return () => {
+      window.removeEventListener("workoutRestStarted", handleWorkoutRest);
+    };
+  }, []);
+
   // countdown
   useEffect(() => {
     if (!running) return;

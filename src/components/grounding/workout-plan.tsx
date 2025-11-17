@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import clsx from "clsx";
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { ChevronDown, Users, Zap, Flame, Clock, Target, TrendingUp, Bell, Check, X } from "lucide-react";
+import { sendNotification } from "@/lib/notifications";
 
 interface GymInvitation {
   id: string;
@@ -11,16 +12,6 @@ interface GymInvitation {
   workoutName: string;
   status: "pending" | "accepted" | "rejected";
   createdAt: string;
-}
-
-interface Notification {
-  id: string;
-  type: "invitation" | "reminder" | "partner_started" | "set_complete";
-  title: string;
-  message: string;
-  read: boolean;
-  createdAt: string;
-  actionId?: string;
 }
 
 interface Exercise {
@@ -114,7 +105,6 @@ export default function WorkoutPlanManager() {
     { id: "p3", name: "Mike Chen", height: 178, weight: 80, isActive: false },
   ]);
   const [selectedPartner, setSelectedPartner] = useState<GymPartner | null>(null);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [invitations, setInvitations] = useState<GymInvitation[]>([
     { id: "inv1", from: "Sarah Smith", workoutName: "Push/Pull/Legs", status: "pending", createdAt: new Date().toISOString() },
   ]);
@@ -295,31 +285,12 @@ export default function WorkoutPlanManager() {
 
     const invitation = invitations.find((inv) => inv.id === invitationId);
     if (invitation) {
-      addNotification(
+      sendNotification(
         accepted ? "Invitation Accepted" : "Invitation Rejected",
         `You ${accepted ? "accepted" : "rejected"} ${invitation.from}'s invitation to workout together`,
         "invitation"
       );
     }
-  };
-
-  // Add notification
-  const addNotification = (title: string, message: string, type: Notification["type"], actionId?: string) => {
-    const notification: Notification = {
-      id: `notif-${Date.now()}`,
-      type,
-      title,
-      message,
-      read: false,
-      createdAt: new Date().toISOString(),
-      actionId,
-    };
-    setNotifications((prev) => [notification, ...prev]);
-
-    // Auto-dismiss after 5 seconds
-    setTimeout(() => {
-      setNotifications((prev) => prev.filter((n) => n.id !== notification.id));
-    }, 5000);
   };
 
   // Start rest timer after set completion
@@ -340,7 +311,7 @@ export default function WorkoutPlanManager() {
       );
     }
 
-    addNotification("Rest Timer Started", `Take ${restSeconds}s rest before next set`, "reminder");
+    sendNotification("Rest Timer Started", `Take ${restSeconds}s rest before next set`, "reminder");
   };
 
   // Rest timer effect
@@ -352,7 +323,7 @@ export default function WorkoutPlanManager() {
 
       return () => clearTimeout(interval);
     } else if (restTimer && restTimer.timeLeft === 0) {
-      addNotification("Rest Complete!", "Ready for next set?", "reminder");
+      sendNotification("Rest Complete!", "Ready for next set?", "reminder");
       setRestTimer(null);
     }
   }, [restTimer]);
@@ -360,21 +331,6 @@ export default function WorkoutPlanManager() {
   if (activeSession) {
     return (
       <div className="space-y-6">
-        {/* Notifications Toast */}
-        {notifications.length > 0 && (
-          <div className="fixed top-4 right-4 z-50 space-y-2">
-            {notifications.map((notif) => (
-              <div
-                key={notif.id}
-                className="bg-white border-l-4 border-green-500 rounded-lg shadow-lg p-4 max-w-sm animate-pulse"
-              >
-                <p className="font-semibold text-gray-900">{notif.title}</p>
-                <p className="text-sm text-gray-600">{notif.message}</p>
-              </div>
-            ))}
-          </div>
-        )}
-
         {/* Rest Timer */}
         {restTimer && (
           <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-blue-500 text-white rounded-2xl px-8 py-4 shadow-lg">
@@ -518,21 +474,6 @@ export default function WorkoutPlanManager() {
 
   return (
     <div className="space-y-8">
-      {/* Notifications Toast */}
-      {notifications.length > 0 && (
-        <div className="fixed top-4 right-4 z-50 space-y-2">
-          {notifications.map((notif) => (
-            <div
-              key={notif.id}
-              className="bg-white border-l-4 border-green-500 rounded-lg shadow-lg p-4 max-w-sm animate-pulse"
-            >
-              <p className="font-semibold text-gray-900">{notif.title}</p>
-              <p className="text-sm text-gray-600">{notif.message}</p>
-            </div>
-          ))}
-        </div>
-      )}
-
       {/* Header */}
       <div className="border-b border-gray-200 pb-6 flex items-center justify-between">
         <div>
