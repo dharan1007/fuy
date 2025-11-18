@@ -25,7 +25,11 @@ export default function NotificationsModal({ isOpen, onClose }: NotificationsMod
   }, [notifications, filter]);
 
   // Handle friend action (ACCEPT, REJECT, GHOST)
-  async function handleFriendAction(friendshipId: string, action: 'ACCEPT' | 'REJECT' | 'GHOST') {
+  async function handleFriendAction(
+    friendshipId: string,
+    action: 'ACCEPT' | 'REJECT' | 'GHOST',
+    notificationId?: string
+  ) {
     setActionLoading((prev) => ({ ...prev, [friendshipId]: true }));
 
     try {
@@ -40,6 +44,9 @@ export default function NotificationsModal({ isOpen, onClose }: NotificationsMod
 
       if (!result?.success) {
         alert(`Failed to ${action.toLowerCase()} friend request: ${result?.error || 'Unknown error'}`);
+      } else if (notificationId) {
+        // Delete the notification after successful action
+        await deleteNotification(notificationId);
       }
     } catch (error) {
       console.error('Friend action error:', error);
@@ -189,7 +196,7 @@ export default function NotificationsModal({ isOpen, onClose }: NotificationsMod
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleFriendAction(notif.friendshipId!, 'ACCEPT');
+                              handleFriendAction(notif.friendshipId!, 'ACCEPT', notif.id);
                             }}
                             disabled={actionLoading[notif.friendshipId]}
                             style={{
@@ -227,7 +234,7 @@ export default function NotificationsModal({ isOpen, onClose }: NotificationsMod
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleFriendAction(notif.friendshipId!, 'REJECT');
+                              handleFriendAction(notif.friendshipId!, 'REJECT', notif.id);
                             }}
                             disabled={actionLoading[notif.friendshipId]}
                             style={{
@@ -265,7 +272,7 @@ export default function NotificationsModal({ isOpen, onClose }: NotificationsMod
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleFriendAction(notif.friendshipId!, 'GHOST');
+                              handleFriendAction(notif.friendshipId!, 'GHOST', notif.id);
                             }}
                             disabled={actionLoading[notif.friendshipId]}
                             style={{

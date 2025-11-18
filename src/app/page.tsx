@@ -726,6 +726,8 @@ export default function Home() {
       <NotificationsModal isOpen={isNotificationsOpen} onClose={() => {
         setIsNotificationsOpen(false);
         fetchUnreadCount();
+        // Refresh profile to update follower/following counts
+        fetchUserProfile();
       }} />
       <UserListModal
         isOpen={showFollowersModal}
