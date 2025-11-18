@@ -145,6 +145,19 @@ export async function POST(req: Request) {
       },
     });
 
+    // If auto-accepted (demo user), update follower/following counts
+    if (isTargetDemoUser) {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { followingCount: { increment: 1 } },
+      });
+
+      await prisma.user.update({
+        where: { id: friendId },
+        data: { followersCount: { increment: 1 } },
+      });
+    }
+
     // Create notification for the recipient
     const notificationType = isTargetDemoUser ? "FRIEND_ACCEPTED" : "FRIEND_REQUEST";
     const message = isTargetDemoUser
@@ -329,6 +342,19 @@ export async function DELETE(req: Request) {
     await prisma.friendship.delete({
       where: { id: friendshipId },
     });
+
+    // Update follower/following counts if friendship was accepted
+    if (friendship.status === "ACCEPTED") {
+      await prisma.user.update({
+        where: { id: friendship.userId },
+        data: { followingCount: { decrement: 1 } },
+      });
+
+      await prisma.user.update({
+        where: { id: friendship.friendId },
+        data: { followersCount: { decrement: 1 } },
+      });
+    }
 
     return NextResponse.json({ message: "Friend removed successfully" });
   } catch (error: any) {
