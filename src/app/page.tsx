@@ -216,9 +216,9 @@ export default function Home() {
   return (
     <div className="min-h-screen text-white flex flex-col relative overflow-hidden">
       <ParticlesBackground />
-      <div className="absolute inset-0 bg-black/40 z-0 pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/30 to-black/40 z-5 pointer-events-none" />
       {/* HEADER - Minimal Floating */}
-      <header className="sticky top-0 z-40 px-4 sm:px-6 py-4 pointer-events-none relative">
+      <header className="sticky top-0 z-50 px-4 sm:px-6 py-4 pointer-events-none relative">
         <div className="flex items-center justify-between gap-3 sm:gap-4">
           {/* Logo/Explore Module */}
           <div className="bg-white/50 backdrop-blur-md border border-white/40 rounded-lg sm:rounded-xl px-4 sm:px-6 py-2.5 sm:py-3 shadow-sm pointer-events-auto hover:bg-white/60 transition-all">
@@ -295,7 +295,7 @@ export default function Home() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-10 relative z-10">
+      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-10 relative z-20">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Left Sidebar - User Profile */}
           <aside className="md:col-span-1">

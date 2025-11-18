@@ -173,7 +173,7 @@ export default function ParticlesBackground() {
         left: 0,
         width: '100vw',
         height: '100vh',
-        zIndex: -10,
+        zIndex: 1,
         display: 'block'
       }}
     />
