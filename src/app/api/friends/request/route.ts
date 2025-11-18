@@ -227,7 +227,7 @@ export async function PATCH(req: Request) {
       });
 
       // Create notification for the sender
-      await prisma.notification.create({
+      const notification = await prisma.notification.create({
         data: {
           userId: friendship.userId,
           type: "FRIEND_ACCEPT",
@@ -247,22 +247,34 @@ export async function PATCH(req: Request) {
         },
       });
 
-      return NextResponse.json({ friendship: updated, updatedUsers });
+      return NextResponse.json({
+        success: true,
+        friendship: updated,
+        notification,
+        updatedUsers
+      });
     } else if (action === "REJECT") {
       // Reject/delete the request
       await prisma.friendship.delete({
         where: { id: friendshipId },
       });
 
-      return NextResponse.json({ message: "Friend request rejected" });
+      return NextResponse.json({
+        success: true,
+        message: "Friend request rejected"
+      });
     } else if (action === "GHOST") {
-      // Ghost the request - mark it as ghosted
+      // Ghost the request - mark it as ghosted (only allowed for received requests, verified above)
       const updated = await prisma.friendship.update({
         where: { id: friendshipId },
         data: { isGhosted: true, ghostedBy: userId },
       });
 
-      return NextResponse.json({ friendship: updated, message: "Request ghosted" });
+      return NextResponse.json({
+        success: true,
+        friendship: updated,
+        message: "Request ghosted"
+      });
     } else {
       return NextResponse.json(
         { error: "Invalid action" },

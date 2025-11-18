@@ -203,3 +203,73 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+.tabs {
+  display: flex;
+  gap: 0;
+  padding: 0 16px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
+  background: #f9f9f9;
+}
+
+.tabButton {
+  flex: 1;
+  padding: 12px 16px;
+  border: none;
+  background: transparent;
+  color: #666;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-bottom: 2px solid transparent;
+}
+
+.tabButton:hover {
+  color: #1f2937;
+}
+
+.tabButton.active {
+  color: #3b82f6;
+  border-bottom-color: #3b82f6;
+}
+
+.ghostedStatus {
+  font-size: 12px;
+  color: #f97316;
+  margin: 4px 0 0 0;
+  font-weight: 500;
+}
+
+.unghostBtn {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  background: #8b5cf6;
+  color: white;
+}
+
+.unghostBtn:hover:not(:disabled) {
+  background: #7c3aed;
+}
+
+.unghostBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.pendingBadge {
+  padding: 4px 12px;
+  background: #e5e7eb;
+  color: #6b7280;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}

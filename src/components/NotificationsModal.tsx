@@ -1,42 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
+import { useNotifications } from '@/hooks/useNotifications';
+import { useFriendships } from '@/hooks/useFriendships';
 import styles from './NotificationsModal.module.css';
-
-// Type definitions
-type UserProfile = {
-  displayName: string | null;
-  avatarUrl: string | null;
-};
-
-type NotificationUser = {
-  id: string;
-  name: string | null;
-  profile: UserProfile | null;
-};
-
-type NotificationPost = {
-  id: string;
-  content: string;
-  user: {
-    id: string;
-    name: string | null;
-  } | null;
-};
-
-type Notification = {
-  id: string;
-  type: string;
-  message: string;
-  read: boolean;
-  createdAt: string;
-  friendshipId?: string;
-  actionState?: 'ACCEPT' | 'REJECT' | 'GHOST' | null;
-  followerCount?: number;
-  followingCount?: number;
-  sender?: NotificationUser;
-  post?: NotificationPost | null;
-};
 
 interface NotificationsModalProps {
   isOpen: boolean;
@@ -44,111 +11,41 @@ interface NotificationsModalProps {
 }
 
 export default function NotificationsModal({ isOpen, onClose }: NotificationsModalProps) {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
+  const { notifications, loading, markAsRead, markAllAsRead, deleteNotification } = useNotifications();
+  const { acceptFriendRequest, rejectFriendRequest, ghostFriendRequest } = useFriendships();
 
-  useEffect(() => {
-    if (isOpen) {
-      loadNotifications();
+  // Filter notifications based on selected filter
+  const displayedNotifications = useMemo(() => {
+    if (filter === 'unread') {
+      return notifications.filter((n) => !n.read);
     }
-  }, [isOpen, filter]);
+    return notifications;
+  }, [notifications, filter]);
 
-  async function loadNotifications() {
-    setLoading(true);
-    try {
-      const url = filter === 'unread' ? '/api/notifications?unreadOnly=true' : '/api/notifications';
-      const res = await fetch(url);
-      const data = await res.json();
-      setNotifications(data.notifications || []);
-    } catch (error) {
-      console.error('Load notifications error:', error);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function markAsRead(notificationId: string) {
-    try {
-      await fetch('/api/notifications', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notificationId }),
-      });
-      loadNotifications();
-    } catch (error) {
-      console.error('Mark as read error:', error);
-    }
-  }
-
-  async function markAllAsRead() {
-    try {
-      await fetch('/api/notifications', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ markAllRead: true }),
-      });
-      loadNotifications();
-    } catch (error) {
-      console.error('Mark all as read error:', error);
-    }
-  }
-
-  async function deleteNotification(notificationId: string) {
-    try {
-      await fetch(`/api/notifications?id=${notificationId}`, {
-        method: 'DELETE',
-      });
-      loadNotifications();
-    } catch (error) {
-      console.error('Delete notification error:', error);
-    }
-  }
-
+  // Handle friend action (ACCEPT, REJECT, GHOST)
   async function handleFriendAction(friendshipId: string, action: 'ACCEPT' | 'REJECT' | 'GHOST') {
-    // Optimistic update: immediately remove or update the notification
-    const originalNotifications = notifications;
-
-    // For GHOST, keep the notification but mark it differently
-    // For ACCEPT and REJECT, remove it immediately
-    if (action !== 'GHOST') {
-      setNotifications(prev => prev.filter(n => n.friendshipId !== friendshipId));
-    }
-
-    setActionLoading(prev => ({ ...prev, [friendshipId]: true }));
+    setActionLoading((prev) => ({ ...prev, [friendshipId]: true }));
 
     try {
-      const res = await fetch('/api/friends/request', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ friendshipId, action }),
-      });
+      let result;
+      if (action === 'ACCEPT') {
+        result = await acceptFriendRequest(friendshipId);
+      } else if (action === 'REJECT') {
+        result = await rejectFriendRequest(friendshipId);
+      } else if (action === 'GHOST') {
+        result = await ghostFriendRequest(friendshipId);
+      }
 
-      if (res.ok) {
-        // Success! The optimistic update already happened
-        // Only reload to get any other updates from the server
-        console.log(`Friend request ${action.toLowerCase()}ed successfully`);
-
-        // Optional: reload to sync with server state
-        // but don't wait for it to show immediate feedback
-        loadNotifications().catch(console.error);
-      } else {
-        const error = await res.json();
-        console.error('Friend action failed:', error.error);
-
-        // Restore original notifications on error
-        setNotifications(originalNotifications);
-        alert(`Failed to ${action.toLowerCase()} friend request: ${error.error}`);
+      if (!result?.success) {
+        alert(`Failed to ${action.toLowerCase()} friend request: ${result?.error || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Friend action error:', error);
-
-      // Restore original notifications on error
-      setNotifications(originalNotifications);
       alert('An error occurred while processing the friend request');
     } finally {
-      setActionLoading(prev => ({ ...prev, [friendshipId]: false }));
+      setActionLoading((prev) => ({ ...prev, [friendshipId]: false }));
     }
   }
 
@@ -250,7 +147,7 @@ export default function NotificationsModal({ isOpen, onClose }: NotificationsMod
               <div className={styles.spinner} />
               <p>Loading notifications...</p>
             </div>
-          ) : notifications.length === 0 ? (
+          ) : displayedNotifications.length === 0 ? (
             <div className={styles.emptyState}>
               <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
@@ -259,7 +156,7 @@ export default function NotificationsModal({ isOpen, onClose }: NotificationsMod
             </div>
           ) : (
             <div className={styles.notificationsList}>
-              {notifications.map((notif) => (
+              {displayedNotifications.map((notif) => (
                 <div
                   key={notif.id}
                   className={`${styles.notificationItem} ${!notif.read ? styles.unread : ''}`}

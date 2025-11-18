@@ -1,82 +1,148 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useFriendships } from '@/hooks/useFriendships';
 import styles from './FriendRequestsModal.module.css';
-
-interface FriendRequest {
-  id: string;
-  userId: string;
-  friendId: string;
-  status: string;
-  isGhosted: boolean;
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    profile: {
-      avatarUrl: string;
-      bio: string;
-    } | null;
-  };
-}
 
 interface FriendRequestsModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
+type TabType = 'received' | 'sent';
+
 export default function FriendRequestsModal({ isOpen, onClose }: FriendRequestsModalProps) {
-  const [requests, setRequests] = useState<FriendRequest[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<TabType>('received');
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
+  const {
+    sentRequests,
+    receivedRequests,
+    loading,
+    error,
+    acceptFriendRequest,
+    rejectFriendRequest,
+    ghostFriendRequest,
+    unGhostRequest,
+  } = useFriendships();
 
-  useEffect(() => {
-    if (isOpen) {
-      fetchRequests();
-    }
-  }, [isOpen]);
-
-  const fetchRequests = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await fetch('/api/friends/request');
-      if (!response.ok) throw new Error('Failed to fetch requests');
-      const data = await response.json();
-      setRequests(data.requests);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-      console.error('Fetch requests error:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAction = async (friendshipId: string, action: 'ACCEPT' | 'REJECT' | 'GHOST') => {
+  const handleAccept = async (friendshipId: string) => {
     setActionLoading(prev => ({ ...prev, [friendshipId]: true }));
     try {
-      const response = await fetch('/api/friends/request', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ friendshipId, action }),
-      });
-
-      if (response.ok) {
-        setRequests(prev => prev.filter(r => r.id !== friendshipId));
-      } else {
-        const data = await response.json();
-        setError(data.error || 'Action failed');
+      const result = await acceptFriendRequest(friendshipId);
+      if (!result.success) {
+        console.error('Accept failed:', result.error);
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-      console.error('Action error:', err);
     } finally {
       setActionLoading(prev => ({ ...prev, [friendshipId]: false }));
     }
   };
 
+  const handleReject = async (friendshipId: string) => {
+    setActionLoading(prev => ({ ...prev, [friendshipId]: true }));
+    try {
+      const result = await rejectFriendRequest(friendshipId);
+      if (!result.success) {
+        console.error('Reject failed:', result.error);
+      }
+    } finally {
+      setActionLoading(prev => ({ ...prev, [friendshipId]: false }));
+    }
+  };
+
+  const handleGhost = async (friendshipId: string) => {
+    setActionLoading(prev => ({ ...prev, [friendshipId]: true }));
+    try {
+      const result = await ghostFriendRequest(friendshipId);
+      if (!result.success) {
+        console.error('Ghost failed:', result.error);
+      }
+    } finally {
+      setActionLoading(prev => ({ ...prev, [friendshipId]: false }));
+    }
+  };
+
+  const handleUnGhost = async (friendshipId: string) => {
+    setActionLoading(prev => ({ ...prev, [friendshipId]: true }));
+    try {
+      const result = await unGhostRequest(friendshipId);
+      if (!result.success) {
+        console.error('Un-ghost failed:', result.error);
+      }
+    } finally {
+      setActionLoading(prev => ({ ...prev, [friendshipId]: false }));
+    }
+  };
+
+  const displayRequests = activeTab === 'received' ? receivedRequests : sentRequests;
+
   if (!isOpen) return null;
+
+  const renderRequestCard = (request: any) => {
+    const userToDisplay = activeTab === 'received' ? request.user : request.friend;
+    const isGhosted = request.isGhosted;
+
+    return (
+      <div key={request.id} className={styles.requestCard}>
+        <img
+          src={userToDisplay?.profile?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userToDisplay?.id}`}
+          alt={userToDisplay?.name}
+          className={styles.avatar}
+        />
+        <div className={styles.userInfo}>
+          <h4 className={styles.userName}>{userToDisplay?.name}</h4>
+          <p className={styles.userEmail}>{userToDisplay?.email}</p>
+          <p className={styles.userBio}>{userToDisplay?.profile?.bio || 'No bio'}</p>
+          {isGhosted && <p className={styles.ghostedStatus}>👻 Ghosted</p>}
+        </div>
+        <div className={styles.actions}>
+          {activeTab === 'received' ? (
+            <>
+              {!isGhosted && (
+                <>
+                  <button
+                    className={styles.acceptBtn}
+                    onClick={() => handleAccept(request.id)}
+                    disabled={actionLoading[request.id]}
+                  >
+                    {actionLoading[request.id] ? '...' : 'Accept'}
+                  </button>
+                  <button
+                    className={styles.rejectBtn}
+                    onClick={() => handleReject(request.id)}
+                    disabled={actionLoading[request.id]}
+                  >
+                    {actionLoading[request.id] ? '...' : 'Reject'}
+                  </button>
+                </>
+              )}
+              <button
+                className={styles.ghostBtn}
+                onClick={() => handleGhost(request.id)}
+                disabled={actionLoading[request.id]}
+                title={isGhosted ? 'Already ghosted' : 'Ghost this request'}
+              >
+                {isGhosted ? '👻' : '🔇'}
+              </button>
+            </>
+          ) : (
+            <>
+              {isGhosted ? (
+                <button
+                  className={styles.unghostBtn}
+                  onClick={() => handleUnGhost(request.id)}
+                  disabled={actionLoading[request.id]}
+                >
+                  {actionLoading[request.id] ? '...' : 'Un-ghost'}
+                </button>
+              ) : (
+                <span className={styles.pendingBadge}>Pending</span>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className={styles.backdrop} onClick={onClose}>
@@ -84,6 +150,21 @@ export default function FriendRequestsModal({ isOpen, onClose }: FriendRequestsM
         <div className={styles.header}>
           <h2 className={styles.title}>Friend Requests</h2>
           <button className={styles.closeButton} onClick={onClose}>✕</button>
+        </div>
+
+        <div className={styles.tabs}>
+          <button
+            className={`${styles.tabButton} ${activeTab === 'received' ? styles.active : ''}`}
+            onClick={() => setActiveTab('received')}
+          >
+            Received ({receivedRequests.length})
+          </button>
+          <button
+            className={`${styles.tabButton} ${activeTab === 'sent' ? styles.active : ''}`}
+            onClick={() => setActiveTab('sent')}
+          >
+            Sent ({sentRequests.length})
+          </button>
         </div>
 
         <div className={styles.content}>
@@ -96,50 +177,13 @@ export default function FriendRequestsModal({ isOpen, onClose }: FriendRequestsM
             <div className={styles.errorState}>
               <p>Error: {error}</p>
             </div>
-          ) : requests.length === 0 ? (
+          ) : displayRequests.length === 0 ? (
             <div className={styles.emptyState}>
-              <p>No friend requests</p>
+              <p>No {activeTab} friend requests</p>
             </div>
           ) : (
             <div className={styles.requestsList}>
-              {requests.map((request) => (
-                <div key={request.id} className={styles.requestCard}>
-                  <img
-                    src={request.user.profile?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${request.user.id}`}
-                    alt={request.user.name}
-                    className={styles.avatar}
-                  />
-                  <div className={styles.userInfo}>
-                    <h4 className={styles.userName}>{request.user.name}</h4>
-                    <p className={styles.userEmail}>{request.user.email}</p>
-                    <p className={styles.userBio}>{request.user.profile?.bio || 'No bio'}</p>
-                  </div>
-                  <div className={styles.actions}>
-                    <button
-                      className={styles.acceptBtn}
-                      onClick={() => handleAction(request.id, 'ACCEPT')}
-                      disabled={actionLoading[request.id]}
-                    >
-                      {actionLoading[request.id] ? '...' : 'Accept'}
-                    </button>
-                    <button
-                      className={styles.rejectBtn}
-                      onClick={() => handleAction(request.id, 'REJECT')}
-                      disabled={actionLoading[request.id]}
-                    >
-                      {actionLoading[request.id] ? '...' : 'Reject'}
-                    </button>
-                    <button
-                      className={styles.ghostBtn}
-                      onClick={() => handleAction(request.id, 'GHOST')}
-                      disabled={actionLoading[request.id]}
-                      title="Ghost this request"
-                    >
-                      👻
-                    </button>
-                  </div>
-                </div>
-              ))}
+              {displayRequests.map(renderRequestCard)}
             </div>
           )}
         </div>
