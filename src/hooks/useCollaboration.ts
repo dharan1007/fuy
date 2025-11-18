@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { supabase, type RealtimeChannel } from '@/lib/supabase-client';
 
 export interface CollaborationUpdate {
   id: string;
@@ -247,7 +248,63 @@ export function useCollaboration(sessionId: string | null) {
   }, [session.autoSaveEnabled, session.canvasData, sessionId, saveCanvasData]);
 
   /**
-   * Set up real-time sync polling for updates
+   * Set up Supabase realtime subscription for collaboration updates
+   */
+  useEffect(() => {
+    if (!sessionId) return;
+
+    let realtimeChannel: RealtimeChannel | null = null;
+
+    const setupRealtime = async () => {
+      try {
+        // Subscribe to CollaborationUpdate changes for this session
+        realtimeChannel = supabase
+          .channel(`collaboration:${sessionId}`)
+          .on(
+            'postgres_changes',
+            {
+              event: 'INSERT',
+              schema: 'public',
+              table: 'CollaborationUpdate',
+              filter: `sessionId=eq.${sessionId}`,
+            },
+            (payload: any) => {
+              // New update received
+              const newUpdate: CollaborationUpdate = {
+                ...payload.new,
+                data: JSON.parse(payload.new.data),
+              };
+
+              setSession((prev) => ({
+                ...prev,
+                updates: [...prev.updates, newUpdate],
+              }));
+            }
+          )
+          .subscribe((status: string) => {
+            if (status === 'SUBSCRIBED') {
+              // Subscription established
+            } else if (status === 'CHANNEL_ERROR') {
+              // Fall back to polling if realtime fails
+            }
+          });
+      } catch (error) {
+        // Realtime setup failed, will fall back to polling
+        console.warn('Realtime subscription setup failed:', error);
+      }
+    };
+
+    setupRealtime();
+
+    return () => {
+      if (realtimeChannel) {
+        supabase.removeChannel(realtimeChannel);
+      }
+    };
+  }, [sessionId]);
+
+  /**
+   * Set up fallback polling for updates (when realtime fails)
    */
   useEffect(() => {
     if (!sessionId) {
@@ -258,10 +315,11 @@ export function useCollaboration(sessionId: string | null) {
       return;
     }
 
-    // Poll for new updates every 5 seconds
+    // Poll for new updates every 10 seconds as fallback
+    // Realtime should handle most updates, polling is just a safety net
     syncIntervalRef.current = setInterval(async () => {
       await fetchUpdates();
-    }, 5000);
+    }, 10000);
 
     return () => {
       if (syncIntervalRef.current) {

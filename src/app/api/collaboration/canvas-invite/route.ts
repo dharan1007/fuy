@@ -46,9 +46,9 @@ export async function POST(req: Request) {
     const session = await prisma.featureSession.create({
       data: {
         id: uid(),
+        type: featureType || "CANVAS",
         creatorId: userId,
         title,
-        featureType,
         status: "ACTIVE",
       },
     });
