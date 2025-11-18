@@ -68,7 +68,6 @@
 
 /* Enhance interactivity for cursor target elements */
 .cursor-target {
-  cursor: none;
   transition: all 0.3s ease;
 }
 

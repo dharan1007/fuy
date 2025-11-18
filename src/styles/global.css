@@ -93,7 +93,6 @@ a:hover {
 /* Buttons */
 button {
   font-family: inherit;
-  cursor: pointer;
   border: none;
   border-radius: 0.5rem;
   padding: 0.75rem 1.5rem;

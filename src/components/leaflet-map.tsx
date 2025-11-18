@@ -333,7 +333,6 @@ export default function LeafletMap({
                 color: white;
                 border: none;
                 border-radius: 4px;
-                cursor: pointer;
                 font-size: 12px;
                 font-weight: 600;
               ">✓ Save</button>
@@ -343,7 +342,6 @@ export default function LeafletMap({
                 color: white;
                 border: none;
                 border-radius: 4px;
-                cursor: pointer;
                 font-size: 12px;
                 font-weight: 600;
               ">✗ Cancel</button>
@@ -356,7 +354,6 @@ export default function LeafletMap({
                 color: white;
                 border: none;
                 border-radius: 4px;
-                cursor: pointer;
                 font-size: 12px;
                 font-weight: 600;
               ">🗑 Delete Point</button>
@@ -374,7 +371,6 @@ export default function LeafletMap({
               color: white;
               border: none;
               border-radius: 4px;
-              cursor: pointer;
               font-size: 12px;
               font-weight: 600;
               margin-bottom: 6px;
@@ -387,7 +383,6 @@ export default function LeafletMap({
                 color: white;
                 border: none;
                 border-radius: 4px;
-                cursor: pointer;
                 font-size: 12px;
                 font-weight: 600;
               ">✕ Delete</button>
@@ -614,6 +609,5 @@ const btnStyle: React.CSSProperties = {
   fontSize: 13,
   fontWeight: 600,
   backdropFilter: "blur(6px)",
-  cursor: "pointer",
   whiteSpace: "nowrap",
 };

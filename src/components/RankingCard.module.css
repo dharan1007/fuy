@@ -31,7 +31,6 @@
   background: transparent;
   color: #666;
   border-radius: 6px;
-  cursor: pointer;
   transition: all 0.2s ease;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -60,7 +59,6 @@
   border-radius: 8px;
   background: white;
   color: #1f2937;
-  cursor: pointer;
   transition: all 0.2s ease;
 }
 
@@ -97,7 +95,6 @@
   border: 1px solid rgba(255, 255, 255, 0.6);
   border-radius: 16px;
   height: 100%;
-  cursor: pointer;
   transition: all 0.2s ease;
   backdrop-filter: blur(10px);
 }
@@ -226,7 +223,6 @@
   border-radius: 8px;
   font-size: 0.8rem;
   font-weight: 600;
-  cursor: pointer;
   transition: all 0.2s ease;
 }
 

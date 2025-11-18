@@ -131,7 +131,7 @@ function EmojiFloaters() {
         .float-x { animation: bobX 2.6s ease-in-out infinite alternate; }
         .float-y { animation: bobY 2.6s ease-in-out infinite alternate; }
         .boop { transition: transform 320ms ease; }
-        .dragging { animation: none !important; cursor: grabbing; filter: drop-shadow(0 6px 10px rgba(0,0,0,.15)); }
+        .dragging { animation: none !important; filter: drop-shadow(0 6px 10px rgba(0,0,0,.15)); }
       `}</style>
 
       {/* IMPORTANT: wrapper is pointer-events-none so it DOESN'T block clicks.

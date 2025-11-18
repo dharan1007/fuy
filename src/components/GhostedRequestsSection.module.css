@@ -10,7 +10,6 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  cursor: pointer;
   user-select: none;
 }
 
@@ -35,7 +34,6 @@
   background: none;
   border: none;
   font-size: 18px;
-  cursor: pointer;
   color: #666;
   padding: 4px;
   transition: color 0.2s ease;
@@ -126,7 +124,6 @@
   border-radius: 6px;
   width: 32px;
   height: 32px;
-  cursor: pointer;
   font-size: 16px;
   transition: all 0.2s ease;
   flex-shrink: 0;
