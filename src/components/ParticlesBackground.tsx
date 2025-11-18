@@ -8,6 +8,8 @@ interface Particle {
   vx: number;
   vy: number;
   radius: number;
+  shakeX?: number;
+  shakeY?: number;
 }
 
 export default function ParticlesBackground() {
@@ -15,6 +17,8 @@ export default function ParticlesBackground() {
   const particlesRef = useRef<Particle[]>([]);
   const mouseRef = useRef({ x: 0, y: 0 });
   const animationFrameRef = useRef<number>();
+  const blastStateRef = useRef({ active: false, progress: 0, centerX: 0, centerY: 0 });
+  const clusterCounterRef = useRef(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -52,12 +56,69 @@ export default function ParticlesBackground() {
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       const particles = particlesRef.current;
+      const blastState = blastStateRef.current;
+
+      // Calculate center of mass and clustering
+      let centerX = 0, centerY = 0;
+      particles.forEach((p) => {
+        centerX += p.x;
+        centerY += p.y;
+      });
+      centerX /= particles.length;
+      centerY /= particles.length;
+
+      // Detect clustering - count particles near center
+      let clusteredCount = 0;
+      particles.forEach((p) => {
+        const dx = p.x - centerX;
+        const dy = p.y - centerY;
+        const distToCenter = Math.sqrt(dx * dx + dy * dy);
+        if (distToCenter < 300) {
+          clusteredCount++;
+        }
+      });
+
+      // Trigger blast if 80% of particles are clustered
+      if (clusteredCount > particles.length * 0.8 && !blastState.active) {
+        blastState.active = true;
+        blastState.progress = 0;
+        blastState.centerX = centerX;
+        blastState.centerY = centerY;
+      }
+
+      // Update blast
+      if (blastState.active) {
+        blastState.progress += 0.03;
+        if (blastState.progress >= 1) {
+          blastState.active = false;
+          blastState.progress = 0;
+        }
+      }
 
       // Update and draw particles
       particles.forEach((particle) => {
+        // Shake effect during blast
+        if (blastState.active) {
+          particle.shakeX = (Math.random() - 0.5) * 8;
+          particle.shakeY = (Math.random() - 0.5) * 8;
+        } else {
+          particle.shakeX = 0;
+          particle.shakeY = 0;
+        }
+
+        // Blast wave repulsion
+        if (blastState.active) {
+          const dx = particle.x - blastState.centerX;
+          const dy = particle.y - blastState.centerY;
+          const distance = Math.sqrt(dx * dx + dy * dy) || 1;
+          const blastForce = (1 - blastState.progress) * 8;
+          particle.vx += (dx / distance) * blastForce * 0.2;
+          particle.vy += (dy / distance) * blastForce * 0.2;
+        }
+
         // Update position
-        particle.x += particle.vx;
-        particle.y += particle.vy;
+        particle.x += particle.vx + (particle.shakeX || 0);
+        particle.y += particle.vy + (particle.shakeY || 0);
 
         // Bounce off walls
         if (particle.x - particle.radius < 0 || particle.x + particle.radius > canvas.width) {
@@ -99,13 +160,25 @@ export default function ParticlesBackground() {
         ctx.fillStyle = '#FFFFFF';
         ctx.fill();
 
-        // Draw glow (blue halo)
+        // Draw glow (blue halo) - brighter during blast
+        const glowOpacity = blastState.active ? 0.8 : 0.4;
         ctx.beginPath();
         ctx.arc(particle.x, particle.y, particle.radius + 3, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(100, 150, 255, 0.4)';
+        ctx.strokeStyle = `rgba(100, 150, 255, ${glowOpacity})`;
         ctx.lineWidth = 2;
         ctx.stroke();
       });
+
+      // Draw blast wave ring effect
+      if (blastState.active && blastState.progress < 1) {
+        const waveRadius = blastState.progress * 600;
+        const waveOpacity = (1 - blastState.progress) * 0.8;
+        ctx.beginPath();
+        ctx.arc(blastState.centerX, blastState.centerY, waveRadius, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(150, 200, 255, ${waveOpacity})`;
+        ctx.lineWidth = 3;
+        ctx.stroke();
+      }
 
       // Draw connecting lines
       for (let i = 0; i < particles.length; i++) {
