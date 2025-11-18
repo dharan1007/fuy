@@ -57,8 +57,8 @@ export default function ParticlesBackground() {
 
     // Draw function
     const draw = () => {
-      // Clear canvas with subtle background
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.02)';
+      // Clear canvas with full clear for crisp rendering
+      ctx.fillStyle = 'rgba(0, 0, 0, 1)';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       const particles = particlesRef.current;
@@ -102,10 +102,17 @@ export default function ParticlesBackground() {
           particle.vy = (particle.vy / speed) * 3;
         }
 
-        // Draw particle
+        // Draw particle with glow effect
+        // Glow layer
+        ctx.beginPath();
+        ctx.arc(particle.x, particle.y, particle.radius + 2, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(100, 150, 255, ${particle.opacity * 0.3})`;
+        ctx.fill();
+
+        // Main particle
         ctx.beginPath();
         ctx.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255, 255, 255, ${particle.opacity})`;
+        ctx.fillStyle = `rgba(255, 255, 255, ${particle.opacity * 0.9})`;
         ctx.fill();
       });
 
@@ -118,12 +125,12 @@ export default function ParticlesBackground() {
           const distance = Math.sqrt(dx * dx + dy * dy);
 
           if (distance < connectionDistance) {
-            const opacity = (1 - distance / connectionDistance) * 0.6;
+            const opacity = (1 - distance / connectionDistance) * 0.8;
             ctx.beginPath();
             ctx.moveTo(particles[i].x, particles[i].y);
             ctx.lineTo(particles[j].x, particles[j].y);
-            ctx.strokeStyle = `rgba(255, 255, 255, ${opacity})`;
-            ctx.lineWidth = 1;
+            ctx.strokeStyle = `rgba(150, 200, 255, ${opacity})`;
+            ctx.lineWidth = 1.2;
             ctx.stroke();
           }
         }
@@ -177,8 +184,7 @@ export default function ParticlesBackground() {
         left: 0,
         width: '100%',
         height: '100%',
-        zIndex: -10,
-        background: 'rgba(0, 0, 0, 0.3)'
+        zIndex: -10
       }}
     />
   );
