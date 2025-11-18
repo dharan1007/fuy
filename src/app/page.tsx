@@ -649,53 +649,53 @@ export default function Home() {
       </div>
 
       {/* Footer */}
-      <footer className="border-t border-black/10 bg-white mt-16">
+      <footer className="relative mt-16 border-t border-white/20 bg-gradient-to-b from-white/40 to-white/20 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             {/* Brand */}
             <div>
-              <h3 className="font-bold text-lg mb-4">FUY Media</h3>
-              <p className="text-sm text-black/60">Real-time messaging platform connecting people authentically.</p>
+              <h3 className="font-bold text-lg mb-4 text-gray-900">FUY Media</h3>
+              <p className="text-sm text-gray-700">Real-time messaging platform connecting people authentically.</p>
             </div>
 
             {/* Quick Links */}
             <div>
-              <h4 className="font-semibold text-sm mb-4">Product</h4>
+              <h4 className="font-semibold text-sm mb-4 text-gray-900">Product</h4>
               <ul className="space-y-2">
-                <li><Link href="/journal" className="text-sm text-black/60 hover:text-black transition-colors">Journal</Link></li>
-                <li><Link href="/hopin" className="text-sm text-black/60 hover:text-black transition-colors">Hopin</Link></li>
-                <li><Link href="/shop" className="text-sm text-black/60 hover:text-black transition-colors">Shop</Link></li>
-                <li><Link href="/dashboard" className="text-sm text-black/60 hover:text-black transition-colors">Dashboard</Link></li>
+                <li><Link href="/journal" className="text-sm text-gray-700 hover:text-gray-900 transition-colors">Journal</Link></li>
+                <li><Link href="/hopin" className="text-sm text-gray-700 hover:text-gray-900 transition-colors">Hopin</Link></li>
+                <li><Link href="/shop" className="text-sm text-gray-700 hover:text-gray-900 transition-colors">Shop</Link></li>
+                <li><Link href="/dashboard" className="text-sm text-gray-700 hover:text-gray-900 transition-colors">Dashboard</Link></li>
               </ul>
             </div>
 
             {/* Community */}
             <div>
-              <h4 className="font-semibold text-sm mb-4">Community</h4>
+              <h4 className="font-semibold text-sm mb-4 text-gray-900">Community</h4>
               <ul className="space-y-2">
-                <li><Link href="/chat" className="text-sm text-black/60 hover:text-black transition-colors">Messages</Link></li>
-                <li><Link href="/profile" className="text-sm text-black/60 hover:text-black transition-colors">Profile</Link></li>
-                <li><Link href="/contact-us" className="text-sm text-black/60 hover:text-black transition-colors">Contact Us</Link></li>
+                <li><Link href="/chat" className="text-sm text-gray-700 hover:text-gray-900 transition-colors">Messages</Link></li>
+                <li><Link href="/profile" className="text-sm text-gray-700 hover:text-gray-900 transition-colors">Profile</Link></li>
+                <li><Link href="/contact-us" className="text-sm text-gray-700 hover:text-gray-900 transition-colors">Contact Us</Link></li>
               </ul>
             </div>
 
             {/* Policies */}
             <div>
-              <h4 className="font-semibold text-sm mb-4">Policies & Legal</h4>
+              <h4 className="font-semibold text-sm mb-4 text-gray-900">Policies & Legal</h4>
               <ul className="space-y-2">
-                <li><Link href="/privacy-policy" className="text-sm text-black/60 hover:text-black transition-colors">Privacy Policy</Link></li>
-                <li><Link href="/terms-and-conditions" className="text-sm text-black/60 hover:text-black transition-colors">Terms & Conditions</Link></li>
-                <li><Link href="/cancellation-refund-policy" className="text-sm text-black/60 hover:text-black transition-colors">Cancellation & Refund</Link></li>
-                <li><Link href="/shipping-policy" className="text-sm text-black/60 hover:text-black transition-colors">Shipping Policy</Link></li>
+                <li><Link href="/privacy-policy" className="text-sm text-gray-700 hover:text-gray-900 transition-colors">Privacy Policy</Link></li>
+                <li><Link href="/terms-and-conditions" className="text-sm text-gray-700 hover:text-gray-900 transition-colors">Terms & Conditions</Link></li>
+                <li><Link href="/cancellation-refund-policy" className="text-sm text-gray-700 hover:text-gray-900 transition-colors">Cancellation & Refund</Link></li>
+                <li><Link href="/shipping-policy" className="text-sm text-gray-700 hover:text-gray-900 transition-colors">Shipping Policy</Link></li>
               </ul>
             </div>
           </div>
 
           {/* Divider */}
-          <div className="border-t border-black/10 mt-8 pt-8">
-            <div className="flex flex-col md:flex-row justify-between items-center text-xs text-black/60">
+          <div className="border-t border-white/30 mt-8 pt-8">
+            <div className="flex flex-col md:flex-row justify-between items-center text-xs text-gray-700">
               <p>&copy; 2025 FUY Media. All rights reserved.</p>
-              <p>Email: <a href="mailto:dharan.poduvu@gmail.com" className="hover:text-black transition-colors">dharan.poduvu@gmail.com</a></p>
+              <p>Email: <a href="mailto:dharan.poduvu@gmail.com" className="hover:text-gray-900 transition-colors">dharan.poduvu@gmail.com</a></p>
             </div>
           </div>
         </div>
