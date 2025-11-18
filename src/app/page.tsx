@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import SearchModal from '@/components/SearchModal';
 import NotificationsModal from '@/components/NotificationsModal';
+import UserListModal from '@/components/UserListModal';
 import HopinProgramsCard from '@/components/HopinProgramsCard';
 import RankingCard from '@/components/RankingCard';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -67,6 +68,14 @@ export default function Home() {
   const [postError, setPostError] = useState('');
   const [postSubmitting, setPostSubmitting] = useState(false);
 
+  // Followers/Following modal state
+  const [showFollowersModal, setShowFollowersModal] = useState(false);
+  const [showFollowingModal, setShowFollowingModal] = useState(false);
+  const [followersList, setFollowersList] = useState<any[]>([]);
+  const [followingList, setFollowingList] = useState<any[]>([]);
+  const [loadingFollowers, setLoadingFollowers] = useState(false);
+  const [loadingFollowing, setLoadingFollowing] = useState(false);
+
   const features = ['JOURNAL', 'JOY', 'AWE', 'BONDS', 'SERENDIPITY', 'CHECKIN', 'PROGRESS', 'OTHER'];
   const visibilities = ['PUBLIC', 'FRIENDS', 'PRIVATE'];
 
@@ -106,6 +115,65 @@ export default function Home() {
       }
     } catch (err) {
       console.error('Error fetching unread count:', err);
+    }
+  };
+
+  // Fetch followers
+  const fetchFollowers = async () => {
+    setLoadingFollowers(true);
+    try {
+      const response = await fetch('/api/followers');
+      if (response.ok) {
+        const data = await response.json();
+        setFollowersList(data.followers || []);
+        setShowFollowersModal(true);
+      }
+    } catch (err) {
+      console.error('Error fetching followers:', err);
+    } finally {
+      setLoadingFollowers(false);
+    }
+  };
+
+  // Fetch following
+  const fetchFollowing = async () => {
+    setLoadingFollowing(true);
+    try {
+      const response = await fetch('/api/following');
+      if (response.ok) {
+        const data = await response.json();
+        setFollowingList(data.following || []);
+        setShowFollowingModal(true);
+      }
+    } catch (err) {
+      console.error('Error fetching following:', err);
+    } finally {
+      setLoadingFollowing(false);
+    }
+  };
+
+  // Handle remove friend
+  const handleRemoveFriend = async (friendshipId: string) => {
+    try {
+      const response = await fetch('/api/friends/remove', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ friendshipId }),
+      });
+
+      if (response.ok) {
+        // Update the lists by removing the friend
+        setFollowersList((prev) =>
+          prev.filter((f) => f.friendshipId !== friendshipId)
+        );
+        setFollowingList((prev) =>
+          prev.filter((f) => f.friendshipId !== friendshipId)
+        );
+        // Refresh user profile to update counts
+        await fetchUserProfile();
+      }
+    } catch (err) {
+      console.error('Error removing friend:', err);
     }
   };
 
@@ -320,14 +388,20 @@ export default function Home() {
                       <div className="font-bold text-lg text-gray-900">{userProfile.stats.friends}</div>
                       <div className="text-xs text-gray-600 font-medium">Friends</div>
                     </div>
-                    <div className="text-center">
+                    <button
+                      onClick={fetchFollowers}
+                      className="text-center hover:opacity-75 transition-opacity cursor-pointer"
+                    >
                       <div className="font-bold text-lg text-gray-900">{userProfile.stats.followers}</div>
                       <div className="text-xs text-gray-600 font-medium">Followers</div>
-                    </div>
-                    <div className="text-center">
+                    </button>
+                    <button
+                      onClick={fetchFollowing}
+                      className="text-center hover:opacity-75 transition-opacity cursor-pointer"
+                    >
                       <div className="font-bold text-lg text-gray-900">{userProfile.stats.following}</div>
                       <div className="text-xs text-gray-600 font-medium">Following</div>
-                    </div>
+                    </button>
                   </div>
 
                   <Link href="/profile" className="mt-4 w-full block text-center py-2.5 bg-black text-white rounded-lg font-medium text-sm hover:bg-black/90 transition-colors duration-200">
@@ -633,6 +707,22 @@ export default function Home() {
         setIsNotificationsOpen(false);
         fetchUnreadCount();
       }} />
+      <UserListModal
+        isOpen={showFollowersModal}
+        title="Followers"
+        users={followersList}
+        onClose={() => setShowFollowersModal(false)}
+        onRemoveFriend={handleRemoveFriend}
+        isLoading={loadingFollowers}
+      />
+      <UserListModal
+        isOpen={showFollowingModal}
+        title="Following"
+        users={followingList}
+        onClose={() => setShowFollowingModal(false)}
+        onRemoveFriend={handleRemoveFriend}
+        isLoading={loadingFollowing}
+      />
     </div>
   );
 }
