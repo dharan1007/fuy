@@ -79,6 +79,11 @@ model User {
   featureSessions   FeatureSession[]      @relation("FeatureSessions")
   featureParticipant FeatureSessionParticipant[] @relation("FeatureParticipants")
 
+  // --- Collaboration Features ---
+  collaborationInvitesSent CollaborationInvite[] @relation("CollaborationInvitesSent")
+  collaborationInvitesReceived CollaborationInvite[] @relation("CollaborationInvitesReceived")
+  collaborationUpdates CollaborationUpdate[]
+
   // --- Shop & E-commerce ---
   brandsOwned     Brand[]              @relation("BrandsOwned")
   productReviews  ProductReview[]      @relation("ProductReviews")
@@ -615,6 +620,7 @@ model Conversation {
   userB         User     @relation("ConversationB", fields: [participantB], references: [id], onDelete: Cascade)
   messages      Message[]
   sessionLogs   ChatSessionLog[]
+  collaborationInvites CollaborationInvite[]
 
   @@unique([participantA, participantB])
   @@index([participantA])
@@ -681,12 +687,23 @@ model FeatureSession {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
+  // Collaboration features
+  canvasData     String?  // JSON: blocks, drawing state
+  autoSaveEnabled Boolean @default(true)
+  lastSavedAt    DateTime?
+  lastModifiedBy String?
+  syncVersion    Int      @default(0)
+
   creator        User     @relation("FeatureSessions", fields: [creatorId], references: [id], onDelete: Cascade)
   participants   FeatureSessionParticipant[]
+  invites        CollaborationInvite[]
+  updates        CollaborationUpdate[]
 
   @@index([creatorId])
   @@index([type])
   @@index([status])
+  @@index([lastModifiedBy])
+  @@index([updatedAt])
 }
 
 model FeatureSessionParticipant {
@@ -702,6 +719,54 @@ model FeatureSessionParticipant {
   @@unique([sessionId, userId])
   @@index([sessionId])
   @@index([userId])
+}
+
+// Collaboration Invites - for messaging system
+model CollaborationInvite {
+  id               String   @id @default(cuid())
+  sessionId        String
+  fromUserId       String
+  toUserId         String
+  featureType      String   // CANVAS | HOPIN | BREATHING | etc.
+  status           String   @default("PENDING") // PENDING | ACCEPTED | REJECTED | CANCELLED
+  messageId        String?
+  conversationId   String
+  createdAt        DateTime @default(now())
+  respondedAt      DateTime?
+
+  session          FeatureSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  fromUser         User     @relation("CollaborationInvitesSent", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser           User     @relation("CollaborationInvitesReceived", fields: [toUserId], references: [id], onDelete: Cascade)
+  conversation     Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, fromUserId, toUserId])
+  @@index([sessionId])
+  @@index([fromUserId])
+  @@index([toUserId])
+  @@index([conversationId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// Collaboration Updates - for tracking changes in real-time
+model CollaborationUpdate {
+  id         String   @id @default(cuid())
+  sessionId  String
+  userId     String
+  operation  String   // ADD_BLOCK | UPDATE_BLOCK | REMOVE_BLOCK | DRAW | SAVE
+  blockId    String?
+  data       String   // JSON: the actual change data
+  timestamp  DateTime @default(now())
+  synced     Boolean  @default(false)
+
+  session    FeatureSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@index([userId])
+  @@index([timestamp])
+  @@index([synced])
+  @@index([sessionId, timestamp])
 }
 
 // ------------------------

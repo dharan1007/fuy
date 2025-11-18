@@ -24,6 +24,7 @@ import {
 } from "@/lib/templates";
 import useKeyDown from "@/hooks/useKeyDown";
 import useFullscreen from "@/hooks/useFullscreen";
+import { useCollaboration } from "@/hooks/useCollaboration";
 import Btn from "./Btn";
 import CanvasArea from "./CanvasArea";
 import TemplateCard from "./TemplateCard";
@@ -55,6 +56,11 @@ export default function JournalEditor() {
   const sideResRef = useRef({ down: false, sx: 0, sw: 360 });
 
   const [previewTpl, setPreviewTpl] = useState<TemplateFull | null>(null);
+
+  // Auto-save state
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
+  const [collaborationSessionId, setCollaborationSessionId] = useState<string | null>(null);
+  const collaboration = useCollaboration(collaborationSessionId);
 
   // dbot (combined AI + Suggestions)
   const [dbotOpen, setDbotOpen] = useState(false);
@@ -925,6 +931,22 @@ export default function JournalEditor() {
             </Btn>
 
             <div className="ml-auto" />
+            <Btn
+              variant={autoSaveEnabled ? "solid" : "soft"}
+              onClick={() => {
+                setAutoSaveEnabled(!autoSaveEnabled);
+                if (!autoSaveEnabled && collaboration.toggleAutoSave) {
+                  collaboration.toggleAutoSave(true);
+                }
+              }}
+              title={autoSaveEnabled ? "Auto-save enabled (saves every 30s)" : "Auto-save disabled"}
+            >
+              <svg className="w-4 h-4 mr-1 inline" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M15.172 7l-6.586 6.586a2 2 0 002.828 2.828l6.586-6.586a3 3 0 00-4.243-4.243z"/>
+                <path fillRule="evenodd" d="M4 12a8 8 0 1116 0 8 8 0 01-16 0zm11-4a1 1 0 10-2 0 1 1 0 002 0zM8 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd"/>
+              </svg>
+              {autoSaveEnabled ? "Auto-save" : "Saving disabled"}
+            </Btn>
             <Btn variant="solid" onClick={() => setDbotOpen((s) => !s)} title="Open dbot - AI Assistant & Resources">
               dbot
             </Btn>
