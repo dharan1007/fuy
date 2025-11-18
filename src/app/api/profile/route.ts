@@ -27,7 +27,7 @@ async function uploadToStorage(userId: string, kind: "avatar" | "cover", file: F
 export async function GET() {
   try {
     const u = await getSessionUser();
-    if (!u?.id) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    if (!u?.id) return NextResponse.json({ error: "Not authenticated" }, { status: 401, headers: { "Cache-Control": "no-store, max-age=0" } });
 
     const userData = await prisma.user.findUnique({
       where: { id: u.id },
@@ -89,9 +89,11 @@ export async function GET() {
       followingCount,
       stats: { friends: friendCount, posts: postCount, followers: followersCount, following: followingCount },
       posts,
+    }, {
+      headers: { "Cache-Control": "no-store, max-age=0" },
     });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message ?? "Failed to load profile" }, { status: 500 });
+    return NextResponse.json({ error: e?.message ?? "Failed to load profile" }, { status: 500, headers: { "Cache-Control": "no-store, max-age=0" } });
   }
 }
 
