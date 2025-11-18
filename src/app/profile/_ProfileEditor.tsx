@@ -4,6 +4,7 @@
 import useSWR from "swr";
 import { useMemo, useRef, useState } from "react";
 import AppHeader from "@/components/AppHeader";
+import UserListModal from "@/components/UserListModal";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -22,6 +23,16 @@ export default function ProfileEditor() {
 
   const [localAvatar, setLocalAvatar] = useState<File | null>(null);
   const [localCover, setLocalCover] = useState<File | null>(null);
+
+  // Followers/Following modal state
+  const [showFollowersModal, setShowFollowersModal] = useState(false);
+  const [showFollowingModal, setShowFollowingModal] = useState(false);
+  const [followersList, setFollowersList] = useState<any[]>([]);
+  const [followingList, setFollowingList] = useState<any[]>([]);
+  const [loadingFollowers, setLoadingFollowers] = useState(false);
+  const [loadingFollowing, setLoadingFollowing] = useState(false);
+  const [followersError, setFollowersError] = useState<string | null>(null);
+  const [followingError, setFollowingError] = useState<string | null>(null);
 
   const avatarPreview = useMemo(
     () => (localAvatar ? URL.createObjectURL(localAvatar) : profile?.avatarUrl || ""),
@@ -55,6 +66,83 @@ export default function ProfileEditor() {
     setLocalCover(null);
     mutate();
   }
+
+  // Fetch followers
+  const fetchFollowers = async () => {
+    setLoadingFollowers(true);
+    setFollowersError(null);
+    try {
+      const response = await fetch('/api/followers');
+      const data = await response.json();
+
+      if (response.ok) {
+        setFollowersList(data.followers || []);
+        setFollowersError(null);
+      } else {
+        setFollowersList([]);
+        setFollowersError(data.error || 'Failed to load followers');
+      }
+      setShowFollowersModal(true);
+    } catch (err) {
+      console.error('Error fetching followers:', err);
+      setFollowersList([]);
+      setFollowersError('Failed to load followers');
+      setShowFollowersModal(true);
+    } finally {
+      setLoadingFollowers(false);
+    }
+  };
+
+  // Fetch following
+  const fetchFollowing = async () => {
+    setLoadingFollowing(true);
+    setFollowingError(null);
+    try {
+      const response = await fetch('/api/following');
+      const data = await response.json();
+
+      if (response.ok) {
+        setFollowingList(data.following || []);
+        setFollowingError(null);
+      } else {
+        setFollowingList([]);
+        setFollowingError(data.error || 'Failed to load following');
+      }
+      setShowFollowingModal(true);
+    } catch (err) {
+      console.error('Error fetching following:', err);
+      setFollowingList([]);
+      setFollowingError('Failed to load following');
+      setShowFollowingModal(true);
+    } finally {
+      setLoadingFollowing(false);
+    }
+  };
+
+  // Handle remove friend
+  const handleRemoveFriend = async (friendshipId: string) => {
+    try {
+      const response = await fetch('/api/friends/remove', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ friendshipId }),
+      });
+
+      if (response.ok) {
+        // Update the lists by removing the friend
+        setFollowersList((prev) =>
+          prev.filter((f) => f.friendshipId !== friendshipId)
+        );
+        setFollowingList((prev) =>
+          prev.filter((f) => f.friendshipId !== friendshipId)
+        );
+        // Refresh profile to update counts
+        mutate();
+      }
+    } catch (err) {
+      console.error('Error removing friend:', err);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-sky-50 via-white to-white dark:from-neutral-900 dark:via-neutral-800 dark:to-neutral-900 pb-20">
@@ -126,8 +214,12 @@ export default function ProfileEditor() {
       <div className="mx-auto max-w-4xl px-4 sm:px-6 pt-14">
         {/* Stats */}
         <div className="flex flex-wrap gap-2 sm:gap-3 mb-6">
-          <Stat label="Followers" value={data?.followersCount || stats.followers || 0} />
-          <Stat label="Following" value={data?.followingCount || stats.following || 0} />
+          <button onClick={fetchFollowers} className="hover:opacity-75 transition-opacity">
+            <Stat label="Followers" value={data?.followersCount || stats.followers || 0} clickable />
+          </button>
+          <button onClick={fetchFollowing} className="hover:opacity-75 transition-opacity">
+            <Stat label="Following" value={data?.followingCount || stats.following || 0} clickable />
+          </button>
           <Stat label="Posts" value={stats.posts} />
         </div>
 
@@ -252,13 +344,33 @@ export default function ProfileEditor() {
           )}
         </section>
       </div>
+
+      {/* Modals */}
+      <UserListModal
+        isOpen={showFollowersModal}
+        title="Followers"
+        users={followersList}
+        onClose={() => setShowFollowersModal(false)}
+        onRemoveFriend={handleRemoveFriend}
+        isLoading={loadingFollowers}
+        error={followersError}
+      />
+      <UserListModal
+        isOpen={showFollowingModal}
+        title="Following"
+        users={followingList}
+        onClose={() => setShowFollowingModal(false)}
+        onRemoveFriend={handleRemoveFriend}
+        isLoading={loadingFollowing}
+        error={followingError}
+      />
     </div>
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
+function Stat({ label, value, clickable }: { label: string; value: number; clickable?: boolean }) {
   return (
-    <div className="rounded-full bg-white/80 dark:bg-neutral-700/80 px-4 py-2 shadow text-sm border border-gray-200 dark:border-neutral-600">
+    <div className={`rounded-full bg-white/80 dark:bg-neutral-700/80 px-4 py-2 shadow text-sm border border-gray-200 dark:border-neutral-600 ${clickable ? 'cursor-pointer' : ''}`}>
       <span className="font-semibold text-gray-900 dark:text-white">{value}</span> <span className="text-gray-600 dark:text-gray-300">{label}</span>
     </div>
   );

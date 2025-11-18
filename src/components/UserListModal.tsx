@@ -26,6 +26,7 @@ interface UserListModalProps {
   onClose: () => void;
   onRemoveFriend: (friendshipId: string) => Promise<void>;
   isLoading?: boolean;
+  error?: string | null;
 }
 
 export default function UserListModal({
@@ -35,6 +36,7 @@ export default function UserListModal({
   onClose,
   onRemoveFriend,
   isLoading = false,
+  error = null,
 }: UserListModalProps) {
   const [removingId, setRemovingId] = useState<string | null>(null);
 
@@ -84,7 +86,11 @@ export default function UserListModal({
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto">
-            {isLoading ? (
+            {error ? (
+              <div className="flex items-center justify-center h-32 px-4">
+                <div className="text-red-500 text-center">{error}</div>
+              </div>
+            ) : isLoading ? (
               <div className="flex items-center justify-center h-32">
                 <div className="text-gray-500">Loading...</div>
               </div>

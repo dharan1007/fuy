@@ -75,6 +75,8 @@ export default function Home() {
   const [followingList, setFollowingList] = useState<any[]>([]);
   const [loadingFollowers, setLoadingFollowers] = useState(false);
   const [loadingFollowing, setLoadingFollowing] = useState(false);
+  const [followersError, setFollowersError] = useState<string | null>(null);
+  const [followingError, setFollowingError] = useState<string | null>(null);
 
   const features = ['JOURNAL', 'JOY', 'AWE', 'BONDS', 'SERENDIPITY', 'CHECKIN', 'PROGRESS', 'OTHER'];
   const visibilities = ['PUBLIC', 'FRIENDS', 'PRIVATE'];
@@ -121,15 +123,24 @@ export default function Home() {
   // Fetch followers
   const fetchFollowers = async () => {
     setLoadingFollowers(true);
+    setFollowersError(null);
     try {
       const response = await fetch('/api/followers');
+      const data = await response.json();
+
       if (response.ok) {
-        const data = await response.json();
         setFollowersList(data.followers || []);
-        setShowFollowersModal(true);
+        setFollowersError(null);
+      } else {
+        setFollowersList([]);
+        setFollowersError(data.error || 'Failed to load followers');
       }
+      setShowFollowersModal(true);
     } catch (err) {
       console.error('Error fetching followers:', err);
+      setFollowersList([]);
+      setFollowersError('Failed to load followers');
+      setShowFollowersModal(true);
     } finally {
       setLoadingFollowers(false);
     }
@@ -138,15 +149,24 @@ export default function Home() {
   // Fetch following
   const fetchFollowing = async () => {
     setLoadingFollowing(true);
+    setFollowingError(null);
     try {
       const response = await fetch('/api/following');
+      const data = await response.json();
+
       if (response.ok) {
-        const data = await response.json();
         setFollowingList(data.following || []);
-        setShowFollowingModal(true);
+        setFollowingError(null);
+      } else {
+        setFollowingList([]);
+        setFollowingError(data.error || 'Failed to load following');
       }
+      setShowFollowingModal(true);
     } catch (err) {
       console.error('Error fetching following:', err);
+      setFollowingList([]);
+      setFollowingError('Failed to load following');
+      setShowFollowingModal(true);
     } finally {
       setLoadingFollowing(false);
     }
@@ -714,6 +734,7 @@ export default function Home() {
         onClose={() => setShowFollowersModal(false)}
         onRemoveFriend={handleRemoveFriend}
         isLoading={loadingFollowers}
+        error={followersError}
       />
       <UserListModal
         isOpen={showFollowingModal}
@@ -722,6 +743,7 @@ export default function Home() {
         onClose={() => setShowFollowingModal(false)}
         onRemoveFriend={handleRemoveFriend}
         isLoading={loadingFollowing}
+        error={followingError}
       />
     </div>
   );
