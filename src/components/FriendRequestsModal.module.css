@@ -45,7 +45,6 @@
   background: none;
   border: none;
   font-size: 24px;
-  cursor: pointer;
   color: #666;
   transition: color 0.2s ease;
 }
@@ -163,7 +162,6 @@
   border-radius: 6px;
   font-size: 12px;
   font-weight: 600;
-  cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
 }
@@ -201,7 +199,6 @@
 .rejectBtn:disabled,
 .ghostBtn:disabled {
   opacity: 0.6;
-  cursor: not-allowed;
 }
 
 .tabs {
@@ -221,7 +218,6 @@
   color: #666;
   font-size: 14px;
   font-weight: 600;
-  cursor: pointer;
   transition: all 0.2s ease;
   border-bottom: 2px solid transparent;
 }
@@ -248,7 +244,6 @@
   border-radius: 6px;
   font-size: 12px;
   font-weight: 600;
-  cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
   background: #8b5cf6;
@@ -261,7 +256,6 @@
 
 .unghostBtn:disabled {
   opacity: 0.6;
-  cursor: not-allowed;
 }
 
 .pendingBadge {

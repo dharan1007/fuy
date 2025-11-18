@@ -203,7 +203,6 @@ export default function NotificationsModal({ isOpen, onClose }: NotificationsMod
                               borderRadius: '6px',
                               fontSize: '12px',
                               fontWeight: '600',
-                              cursor: actionLoading[notif.friendshipId] ? 'not-allowed' : 'pointer',
                               transition: 'background-color 0.2s',
                               opacity: actionLoading[notif.friendshipId] ? 0.6 : 1,
                             }}
@@ -242,7 +241,6 @@ export default function NotificationsModal({ isOpen, onClose }: NotificationsMod
                               borderRadius: '6px',
                               fontSize: '12px',
                               fontWeight: '600',
-                              cursor: actionLoading[notif.friendshipId] ? 'not-allowed' : 'pointer',
                               transition: 'background-color 0.2s',
                               opacity: actionLoading[notif.friendshipId] ? 0.6 : 1,
                             }}
@@ -281,7 +279,6 @@ export default function NotificationsModal({ isOpen, onClose }: NotificationsMod
                               borderRadius: '6px',
                               fontSize: '12px',
                               fontWeight: '600',
-                              cursor: actionLoading[notif.friendshipId] ? 'not-allowed' : 'pointer',
                               transition: 'background-color 0.2s',
                               opacity: actionLoading[notif.friendshipId] ? 0.6 : 1,
                             }}
