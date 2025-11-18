@@ -114,14 +114,14 @@ export default function ParticlesBackground() {
 
         // Ambient flowing motion (ONLY when pointer is NOT active)
         if (!isPointerActive) {
-          const time = frameCountRef.current * 0.005; // 2x slower
-          const ambientX = Math.sin(time + idx * 0.1) * 0.15; // Reduced from 0.3
-          const ambientY = Math.cos(time * 0.7 + idx * 0.15) * 0.15; // Reduced from 0.3
+          const time = frameCountRef.current * 0.001; // Very slow - 5x slower than before
+          const ambientX = Math.sin(time + idx * 0.1) * 0.08; // Very subtle
+          const ambientY = Math.cos(time * 0.7 + idx * 0.15) * 0.08; // Very subtle
 
-          // Add swirling wind effect (slower)
-          const windStrength = 0.1; // Reduced from 0.2
-          const windX = Math.sin(time * 0.25 + particle.y * 0.005) * windStrength;
-          const windY = Math.cos(time * 0.35 + particle.x * 0.005) * windStrength;
+          // Add swirling wind effect (very slow)
+          const windStrength = 0.04; // Very minimal wind
+          const windX = Math.sin(time * 0.1 + particle.y * 0.005) * windStrength;
+          const windY = Math.cos(time * 0.15 + particle.x * 0.005) * windStrength;
 
           particle.vx += ambientX + windX;
           particle.vy += ambientY + windY;
@@ -215,7 +215,7 @@ export default function ParticlesBackground() {
             ctx.beginPath();
             ctx.moveTo(particles[i].x, particles[i].y);
             ctx.lineTo(particles[j].x, particles[j].y);
-            ctx.strokeStyle = `rgba(255, 80, 100, ${opacity})`;
+            ctx.strokeStyle = `rgba(100, 150, 255, ${opacity})`;
             ctx.lineWidth = 0.6;
             ctx.stroke();
           }
