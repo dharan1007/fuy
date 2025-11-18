@@ -946,6 +946,18 @@ export default function MessagesPage() {
 
                             // Mark this invite as responded to hide buttons
                             setRespondedInvites((prev) => new Set([...prev, inviteId]));
+
+                            // Navigate to feature page if accepting
+                            if (action === 'ACCEPT' && result.sessionId && result.featureType) {
+                              const featureRoutes: { [key: string]: string } = {
+                                CANVAS: '/journal',
+                                HOPIN: '/hopin',
+                                BREATHING: '/breathing',
+                              };
+
+                              const route = featureRoutes[result.featureType] || '/journal';
+                              router.push(`${route}?sessionId=${result.sessionId}`);
+                            }
                           } catch (error) {
                             console.error(`Error ${action.toLowerCase()}ing invitation:`, error);
                             alert(`Error ${action.toLowerCase()}ing invitation`);

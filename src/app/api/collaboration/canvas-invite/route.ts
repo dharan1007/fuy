@@ -213,7 +213,12 @@ export async function PATCH(req: Request) {
         },
       });
 
-      return NextResponse.json({ success: true, invite: updated });
+      return NextResponse.json({
+        success: true,
+        invite: updated,
+        sessionId: invite.sessionId,
+        featureType: invite.featureType,
+      });
     } else if (action === "REJECT") {
       const updated = await prisma.collaborationInvite.update({
         where: { id: inviteId },
