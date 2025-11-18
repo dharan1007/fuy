@@ -19,6 +19,7 @@ export default function ParticlesBackground() {
   const animationFrameRef = useRef<number>();
   const blastStateRef = useRef({ active: false, progress: 0, centerX: 0, centerY: 0 });
   const clusterCounterRef = useRef(0);
+  const frameCountRef = useRef(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -96,7 +97,7 @@ export default function ParticlesBackground() {
       }
 
       // Update and draw particles
-      particles.forEach((particle) => {
+      particles.forEach((particle, idx) => {
         // Shake effect during blast
         if (blastState.active) {
           particle.shakeX = (Math.random() - 0.5) * 8;
@@ -105,6 +106,19 @@ export default function ParticlesBackground() {
           particle.shakeX = 0;
           particle.shakeY = 0;
         }
+
+        // Ambient flowing motion (constant movement even without pointer)
+        const time = frameCountRef.current * 0.01;
+        const ambientX = Math.sin(time + idx * 0.1) * 0.3;
+        const ambientY = Math.cos(time * 0.7 + idx * 0.15) * 0.3;
+
+        // Add swirling wind effect
+        const windStrength = 0.2;
+        const windX = Math.sin(time * 0.5 + particle.y * 0.005) * windStrength;
+        const windY = Math.cos(time * 0.7 + particle.x * 0.005) * windStrength;
+
+        particle.vx += ambientX + windX;
+        particle.vy += ambientY + windY;
 
         // Blast wave repulsion
         if (blastState.active) {
@@ -198,6 +212,9 @@ export default function ParticlesBackground() {
           }
         }
       }
+
+      // Increment frame counter for ambient animation
+      frameCountRef.current++;
 
       animationFrameRef.current = requestAnimationFrame(animate);
     };
