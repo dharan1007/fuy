@@ -1684,8 +1684,8 @@ export function BreathingSession() {
 
   // Get unique categories
   const categories = Array.from(
-    new Set(breathingTechniques.map((t) => t.category).filter((c) => Boolean(c)))
-  ) as string[];
+    new Set(breathingTechniques.map((t) => t.category).filter((c): c is string => Boolean(c)))
+  );
 
   const scrollHorizontally = (dir: "left" | "right") => {
     if (!scrollRef.current) return;
