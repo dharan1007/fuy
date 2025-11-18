@@ -503,7 +503,6 @@ export default function MessagesPage() {
                           border: 'none',
                           borderBottom: '1px solid #f0f0f0',
                           backgroundColor: isAlreadyConversation ? '#f0f4ff' : 'transparent',
-                          cursor: 'pointer',
                           fontSize: '14px',
                           transition: 'background-color 0.2s',
                         }}
@@ -702,8 +701,7 @@ export default function MessagesPage() {
                             border: 'none',
                             backgroundColor: chatRetention === option ? '#eff6ff' : 'transparent',
                             color: chatRetention === option ? '#1e40af' : '#374151',
-                            cursor: 'pointer',
-                            fontSize: '14px',
+                              fontSize: '14px',
                             transition: 'background-color 0.2s',
                             borderBottom: option !== 'forever' ? '1px solid #f3f4f6' : 'none',
                           }}
@@ -792,8 +790,7 @@ export default function MessagesPage() {
                             border: 'none',
                             backgroundColor: 'transparent',
                             color: '#374151',
-                            cursor: 'pointer',
-                            fontSize: '14px',
+                              fontSize: '14px',
                             transition: 'background-color 0.2s',
                             borderBottom: '1px solid #f3f4f6',
                             display: 'flex',
@@ -982,7 +979,6 @@ export default function MessagesPage() {
                                 fontSize: '12px',
                                 fontWeight: '600',
                                 transition: 'all 0.2s ease',
-                                cursor: 'pointer',
                               }}
                               onMouseEnter={(e) => {
                                 e.currentTarget.style.backgroundColor = '#059669';
@@ -1004,7 +1000,6 @@ export default function MessagesPage() {
                                 fontSize: '12px',
                                 fontWeight: '600',
                                 transition: 'all 0.2s ease',
-                                cursor: 'pointer',
                               }}
                               onMouseEnter={(e) => {
                                 e.currentTarget.style.backgroundColor = '#dc2626';
@@ -1081,7 +1076,6 @@ export default function MessagesPage() {
                         background: 'none',
                         border: 'none',
                         fontSize: '24px',
-                        cursor: 'pointer',
                         color: '#999999',
                       }}
                     >
@@ -1184,7 +1178,6 @@ export default function MessagesPage() {
                         border: '1px solid #e5e7eb',
                         backgroundColor: '#ffffff',
                         borderRadius: '6px',
-                        cursor: 'pointer',
                         fontSize: '14px',
                         fontWeight: '500',
                         color: '#374151',
@@ -1257,7 +1250,6 @@ export default function MessagesPage() {
                         border: 'none',
                         backgroundColor: '#FF7A5C',
                         borderRadius: '6px',
-                        cursor: 'pointer',
                         fontSize: '14px',
                         fontWeight: '500',
                         color: '#ffffff',
