@@ -20,6 +20,7 @@ export default function ParticlesBackground() {
   const blastStateRef = useRef({ active: false, progress: 0, centerX: 0, centerY: 0 });
   const clusterCounterRef = useRef(0);
   const frameCountRef = useRef(0);
+  const lastMouseMoveRef = useRef(0);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -96,6 +97,10 @@ export default function ParticlesBackground() {
         }
       }
 
+      // Check if pointer is currently active (last moved within 100ms)
+      const now = Date.now();
+      const isPointerActive = now - lastMouseMoveRef.current < 100;
+
       // Update and draw particles
       particles.forEach((particle, idx) => {
         // Shake effect during blast
@@ -107,18 +112,20 @@ export default function ParticlesBackground() {
           particle.shakeY = 0;
         }
 
-        // Ambient flowing motion (constant movement even without pointer)
-        const time = frameCountRef.current * 0.01;
-        const ambientX = Math.sin(time + idx * 0.1) * 0.3;
-        const ambientY = Math.cos(time * 0.7 + idx * 0.15) * 0.3;
+        // Ambient flowing motion (ONLY when pointer is NOT active)
+        if (!isPointerActive) {
+          const time = frameCountRef.current * 0.005; // 2x slower
+          const ambientX = Math.sin(time + idx * 0.1) * 0.15; // Reduced from 0.3
+          const ambientY = Math.cos(time * 0.7 + idx * 0.15) * 0.15; // Reduced from 0.3
 
-        // Add swirling wind effect
-        const windStrength = 0.2;
-        const windX = Math.sin(time * 0.5 + particle.y * 0.005) * windStrength;
-        const windY = Math.cos(time * 0.7 + particle.x * 0.005) * windStrength;
+          // Add swirling wind effect (slower)
+          const windStrength = 0.1; // Reduced from 0.2
+          const windX = Math.sin(time * 0.25 + particle.y * 0.005) * windStrength;
+          const windY = Math.cos(time * 0.35 + particle.x * 0.005) * windStrength;
 
-        particle.vx += ambientX + windX;
-        particle.vy += ambientY + windY;
+          particle.vx += ambientX + windX;
+          particle.vy += ambientY + windY;
+        }
 
         // Blast wave repulsion
         if (blastState.active) {
@@ -144,16 +151,18 @@ export default function ParticlesBackground() {
           particle.y = Math.max(particle.radius, Math.min(canvas.height - particle.radius, particle.y));
         }
 
-        // Mouse attraction
-        const dx = mouseRef.current.x - particle.x;
-        const dy = mouseRef.current.y - particle.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
+        // Mouse attraction (ONLY when pointer is active)
+        if (isPointerActive) {
+          const dx = mouseRef.current.x - particle.x;
+          const dy = mouseRef.current.y - particle.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
 
-        if (distance < 250) {
-          const force = (1 - distance / 250) * 0.4;
-          if (distance > 0) {
-            particle.vx += (dx / distance) * force;
-            particle.vy += (dy / distance) * force;
+          if (distance < 250) {
+            const force = (1 - distance / 250) * 0.4;
+            if (distance > 0) {
+              particle.vx += (dx / distance) * force;
+              particle.vy += (dy / distance) * force;
+            }
           }
         }
 
@@ -222,10 +231,12 @@ export default function ParticlesBackground() {
     // Event handlers
     const handleMouseMove = (e: MouseEvent) => {
       mouseRef.current = { x: e.clientX, y: e.clientY };
+      lastMouseMoveRef.current = Date.now();
     };
 
     const handleMouseLeave = () => {
       mouseRef.current = { x: -5000, y: -5000 };
+      lastMouseMoveRef.current = 0; // Reset to trigger ambient motion
     };
 
     const handleResize = () => {
