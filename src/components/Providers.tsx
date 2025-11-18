@@ -2,7 +2,6 @@
 
 import { SessionProvider } from "next-auth/react";
 import { ThemeProvider } from "@/lib/theme-context";
-import TargetCursor from "@/components/TargetCursor";
 import { useEffect } from "react";
 
 // Client component to handle session refresh on app focus
@@ -27,7 +26,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <ThemeProvider>
       <SessionProvider refetchInterval={60} refetchOnWindowFocus={true}>
         <SessionRefresher />
-        <TargetCursor targetSelector=".cursor-target" spinDuration={3} parallaxOn={true} />
         {children}
       </SessionProvider>
     </ThemeProvider>
