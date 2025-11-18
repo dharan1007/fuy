@@ -257,7 +257,7 @@ function ITPPreview() {
 
   return (
     <div
-      className="rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 border hover:shadow-lg transition-all cursor-pointer backdrop-blur-md group active:scale-98 sm:active:scale-100"
+      className="rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 border hover:shadow-lg transition-all backdrop-blur-md group active:scale-98 sm:active:scale-100"
       style={{
         backgroundColor: "rgba(124, 58, 237, 0.08)",
         borderColor: "rgba(124, 58, 237, 0.2)",
@@ -318,7 +318,7 @@ function BreathingPreview() {
 
   return (
     <div
-      className="rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 border hover:shadow-lg transition-all cursor-pointer backdrop-blur-md group active:scale-98 sm:active:scale-100"
+      className="rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 border hover:shadow-lg transition-all backdrop-blur-md group active:scale-98 sm:active:scale-100"
       style={{
         backgroundColor: "rgba(59, 130, 246, 0.08)",
         borderColor: "rgba(59, 130, 246, 0.2)",
@@ -376,7 +376,7 @@ function ThoughtsPreview() {
 
   return (
     <div
-      className="rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 border hover:shadow-lg transition-all cursor-pointer backdrop-blur-md group active:scale-98 sm:active:scale-100"
+      className="rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 border hover:shadow-lg transition-all backdrop-blur-md group active:scale-98 sm:active:scale-100"
       style={{
         backgroundColor: "rgba(34, 197, 94, 0.08)",
         borderColor: "rgba(34, 197, 94, 0.2)",
@@ -430,7 +430,7 @@ function GroundingPreview() {
 
   return (
     <div
-      className="rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 border hover:shadow-lg transition-all cursor-pointer backdrop-blur-md group active:scale-98 sm:active:scale-100"
+      className="rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 border hover:shadow-lg transition-all backdrop-blur-md group active:scale-98 sm:active:scale-100"
       style={{
         backgroundColor: "rgba(168, 85, 247, 0.08)",
         borderColor: "rgba(168, 85, 247, 0.2)",
@@ -486,7 +486,7 @@ function SelfCompassionPreview() {
 
   return (
     <div
-      className="rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 border hover:shadow-lg transition-all cursor-pointer backdrop-blur-md group active:scale-98 sm:active:scale-100"
+      className="rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 border hover:shadow-lg transition-all backdrop-blur-md group active:scale-98 sm:active:scale-100"
       style={{
         backgroundColor: "rgba(244, 63, 94, 0.08)",
         borderColor: "rgba(244, 63, 94, 0.2)",
@@ -546,7 +546,7 @@ function PomodoroPreview() {
 
   return (
     <div
-      className="rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 border hover:shadow-lg transition-all cursor-pointer backdrop-blur-md group active:scale-98 sm:active:scale-100"
+      className="rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 border hover:shadow-lg transition-all backdrop-blur-md group active:scale-98 sm:active:scale-100"
       style={{
         backgroundColor: "rgba(217, 119, 6, 0.08)",
         borderColor: "rgba(217, 119, 6, 0.2)",
