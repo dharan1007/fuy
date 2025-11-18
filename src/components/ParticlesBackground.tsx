@@ -32,15 +32,15 @@ export default function ParticlesBackground() {
     // Initialize particles with larger, more visible size
     const initializeParticles = () => {
       particlesRef.current = [];
-      const particleCount = 60;
+      const particleCount = 150;
 
       for (let i = 0; i < particleCount; i++) {
         particlesRef.current.push({
           x: Math.random() * canvas.width,
           y: Math.random() * canvas.height,
-          vx: (Math.random() - 0.5) * 2,
-          vy: (Math.random() - 0.5) * 2,
-          radius: Math.random() * 2 + 2.5
+          vx: (Math.random() - 0.5) * 1.2,
+          vy: (Math.random() - 0.5) * 1.2,
+          radius: Math.random() * 1.8 + 2
         });
       }
     };
@@ -82,15 +82,15 @@ export default function ParticlesBackground() {
           }
         }
 
-        // Friction
-        particle.vx *= 0.98;
-        particle.vy *= 0.98;
+        // Friction (higher = smoother motion)
+        particle.vx *= 0.995;
+        particle.vy *= 0.995;
 
         // Limit speed
         const speed = Math.sqrt(particle.vx ** 2 + particle.vy ** 2);
-        if (speed > 3) {
-          particle.vx = (particle.vx / speed) * 3;
-          particle.vy = (particle.vy / speed) * 3;
+        if (speed > 2.5) {
+          particle.vx = (particle.vx / speed) * 2.5;
+          particle.vy = (particle.vy / speed) * 2.5;
         }
 
         // Draw particle core (white)
@@ -114,13 +114,13 @@ export default function ParticlesBackground() {
           const dy = particles[i].y - particles[j].y;
           const distance = Math.sqrt(dx * dx + dy * dy);
 
-          if (distance < 180) {
-            const opacity = (1 - distance / 180) * 0.7;
+          if (distance < 240) {
+            const opacity = (1 - distance / 240) * 0.6;
             ctx.beginPath();
             ctx.moveTo(particles[i].x, particles[i].y);
             ctx.lineTo(particles[j].x, particles[j].y);
             ctx.strokeStyle = `rgba(150, 200, 255, ${opacity})`;
-            ctx.lineWidth = 1.5;
+            ctx.lineWidth = 1;
             ctx.stroke();
           }
         }
