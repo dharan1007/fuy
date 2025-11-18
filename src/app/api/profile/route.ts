@@ -48,11 +48,25 @@ export async function GET() {
       },
     });
 
-    const [friendCount, postCount, posts] = await Promise.all([
+    const [friendCount, postCount, followersCount, followingCount, posts] = await Promise.all([
       prisma.friendship.count({
         where: { status: "ACCEPTED", OR: [{ userId: u.id }, { friendId: u.id }] },
       }),
       prisma.post.count({ where: { userId: u.id } }),
+      // Count followers: users who have accepted friendships where this user is the friendId
+      prisma.friendship.count({
+        where: {
+          friendId: u.id,
+          status: "ACCEPTED",
+        },
+      }),
+      // Count following: users who this user has accepted friendships with
+      prisma.friendship.count({
+        where: {
+          userId: u.id,
+          status: "ACCEPTED",
+        },
+      }),
       prisma.post.findMany({
         where: { userId: u.id },
         orderBy: { createdAt: "desc" },
@@ -71,9 +85,9 @@ export async function GET() {
     return NextResponse.json({
       name: userData?.name ?? null,
       profile: userData?.profile ?? null,
-      followersCount: userData?.followersCount ?? 0,
-      followingCount: userData?.followingCount ?? 0,
-      stats: { friends: friendCount, posts: postCount, followers: userData?.followersCount ?? 0, following: userData?.followingCount ?? 0 },
+      followersCount,
+      followingCount,
+      stats: { friends: friendCount, posts: postCount, followers: followersCount, following: followingCount },
       posts,
     });
   } catch (e: any) {
