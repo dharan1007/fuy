@@ -188,12 +188,12 @@ export default function ParticlesBackground() {
           const distance = Math.sqrt(dx * dx + dy * dy);
 
           if (distance < 240) {
-            const opacity = (1 - distance / 240) * 0.6;
+            const opacity = (1 - distance / 240) * 0.3;
             ctx.beginPath();
             ctx.moveTo(particles[i].x, particles[i].y);
             ctx.lineTo(particles[j].x, particles[j].y);
-            ctx.strokeStyle = `rgba(150, 200, 255, ${opacity})`;
-            ctx.lineWidth = 1;
+            ctx.strokeStyle = `rgba(255, 80, 100, ${opacity})`;
+            ctx.lineWidth = 0.6;
             ctx.stroke();
           }
         }
