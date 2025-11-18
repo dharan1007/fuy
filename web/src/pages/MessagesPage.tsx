@@ -79,6 +79,7 @@ export default function MessagesPage() {
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [showFeatureModal, setShowFeatureModal] = useState<string | null>(null);
   const [computedOnlineUsers, setComputedOnlineUsers] = useState<Set<string>>(new Set());
+  const [respondedInvites, setRespondedInvites] = useState<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -894,7 +895,7 @@ export default function MessagesPage() {
                             </p>
                           )}
                           <p style={{ margin: 0, fontSize: '14px', lineHeight: '1.4' }}>
-                            {msg.content}
+                            {msg.content.replace(/\s*\[INVITE_ID:[^\]]+\]/, '')}
                           </p>
                           <p style={{
                             margin: '6px 0 0 0',
@@ -908,63 +909,103 @@ export default function MessagesPage() {
                       </div>
 
                       {/* Collaboration Action Buttons */}
-                      {isCollaborationMessage && !isOwnMessage && (
-                        <div style={{
-                          display: 'flex',
-                          gap: '8px',
-                          marginTop: '8px',
-                          marginLeft: '40px'
-                        }}>
-                          <button
-                            onClick={() => {
-                              console.log('Accept collaboration invite');
-                              // TODO: Call API to accept invite
-                            }}
-                            style={{
-                              padding: '6px 12px',
-                              backgroundColor: '#10b981',
-                              color: '#ffffff',
-                              border: 'none',
-                              borderRadius: '6px',
-                              fontSize: '12px',
-                              fontWeight: '600',
-                              transition: 'all 0.2s ease',
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor = '#059669';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor = '#10b981';
-                            }}
-                          >
-                            ✓ Accept
-                          </button>
-                          <button
-                            onClick={() => {
-                              console.log('Reject collaboration invite');
-                              // TODO: Call API to reject invite
-                            }}
-                            style={{
-                              padding: '6px 12px',
-                              backgroundColor: '#ef4444',
-                              color: '#ffffff',
-                              border: 'none',
-                              borderRadius: '6px',
-                              fontSize: '12px',
-                              fontWeight: '600',
-                              transition: 'all 0.2s ease',
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor = '#dc2626';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor = '#ef4444';
-                            }}
-                          >
-                            ✕ Reject
-                          </button>
-                        </div>
-                      )}
+                      {isCollaborationMessage && !isOwnMessage && (() => {
+                        // Extract inviteId from message content
+                        const inviteIdMatch = msg.content.match(/\[INVITE_ID:([^\]]+)\]/);
+                        const inviteId = inviteIdMatch ? inviteIdMatch[1] : null;
+
+                        // Check if this invite has already been responded to
+                        if (!inviteId || respondedInvites.has(inviteId)) {
+                          return null;
+                        }
+
+                        const handleAction = async (action: 'ACCEPT' | 'REJECT') => {
+                          if (!inviteId) {
+                            console.error('No invite ID found');
+                            return;
+                          }
+
+                          try {
+                            const response = await fetch('/api/collaboration/canvas-invite', {
+                              method: 'PATCH',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                inviteId,
+                                action,
+                              }),
+                            });
+
+                            if (!response.ok) {
+                              const error = await response.json();
+                              alert(`Failed to ${action.toLowerCase()} invitation: ${error.error}`);
+                              return;
+                            }
+
+                            const result = await response.json();
+                            console.log(`Collaboration invite ${action.toLowerCase()}ed:`, result);
+
+                            // Mark this invite as responded to hide buttons
+                            setRespondedInvites((prev) => new Set([...prev, inviteId]));
+                          } catch (error) {
+                            console.error(`Error ${action.toLowerCase()}ing invitation:`, error);
+                            alert(`Error ${action.toLowerCase()}ing invitation`);
+                          }
+                        };
+
+                        return (
+                          <div style={{
+                            display: 'flex',
+                            gap: '8px',
+                            marginTop: '8px',
+                            marginLeft: '40px'
+                          }}>
+                            <button
+                              onClick={() => handleAction('ACCEPT')}
+                              style={{
+                                padding: '6px 12px',
+                                backgroundColor: '#10b981',
+                                color: '#ffffff',
+                                border: 'none',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                fontWeight: '600',
+                                transition: 'all 0.2s ease',
+                                cursor: 'pointer',
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#059669';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = '#10b981';
+                              }}
+                            >
+                              ✓ Accept
+                            </button>
+                            <button
+                              onClick={() => handleAction('REJECT')}
+                              style={{
+                                padding: '6px 12px',
+                                backgroundColor: '#ef4444',
+                                color: '#ffffff',
+                                border: 'none',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                fontWeight: '600',
+                                transition: 'all 0.2s ease',
+                                cursor: 'pointer',
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#dc2626';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = '#ef4444';
+                              }}
+                            >
+                              ✕ Reject
+                            </button>
+                          </div>
+                        );
+                      })()}
                     </div>
                   );
                 })

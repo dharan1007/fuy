@@ -66,12 +66,12 @@ export async function POST(req: Request) {
       },
     });
 
-    // Send notification message in conversation
+    // Send notification message in conversation (with inviteId encoded)
     const message = await prisma.message.create({
       data: {
         conversationId,
         senderId: userId,
-        content: `🎨 I'd like to collaborate with you on a Canvas session. Would you like to join?`,
+        content: `🎨 I'd like to collaborate with you on a Canvas session. Would you like to join? [INVITE_ID:${invite.id}]`,
       },
     });
 
