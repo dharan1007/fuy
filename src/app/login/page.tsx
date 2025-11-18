@@ -9,7 +9,6 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [showPassword, setShowPassword] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -45,16 +44,6 @@ export default function LoginPage() {
     }
   }
 
-  async function handleMagicLink(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      await signIn("email", { email, callbackUrl: "/" });
-    } finally {
-      setLoading(false);
-    }
-  }
-
   // Show loading spinner while authenticating
   if (loading) {
     return <LoadingSpinner variant="auth" message="Signing in..." estimatedTime={2} />;
@@ -71,31 +60,7 @@ export default function LoginPage() {
             </p>
           </div>
 
-          <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
-            <button
-              onClick={() => setShowPassword(true)}
-              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                showPassword
-                  ? "bg-white text-gray-900 shadow"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              Password
-            </button>
-            <button
-              onClick={() => setShowPassword(false)}
-              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
-                !showPassword
-                  ? "bg-white text-gray-900 shadow"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              Magic Link
-            </button>
-          </div>
-
-          {showPassword ? (
-            <form onSubmit={handlePasswordLogin} className="space-y-4">
+          <form onSubmit={handlePasswordLogin} className="space-y-4">
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
                   Email
@@ -140,36 +105,6 @@ export default function LoginPage() {
                 {loading ? "Signing in..." : "Sign In"}
               </button>
             </form>
-          ) : (
-            <form onSubmit={handleMagicLink} className="space-y-4">
-              <div>
-                <label htmlFor="email-magic" className="block text-sm font-medium text-gray-700 mb-1">
-                  Email
-                </label>
-                <input
-                  id="email-magic"
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="you@example.com"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? "Sending link..." : "Send Magic Link"}
-              </button>
-
-              <p className="text-xs text-gray-500 text-center">
-                We'll send you a secure link to sign in
-              </p>
-            </form>
-          )}
 
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
