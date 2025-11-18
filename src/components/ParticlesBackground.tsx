@@ -41,16 +41,16 @@ export default function ParticlesBackground() {
     // Initialize particles
     const initializeParticles = () => {
       particlesRef.current = [];
-      const particleCount = Math.max(50, Math.floor((canvas.width * canvas.height) / 15000));
+      const particleCount = Math.max(80, Math.floor((canvas.width * canvas.height) / 10000));
 
       for (let i = 0; i < particleCount; i++) {
         particlesRef.current.push({
           x: Math.random() * canvas.width,
           y: Math.random() * canvas.height,
-          vx: (Math.random() - 0.5) * 2,
-          vy: (Math.random() - 0.5) * 2,
-          radius: Math.random() * 1.5 + 1,
-          opacity: Math.random() * 0.5 + 0.3
+          vx: (Math.random() - 0.5) * 2.5,
+          vy: (Math.random() - 0.5) * 2.5,
+          radius: Math.random() * 2.5 + 1.5,
+          opacity: Math.random() * 0.6 + 0.5
         });
       }
     };
@@ -64,7 +64,7 @@ export default function ParticlesBackground() {
       const particles = particlesRef.current;
 
       // Update and draw particles
-      particles.forEach((particle, index) => {
+      particles.forEach((particle) => {
         // Update position
         particle.x += particle.vx;
         particle.y += particle.vy;
@@ -83,10 +83,10 @@ export default function ParticlesBackground() {
         const dx = mouseRef.current.x - particle.x;
         const dy = mouseRef.current.y - particle.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
-        const mouseInfluenceRadius = 150;
+        const mouseInfluenceRadius = 200;
 
         if (distance < mouseInfluenceRadius) {
-          const force = (1 - distance / mouseInfluenceRadius) * 0.3;
+          const force = (1 - distance / mouseInfluenceRadius) * 0.5;
           particle.vx += (dx / distance) * force;
           particle.vy += (dy / distance) * force;
         }
@@ -110,7 +110,7 @@ export default function ParticlesBackground() {
       });
 
       // Draw connecting lines
-      const connectionDistance = 150;
+      const connectionDistance = 200;
       for (let i = 0; i < particles.length; i++) {
         for (let j = i + 1; j < particles.length; j++) {
           const dx = particles[i].x - particles[j].x;
@@ -118,12 +118,12 @@ export default function ParticlesBackground() {
           const distance = Math.sqrt(dx * dx + dy * dy);
 
           if (distance < connectionDistance) {
-            const opacity = (1 - distance / connectionDistance) * 0.4;
+            const opacity = (1 - distance / connectionDistance) * 0.6;
             ctx.beginPath();
             ctx.moveTo(particles[i].x, particles[i].y);
             ctx.lineTo(particles[j].x, particles[j].y);
             ctx.strokeStyle = `rgba(255, 255, 255, ${opacity})`;
-            ctx.lineWidth = 0.5;
+            ctx.lineWidth = 1;
             ctx.stroke();
           }
         }
