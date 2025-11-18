@@ -576,7 +576,7 @@ export default function CancellationRefundPolicyPage() {
               Have questions about returning your order or dealing with a seller issue? Our support team is ready to help.
             </p>
             <div className="space-y-2 text-gray-600 mb-4">
-              <p><strong>Email:</strong> <a href="mailto:dharan.poduvu@gmail.com" className="text-blue-600 hover:text-blue-700">dharan.poduvu@gmail.com</a></p>
+              <p><strong>Email:</strong> <a href="mailto:fuymedia@gmail.com" className="text-blue-600 hover:text-blue-700">fuymedia@gmail.com</a></p>
             </div>
             <div className="flex gap-4">
               <Link href="/contact-us" className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 transition">

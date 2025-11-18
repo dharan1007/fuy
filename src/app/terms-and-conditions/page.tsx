@@ -373,7 +373,7 @@ export default function TermsAndConditionsPage() {
         marginTop: '20px'
       }}>
         <p style={{ marginBottom: '10px' }}>
-          <strong>Email:</strong> dharan.poduvu@gmail.com
+          <strong>Email:</strong> fuymedia@gmail.com
         </p>
         <p style={{ marginBottom: '10px' }}>
           <strong>Company:</strong> FUY Media

@@ -715,7 +715,7 @@ export default function Home() {
           <div className="border-t border-white/30 mt-8 pt-8">
             <div className="flex flex-col md:flex-row justify-between items-center text-xs text-gray-700">
               <p>&copy; 2025 FUY Media. All rights reserved.</p>
-              <p>Email: <a href="mailto:dharan.poduvu@gmail.com" className="hover:text-gray-900 transition-colors">dharan.poduvu@gmail.com</a></p>
+              <p>Email: <a href="mailto:fuymedia@gmail.com" className="hover:text-gray-900 transition-colors">fuymedia@gmail.com</a></p>
             </div>
           </div>
         </div>

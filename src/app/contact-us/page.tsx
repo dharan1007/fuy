@@ -67,8 +67,8 @@ export default function ContactUsPage() {
                 <div>
                   <h3 className="text-lg font-medium text-gray-900">Email</h3>
                   <p className="mt-2 text-gray-600">
-                    <a href="mailto:dharan.poduvu@gmail.com" className="text-blue-600 hover:text-blue-700">
-                      dharan.poduvu@gmail.com
+                    <a href="mailto:fuymedia@gmail.com" className="text-blue-600 hover:text-blue-700">
+                      fuymedia@gmail.com
                     </a>
                   </p>
                   <p className="text-sm text-gray-500 mt-1">We'll respond within 24 hours</p>

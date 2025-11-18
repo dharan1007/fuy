@@ -51,7 +51,7 @@ export default function ShippingPolicyPage() {
                 <li>No waiting period for service activation</li>
               </ul>
               <p className="mt-4">
-                <strong>Support:</strong> If you experience any issues accessing FUY services, contact us immediately at <a href="mailto:dharan.poduvu@gmail.com" className="text-blue-600 hover:text-blue-700">dharan.poduvu@gmail.com</a>
+                <strong>Support:</strong> If you experience any issues accessing FUY services, contact us immediately at <a href="mailto:fuymedia@gmail.com" className="text-blue-600 hover:text-blue-700">fuymedia@gmail.com</a>
               </p>
             </div>
           </section>
@@ -276,7 +276,7 @@ export default function ShippingPolicyPage() {
                 <li>We will investigate and process a replacement or refund</li>
               </ol>
               <p className="mt-4">
-                Contact support at <a href="mailto:dharan.poduvu@gmail.com" className="text-blue-600 hover:text-blue-700">dharan.poduvu@gmail.com</a> with detailed information.
+                Contact support at <a href="mailto:fuymedia@gmail.com" className="text-blue-600 hover:text-blue-700">fuymedia@gmail.com</a> with detailed information.
               </p>
             </div>
           </section>
@@ -342,7 +342,7 @@ export default function ShippingPolicyPage() {
               Have questions about your shipment or need assistance? Our support team is here to help.
             </p>
             <div className="space-y-2 text-gray-600 mb-4">
-              <p><strong>Email:</strong> <a href="mailto:dharan.poduvu@gmail.com" className="text-blue-600 hover:text-blue-700">dharan.poduvu@gmail.com</a></p>
+              <p><strong>Email:</strong> <a href="mailto:fuymedia@gmail.com" className="text-blue-600 hover:text-blue-700">fuymedia@gmail.com</a></p>
             </div>
             <div className="flex gap-4">
               <Link href="/contact-us" className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 transition">

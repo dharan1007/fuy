@@ -46,7 +46,7 @@ We will either ask you directly for your expressed consent, or provide you with 
 
 If you change your mind at any time regarding our use of your information, you may withdraw your consent by:
 - Adjusting your notification preferences in your account settings
-- Contacting us via email at **dharan.poduvu@gmail.com**
+- Contacting us via email at **fuymedia@gmail.com**
 - Requesting account deletion through your profile settings
 
 We will honor your request within 30 days.
@@ -178,7 +178,7 @@ Depending on your jurisdiction, you may have the following rights:
 - **Right to Object**: Object to processing of your data
 - **Right to Withdraw Consent**: Withdraw previously given consent
 
-To exercise any of these rights, contact us at **dharan.poduvu@gmail.com**.
+To exercise any of these rights, contact us at **fuymedia@gmail.com**.
 
 ---
 
@@ -219,7 +219,7 @@ For items and products from third-party stores and brand owners sold through the
 
 For any privacy-related inquiries, requests, or complaints, please contact our Privacy Compliance Officer:
 
-**Email**: dharan.poduvu@gmail.com
+**Email**: fuymedia@gmail.com
 
 We will respond to your request within 30 days.
 

@@ -30,7 +30,7 @@ export default function PrivacyPolicyPage() {
               Please read this Privacy Policy carefully. By accessing or using FUY Media, you acknowledge that you have read, understood, and agree to be bound by all the provisions of this Privacy Policy.
             </p>
             <p className="text-gray-600">
-              <strong>Contact:</strong> dharan.poduvu@gmail.com
+              <strong>Contact:</strong> fuymedia@gmail.com
             </p>
           </section>
 
@@ -225,7 +225,7 @@ export default function PrivacyPolicyPage() {
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-3">5.2 Data Deletion</h3>
                 <p className="text-gray-600">
-                  You can request deletion of your account and personal data by contacting us at dharan.poduvu@gmail.com. We will delete your information within 30 days, except where retention is legally required.
+                  You can request deletion of your account and personal data by contacting us at fuymedia@gmail.com. We will delete your information within 30 days, except where retention is legally required.
                 </p>
               </div>
 
@@ -253,7 +253,7 @@ export default function PrivacyPolicyPage() {
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-3">5.6 Data Portability</h3>
                 <p className="text-gray-600">
-                  You can request a copy of your data in a portable format. Contact dharan.poduvu@gmail.com for this request.
+                  You can request a copy of your data in a portable format. Contact fuymedia@gmail.com for this request.
                 </p>
               </div>
             </div>
@@ -357,7 +357,7 @@ export default function PrivacyPolicyPage() {
               </p>
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <p className="font-semibold text-gray-900 mb-3">Privacy Compliance Officer</p>
-                <p>Email: <a href="mailto:dharan.poduvu@gmail.com" className="text-blue-600 hover:text-blue-700">dharan.poduvu@gmail.com</a></p>
+                <p>Email: <a href="mailto:fuymedia@gmail.com" className="text-blue-600 hover:text-blue-700">fuymedia@gmail.com</a></p>
               </div>
               <p className="mt-4">
                 We will respond to your request within 30 days.
