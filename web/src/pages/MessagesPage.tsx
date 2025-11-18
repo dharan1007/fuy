@@ -768,7 +768,7 @@ export default function MessagesPage() {
                       borderRadius: '8px',
                       minWidth: '200px',
                       boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
-                      zIndex: 20,
+                      zIndex: 50,
                     }}>
                       <div style={{ padding: '12px', borderBottom: '1px solid #e5e7eb', fontSize: '12px', fontWeight: '600', color: '#6b7280' }}>
                         Collaborative Features
@@ -823,6 +823,7 @@ export default function MessagesPage() {
                   const isOwnMessage = msg.senderId === userId;
                   const prevMsg = idx > 0 ? messages[selectedConversationId]![idx - 1] : null;
                   const isSameSender = prevMsg?.senderId === msg.senderId;
+                  const isCollaborationMessage = msg.content.includes('Started') && msg.content.includes('collaboration');
 
                   return (
                     <div
@@ -830,78 +831,140 @@ export default function MessagesPage() {
                       className={`${styles.messageWrapper} ${isOwnMessage ? styles.own : styles.other}`}
                       style={{
                         display: 'flex',
+                        flexDirection: 'column',
                         marginBottom: isSameSender ? '2px' : '16px',
-                        justifyContent: isOwnMessage ? 'flex-end' : 'flex-start',
+                        alignItems: isOwnMessage ? 'flex-end' : 'flex-start',
                         paddingBottom: isSameSender ? 0 : '8px',
                       }}
                     >
-                      {/* Avatar for received messages (grouped) */}
-                      {!isOwnMessage && !isSameSender && (
+                      {/* Message Row */}
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', width: '100%' }}>
+                        {/* Avatar for received messages (grouped) */}
+                        {!isOwnMessage && !isSameSender && (
+                          <div
+                            style={{
+                              width: '32px',
+                              height: '32px',
+                              borderRadius: '50%',
+                              backgroundColor: '#3b82f6',
+                              color: '#ffffff',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '12px',
+                              fontWeight: 'bold',
+                              flexShrink: 0,
+                            }}
+                          >
+                            {msg.senderName?.charAt(0) || 'U'}
+                          </div>
+                        )}
+                        {!isOwnMessage && isSameSender && (
+                          <div style={{ width: '32px', flexShrink: 0 }} />
+                        )}
+
+                        {/* Message bubble */}
                         <div
+                          className={styles.messageBubble}
                           style={{
-                            width: '32px',
-                            height: '32px',
-                            borderRadius: '50%',
-                            backgroundColor: '#3b82f6',
-                            color: '#ffffff',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '12px',
-                            fontWeight: 'bold',
-                            marginRight: '8px',
-                            flexShrink: 0,
+                            maxWidth: '60%',
+                            padding: '10px 14px',
+                            borderRadius: isOwnMessage
+                              ? '18px 18px 4px 18px'
+                              : '18px 18px 18px 4px',
+                            backgroundColor: isOwnMessage ? '#3b82f6' : '#e5e7eb',
+                            color: isOwnMessage ? '#ffffff' : '#1f2937',
+                            wordWrap: 'break-word',
+                            wordBreak: 'break-word',
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                            transition: 'all 0.2s ease',
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.boxShadow = isOwnMessage
+                              ? '0 4px 12px rgba(59, 130, 246, 0.3)'
+                              : '0 4px 12px rgba(0,0,0,0.1)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.05)';
                           }}
                         >
-                          {msg.senderName?.charAt(0) || 'U'}
+                          {!isOwnMessage && !isSameSender && (
+                            <p style={{ margin: '0 0 4px 0', fontSize: '12px', fontWeight: '600', opacity: 0.8 }}>
+                              {msg.senderName}
+                            </p>
+                          )}
+                          <p style={{ margin: 0, fontSize: '14px', lineHeight: '1.4' }}>
+                            {msg.content}
+                          </p>
+                          <p style={{
+                            margin: '6px 0 0 0',
+                            fontSize: '11px',
+                            opacity: 0.6,
+                            textAlign: 'right'
+                          }}>
+                            {formatTime(msg.timestamp)}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Collaboration Action Buttons */}
+                      {isCollaborationMessage && !isOwnMessage && (
+                        <div style={{
+                          display: 'flex',
+                          gap: '8px',
+                          marginTop: '8px',
+                          marginLeft: '40px'
+                        }}>
+                          <button
+                            onClick={() => {
+                              console.log('Accept collaboration invite');
+                              // TODO: Call API to accept invite
+                            }}
+                            style={{
+                              padding: '6px 12px',
+                              backgroundColor: '#10b981',
+                              color: '#ffffff',
+                              border: 'none',
+                              borderRadius: '6px',
+                              fontSize: '12px',
+                              fontWeight: '600',
+                              transition: 'all 0.2s ease',
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = '#059669';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = '#10b981';
+                            }}
+                          >
+                            ✓ Accept
+                          </button>
+                          <button
+                            onClick={() => {
+                              console.log('Reject collaboration invite');
+                              // TODO: Call API to reject invite
+                            }}
+                            style={{
+                              padding: '6px 12px',
+                              backgroundColor: '#ef4444',
+                              color: '#ffffff',
+                              border: 'none',
+                              borderRadius: '6px',
+                              fontSize: '12px',
+                              fontWeight: '600',
+                              transition: 'all 0.2s ease',
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = '#dc2626';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = '#ef4444';
+                            }}
+                          >
+                            ✕ Reject
+                          </button>
                         </div>
                       )}
-                      {!isOwnMessage && isSameSender && (
-                        <div style={{ width: '32px', marginRight: '8px', flexShrink: 0 }} />
-                      )}
-
-                      {/* Message bubble */}
-                      <div
-                        className={styles.messageBubble}
-                        style={{
-                          maxWidth: '60%',
-                          padding: '10px 14px',
-                          borderRadius: isOwnMessage
-                            ? '18px 18px 4px 18px'
-                            : '18px 18px 18px 4px',
-                          backgroundColor: isOwnMessage ? '#3b82f6' : '#e5e7eb',
-                          color: isOwnMessage ? '#ffffff' : '#1f2937',
-                          wordWrap: 'break-word',
-                          wordBreak: 'break-word',
-                          boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-                          transition: 'all 0.2s ease',
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.boxShadow = isOwnMessage
-                            ? '0 4px 12px rgba(59, 130, 246, 0.3)'
-                            : '0 4px 12px rgba(0,0,0,0.1)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.05)';
-                        }}
-                      >
-                        {!isOwnMessage && !isSameSender && (
-                          <p style={{ margin: '0 0 4px 0', fontSize: '12px', fontWeight: '600', opacity: 0.8 }}>
-                            {msg.senderName}
-                          </p>
-                        )}
-                        <p style={{ margin: 0, fontSize: '14px', lineHeight: '1.4' }}>
-                          {msg.content}
-                        </p>
-                        <p style={{
-                          margin: '6px 0 0 0',
-                          fontSize: '11px',
-                          opacity: 0.6,
-                          textAlign: 'right'
-                        }}>
-                          {formatTime(msg.timestamp)}
-                        </p>
-                      </div>
                     </div>
                   );
                 })
