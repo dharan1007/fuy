@@ -669,7 +669,7 @@ export default function Home() {
       </div>
 
       {/* Footer */}
-      <footer className="relative mt-16 border-t border-white/20 bg-gradient-to-b from-white/40 to-white/20 backdrop-blur-xl">
+      <footer className="relative mt-16 border-t border-white/50 bg-gradient-to-b from-white/60 to-white/40 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             {/* Brand */}
@@ -712,8 +712,8 @@ export default function Home() {
           </div>
 
           {/* Divider */}
-          <div className="border-t border-white/30 mt-8 pt-8">
-            <div className="flex flex-col md:flex-row justify-between items-center text-xs text-gray-700">
+          <div className="border-t border-white/50 mt-8 pt-8">
+            <div className="flex flex-col md:flex-row justify-between items-center text-xs text-gray-800">
               <p>&copy; 2025 FUY Media. All rights reserved.</p>
               <p>Email: <a href="mailto:fuymedia@gmail.com" className="hover:text-gray-900 transition-colors">fuymedia@gmail.com</a></p>
             </div>
