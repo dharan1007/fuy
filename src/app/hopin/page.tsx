@@ -271,11 +271,11 @@ export default function HopinPage() {
       {/* Main scrollable content */}
       <div className="flex-1 overflow-y-auto">
         {/* Map section - sticky at top */}
-        <div className="w-full h-[500px] sm:h-[600px] md:h-[700px] border-b border-gray-200 dark:border-neutral-700 overflow-hidden sticky top-0 z-40">
+        <div className="w-full border-b border-gray-200 dark:border-neutral-700 sticky top-0 z-40">
           <LeafletMap
             basemapStyle={basemapStyle}
             activeCategory={activeCategory}
-            height="100%"
+            height="700px"
           />
         </div>
 

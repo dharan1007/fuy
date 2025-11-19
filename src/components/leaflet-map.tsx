@@ -553,11 +553,10 @@ export default function LeafletMap({
         minHeight: height,
         maxHeight: height,
         position: "relative",
-        borderRadius: 16,
         overflow: "hidden",
       }}
     >
-      <div ref={mapElRef} style={{ position: "absolute", inset: 0, width: '100%', height: '100%' }} />
+      <div ref={mapElRef} style={{ position: "absolute", inset: 0, width: '100%', height: '100%', zIndex: 10 }} />
 
       {/* Toolbar */}
       <div
