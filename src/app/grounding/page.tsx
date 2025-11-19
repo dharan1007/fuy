@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
-import AppHeader from "@/components/AppHeader";
+import { useRouter } from "next/navigation";
 import type { LatLng } from "@/components/leaflet-map";
 
 /* ---------- dynamic imports ---------- */
@@ -11,7 +11,23 @@ const LeafletMap = dynamic(() => import("@/components/leaflet-map"), {
   loading: () => <div className="w-full h-full bg-gray-100 dark:bg-neutral-800 flex items-center justify-center">Loading map...</div>,
 });
 
+const StressMapAdvanced = dynamic(() => import("@/components/grounding/stress-map-advanced"), {
+  ssr: false,
+  loading: () => <div className="w-full h-full bg-gray-100 dark:bg-neutral-800 flex items-center justify-center">Loading stress map...</div>,
+});
+
+const WorkoutTracker = dynamic(() => import("@/components/grounding/workout-tracker"), {
+  ssr: false,
+  loading: () => <div className="w-full h-full bg-gray-100 dark:bg-neutral-800 flex items-center justify-center">Loading workout tracker...</div>,
+});
+
+const HealthTracker = dynamic(() => import("@/components/grounding/health-tracker"), {
+  ssr: false,
+  loading: () => <div className="w-full h-full bg-gray-100 dark:bg-neutral-800 flex items-center justify-center">Loading health tracker...</div>,
+});
+
 /* ---------- types ---------- */
+type Module = "map" | "workout" | "health" | "activity-training";
 type ActivityType = "walk" | "run" | "bike";
 
 type TogetherBurnUser = {
@@ -115,7 +131,9 @@ function useLiveRoute() {
 
 /* ---------- page ---------- */
 export default function GroundingPage() {
+  const router = useRouter();
   const { distanceKm, isLoop, points, pts } = useLiveRoute();
+  const [active, setActive] = useState<Module>("map");
 
   // Activity tracking
   const [activityType, setActivityType] = useState<ActivityType>("run");
@@ -184,15 +202,69 @@ export default function GroundingPage() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-white dark:bg-neutral-900 dark:text-white flex flex-col">
+    <section className="space-y-8 p-6 min-h-screen bg-white dark:bg-neutral-900 dark:text-white">
       {/* Header */}
-      <AppHeader title="Activity Tracking" showBackButton />
+      <div className="border-b border-gray-200 dark:border-neutral-700">
+        <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">Wellness Hub</h1>
+        <p className="text-lg text-gray-600 dark:text-gray-400">
+          Track your fitness journey, monitor your health, and manage stress with integrated insights
+        </p>
+      </div>
 
-      {/* Main content */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Activity Type Selector */}
-          <div className="mb-8">
+      {/* Navigation */}
+      <div className="flex gap-3 flex-wrap border-b border-gray-200 dark:border-neutral-700 pb-4">
+        <button
+          onClick={() => setActive("workout")}
+          className={`px-6 py-2.5 rounded-lg font-medium transition-all ${
+            active === "workout"
+              ? "bg-blue-600 dark:bg-blue-500 text-white"
+              : "bg-white dark:bg-neutral-800 border border-gray-300 dark:border-neutral-600 text-gray-900 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-neutral-700"
+          }`}
+        >
+          Workout Tracker
+        </button>
+        <button
+          onClick={() => setActive("health")}
+          className={`px-6 py-2.5 rounded-lg font-medium transition-all ${
+            active === "health"
+              ? "bg-blue-600 dark:bg-blue-500 text-white"
+              : "bg-white dark:bg-neutral-800 border border-gray-300 dark:border-neutral-600 text-gray-900 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-neutral-700"
+          }`}
+        >
+          Health Tracker
+        </button>
+        <button
+          onClick={() => setActive("map")}
+          className={`px-6 py-2.5 rounded-lg font-medium transition-all ${
+            active === "map"
+              ? "bg-blue-600 dark:bg-blue-500 text-white"
+              : "bg-white dark:bg-neutral-800 border border-gray-300 dark:border-neutral-600 text-gray-900 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-neutral-700"
+          }`}
+        >
+          Stress Map
+        </button>
+        <button
+          onClick={() => setActive("activity-training")}
+          className={`px-6 py-2.5 rounded-lg font-medium transition-all ${
+            active === "activity-training"
+              ? "bg-blue-600 dark:bg-blue-500 text-white"
+              : "bg-white dark:bg-neutral-800 border border-gray-300 dark:border-neutral-600 text-gray-900 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-neutral-700"
+          }`}
+        >
+          Activity Training Maps
+        </button>
+      </div>
+
+      {/* Content */}
+      <div className="mt-8">
+        {active === "workout" && <WorkoutTracker />}
+        {active === "health" && <HealthTracker />}
+        {active === "map" && <StressMapAdvanced />}
+
+        {/* Activity Training Maps Section */}
+        {active === "activity-training" && (
+          <div className="space-y-8">
+            {/* Activity Type Selector */}
             <div className="flex gap-3 flex-wrap">
               {(["walk", "run", "bike"] as const).map((type) => (
                 <button
@@ -208,235 +280,235 @@ export default function GroundingPage() {
                 </button>
               ))}
             </div>
-          </div>
 
-          {/* Main Grid - Map and Metrics */}
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 mb-8">
-            {/* Left: Map (3 columns) */}
-            <div className="lg:col-span-3">
-              <div
-                className="rounded-xl border border-gray-200 dark:border-neutral-700 overflow-hidden shadow-lg"
-                style={{ height: "500px" }}
-              >
-                <LeafletMap
-                  basemapStyle={basemapStyle}
-                  activeCategory={null}
-                  height="100%"
-                />
-              </div>
-            </div>
-
-            {/* Right: Quick Stats (2 columns) */}
-            <div className="lg:col-span-2 space-y-4">
-              {/* Primary Metrics Card */}
-              <div className="rounded-xl border border-gray-200 dark:border-neutral-700 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 p-6 shadow">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide mb-4">
-                  Activity Overview
-                </h3>
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Distance</p>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatDistance(currentMetrics.distance)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Duration</p>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatDuration(currentMetrics.duration)}</p>
-                  </div>
-                  <div className="border-t border-blue-200 dark:border-blue-800 pt-3">
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Calories Burned</p>
-                    <p className="text-3xl font-bold text-orange-600 dark:text-orange-400">{currentMetrics.calories}</p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">kcal</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Additional Metrics */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-lg border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-4">
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-2 uppercase font-semibold">Elevation</p>
-                  <p className="text-xl font-bold text-gray-900 dark:text-white">{currentMetrics.elevation}m</p>
-                </div>
-                <div className="rounded-lg border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-4">
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-2 uppercase font-semibold">Speed</p>
-                  <p className="text-xl font-bold text-gray-900 dark:text-white">{currentMetrics.speed} km/h</p>
-                </div>
-              </div>
-
-              {/* Map Style Selector */}
-              <div className="flex gap-2">
-                {(["dark", "light", "sepia"] as const).map((style) => (
-                  <button
-                    key={style}
-                    onClick={() => setBasemapStyle(style)}
-                    className={`flex-1 py-2 rounded-lg text-xs font-medium capitalize transition-colors ${
-                      basemapStyle === style
-                        ? "bg-blue-600 dark:bg-blue-500 text-white"
-                        : "bg-gray-100 dark:bg-neutral-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-neutral-700"
-                    }`}
-                  >
-                    {style}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Effort Level & Custom Inputs */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-            {/* Effort Level */}
-            <div className="rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-6">
-              <label className="block text-sm font-semibold text-gray-900 dark:text-white mb-4">Effort Level</label>
-              <select
-                value={effortLevel}
-                onChange={(e) => setEffortLevel(e.target.value as "easy" | "moderate" | "hard")}
-                className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-900 dark:text-white"
-              >
-                <option value="easy">Easy</option>
-                <option value="moderate">Moderate</option>
-                <option value="hard">Hard</option>
-              </select>
-            </div>
-
-            {/* Route Type */}
-            <div className="rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-6">
-              <label className="block text-sm font-semibold text-gray-900 dark:text-white mb-4">Route Type</label>
-              <div className="text-lg text-gray-700 dark:text-gray-300">
-                {isLoop ? "🔄 Loop" : "📍 Point-to-Point"}
-              </div>
-              <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
-                {points} waypoints
-              </p>
-            </div>
-          </div>
-
-          {/* Custom Calories & Burn Tracking */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-            {/* Custom Calories Input */}
-            <div className="rounded-xl border border-gray-200 dark:border-neutral-700 bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-950 dark:to-red-950 p-6">
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide mb-4">Custom Calories</h3>
-              <div className="space-y-2">
-                {(["walk", "run", "bike"] as const).map((type) => (
-                  <input
-                    key={type}
-                    type="number"
-                    placeholder={`${type} (optional)`}
-                    value={customCalories[type]}
-                    onChange={(e) =>
-                      setCustomCalories({ ...customCalories, [type]: e.target.value })
-                    }
-                    className="w-full px-3 py-2 text-sm rounded-lg border border-orange-300 dark:border-orange-600 bg-white dark:bg-neutral-800 text-gray-900 dark:text-white placeholder-gray-400"
+            {/* Main Grid - Map and Metrics */}
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+              {/* Left: Map (3 columns) */}
+              <div className="lg:col-span-3">
+                <div
+                  className="rounded-xl border border-gray-200 dark:border-neutral-700 overflow-hidden shadow-lg"
+                  style={{ height: "500px" }}
+                >
+                  <LeafletMap
+                    basemapStyle={basemapStyle}
+                    activeCategory={null}
+                    height="100%"
                   />
-                ))}
+                </div>
               </div>
-            </div>
 
-            {/* Group Burn Stats */}
-            <div className="rounded-xl border border-gray-200 dark:border-neutral-700 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950 dark:to-pink-950 p-6">
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide mb-4">Group Burn</h3>
-              <div className="text-center py-4">
-                <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">Total Group Calories</p>
-                <p className="text-4xl font-bold text-purple-600 dark:text-purple-400">{totalTogetherBurn}</p>
-                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">kcal</p>
-                {togetherBurnUsers.length > 0 && (
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-3">
-                    {togetherBurnUsers.length} {togetherBurnUsers.length === 1 ? "person" : "people"} included
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Add Friends / Together Burn */}
-          <div className="rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-6 mb-8">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Add Friends</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-4">
-              <input
-                type="text"
-                placeholder="Friend's name"
-                value={newUserName}
-                onChange={(e) => setNewUserName(e.target.value)}
-                className="px-4 py-2 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-900 dark:text-white"
-              />
-              <input
-                type="number"
-                placeholder="Calories burned"
-                value={newUserCalories}
-                onChange={(e) => setNewUserCalories(e.target.value)}
-                className="px-4 py-2 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-900 dark:text-white"
-              />
-              <button
-                onClick={addTogetherBurnUser}
-                className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-              >
-                Add Friend
-              </button>
-            </div>
-
-            {/* Friends List */}
-            {togetherBurnUsers.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {togetherBurnUsers.map((user) => (
-                  <div
-                    key={user.id}
-                    className="flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 p-4 rounded-lg border border-blue-200 dark:border-blue-800"
-                  >
+              {/* Right: Quick Stats (2 columns) */}
+              <div className="lg:col-span-2 space-y-4">
+                {/* Primary Metrics Card */}
+                <div className="rounded-xl border border-gray-200 dark:border-neutral-700 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 p-6 shadow">
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide mb-4">
+                    Activity Overview
+                  </h3>
+                  <div className="space-y-3">
                     <div>
-                      <p className="font-medium text-gray-900 dark:text-white">{user.name}</p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">{user.caloriesBurned} kcal</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Distance</p>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatDistance(currentMetrics.distance)}</p>
                     </div>
-                    <button
-                      onClick={() => removeTogetherBurnUser(user.id)}
-                      className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium text-sm"
-                    >
-                      Remove
-                    </button>
+                    <div>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Duration</p>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatDuration(currentMetrics.duration)}</p>
+                    </div>
+                    <div className="border-t border-blue-200 dark:border-blue-800 pt-3">
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Calories Burned</p>
+                      <p className="text-3xl font-bold text-orange-600 dark:text-orange-400">{currentMetrics.calories}</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">kcal</p>
+                    </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
+                </div>
 
-          {/* Activity Breakdown - All Activity Types */}
-          <div className="rounded-xl border border-gray-200 dark:border-neutral-700 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">Activity Comparison</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {(["walk", "run", "bike"] as const).map((type) => {
-                const m = activityMetrics[type];
-                return (
-                  <div
-                    key={type}
-                    className={`rounded-lg p-4 border ${
-                      activityType === type
-                        ? "bg-white dark:bg-neutral-800 border-gray-300 dark:border-neutral-600"
-                        : "bg-white dark:bg-neutral-800 border-gray-200 dark:border-neutral-700"
-                    }`}
-                  >
-                    <p className="text-sm font-semibold text-gray-900 dark:text-white capitalize mb-3">{type}</p>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-gray-600 dark:text-gray-400">Distance</span>
-                        <span className="font-medium text-gray-900 dark:text-white">{formatDistance(m.distance)}</span>
+                {/* Additional Metrics */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-lg border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-4">
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-2 uppercase font-semibold">Elevation</p>
+                    <p className="text-xl font-bold text-gray-900 dark:text-white">{currentMetrics.elevation}m</p>
+                  </div>
+                  <div className="rounded-lg border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-4">
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-2 uppercase font-semibold">Speed</p>
+                    <p className="text-xl font-bold text-gray-900 dark:text-white">{currentMetrics.speed} km/h</p>
+                  </div>
+                </div>
+
+                {/* Map Style Selector */}
+                <div className="flex gap-2">
+                  {(["dark", "light", "sepia"] as const).map((style) => (
+                    <button
+                      key={style}
+                      onClick={() => setBasemapStyle(style)}
+                      className={`flex-1 py-2 rounded-lg text-xs font-medium capitalize transition-colors ${
+                        basemapStyle === style
+                          ? "bg-blue-600 dark:bg-blue-500 text-white"
+                          : "bg-gray-100 dark:bg-neutral-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-neutral-700"
+                      }`}
+                    >
+                      {style}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Effort Level & Custom Inputs */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Effort Level */}
+              <div className="rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-6">
+                <label className="block text-sm font-semibold text-gray-900 dark:text-white mb-4">Effort Level</label>
+                <select
+                  value={effortLevel}
+                  onChange={(e) => setEffortLevel(e.target.value as "easy" | "moderate" | "hard")}
+                  className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-900 dark:text-white"
+                >
+                  <option value="easy">Easy</option>
+                  <option value="moderate">Moderate</option>
+                  <option value="hard">Hard</option>
+                </select>
+              </div>
+
+              {/* Route Type */}
+              <div className="rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-6">
+                <label className="block text-sm font-semibold text-gray-900 dark:text-white mb-4">Route Type</label>
+                <div className="text-lg text-gray-700 dark:text-gray-300">
+                  {isLoop ? "Loop" : "Point-to-Point"}
+                </div>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
+                  {points} waypoints
+                </p>
+              </div>
+            </div>
+
+            {/* Custom Calories & Burn Tracking */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Custom Calories Input */}
+              <div className="rounded-xl border border-gray-200 dark:border-neutral-700 bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-950 dark:to-red-950 p-6">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide mb-4">Custom Calories</h3>
+                <div className="space-y-2">
+                  {(["walk", "run", "bike"] as const).map((type) => (
+                    <input
+                      key={type}
+                      type="number"
+                      placeholder={`${type} (optional)`}
+                      value={customCalories[type]}
+                      onChange={(e) =>
+                        setCustomCalories({ ...customCalories, [type]: e.target.value })
+                      }
+                      className="w-full px-3 py-2 text-sm rounded-lg border border-orange-300 dark:border-orange-600 bg-white dark:bg-neutral-800 text-gray-900 dark:text-white placeholder-gray-400"
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Group Burn Stats */}
+              <div className="rounded-xl border border-gray-200 dark:border-neutral-700 bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950 dark:to-pink-950 p-6">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide mb-4">Group Burn</h3>
+                <div className="text-center py-4">
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">Total Group Calories</p>
+                  <p className="text-4xl font-bold text-purple-600 dark:text-purple-400">{totalTogetherBurn}</p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">kcal</p>
+                  {togetherBurnUsers.length > 0 && (
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-3">
+                      {togetherBurnUsers.length} {togetherBurnUsers.length === 1 ? "person" : "people"} included
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Add Friends / Together Burn */}
+            <div className="rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Add Friends</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-4">
+                <input
+                  type="text"
+                  placeholder="Friend's name"
+                  value={newUserName}
+                  onChange={(e) => setNewUserName(e.target.value)}
+                  className="px-4 py-2 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-900 dark:text-white"
+                />
+                <input
+                  type="number"
+                  placeholder="Calories burned"
+                  value={newUserCalories}
+                  onChange={(e) => setNewUserCalories(e.target.value)}
+                  className="px-4 py-2 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-900 dark:text-white"
+                />
+                <button
+                  onClick={addTogetherBurnUser}
+                  className="bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                >
+                  Add Friend
+                </button>
+              </div>
+
+              {/* Friends List */}
+              {togetherBurnUsers.length > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {togetherBurnUsers.map((user) => (
+                    <div
+                      key={user.id}
+                      className="flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 p-4 rounded-lg border border-blue-200 dark:border-blue-800"
+                    >
+                      <div>
+                        <p className="font-medium text-gray-900 dark:text-white">{user.name}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">{user.caloriesBurned} kcal</p>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600 dark:text-gray-400">Time</span>
-                        <span className="font-medium text-gray-900 dark:text-white">{formatDuration(m.duration)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600 dark:text-gray-400">Calories</span>
-                        <span className="font-medium text-orange-600 dark:text-orange-400">{m.calories}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600 dark:text-gray-400">Elevation</span>
-                        <span className="font-medium text-gray-900 dark:text-white">{m.elevation}m</span>
+                      <button
+                        onClick={() => removeTogetherBurnUser(user.id)}
+                        className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium text-sm"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Activity Breakdown - All Activity Types */}
+            <div className="rounded-xl border border-gray-200 dark:border-neutral-700 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">Activity Comparison</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {(["walk", "run", "bike"] as const).map((type) => {
+                  const m = activityMetrics[type];
+                  return (
+                    <div
+                      key={type}
+                      className={`rounded-lg p-4 border ${
+                        activityType === type
+                          ? "bg-white dark:bg-neutral-800 border-gray-300 dark:border-neutral-600"
+                          : "bg-white dark:bg-neutral-800 border-gray-200 dark:border-neutral-700"
+                      }`}
+                    >
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white capitalize mb-3">{type}</p>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600 dark:text-gray-400">Distance</span>
+                          <span className="font-medium text-gray-900 dark:text-white">{formatDistance(m.distance)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600 dark:text-gray-400">Time</span>
+                          <span className="font-medium text-gray-900 dark:text-white">{formatDuration(m.duration)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600 dark:text-gray-400">Calories</span>
+                          <span className="font-medium text-orange-600 dark:text-orange-400">{m.calories}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600 dark:text-gray-400">Elevation</span>
+                          <span className="font-medium text-gray-900 dark:text-white">{m.elevation}m</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
-    </div>
+    </section>
   );
 }
