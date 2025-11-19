@@ -126,6 +126,119 @@ html.dark .section-body { color: rgba(255,255,255,.88); }
 
   --tint: 255 255 255;
   --line: 0 0 0;
+
+  /* ===== THEME VARIABLES ===== */
+  /* Light Theme */
+  --light-bg-primary: #FFFFFF;
+  --light-bg-secondary: #F8F8F8;
+  --light-bg-tertiary: #F0F0F0;
+  --light-text-primary: #000000;
+  --light-text-secondary: rgba(0, 0, 0, 0.7);
+  --light-text-tertiary: rgba(0, 0, 0, 0.5);
+  --light-grid-color: rgba(0, 0, 0, 0.08);
+  --light-border-color: rgba(0, 0, 0, 0.1);
+  --light-accent-1: #FFB3BA;
+  --light-accent-2: #FFCB99;
+  --light-accent-3: #FFFFCC;
+  --light-accent-4: #CCFFFF;
+  --light-accent-5: #FFCCFF;
+  --light-accent-6: #CCFFCC;
+  --light-glass-bg: rgba(255, 255, 255, 0.8);
+  --light-glass-border: rgba(0, 0, 0, 0.1);
+
+  /* Dark Theme */
+  --dark-bg-primary: rgba(10, 10, 20, 0.95);
+  --dark-bg-secondary: rgba(20, 20, 40, 0.9);
+  --dark-bg-tertiary: rgba(30, 30, 50, 0.85);
+  --dark-text-primary: #FFFFFF;
+  --dark-text-secondary: rgba(255, 255, 255, 0.8);
+  --dark-text-tertiary: rgba(255, 255, 255, 0.6);
+  --dark-grid-color: rgba(255, 255, 255, 0.03);
+  --dark-border-color: rgba(255, 255, 255, 0.2);
+  --dark-accent-1: #FFB3BA;
+  --dark-accent-2: #FFCB99;
+  --dark-accent-3: #FFFFCC;
+  --dark-accent-4: #CCFFFF;
+  --dark-accent-5: #FFCCFF;
+  --dark-accent-6: #CCFFCC;
+  --dark-glass-bg: rgba(255, 255, 255, 0.1);
+  --dark-glass-border: rgba(255, 255, 255, 0.2);
+
+  /* Eye Protection Theme */
+  --eye-bg-primary: #F5F3F0;
+  --eye-bg-secondary: #EBE7E2;
+  --eye-bg-tertiary: #E0DAD4;
+  --eye-text-primary: #3D3A37;
+  --eye-text-secondary: rgba(61, 58, 55, 0.8);
+  --eye-text-tertiary: rgba(61, 58, 55, 0.6);
+  --eye-grid-color: rgba(61, 58, 55, 0.06);
+  --eye-border-color: rgba(61, 58, 55, 0.15);
+  --eye-accent-1: #D4A5A0;
+  --eye-accent-2: #D4B896;
+  --eye-accent-3: #D4D0A5;
+  --eye-accent-4: #A5D4D4;
+  --eye-accent-5: #D4A5D4;
+  --eye-accent-6: #A5D4A5;
+  --eye-glass-bg: rgba(235, 231, 226, 0.7);
+  --eye-glass-border: rgba(61, 58, 55, 0.15);
+
+  /* Default to dark theme */
+  --bg-primary: var(--dark-bg-primary);
+  --bg-secondary: var(--dark-bg-secondary);
+  --bg-tertiary: var(--dark-bg-tertiary);
+  --text-primary: var(--dark-text-primary);
+  --text-secondary: var(--dark-text-secondary);
+  --text-tertiary: var(--dark-text-tertiary);
+  --grid-color: var(--dark-grid-color);
+  --border-color: var(--dark-border-color);
+  --accent-1: var(--dark-accent-1);
+  --accent-2: var(--dark-accent-2);
+  --accent-3: var(--dark-accent-3);
+  --accent-4: var(--dark-accent-4);
+  --accent-5: var(--dark-accent-5);
+  --accent-6: var(--dark-accent-6);
+  --glass-bg: var(--dark-glass-bg);
+  --glass-border: var(--dark-glass-border);
+}
+
+/* Light Theme */
+[data-theme="light"] {
+  --bg-primary: var(--light-bg-primary);
+  --bg-secondary: var(--light-bg-secondary);
+  --bg-tertiary: var(--light-bg-tertiary);
+  --text-primary: var(--light-text-primary);
+  --text-secondary: var(--light-text-secondary);
+  --text-tertiary: var(--light-text-tertiary);
+  --grid-color: var(--light-grid-color);
+  --border-color: var(--light-border-color);
+  --accent-1: var(--light-accent-1);
+  --accent-2: var(--light-accent-2);
+  --accent-3: var(--light-accent-3);
+  --accent-4: var(--light-accent-4);
+  --accent-5: var(--light-accent-5);
+  --accent-6: var(--light-accent-6);
+  --glass-bg: var(--light-glass-bg);
+  --glass-border: var(--light-glass-border);
+}
+
+/* Eye Protection Theme */
+[data-theme="eye-protection"] {
+  --bg-primary: var(--eye-bg-primary);
+  --bg-secondary: var(--eye-bg-secondary);
+  --bg-tertiary: var(--eye-bg-tertiary);
+  --text-primary: var(--eye-text-primary);
+  --text-secondary: var(--eye-text-secondary);
+  --text-tertiary: var(--eye-text-tertiary);
+  --grid-color: var(--eye-grid-color);
+  --border-color: var(--eye-border-color);
+  --accent-1: var(--eye-accent-1);
+  --accent-2: var(--eye-accent-2);
+  --accent-3: var(--eye-accent-3);
+  --accent-4: var(--eye-accent-4);
+  --accent-5: var(--eye-accent-5);
+  --accent-6: var(--eye-accent-6);
+  --glass-bg: var(--eye-glass-bg);
+  --glass-border: var(--eye-border-color);
 }
 
 html.dark {

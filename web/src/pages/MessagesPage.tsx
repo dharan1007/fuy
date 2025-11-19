@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { AIChatInterface } from '../components/ai';
 import { useMessaging } from '../hooks/useMessaging';
-import { ThemeProvider, useTheme } from '../context/ThemeContext';
+import { ThemeProvider, useTheme } from '@/context/ThemeContext';
 import styles from './MessagesPage.module.css';
 
 interface Conversation {
