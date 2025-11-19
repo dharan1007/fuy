@@ -287,15 +287,13 @@ export default function GroundingPage() {
               <div className="lg:col-span-3">
                 <div
                   className="rounded-xl border border-gray-200 dark:border-neutral-700 overflow-hidden shadow-lg"
-                  style={{ height: "500px", width: "100%" }}
+                  style={{ height: "500px", width: "100%", position: "relative", display: "block" }}
                 >
-                  <div style={{ width: "100%", height: "100%" }}>
-                    <LeafletMap
-                      basemapStyle={basemapStyle}
-                      activeCategory={null}
-                      height="100%"
-                    />
-                  </div>
+                  <LeafletMap
+                    basemapStyle={basemapStyle}
+                    activeCategory={null}
+                    height="500px"
+                  />
                 </div>
               </div>
 
