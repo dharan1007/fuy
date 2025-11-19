@@ -17,9 +17,10 @@ export async function GET() {
         AND: [
           { id: { not: user.id } },
           {
-            followedBy: {
+            // Exclude users that the current user is already following
+            friendshipsA: {
               none: {
-                followerId: user.id,
+                friendId: user.id,
               },
             },
           },
@@ -35,16 +36,14 @@ export async function GET() {
             bio: true,
           },
         },
-        followers: {
+        friendshipsB: {
           select: {
             id: true,
           },
         },
       },
       orderBy: {
-        followers: {
-          _count: 'desc',
-        },
+        followersCount: 'desc',
       },
       take: 10,
     });
@@ -54,7 +53,7 @@ export async function GET() {
       id: u.id,
       name: u.name,
       profile: u.profile,
-      followersCount: u.followers.length,
+      followersCount: u.friendshipsB.length,
     }));
 
     return NextResponse.json({ users: formattedUsers });

@@ -9,7 +9,7 @@ export async function GET() {
       select: {
         id: true,
         name: true,
-        image: true,
+        images: true,
         price: true,
         description: true,
       },
@@ -19,7 +19,16 @@ export async function GET() {
       take: 10,
     });
 
-    return NextResponse.json({ products: suggestedProducts });
+    // Format response to match component expectations
+    const formattedProducts = suggestedProducts.map((p) => ({
+      id: p.id,
+      name: p.name,
+      image: p.images && p.images.length > 0 ? p.images[0] : null,
+      price: p.price,
+      description: p.description,
+    }));
+
+    return NextResponse.json({ products: formattedProducts });
   } catch (error: any) {
     console.error('Error fetching suggested products:', error);
     return NextResponse.json(

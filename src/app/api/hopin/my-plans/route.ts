@@ -10,13 +10,13 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get user's hopin plans (programs they've enrolled in or created)
-    const myPlans = await prisma.hopinProgram.findMany({
+    // Get user's hopin plans (tasks they created or are assigned to)
+    const myPlans = await prisma.task.findMany({
       where: {
         OR: [
-          { creatorId: user.id },
+          { createdById: user.id },
           {
-            participants: {
+            assignees: {
               some: {
                 userId: user.id,
               },
@@ -28,16 +28,17 @@ export async function GET() {
         id: true,
         title: true,
         description: true,
-        creatorId: true,
         status: true,
+        priority: true,
+        dueDate: true,
         createdAt: true,
-        participants: {
+        createdById: true,
+        assignees: {
           where: {
             userId: user.id,
           },
           select: {
-            status: true,
-            progress: true,
+            id: true,
           },
         },
       },
@@ -47,15 +48,15 @@ export async function GET() {
       take: 5,
     });
 
-    // Format response to include user's participation status
+    // Format response
     const formattedPlans = myPlans.map((plan) => ({
       id: plan.id,
       title: plan.title,
       description: plan.description,
       status: plan.status,
-      isCreator: plan.creatorId === user.id,
-      participationStatus: plan.participants[0]?.status || null,
-      progress: plan.participants[0]?.progress || 0,
+      priority: plan.priority,
+      isCreator: plan.createdById === user.id,
+      dueDate: plan.dueDate,
     }));
 
     return NextResponse.json({ plans: formattedPlans });
