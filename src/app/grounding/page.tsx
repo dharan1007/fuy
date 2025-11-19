@@ -263,7 +263,7 @@ export default function GroundingPage() {
 
         {/* Activity Training Maps Section */}
         {active === "activity-training" && (
-          <div className="space-y-8">
+          <div className="space-y-6">
             {/* Activity Type Selector */}
             <div className="flex gap-3 flex-wrap">
               {(["walk", "run", "bike"] as const).map((type) => (
@@ -281,81 +281,84 @@ export default function GroundingPage() {
               ))}
             </div>
 
-            {/* Main Grid - Map and Metrics */}
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-              {/* Left: Map (3 columns) */}
-              <div className="lg:col-span-3">
-                <div
-                  className="rounded-xl border border-gray-200 dark:border-neutral-700 overflow-hidden shadow-lg"
-                  style={{
-                    height: "500px",
-                    position: "relative",
-                    flexShrink: 0,
-                    display: "block",
-                  }}
+            {/* Full-Width Map - MOVED OUTSIDE GRID */}
+            <div
+              className="w-full rounded-xl border border-gray-200 dark:border-neutral-700 overflow-hidden shadow-lg"
+              style={{
+                height: "550px",
+                position: "relative",
+                flexShrink: 0,
+                display: "block",
+              }}
+            >
+              <div style={{ width: "100%", height: "100%" }}>
+                <LeafletMap
+                  basemapStyle={basemapStyle}
+                  activeCategory={null}
+                  height="100%"
+                />
+              </div>
+            </div>
+
+            {/* Map Controls */}
+            <div className="flex gap-2">
+              {(["dark", "light", "sepia"] as const).map((style) => (
+                <button
+                  key={style}
+                  onClick={() => setBasemapStyle(style)}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium capitalize transition-colors ${
+                    basemapStyle === style
+                      ? "bg-blue-600 dark:bg-blue-500 text-white"
+                      : "bg-gray-100 dark:bg-neutral-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-neutral-700"
+                  }`}
                 >
-                  <div style={{ width: "100%", height: "100%" }}>
-                    <LeafletMap
-                      basemapStyle={basemapStyle}
-                      activeCategory={null}
-                      height="100%"
-                    />
+                  {style}
+                </button>
+              ))}
+            </div>
+
+            {/* Metrics Grid - NOW SEPARATE AND FULL-WIDTH */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              {/* Primary Metrics Card */}
+              <div className="rounded-xl border border-gray-200 dark:border-neutral-700 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 p-6 shadow">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide mb-4">
+                  Activity Overview
+                </h3>
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Distance</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatDistance(currentMetrics.distance)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Duration</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatDuration(currentMetrics.duration)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Calories Burned</p>
+                    <p className="text-3xl font-bold text-orange-600 dark:text-orange-400">{currentMetrics.calories}</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">kcal</p>
                   </div>
                 </div>
               </div>
 
-              {/* Right: Quick Stats (2 columns) */}
-              <div className="lg:col-span-2 space-y-4">
-                {/* Primary Metrics Card */}
-                <div className="rounded-xl border border-gray-200 dark:border-neutral-700 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 p-6 shadow">
-                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide mb-4">
-                    Activity Overview
-                  </h3>
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Distance</p>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatDistance(currentMetrics.distance)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Duration</p>
-                      <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatDuration(currentMetrics.duration)}</p>
-                    </div>
-                    <div className="border-t border-blue-200 dark:border-blue-800 pt-3">
-                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Calories Burned</p>
-                      <p className="text-3xl font-bold text-orange-600 dark:text-orange-400">{currentMetrics.calories}</p>
-                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">kcal</p>
-                    </div>
-                  </div>
-                </div>
+              {/* Elevation */}
+              <div className="rounded-lg border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-4">
+                <p className="text-xs text-gray-600 dark:text-gray-400 mb-2 uppercase font-semibold">Elevation Gain</p>
+                <p className="text-3xl font-bold text-gray-900 dark:text-white">{currentMetrics.elevation}m</p>
+              </div>
 
-                {/* Additional Metrics */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="rounded-lg border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-4">
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-2 uppercase font-semibold">Elevation</p>
-                    <p className="text-xl font-bold text-gray-900 dark:text-white">{currentMetrics.elevation}m</p>
-                  </div>
-                  <div className="rounded-lg border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-4">
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-2 uppercase font-semibold">Speed</p>
-                    <p className="text-xl font-bold text-gray-900 dark:text-white">{currentMetrics.speed} km/h</p>
-                  </div>
-                </div>
+              {/* Speed */}
+              <div className="rounded-lg border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-4">
+                <p className="text-xs text-gray-600 dark:text-gray-400 mb-2 uppercase font-semibold">Avg Speed</p>
+                <p className="text-3xl font-bold text-gray-900 dark:text-white">{currentMetrics.speed}</p>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">km/h</p>
+              </div>
 
-                {/* Map Style Selector */}
-                <div className="flex gap-2">
-                  {(["dark", "light", "sepia"] as const).map((style) => (
-                    <button
-                      key={style}
-                      onClick={() => setBasemapStyle(style)}
-                      className={`flex-1 py-2 rounded-lg text-xs font-medium capitalize transition-colors ${
-                        basemapStyle === style
-                          ? "bg-blue-600 dark:bg-blue-500 text-white"
-                          : "bg-gray-100 dark:bg-neutral-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-neutral-700"
-                      }`}
-                    >
-                      {style}
-                    </button>
-                  ))}
-                </div>
+              {/* Route Type */}
+              <div className="rounded-lg border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 p-4">
+                <p className="text-xs text-gray-600 dark:text-gray-400 mb-2 uppercase font-semibold">Route Type</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{isLoop ? "Loop" : "A→B"}</p>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{points} waypoints</p>
               </div>
             </div>
 
