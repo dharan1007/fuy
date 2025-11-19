@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import SearchModal from '@/components/SearchModal';
 import NotificationsModal from '@/components/NotificationsModal';
@@ -578,16 +579,16 @@ export default function Home() {
             +
           </button>
 
-          {/* Search */}
-          <button
+          {/* Explore */}
+          <Link
+            href="/explore"
             className="p-1.5 text-gray-700 hover:text-blue-600 transition-colors hover:scale-110 transform duration-200"
-            title="Search"
-            onClick={() => setIsSearchOpen(true)}
+            title="Explore"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
-          </button>
+          </Link>
 
           {/* Notifications */}
           <button
