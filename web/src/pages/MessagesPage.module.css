@@ -5,16 +5,31 @@
 .container {
   display: flex;
   height: 100vh;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.08) 100%);
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 19px,
+      rgba(255, 255, 255, 0.03) 19px,
+      rgba(255, 255, 255, 0.03) 20px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 19px,
+      rgba(255, 255, 255, 0.03) 19px,
+      rgba(255, 255, 255, 0.03) 20px
+    ),
+    linear-gradient(135deg, rgba(10, 10, 20, 0.95) 0%, rgba(15, 15, 25, 0.95) 100%);
   overflow: hidden;
 }
 
 /* Sidebar */
 .sidebar {
   width: 320px;
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(10px);
-  border-right: 1px solid rgba(0, 0, 0, 0.06);
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(25px);
+  border-right: 1px solid rgba(255, 255, 255, 0.2);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -22,7 +37,7 @@
 
 .header {
   padding: 20px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -32,16 +47,16 @@
   margin: 0;
   font-size: 28px;
   font-weight: 700;
-  color: #000000;
+  color: #FFFFFF;
 }
 
 .backButton {
   width: 40px;
   height: 40px;
   border-radius: 8px;
-  background: rgba(0, 0, 0, 0.05);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  color: #000000;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.8);
   font-size: 18px;
   transition: all 0.2s ease;
   display: flex;
@@ -50,8 +65,9 @@
 }
 
 .backButton:hover {
-  background: rgba(0, 0, 0, 0.08);
-  border-color: rgba(0, 0, 0, 0.12);
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #FFFFFF;
 }
 
 .backButton:active {
@@ -62,11 +78,11 @@
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: #FF7A5C;
+  background: #2563eb;
   border: none;
   color: white;
   transition: all 0.2s ease;
-  box-shadow: 0 4px 12px rgba(255, 122, 92, 0.3);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -74,7 +90,8 @@
 
 .composeButton:hover {
   transform: scale(1.05);
-  box-shadow: 0 6px 16px rgba(255, 122, 92, 0.4);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.5);
+  background: #1d4ed8;
 }
 
 .composeButton:active {
@@ -91,11 +108,11 @@
 .searchInput {
   width: 100%;
   padding: 10px 12px 10px 36px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 20px;
-  background: rgba(0, 0, 0, 0.03);
+  background: rgba(255, 255, 255, 0.05);
   font-size: 14px;
-  color: #000000;
+  color: #FFFFFF;
   outline: none;
   transition: all 0.2s ease;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -103,13 +120,13 @@
 }
 
 .searchInput:focus {
-  background: rgba(0, 0, 0, 0.05);
-  border-color: rgba(255, 122, 92, 0.3);
-  box-shadow: 0 0 0 3px rgba(255, 122, 92, 0.1);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(37, 99, 235, 0.5);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
 }
 
 .searchInput::placeholder {
-  color: #999999;
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .clearButton {
@@ -119,14 +136,14 @@
   transform: translateY(-50%);
   background: none;
   border: none;
-  color: #999999;
+  color: rgba(255, 255, 255, 0.6);
   font-size: 16px;
   padding: 4px 8px;
   transition: all 0.2s ease;
 }
 
 .clearButton:hover {
-  color: #333333;
+  color: rgba(255, 255, 255, 0.9);
 }
 
 /* Conversations List */
@@ -145,12 +162,12 @@
 }
 
 .conversationsList::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.2);
   border-radius: 3px;
 }
 
 .conversationsList::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(255, 255, 255, 0.3);
 }
 
 /* Conversation Item */
@@ -165,12 +182,12 @@
 }
 
 .conversationItem:hover {
-  background: rgba(0, 0, 0, 0.04);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .conversationItem.active {
-  background: rgba(255, 122, 92, 0.1);
-  border: 1px solid rgba(255, 122, 92, 0.3);
+  background: rgba(37, 99, 235, 0.2);
+  border: 1px solid rgba(37, 99, 235, 0.4);
 }
 
 .avatar,
@@ -187,12 +204,12 @@
 }
 
 .avatar {
-  background: #FF7A5C;
+  background: #2563eb;
   color: #FFFFFF;
 }
 
 .avatarAI {
-  background: #FF7A5C;
+  background: #2563eb;
   font-size: 24px;
 }
 
@@ -214,7 +231,7 @@
 
 .name {
   font-weight: 600;
-  color: #000000;
+  color: #FFFFFF;
   font-size: 14px;
   white-space: nowrap;
   overflow: hidden;
@@ -227,13 +244,13 @@
 
 .time {
   font-size: 12px;
-  color: #999999;
+  color: rgba(255, 255, 255, 0.6);
   flex-shrink: 0;
 }
 
 .preview {
   font-size: 13px;
-  color: #999999;
+  color: rgba(255, 255, 255, 0.6);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -241,7 +258,7 @@
 }
 
 .conversationItem.active .preview {
-  color: #666666;
+  color: rgba(255, 255, 255, 0.8);
 }
 
 /* Unread Badge */
@@ -249,7 +266,7 @@
   min-width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: #FF7A5C;
+  background: #2563eb;
   color: #FFFFFF;
   font-size: 11px;
   font-weight: 600;
@@ -264,7 +281,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: rgba(255, 255, 255, 0.02);
+  background: transparent;
   overflow: hidden;
 }
 
@@ -288,13 +305,13 @@
   margin: 0 0 8px 0;
   font-size: 22px;
   font-weight: 600;
-  color: #000000;
+  color: #FFFFFF;
 }
 
 .emptyState p {
   margin: 0;
   font-size: 14px;
-  color: #999999;
+  color: rgba(255, 255, 255, 0.6);
   max-width: 300px;
 }
 
@@ -307,25 +324,25 @@
 
 .chatHeader {
   padding: 16px 24px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: rgba(255, 255, 255, 0.02);
-  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(25px);
 }
 
 .chatHeaderInfo h2 {
   margin: 0 0 2px 0;
   font-size: 16px;
   font-weight: 600;
-  color: #000000;
+  color: #FFFFFF;
 }
 
 .chatHeaderInfo p {
   margin: 0;
   font-size: 12px;
-  color: #999999;
+  color: rgba(255, 255, 255, 0.6);
 }
 
 .chatHeaderActions {
@@ -338,13 +355,15 @@
   height: 36px;
   border-radius: 50%;
   border: none;
-  background: rgba(0, 0, 0, 0.05);
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.8);
   font-size: 18px;
   transition: all 0.2s ease;
 }
 
 .iconButton:hover {
-  background: rgba(255, 122, 92, 0.1);
+  background: rgba(37, 99, 235, 0.2);
+  color: #FFFFFF;
   transform: scale(1.05);
 }
 
@@ -360,6 +379,21 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 19px,
+      rgba(255, 255, 255, 0.03) 19px,
+      rgba(255, 255, 255, 0.03) 20px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 19px,
+      rgba(255, 255, 255, 0.03) 19px,
+      rgba(255, 255, 255, 0.03) 20px
+    );
 }
 
 .messagesArea::-webkit-scrollbar {
@@ -371,12 +405,12 @@
 }
 
 .messagesArea::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.2);
   border-radius: 4px;
 }
 
 .messagesArea::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(255, 255, 255, 0.3);
 }
 
 /* Message Wrapper */
@@ -424,7 +458,7 @@
   justify-content: center;
   height: 100%;
   text-align: center;
-  color: #999999;
+  color: rgba(255, 255, 255, 0.5);
   font-size: 14px;
 }
 
@@ -433,18 +467,18 @@
   display: flex;
   gap: 12px;
   padding: 16px 24px;
-  background: rgba(255, 255, 255, 0.02);
-  backdrop-filter: blur(10px);
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(25px);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .messageInput {
   flex: 1;
   padding: 12px 16px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 24px;
-  background: rgba(0, 0, 0, 0.02);
-  color: #000000;
+  background: rgba(255, 255, 255, 0.05);
+  color: #FFFFFF;
   font-size: 14px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   outline: none;
@@ -452,27 +486,32 @@
 }
 
 .messageInput:focus {
-  border-color: #FF7A5C;
-  background: rgba(255, 122, 92, 0.05);
-  box-shadow: 0 0 0 3px rgba(255, 122, 92, 0.1);
+  border-color: #2563eb;
+  background: rgba(37, 99, 235, 0.1);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+}
+
+.messageInput::placeholder {
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .sendButton {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: #FF7A5C;
+  background: #2563eb;
   border: none;
   color: #FFFFFF;
   font-size: 16px;
   transition: all 0.2s ease;
-  box-shadow: 0 4px 12px rgba(255, 122, 92, 0.3);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
   flex-shrink: 0;
 }
 
 .sendButton:hover {
   transform: scale(1.05);
-  box-shadow: 0 6px 16px rgba(255, 122, 92, 0.4);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.5);
+  background: #1d4ed8;
 }
 
 .sendButton:active {
@@ -482,9 +521,9 @@
 /* Right Panel - Conversation Details */
 .rightPanel {
   width: 300px;
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(10px);
-  border-left: 1px solid rgba(0, 0, 0, 0.06);
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(25px);
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
   display: flex;
   flex-direction: column;
   overflow-y: auto;
@@ -501,24 +540,24 @@
 }
 
 .rightPanel::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.2);
   border-radius: 3px;
 }
 
 .rightPanel::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .panelHeader {
   padding-bottom: 12px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .panelHeader h3 {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: #000000;
+  color: #FFFFFF;
 }
 
 /* Profile Section */
@@ -528,7 +567,8 @@
   align-items: center;
   gap: 12px;
   padding: 16px;
-  background: rgba(0, 0, 0, 0.02);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
 }
 
@@ -536,27 +576,27 @@
   width: 72px;
   height: 72px;
   border-radius: 50%;
-  background: #FF7A5C;
+  background: #2563eb;
   color: #FFFFFF;
   font-size: 28px;
   font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 12px rgba(255, 122, 92, 0.3);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
 }
 
 .profileSection h4 {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: #000000;
+  color: #FFFFFF;
 }
 
 .status {
   margin: 0;
   font-size: 12px;
-  color: #FF7A5C;
+  color: rgba(37, 99, 235, 0.8);
   font-weight: 500;
 }
 
@@ -572,10 +612,10 @@
   align-items: center;
   gap: 8px;
   padding: 12px 16px;
-  background: rgba(255, 122, 92, 0.1);
-  border: 1px solid rgba(255, 122, 92, 0.2);
+  background: rgba(37, 99, 235, 0.15);
+  border: 1px solid rgba(37, 99, 235, 0.3);
   border-radius: 8px;
-  color: #FF7A5C;
+  color: rgba(37, 99, 235, 0.9);
   font-size: 14px;
   font-weight: 500;
   transition: all 0.2s ease;
@@ -583,9 +623,10 @@
 }
 
 .panelActionBtn:hover {
-  background: rgba(255, 122, 92, 0.2);
-  border-color: rgba(255, 122, 92, 0.4);
+  background: rgba(37, 99, 235, 0.25);
+  border-color: rgba(37, 99, 235, 0.5);
   transform: translateX(2px);
+  color: #2563eb;
 }
 
 .panelActionBtn:active {
@@ -598,7 +639,8 @@
   flex-direction: column;
   gap: 12px;
   padding: 12px;
-  background: rgba(0, 0, 0, 0.02);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
 }
 
@@ -606,7 +648,7 @@
   margin: 0 0 8px 0;
   font-size: 12px;
   font-weight: 600;
-  color: #666666;
+  color: rgba(255, 255, 255, 0.7);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -620,21 +662,21 @@
 }
 
 .infoLabel {
-  color: #999999;
+  color: rgba(255, 255, 255, 0.6);
 }
 
 .infoValue {
-  color: #000000;
+  color: #FFFFFF;
   font-weight: 500;
 }
 
 /* Option Buttons */
 .optionBtn {
   padding: 10px 12px;
-  background: transparent;
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 6px;
-  color: #666666;
+  color: rgba(255, 255, 255, 0.7);
   font-size: 13px;
   transition: all 0.2s ease;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -642,8 +684,9 @@
 }
 
 .optionBtn:hover {
-  background: rgba(0, 0, 0, 0.04);
-  border-color: rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: #FFFFFF;
 }
 
 .optionBtn:active {
@@ -664,20 +707,19 @@
   justify-content: center;
   gap: 12px;
   padding: 20px 16px;
-  background: rgba(255, 255, 255, 0.6);
-  border: 1px solid rgba(255, 122, 92, 0.2);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(37, 99, 235, 0.3);
   border-radius: 14px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  color: #333333;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, rgba(255, 122, 92, 0.05) 100%);
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .featureCard:hover {
-  background: linear-gradient(135deg, rgba(255, 122, 92, 0.15) 0%, rgba(255, 122, 92, 0.08) 100%);
-  border-color: rgba(255, 122, 92, 0.4);
+  background: rgba(37, 99, 235, 0.15);
+  border-color: rgba(37, 99, 235, 0.5);
   transform: translateY(-6px);
-  box-shadow: 0 12px 28px rgba(255, 122, 92, 0.25);
+  box-shadow: 0 12px 28px rgba(37, 99, 235, 0.25);
 }
 
 .featureCard:active {
@@ -685,13 +727,13 @@
 }
 
 .featureCard svg {
-  color: #FF7A5C;
+  color: #2563eb;
   stroke-width: 2;
   transition: all 0.2s ease;
 }
 
 .featureCard:hover svg {
-  color: #FF5C3C;
+  color: #1d4ed8;
   stroke-width: 2.5;
 }
 
@@ -699,23 +741,23 @@
   font-size: 13px;
   font-weight: 600;
   text-align: center;
-  color: #1a1a1a;
+  color: #FFFFFF;
   letter-spacing: 0.3px;
 }
 
 /* Stats Section */
 .statsSection {
   padding: 16px;
-  background: rgba(0, 0, 0, 0.02);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .statsSection h5 {
   margin: 0 0 12px 0;
   font-size: 12px;
   font-weight: 600;
-  color: #666666;
+  color: rgba(255, 255, 255, 0.7);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -725,7 +767,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 10px 0;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .statItem:last-child {
@@ -734,14 +776,14 @@
 
 .statLabel {
   font-size: 13px;
-  color: #999999;
+  color: rgba(255, 255, 255, 0.6);
   font-weight: 500;
 }
 
 .statValue {
   font-size: 16px;
   font-weight: 600;
-  color: #FF7A5C;
+  color: #2563eb;
 }
 
 /* Responsive - Desktop to Tablet */
@@ -792,9 +834,9 @@
     top: 0;
     width: 100%;
     height: 100vh;
-    background: rgba(255, 255, 255, 0.98);
-    backdrop-filter: blur(10px);
-    border-right: 1px solid rgba(0, 0, 0, 0.06);
+    background: rgba(10, 10, 20, 0.95);
+    backdrop-filter: blur(25px);
+    border-right: 1px solid rgba(255, 255, 255, 0.2);
     transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     z-index: 1000;
     display: flex;
@@ -892,9 +934,9 @@
     width: 36px;
     height: 36px;
     border-radius: 50%;
-    background: rgba(0, 0, 0, 0.05);
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    color: #000000;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: rgba(255, 255, 255, 0.8);
     font-size: 20px;
     transition: all 0.2s ease;
     flex-shrink: 0;
@@ -902,7 +944,7 @@
   }
 
   .mobileMenuToggle:active {
-    background: rgba(0, 0, 0, 0.08);
+    background: rgba(255, 255, 255, 0.15);
     transform: scale(0.95);
   }
 }
@@ -921,9 +963,9 @@
     top: 0;
     width: 100%;
     height: 100vh;
-    background: rgba(255, 255, 255, 0.98);
-    backdrop-filter: blur(10px);
-    border-right: 1px solid rgba(0, 0, 0, 0.06);
+    background: rgba(10, 10, 20, 0.95);
+    backdrop-filter: blur(25px);
+    border-right: 1px solid rgba(255, 255, 255, 0.2);
     transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     z-index: 1000;
     display: flex;
@@ -945,7 +987,7 @@
     margin: 0;
     font-size: 20px;
     font-weight: 700;
-    color: #000000;
+    color: #FFFFFF;
   }
 
   .backButton {
@@ -1072,13 +1114,13 @@
     margin: 0 0 2px 0;
     font-size: 14px;
     font-weight: 600;
-    color: #000000;
+    color: #FFFFFF;
   }
 
   .chatHeaderInfo p {
     margin: 0;
     font-size: 10px;
-    color: #999999;
+    color: rgba(255, 255, 255, 0.6);
   }
 
   .chatHeaderActions {
@@ -1154,7 +1196,7 @@
     justify-content: center;
     height: 100%;
     text-align: center;
-    color: #999999;
+    color: rgba(255, 255, 255, 0.5);
     font-size: 13px;
     padding: 20px;
   }
@@ -1172,10 +1214,10 @@
   .messageInput {
     flex: 1;
     padding: 9px 12px;
-    border: 1px solid rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 20px;
-    background: rgba(0, 0, 0, 0.02);
-    color: #000000;
+    background: rgba(255, 255, 255, 0.05);
+    color: #FFFFFF;
     font-size: 13px;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     outline: none;
@@ -1183,13 +1225,13 @@
   }
 
   .messageInput:focus {
-    border-color: #FF7A5C;
-    background: rgba(255, 122, 92, 0.05);
-    box-shadow: 0 0 0 3px rgba(255, 122, 92, 0.1);
+    border-color: #2563eb;
+    background: rgba(37, 99, 235, 0.1);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
   }
 
   .messageInput::placeholder {
-    color: #999999;
+    color: rgba(255, 255, 255, 0.5);
   }
 
   .sendButton {
@@ -1234,13 +1276,13 @@
     margin: 0 0 8px 0;
     font-size: 18px;
     font-weight: 600;
-    color: #000000;
+    color: #FFFFFF;
   }
 
   .emptyState p {
     margin: 0;
     font-size: 13px;
-    color: #999999;
+    color: rgba(255, 255, 255, 0.6);
     max-width: 200px;
   }
 
