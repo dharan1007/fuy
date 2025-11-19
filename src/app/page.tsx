@@ -371,10 +371,10 @@ export default function Home() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 max-w-7xl mx-auto w-full px-2 sm:px-3 lg:px-4 py-10 relative z-20">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {/* Left Sidebar - User Profile + Suggestions */}
-          <div className="md:col-span-1 flex flex-col gap-4">
+      <main className="flex-1 w-full px-0 py-10 relative z-20">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-0 h-full">
+          {/* Left Sidebar - Extreme Left */}
+          <div className="md:col-span-1 px-3 sm:px-4 lg:px-6 flex flex-col gap-4">
             <HomeSidebarProfile
               userProfile={userProfile}
               avatarUrl={avatarUrl}
@@ -386,7 +386,7 @@ export default function Home() {
           </div>
 
           {/* Center Feed */}
-          <div className="md:col-span-2 space-y-6">
+          <div className="md:col-span-2 space-y-6 px-3 sm:px-4 lg:px-8">
             {/* Create Post Card */}
             <div className="border border-white/30 rounded-lg overflow-hidden bg-white/80 backdrop-blur">
               {/* Tabs */}
@@ -557,7 +557,7 @@ export default function Home() {
           </div>
 
           {/* Right Sidebar - Features Cards */}
-          <aside className="hidden md:block md:col-span-1 space-y-4">
+          <aside className="hidden md:block md:col-span-1 px-3 sm:px-4 lg:px-6 space-y-4">
             <HopinProgramsCard />
             <RankingCard />
           </aside>

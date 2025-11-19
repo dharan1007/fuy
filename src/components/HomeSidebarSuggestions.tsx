@@ -69,9 +69,9 @@ export default function HomeSidebarSuggestions() {
     <div className="space-y-4">
       {/* Suggested Users - Liquid Glass */}
       {suggestedUsers.length > 0 && (
-        <div className="rounded-2xl p-4 bg-gradient-to-br from-white/40 to-white/10 backdrop-blur-2xl border border-white/30 shadow-lg">
-          <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <span className="text-xs font-bold text-gray-600">USERS</span>
+        <div className="rounded-2xl p-4 bg-white/10 backdrop-blur-2xl border border-white/20 shadow-lg">
+          <h4 className="font-semibold text-white mb-4 flex items-center gap-2">
+            <span className="text-xs font-bold text-white">USERS</span>
           </h4>
           <div className="space-y-3">
             {suggestedUsers.map((user) => (
@@ -86,10 +86,10 @@ export default function HomeSidebarSuggestions() {
                   className="w-10 h-10 rounded-full border border-white/60"
                 />
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-sm text-gray-900 truncate">
+                  <div className="font-medium text-sm text-white truncate">
                     {user.profile?.displayName || user.name}
                   </div>
-                  <div className="text-xs text-gray-600">{user.followersCount} followers</div>
+                  <div className="text-xs text-white/80">{user.followersCount} followers</div>
                 </div>
               </Link>
             ))}
@@ -98,9 +98,9 @@ export default function HomeSidebarSuggestions() {
       )}
 
       {/* Suggested Creators - Liquid Glass */}
-      <div className="rounded-2xl p-4 bg-gradient-to-br from-white/40 to-white/10 backdrop-blur-2xl border border-white/30 shadow-lg">
-        <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-          <span className="text-xs font-bold text-gray-600">CREATORS</span>
+      <div className="rounded-2xl p-4 bg-white/10 backdrop-blur-2xl border border-white/20 shadow-lg">
+        <h4 className="font-semibold text-white mb-4 flex items-center gap-2">
+          <span className="text-xs font-bold text-white">CREATORS</span>
         </h4>
         <div className="space-y-3">
           {suggestedUsers.slice(0, 3).map((user) => (
@@ -115,10 +115,10 @@ export default function HomeSidebarSuggestions() {
                 className="w-10 h-10 rounded-full border border-white/60"
               />
               <div className="flex-1 min-w-0">
-                <div className="font-medium text-sm text-gray-900 truncate">
+                <div className="font-medium text-sm text-white truncate">
                   {user.profile?.displayName || user.name}
                 </div>
-                <div className="text-xs text-gray-600 truncate">{user.profile?.bio || 'Creator'}</div>
+                <div className="text-xs text-white/80 truncate">{user.profile?.bio || 'Creator'}</div>
               </div>
             </Link>
           ))}
@@ -127,9 +127,9 @@ export default function HomeSidebarSuggestions() {
 
       {/* Suggested Products - Liquid Glass */}
       {suggestedProducts.length > 0 && (
-        <div className="rounded-2xl p-4 bg-gradient-to-br from-white/40 to-white/10 backdrop-blur-2xl border border-white/30 shadow-lg">
-          <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <span className="text-xs font-bold text-gray-600">PRODUCTS</span>
+        <div className="rounded-2xl p-4 bg-white/10 backdrop-blur-2xl border border-white/20 shadow-lg">
+          <h4 className="font-semibold text-white mb-4 flex items-center gap-2">
+            <span className="text-xs font-bold text-white">PRODUCTS</span>
           </h4>
           <div className="space-y-3">
             {suggestedProducts.slice(0, 3).map((product) => (
@@ -142,8 +142,8 @@ export default function HomeSidebarSuggestions() {
                   <img src={product.image} alt={product.name} className="w-10 h-10 rounded object-cover border border-white/60" />
                 )}
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-sm text-gray-900 truncate">{product.name}</div>
-                  <div className="text-xs text-blue-600 font-semibold">₹{product.price}</div>
+                  <div className="font-medium text-sm text-white truncate">{product.name}</div>
+                  <div className="text-xs text-blue-300 font-semibold">₹{product.price}</div>
                 </div>
               </Link>
             ))}
@@ -153,24 +153,24 @@ export default function HomeSidebarSuggestions() {
 
       {/* Suggested Plans/Features - Liquid Glass */}
       {suggestedPlans.length > 0 && (
-        <div className="rounded-2xl p-4 bg-gradient-to-br from-white/40 to-white/10 backdrop-blur-2xl border border-white/30 shadow-lg">
-          <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-            <span className="text-xs font-bold text-gray-600">PLANS</span>
+        <div className="rounded-2xl p-4 bg-white/10 backdrop-blur-2xl border border-white/20 shadow-lg">
+          <h4 className="font-semibold text-white mb-4 flex items-center gap-2">
+            <span className="text-xs font-bold text-white">PLANS</span>
           </h4>
           <div className="space-y-2">
             {suggestedPlans.slice(0, 3).map((plan) => (
-              <div key={plan.id} className="text-sm text-gray-700 hover:text-gray-900 transition-colors">
+              <div key={plan.id} className="text-sm text-white/80 hover:text-white transition-colors">
                 <div className="flex items-start gap-2">
-                  <span className="text-gray-500">•</span>
+                  <span className="text-white/70">•</span>
                   <div>
-                    <div className="font-medium text-xs">{plan.title}</div>
-                    {plan.description && <div className="text-xs text-gray-600">{plan.description}</div>}
+                    <div className="font-medium text-xs text-white">{plan.title}</div>
+                    {plan.description && <div className="text-xs text-white/80">{plan.description}</div>}
                   </div>
                 </div>
               </div>
             ))}
           </div>
-          <Link href="/hopin" className="text-blue-600 hover:text-blue-700 text-xs font-medium mt-3 block">
+          <Link href="/hopin" className="text-blue-300 hover:text-blue-200 text-xs font-medium mt-3 block">
             Explore more plans →
           </Link>
         </div>

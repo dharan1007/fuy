@@ -136,43 +136,43 @@ export default function HomeSidebarProfile({
     <aside className="md:col-span-1">
       <div className="sticky top-20 space-y-6">
         {/* Main Profile Card - Liquid Glass */}
-        <div className="rounded-2xl p-6 bg-gradient-to-br from-white/40 to-white/10 backdrop-blur-2xl border border-white/30 shadow-lg hover:shadow-xl transition-all">
+        <div className="rounded-2xl p-6 bg-white/10 backdrop-blur-2xl border border-white/20 shadow-lg hover:shadow-xl transition-all">
           <div className="text-center mb-6">
             <img
               src={avatarUrl}
               alt={displayName}
               className="w-16 h-16 rounded-full mx-auto mb-3 border-2 border-blue-400"
             />
-            <h3 className="font-semibold text-lg text-gray-900">{displayName}</h3>
-            <p className="text-sm text-gray-600 mt-1">{userProfile.profile?.bio || 'No bio yet'}</p>
+            <h3 className="font-semibold text-lg text-white">{displayName}</h3>
+            <p className="text-sm text-white/80 mt-1">{userProfile.profile?.bio || 'No bio yet'}</p>
             {userProfile.profile?.location && (
-              <p className="text-xs text-gray-500 mt-2">{userProfile.profile.location}</p>
+              <p className="text-xs text-white/70 mt-2">{userProfile.profile.location}</p>
             )}
           </div>
 
           {/* Stats Grid */}
-          <div className="grid grid-cols-2 gap-4 pt-6 border-t border-white/40">
+          <div className="grid grid-cols-2 gap-4 pt-6 border-t border-white/20">
             <div className="text-center">
-              <div className="font-bold text-lg text-gray-900">{userProfile.stats.posts}</div>
-              <div className="text-xs text-gray-600 font-medium">Posts</div>
+              <div className="font-bold text-lg text-white">{userProfile.stats.posts}</div>
+              <div className="text-xs text-white/70 font-medium">Posts</div>
             </div>
             <div className="text-center">
-              <div className="font-bold text-lg text-gray-900">{userProfile.stats.friends}</div>
-              <div className="text-xs text-gray-600 font-medium">Friends</div>
+              <div className="font-bold text-lg text-white">{userProfile.stats.friends}</div>
+              <div className="text-xs text-white/70 font-medium">Friends</div>
             </div>
             <button
               onClick={onFetchFollowers}
               className="text-center hover:opacity-75 transition-opacity cursor-pointer"
             >
-              <div className="font-bold text-lg text-gray-900">{userProfile.stats.followers}</div>
-              <div className="text-xs text-gray-600 font-medium">Followers</div>
+              <div className="font-bold text-lg text-white">{userProfile.stats.followers}</div>
+              <div className="text-xs text-white/70 font-medium">Followers</div>
             </button>
             <button
               onClick={onFetchFollowing}
               className="text-center hover:opacity-75 transition-opacity cursor-pointer"
             >
-              <div className="font-bold text-lg text-gray-900">{userProfile.stats.following}</div>
-              <div className="text-xs text-gray-600 font-medium">Following</div>
+              <div className="font-bold text-lg text-white">{userProfile.stats.following}</div>
+              <div className="text-xs text-white/70 font-medium">Following</div>
             </button>
           </div>
 
@@ -183,19 +183,19 @@ export default function HomeSidebarProfile({
 
         {/* Rankings Card - Liquid Glass */}
         {userRanks.length > 0 && (
-          <div className="rounded-2xl p-4 bg-gradient-to-br from-white/40 to-white/10 backdrop-blur-2xl border border-white/30 shadow-lg">
+          <div className="rounded-2xl p-4 bg-white/10 backdrop-blur-2xl border border-white/20 shadow-lg">
             <div className="flex items-center gap-2 mb-4">
-              <span className="text-xs font-bold text-gray-600">RANK</span>
-              <h4 className="font-semibold text-gray-900 text-sm">Your Rankings</h4>
-              <Link href="/rankings" className="ml-auto text-blue-600 hover:text-blue-700 text-xs font-medium">
+              <span className="text-xs font-bold text-white">RANK</span>
+              <h4 className="font-semibold text-white text-sm">Your Rankings</h4>
+              <Link href="/rankings" className="ml-auto text-blue-300 hover:text-blue-200 text-xs font-medium">
                 All
               </Link>
             </div>
             <div className="space-y-2">
               {userRanks.slice(0, 3).map((rank) => (
                 <div key={rank.categoryId} className="flex justify-between items-center text-xs">
-                  <span className="text-gray-700">Rank {rank.rank}</span>
-                  <span className="font-semibold text-blue-600">#{rank.rank}</span>
+                  <span className="text-white/80">Rank {rank.rank}</span>
+                  <span className="font-semibold text-blue-300">#{rank.rank}</span>
                 </div>
               ))}
             </div>
@@ -204,17 +204,17 @@ export default function HomeSidebarProfile({
 
         {/* Hopin Plans Card - Liquid Glass */}
         {hopinPlans.length > 0 && (
-          <div className="rounded-2xl p-4 bg-gradient-to-br from-white/40 to-white/10 backdrop-blur-2xl border border-white/30 shadow-lg">
+          <div className="rounded-2xl p-4 bg-white/10 backdrop-blur-2xl border border-white/20 shadow-lg">
             <div className="flex items-center gap-2 mb-4">
-              <span className="text-xs font-bold text-gray-600">PLANS</span>
-              <h4 className="font-semibold text-gray-900 text-sm">Active Plans</h4>
-              <Link href="/hopin" className="ml-auto text-blue-600 hover:text-blue-700 text-xs font-medium">
+              <span className="text-xs font-bold text-white">PLANS</span>
+              <h4 className="font-semibold text-white text-sm">Active Plans</h4>
+              <Link href="/hopin" className="ml-auto text-blue-300 hover:text-blue-200 text-xs font-medium">
                 All
               </Link>
             </div>
             <div className="space-y-2">
               {hopinPlans.slice(0, 3).map((plan) => (
-                <div key={plan.id} className="text-xs text-gray-700 truncate hover:text-gray-900">
+                <div key={plan.id} className="text-xs text-white/80 truncate hover:text-white">
                   • {plan.title}
                 </div>
               ))}
@@ -223,28 +223,28 @@ export default function HomeSidebarProfile({
         )}
 
         {/* TODO List Card - Liquid Glass */}
-        <div className="rounded-2xl p-4 bg-gradient-to-br from-white/40 to-white/10 backdrop-blur-2xl border border-white/30 shadow-lg">
+        <div className="rounded-2xl p-4 bg-white/10 backdrop-blur-2xl border border-white/20 shadow-lg">
           <div className="flex items-center gap-2 mb-4 justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-gray-600">TODO</span>
-              <h4 className="font-semibold text-gray-900 text-sm">Tasks</h4>
+              <span className="text-xs font-bold text-white">TODO</span>
+              <h4 className="font-semibold text-white text-sm">Tasks</h4>
             </div>
             <div className="flex gap-1">
               <button
                 onClick={() => setTimePeriod('day')}
-                className={`px-2 py-1 text-xs rounded ${timePeriod === 'day' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                className={`px-2 py-1 text-xs rounded ${timePeriod === 'day' ? 'bg-blue-600 text-white' : 'bg-white/20 text-white hover:bg-white/30'}`}
               >
                 Day
               </button>
               <button
                 onClick={() => setTimePeriod('week')}
-                className={`px-2 py-1 text-xs rounded ${timePeriod === 'week' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                className={`px-2 py-1 text-xs rounded ${timePeriod === 'week' ? 'bg-blue-600 text-white' : 'bg-white/20 text-white hover:bg-white/30'}`}
               >
                 Week
               </button>
               <button
                 onClick={() => setTimePeriod('month')}
-                className={`px-2 py-1 text-xs rounded ${timePeriod === 'month' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                className={`px-2 py-1 text-xs rounded ${timePeriod === 'month' ? 'bg-blue-600 text-white' : 'bg-white/20 text-white hover:bg-white/30'}`}
               >
                 Month
               </button>
@@ -253,15 +253,15 @@ export default function HomeSidebarProfile({
           {todos.length > 0 ? (
             <div className="space-y-2">
               {todos.slice(0, 4).map((todo) => (
-                <div key={todo.id} className="text-xs text-gray-700 truncate hover:text-gray-900 flex items-center gap-2">
-                  <span className="text-gray-500">•</span>
+                <div key={todo.id} className="text-xs text-white/80 truncate hover:text-white flex items-center gap-2">
+                  <span className="text-white/60">•</span>
                   <span>{todo.title}</span>
                 </div>
               ))}
             </div>
           ) : (
             <div className="text-center py-3">
-              <p className="text-xs text-gray-600 mb-3">No tasks yet</p>
+              <p className="text-xs text-white/70 mb-3">No tasks yet</p>
               <button
                 onClick={() => router.push('/journal')}
                 className="w-full px-3 py-2 bg-blue-600 text-white rounded text-xs font-medium hover:bg-blue-700 transition-colors"
