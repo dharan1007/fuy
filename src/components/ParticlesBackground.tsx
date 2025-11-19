@@ -166,6 +166,27 @@ export default function ParticlesBackground() {
           }
         }
 
+        // Boundary repulsion - keep particles away from edges and corners
+        const borderDistance = 80; // Distance from edge to start repulsion
+        const edgeMargin = 20; // How far from actual edge to repel
+
+        if (particle.x < borderDistance) {
+          const repulsionForce = (borderDistance - particle.x) / borderDistance * 0.3;
+          particle.vx += repulsionForce;
+        }
+        if (particle.x > canvas.width - borderDistance) {
+          const repulsionForce = (canvas.width - borderDistance - particle.x) / borderDistance * 0.3;
+          particle.vx += repulsionForce;
+        }
+        if (particle.y < borderDistance) {
+          const repulsionForce = (borderDistance - particle.y) / borderDistance * 0.3;
+          particle.vy += repulsionForce;
+        }
+        if (particle.y > canvas.height - borderDistance) {
+          const repulsionForce = (canvas.height - borderDistance - particle.y) / borderDistance * 0.3;
+          particle.vy += repulsionForce;
+        }
+
         // Friction (higher = smoother motion)
         particle.vx *= 0.995;
         particle.vy *= 0.995;
@@ -239,6 +260,20 @@ export default function ParticlesBackground() {
       lastMouseMoveRef.current = 0; // Reset to trigger ambient motion
     };
 
+    // Touch event handlers for mobile/iPad
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length > 0) {
+        const touch = e.touches[0];
+        mouseRef.current = { x: touch.clientX, y: touch.clientY };
+        lastMouseMoveRef.current = Date.now();
+      }
+    };
+
+    const handleTouchEnd = () => {
+      mouseRef.current = { x: -5000, y: -5000 };
+      lastMouseMoveRef.current = 0; // Reset to trigger ambient motion
+    };
+
     const handleResize = () => {
       setCanvasSize();
       initializeParticles();
@@ -252,6 +287,8 @@ export default function ParticlesBackground() {
     // Event listeners
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseleave', handleMouseLeave);
+    window.addEventListener('touchmove', handleTouchMove);
+    window.addEventListener('touchend', handleTouchEnd);
     window.addEventListener('resize', handleResize);
 
     // Cleanup
@@ -261,6 +298,8 @@ export default function ParticlesBackground() {
       }
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseleave', handleMouseLeave);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
       window.removeEventListener('resize', handleResize);
     };
   }, []);
