@@ -32,6 +32,13 @@ interface HopinPlan {
   status: string;
 }
 
+interface TodoItem {
+  id: string;
+  title: string;
+  status: string;
+  dueDate?: string;
+}
+
 export default function HomeSidebarProfile({
   userProfile,
   avatarUrl,
@@ -48,12 +55,15 @@ export default function HomeSidebarProfile({
   const router = useRouter();
   const [userRanks, setUserRanks] = useState<Rank[]>([]);
   const [hopinPlans, setHopinPlans] = useState<HopinPlan[]>([]);
+  const [todos, setTodos] = useState<TodoItem[]>([]);
+  const [timePeriod, setTimePeriod] = useState<'day' | 'week' | 'month'>('week');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     fetchUserRanks();
     fetchHopinPlans();
-  }, []);
+    fetchTodos();
+  }, [timePeriod]);
 
   const fetchUserRanks = async () => {
     try {
@@ -79,13 +89,54 @@ export default function HomeSidebarProfile({
     }
   };
 
+  const fetchTodos = async () => {
+    try {
+      const res = await fetch('/api/hopin/my-plans');
+      if (res.ok) {
+        const data = await res.json();
+        // Filter todos based on time period
+        let filtered = data.plans || [];
+        const now = new Date();
+
+        if (timePeriod === 'day') {
+          const tomorrow = new Date(now);
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          filtered = filtered.filter((p: any) => {
+            if (!p.dueDate) return false;
+            const dueDate = new Date(p.dueDate);
+            return dueDate < tomorrow && dueDate >= now;
+          });
+        } else if (timePeriod === 'week') {
+          const nextWeek = new Date(now);
+          nextWeek.setDate(nextWeek.getDate() + 7);
+          filtered = filtered.filter((p: any) => {
+            if (!p.dueDate) return false;
+            const dueDate = new Date(p.dueDate);
+            return dueDate < nextWeek && dueDate >= now;
+          });
+        } else if (timePeriod === 'month') {
+          const nextMonth = new Date(now);
+          nextMonth.setMonth(nextMonth.getMonth() + 1);
+          filtered = filtered.filter((p: any) => {
+            if (!p.dueDate) return false;
+            const dueDate = new Date(p.dueDate);
+            return dueDate < nextMonth && dueDate >= now;
+          });
+        }
+        setTodos(filtered);
+      }
+    } catch (error) {
+      console.error('Error fetching todos:', error);
+    }
+  };
+
   if (!userProfile) return null;
 
   return (
     <aside className="md:col-span-1">
       <div className="sticky top-20 space-y-6">
         {/* Main Profile Card - Liquid Glass */}
-        <div className="rounded-2xl p-6 bg-gradient-to-br from-white/60 to-white/40 backdrop-blur-xl border border-white/50 shadow-lg hover:shadow-xl transition-all">
+        <div className="rounded-2xl p-6 bg-gradient-to-br from-white/40 to-white/10 backdrop-blur-2xl border border-white/30 shadow-lg hover:shadow-xl transition-all">
           <div className="text-center mb-6">
             <img
               src={avatarUrl}
@@ -132,17 +183,17 @@ export default function HomeSidebarProfile({
 
         {/* Rankings Card - Liquid Glass */}
         {userRanks.length > 0 && (
-          <div className="rounded-2xl p-4 bg-gradient-to-br from-white/60 to-white/40 backdrop-blur-xl border border-white/50 shadow-lg">
+          <div className="rounded-2xl p-4 bg-gradient-to-br from-white/40 to-white/10 backdrop-blur-2xl border border-white/30 shadow-lg">
             <div className="flex items-center gap-2 mb-4">
-              <span className="text-lg">🏆</span>
-              <h4 className="font-semibold text-gray-900">Your Rankings</h4>
+              <span className="text-xs font-bold text-gray-600">RANK</span>
+              <h4 className="font-semibold text-gray-900 text-sm">Your Rankings</h4>
               <Link href="/rankings" className="ml-auto text-blue-600 hover:text-blue-700 text-xs font-medium">
-                View All
+                All
               </Link>
             </div>
             <div className="space-y-2">
               {userRanks.slice(0, 3).map((rank) => (
-                <div key={rank.categoryId} className="flex justify-between items-center text-sm">
+                <div key={rank.categoryId} className="flex justify-between items-center text-xs">
                   <span className="text-gray-700">Rank {rank.rank}</span>
                   <span className="font-semibold text-blue-600">#{rank.rank}</span>
                 </div>
@@ -153,33 +204,72 @@ export default function HomeSidebarProfile({
 
         {/* Hopin Plans Card - Liquid Glass */}
         {hopinPlans.length > 0 && (
-          <div className="rounded-2xl p-4 bg-gradient-to-br from-white/60 to-white/40 backdrop-blur-xl border border-white/50 shadow-lg">
+          <div className="rounded-2xl p-4 bg-gradient-to-br from-white/40 to-white/10 backdrop-blur-2xl border border-white/30 shadow-lg">
             <div className="flex items-center gap-2 mb-4">
-              <span className="text-lg">📋</span>
-              <h4 className="font-semibold text-gray-900">Active Plans</h4>
+              <span className="text-xs font-bold text-gray-600">PLANS</span>
+              <h4 className="font-semibold text-gray-900 text-sm">Active Plans</h4>
               <Link href="/hopin" className="ml-auto text-blue-600 hover:text-blue-700 text-xs font-medium">
-                View All
+                All
               </Link>
             </div>
             <div className="space-y-2">
               {hopinPlans.slice(0, 3).map((plan) => (
                 <div key={plan.id} className="text-xs text-gray-700 truncate hover:text-gray-900">
-                  ✓ {plan.title}
+                  • {plan.title}
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* Canvas/Journal Card - Liquid Glass */}
-        <div className="rounded-2xl p-4 bg-gradient-to-br from-white/60 to-white/40 backdrop-blur-xl border border-white/50 shadow-lg">
-          <Link href="/journal" className="flex items-center gap-3 hover:opacity-75 transition-opacity">
-            <span className="text-2xl">▭</span>
-            <div>
-              <div className="font-semibold text-gray-900 text-sm">Canvas</div>
-              <div className="text-xs text-gray-600">View your journal</div>
+        {/* TODO List Card - Liquid Glass */}
+        <div className="rounded-2xl p-4 bg-gradient-to-br from-white/40 to-white/10 backdrop-blur-2xl border border-white/30 shadow-lg">
+          <div className="flex items-center gap-2 mb-4 justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-gray-600">TODO</span>
+              <h4 className="font-semibold text-gray-900 text-sm">Tasks</h4>
             </div>
-          </Link>
+            <div className="flex gap-1">
+              <button
+                onClick={() => setTimePeriod('day')}
+                className={`px-2 py-1 text-xs rounded ${timePeriod === 'day' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+              >
+                Day
+              </button>
+              <button
+                onClick={() => setTimePeriod('week')}
+                className={`px-2 py-1 text-xs rounded ${timePeriod === 'week' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+              >
+                Week
+              </button>
+              <button
+                onClick={() => setTimePeriod('month')}
+                className={`px-2 py-1 text-xs rounded ${timePeriod === 'month' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+              >
+                Month
+              </button>
+            </div>
+          </div>
+          {todos.length > 0 ? (
+            <div className="space-y-2">
+              {todos.slice(0, 4).map((todo) => (
+                <div key={todo.id} className="text-xs text-gray-700 truncate hover:text-gray-900 flex items-center gap-2">
+                  <span className="text-gray-500">•</span>
+                  <span>{todo.title}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-3">
+              <p className="text-xs text-gray-600 mb-3">No tasks yet</p>
+              <button
+                onClick={() => router.push('/journal')}
+                className="w-full px-3 py-2 bg-blue-600 text-white rounded text-xs font-medium hover:bg-blue-700 transition-colors"
+              >
+                Create New
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </aside>

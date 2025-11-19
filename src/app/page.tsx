@@ -8,6 +8,8 @@ import NotificationsModal from '@/components/NotificationsModal';
 import UserListModal from '@/components/UserListModal';
 import HomeSidebarProfile from '@/components/HomeSidebarProfile';
 import HomeSidebarSuggestions from '@/components/HomeSidebarSuggestions';
+import HopinProgramsCard from '@/components/HopinProgramsCard';
+import RankingCard from '@/components/RankingCard';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ParticlesBackground from '@/components/ParticlesBackground';
 
@@ -369,19 +371,22 @@ export default function Home() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-10 relative z-20">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Left Sidebar - User Profile with Rankings and Hopin Plans */}
-          <HomeSidebarProfile
-            userProfile={userProfile}
-            avatarUrl={avatarUrl}
-            displayName={displayName}
-            onFetchFollowers={fetchFollowers}
-            onFetchFollowing={fetchFollowing}
-          />
+      <main className="flex-1 max-w-7xl mx-auto w-full px-2 sm:px-3 lg:px-4 py-10 relative z-20">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* Left Sidebar - User Profile + Suggestions */}
+          <div className="md:col-span-1 flex flex-col gap-4">
+            <HomeSidebarProfile
+              userProfile={userProfile}
+              avatarUrl={avatarUrl}
+              displayName={displayName}
+              onFetchFollowers={fetchFollowers}
+              onFetchFollowing={fetchFollowing}
+            />
+            <HomeSidebarSuggestions />
+          </div>
 
           {/* Center Feed */}
-          <div className="md:col-span-1 space-y-6">
+          <div className="md:col-span-2 space-y-6">
             {/* Create Post Card */}
             <div className="border border-white/30 rounded-lg overflow-hidden bg-white/80 backdrop-blur">
               {/* Tabs */}
@@ -551,8 +556,11 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Right Sidebar - Suggestions */}
-          <HomeSidebarSuggestions />
+          {/* Right Sidebar - Features Cards */}
+          <aside className="hidden md:block md:col-span-1 space-y-4">
+            <HopinProgramsCard />
+            <RankingCard />
+          </aside>
         </div>
       </main>
 
