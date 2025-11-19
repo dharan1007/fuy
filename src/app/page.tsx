@@ -389,35 +389,35 @@ export default function Home() {
           {/* Center Feed */}
           <div className="md:col-span-2 space-y-6 px-3 sm:px-4 lg:px-8">
             {/* Create Post Card */}
-            <div className="border border-white/30 rounded-lg overflow-hidden bg-white/80 backdrop-blur">
+            <div className="border border-white/20 rounded-lg overflow-hidden bg-white/10 backdrop-blur-2xl">
               {/* Tabs */}
-              <div className="flex border-b border-black/10">
+              <div className="flex border-b border-white/10">
                 <button
                   onClick={() => setCreatePostTab('text')}
                   className={`flex-1 py-4 text-sm font-medium text-center transition-colors ${
                     createPostTab === 'text'
-                      ? 'bg-black text-white'
-                      : 'bg-transparent text-black hover:bg-black/5'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-transparent text-white/80 hover:bg-white/5'
                   }`}
                 >
                   Post
                 </button>
                 <button
                   onClick={() => setCreatePostTab('media')}
-                  className={`flex-1 py-4 text-sm font-medium text-center transition-colors border-l border-black/10 ${
+                  className={`flex-1 py-4 text-sm font-medium text-center transition-colors border-l border-white/10 ${
                     createPostTab === 'media'
-                      ? 'bg-black text-white'
-                      : 'bg-transparent text-black hover:bg-black/5'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-transparent text-white/80 hover:bg-white/5'
                   }`}
                 >
                   Image & Video
                 </button>
                 <button
                   onClick={() => setCreatePostTab('link')}
-                  className={`flex-1 py-4 text-sm font-medium text-center transition-colors border-l border-black/10 ${
+                  className={`flex-1 py-4 text-sm font-medium text-center transition-colors border-l border-white/10 ${
                     createPostTab === 'link'
-                      ? 'bg-black text-white'
-                      : 'bg-transparent text-black hover:bg-black/5'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-transparent text-white/80 hover:bg-white/5'
                   }`}
                 >
                   Link
@@ -434,7 +434,7 @@ export default function Home() {
                       value={postTitle}
                       onChange={(e) => setPostTitle(e.target.value)}
                       maxLength={100}
-                      className="w-full px-4 py-2 border border-black/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/20 text-sm"
+                      className="w-full px-4 py-2 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm bg-white/5 text-white placeholder-white/50"
                     />
                     <textarea
                       placeholder="Share your thoughts..."
@@ -442,13 +442,13 @@ export default function Home() {
                       onChange={(e) => setPostContent(e.target.value)}
                       maxLength={2000}
                       rows={4}
-                      className="w-full px-4 py-2 border border-black/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/20 text-sm resize-none"
+                      className="w-full px-4 py-2 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm bg-white/5 text-white placeholder-white/50 resize-none"
                     />
                     <div className="flex gap-4">
                       <select
                         value={postFeature}
                         onChange={(e) => setPostFeature(e.target.value)}
-                        className="flex-1 px-4 py-2 border border-black/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/20 text-sm"
+                        className="flex-1 px-4 py-2 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm bg-white/5 text-white"
                       >
                         <option disabled>Select feature</option>
                         {features.map(f => <option key={f} value={f}>{f}</option>)}
@@ -456,7 +456,7 @@ export default function Home() {
                       <select
                         value={postVisibility}
                         onChange={(e) => setPostVisibility(e.target.value)}
-                        className="flex-1 px-4 py-2 border border-black/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/20 text-sm"
+                        className="flex-1 px-4 py-2 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm bg-white/5 text-white"
                       >
                         {visibilities.map(v => <option key={v} value={v}>{v}</option>)}
                       </select>
@@ -465,11 +465,11 @@ export default function Home() {
                 )}
 
                 {createPostTab === 'media' && (
-                  <div className="flex flex-col items-center justify-center py-12 border-2 border-dashed border-black/20 rounded-lg">
-                    <svg className="w-12 h-12 text-black/30 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="flex flex-col items-center justify-center py-12 border-2 border-dashed border-white/20 rounded-lg">
+                    <svg className="w-12 h-12 text-white/30 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
-                    <p className="text-sm text-black/60">Upload images or videos</p>
+                    <p className="text-sm text-white/60">Upload images or videos</p>
                   </div>
                 )}
 
@@ -478,14 +478,14 @@ export default function Home() {
                     <input
                       type="url"
                       placeholder="Paste link..."
-                      className="w-full px-4 py-2 border border-black/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/20 text-sm"
+                      className="w-full px-4 py-2 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm bg-white/5 text-white placeholder-white/50"
                     />
-                    <p className="text-xs text-black/50">Share interesting links with your network</p>
+                    <p className="text-xs text-white/50">Share interesting links with your network</p>
                   </div>
                 )}
 
                 {postError && (
-                  <div className="p-3 bg-black/5 border border-black/10 rounded-lg text-sm text-black">
+                  <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-sm text-red-300">
                     {postError}
                   </div>
                 )}
@@ -493,7 +493,7 @@ export default function Home() {
                 <button
                   type="submit"
                   disabled={postSubmitting || !postContent.trim()}
-                  className="w-full py-2 bg-black text-white rounded-lg font-medium text-sm hover:bg-black/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full py-2 bg-blue-600 text-white rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {postSubmitting ? 'Posting...' : 'Post'}
                 </button>
@@ -503,48 +503,48 @@ export default function Home() {
             {/* Posts Feed */}
             <div className="space-y-4">
               {posts.length === 0 ? (
-                <div className="text-center py-12 border border-white/30 rounded-lg bg-white/80 backdrop-blur">
-                  <p className="text-gray-600">No posts yet. Be the first to share!</p>
+                <div className="text-center py-12 border border-white/20 rounded-lg bg-white/10 backdrop-blur-2xl">
+                  <p className="text-white/70">No posts yet. Be the first to share!</p>
                 </div>
               ) : (
                 posts.map((post) => (
-                  <div key={post.id} className="border border-white/30 rounded-lg p-6 bg-white/80 backdrop-blur hover:border-white/40 transition-colors">
+                  <div key={post.id} className="border border-white/20 rounded-lg p-6 bg-white/10 backdrop-blur-2xl hover:border-white/40 transition-colors">
                     <div className="flex items-start gap-4 mb-4">
                       <img
                         src={post.user.profile?.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${post.user.profile?.displayName || post.user.email}`}
                         alt={post.user.profile?.displayName || post.user.email}
-                        className="w-10 h-10 rounded-full border border-black/20"
+                        className="w-10 h-10 rounded-full border border-white/20"
                       />
                       <div className="flex-1 min-w-0">
-                        <div className="font-bold text-sm">{post.user.profile?.displayName || post.user.email}</div>
-                        <div className="text-xs text-black/50">{new Date(post.createdAt).toLocaleDateString()}</div>
+                        <div className="font-bold text-sm text-white">{post.user.profile?.displayName || post.user.email}</div>
+                        <div className="text-xs text-white/50">{new Date(post.createdAt).toLocaleDateString()}</div>
                       </div>
                     </div>
 
-                    <p className="text-sm text-black mb-4 leading-relaxed">{post.content}</p>
+                    <p className="text-sm text-white/80 mb-4 leading-relaxed">{post.content}</p>
 
                     {post.media && post.media.length > 0 && (
                       <div className="grid grid-cols-2 gap-2 mb-4">
                         {post.media.map((m, i) => (
-                          <img key={i} src={m.url} alt="post media" className="w-full h-32 object-cover rounded-lg bg-black/5" />
+                          <img key={i} src={m.url} alt="post media" className="w-full h-32 object-cover rounded-lg bg-white/5" />
                         ))}
                       </div>
                     )}
 
-                    <div className="flex items-center gap-6 text-xs text-black/60 border-t border-black/10 pt-4">
-                      <button className="flex items-center gap-2 hover:text-black transition-colors">
+                    <div className="flex items-center gap-6 text-xs text-white/60 border-t border-white/10 pt-4">
+                      <button className="flex items-center gap-2 hover:text-white/80 transition-colors">
                         <svg className="w-4 h-4" fill={post.likedByMe ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                         </svg>
                         <span>{post.likes}</span>
                       </button>
-                      <button className="flex items-center gap-2 hover:text-black transition-colors">
+                      <button className="flex items-center gap-2 hover:text-white/80 transition-colors">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                         </svg>
                         <span>{post.comments}</span>
                       </button>
-                      <button className="flex items-center gap-2 hover:text-black transition-colors">
+                      <button className="flex items-center gap-2 hover:text-white/80 transition-colors">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                         </svg>
@@ -567,10 +567,10 @@ export default function Home() {
 
       {/* Bottom Floating Curved Nav Bar */}
       <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 pointer-events-none">
-        <nav className="bg-white/50 backdrop-blur-md border border-white/40 rounded-full px-8 py-4 shadow-lg pointer-events-auto flex items-center gap-8 hover:bg-white/60 transition-all">
+        <nav className="bg-white/10 backdrop-blur-2xl border border-white/20 rounded-full px-8 py-4 shadow-lg pointer-events-auto flex items-center gap-8 hover:bg-white/15 transition-all">
           {/* Create Post */}
           <button
-            className="text-2xl text-gray-700 hover:text-blue-600 transition-colors hover:scale-110 transform duration-200"
+            className="text-2xl text-white/80 hover:text-blue-400 transition-colors hover:scale-110 transform duration-200"
             title="Create Post"
             onClick={() => {
               // Can be connected to a create post modal
@@ -582,7 +582,7 @@ export default function Home() {
           {/* Explore */}
           <Link
             href="/explore"
-            className="p-1.5 text-gray-700 hover:text-blue-600 transition-colors hover:scale-110 transform duration-200"
+            className="p-1.5 text-white/80 hover:text-blue-400 transition-colors hover:scale-110 transform duration-200"
             title="Explore"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -592,7 +592,7 @@ export default function Home() {
 
           {/* Notifications */}
           <button
-            className="relative p-1.5 text-gray-700 hover:text-blue-600 transition-colors hover:scale-110 transform duration-200"
+            className="relative p-1.5 text-white/80 hover:text-blue-400 transition-colors hover:scale-110 transform duration-200"
             title="Notifications"
             onClick={() => setIsNotificationsOpen(true)}
           >
@@ -609,7 +609,7 @@ export default function Home() {
           {/* Messages */}
           <Link
             href="/chat"
-            className="relative p-1.5 text-gray-700 hover:text-blue-600 transition-colors hover:scale-110 transform duration-200"
+            className="relative p-1.5 text-white/80 hover:text-blue-400 transition-colors hover:scale-110 transform duration-200"
             title="Messages"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
