@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { AIChatInterface } from '../components/ai';
 import { useMessaging } from '../hooks/useMessaging';
+import { ThemeProvider, useTheme } from '../context/ThemeContext';
 import styles from './MessagesPage.module.css';
 
 interface Conversation {
@@ -41,10 +42,12 @@ interface Friend {
   status?: string;
 }
 
-export default function MessagesPage() {
+// Inner component that uses theme
+function MessagesPageContent() {
   const router = useRouter();
   const { data: session } = useSession();
   const userId = (session?.user as any)?.id;
+  const { theme, setTheme, themes } = useTheme();
 
   const {
     conversations: apiConversations,
@@ -386,7 +389,7 @@ export default function MessagesPage() {
   };
 
   return (
-    <div className={styles.container}>
+    <div className={styles.container} data-theme={theme}>
       {/* Sidebar - Conversations List */}
       <div className={`${styles.sidebar} ${showMobileSidebar ? styles.mobileOpen : ''}`}>
         <div className={styles.header}>
@@ -605,8 +608,13 @@ export default function MessagesPage() {
               }`}
               onClick={() => handleSelectConversation(conv.id)}
             >
-              <div className={styles.avatar}>
-                {conv.participantName.charAt(0)}
+              <div className={styles.avatar} style={conv.avatar ? {
+                backgroundImage: `url(${conv.avatar})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                fontSize: 0
+              } : {}}>
+                {!conv.avatar && conv.participantName.charAt(0)}
               </div>
               <div className={styles.conversationInfo}>
                 <div className={styles.nameRow}>
@@ -652,6 +660,23 @@ export default function MessagesPage() {
                   {(onlineUsers.has(selectedConversation.participantId) || computedOnlineUsers.has(selectedConversation.participantId)) ? '● Online' : '● Offline'}
                 </p>
               </div>
+
+              {/* Theme Toggle */}
+              <div style={{ position: 'relative', marginRight: '8px' }}>
+                <button
+                  className={styles.iconButton}
+                  title="Toggle theme"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const nextThemeIndex = (themes.indexOf(theme) + 1) % themes.length;
+                    setTheme(themes[nextThemeIndex]);
+                  }}
+                  style={{ position: 'relative', fontSize: '16px' }}
+                >
+                  {theme === 'light' ? '☀️' : theme === 'dark' ? '🌙' : '👁️'}
+                </button>
+              </div>
+
               <div className={styles.chatHeaderActions}>
                 {/* Chat Retention Settings Button */}
                 <div style={{ position: 'relative' }}>
@@ -1302,100 +1327,15 @@ export default function MessagesPage() {
         )}
       </div>
 
-      {/* Right Panel - Community Features */}
-      <div className={styles.rightPanel}>
-        <div className={styles.panelHeader}>
-          <h3>Features</h3>
-        </div>
-
-        {/* Community Features Grid */}
-        <div className={styles.featuresGrid}>
-          {/* Canvas */}
-          <button className={styles.featureCard} onClick={() => router.push(featureRoutes.canvas)} title="Canvas">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="3" width="18" height="18" rx="2" />
-              <line x1="9" y1="9" x2="15" y2="15" />
-              <line x1="15" y1="9" x2="9" y2="15" />
-            </svg>
-            <div className={styles.featureName}>Canvas</div>
-          </button>
-
-          {/* Hopin */}
-          <button className={styles.featureCard} onClick={() => router.push(featureRoutes.hopin)} title="Hopin">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="1" />
-              <circle cx="19" cy="12" r="1" />
-              <circle cx="5" cy="12" r="1" />
-              <path d="M12 5v14M5 12h14" />
-            </svg>
-            <div className={styles.featureName}>Hopin</div>
-          </button>
-
-          {/* Bonding */}
-          <button className={styles.featureCard} onClick={() => router.push(featureRoutes.bonding)} title="Bonding">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-              <circle cx="9" cy="7" r="4" />
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-            </svg>
-            <div className={styles.featureName}>Bonding</div>
-          </button>
-
-          {/* WREX */}
-          <button className={styles.featureCard} onClick={() => router.push(featureRoutes.grounding)} title="WREX">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10" />
-              <path d="M12 6v6l4 2" />
-            </svg>
-            <div className={styles.featureName}>WREX</div>
-          </button>
-
-          {/* Breathing */}
-          <button className={styles.featureCard} onClick={() => router.push(featureRoutes.breathing)} title="Breathing">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" />
-              <path d="M12 6c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6z" />
-            </svg>
-            <div className={styles.featureName}>Breathing</div>
-          </button>
-
-          {/* Plans */}
-          <button className={styles.featureCard} onClick={() => router.push(featureRoutes.plans)} title="Plans">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M9 11H7v6h2V11zm4-6h-2v12h2V5zm4-1h-2v13h2V4z" />
-              <path d="M3 20h18" />
-            </svg>
-            <div className={styles.featureName}>Plans</div>
-          </button>
-
-          {/* Ranking */}
-          <button className={styles.featureCard} onClick={() => router.push(featureRoutes.ranking)} title="Ranking">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M6 9h12M6 5h12M6 13h12M6 17h12" />
-              <path d="M2 5v14c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V5" />
-            </svg>
-            <div className={styles.featureName}>Ranking</div>
-          </button>
-        </div>
-
-        {/* Quick Stats */}
-        <div className={styles.statsSection}>
-          <h5>Your Activity</h5>
-          <div className={styles.statItem}>
-            <span className={styles.statLabel}>Messages</span>
-            <span className={styles.statValue}>24</span>
-          </div>
-          <div className={styles.statItem}>
-            <span className={styles.statLabel}>Connections</span>
-            <span className={styles.statValue}>8</span>
-          </div>
-          <div className={styles.statItem}>
-            <span className={styles.statLabel}>Streak</span>
-            <span className={styles.statValue}>12d</span>
-          </div>
-        </div>
-      </div>
     </div>
+  );
+}
+
+// Wrapper component that provides theme
+export default function MessagesPage() {
+  return (
+    <ThemeProvider>
+      <MessagesPageContent />
+    </ThemeProvider>
   );
 }
