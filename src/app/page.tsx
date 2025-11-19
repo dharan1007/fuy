@@ -6,8 +6,8 @@ import Link from 'next/link';
 import SearchModal from '@/components/SearchModal';
 import NotificationsModal from '@/components/NotificationsModal';
 import UserListModal from '@/components/UserListModal';
-import HopinProgramsCard from '@/components/HopinProgramsCard';
-import RankingCard from '@/components/RankingCard';
+import HomeSidebarProfile from '@/components/HomeSidebarProfile';
+import HomeSidebarSuggestions from '@/components/HomeSidebarSuggestions';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ParticlesBackground from '@/components/ParticlesBackground';
 
@@ -365,75 +365,23 @@ export default function Home() {
             )}
           </div>
 
-          {/* User Profile Module */}
-          <div className="bg-white/50 backdrop-blur-md border border-white/40 rounded-lg sm:rounded-xl px-3 sm:px-4 py-2.5 shadow-sm pointer-events-auto hover:bg-white/60 transition-all ml-auto">
-            <Link href="/profile" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-              <img
-                src={avatarUrl}
-                alt={displayName}
-                className="w-6 sm:w-8 h-6 sm:h-8 rounded-full border-2 border-blue-400"
-              />
-              <div className="hidden sm:flex flex-col">
-                <div className="text-xs font-semibold text-gray-800">{displayName}</div>
-                <div className="text-xs text-green-600 font-medium">Online</div>
-              </div>
-            </Link>
-          </div>
         </div>
       </header>
 
       {/* Main Content */}
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-10 relative z-20">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-          {/* Left Sidebar - User Profile */}
-          <aside className="md:col-span-1">
-            <div className="sticky top-20 space-y-6">
-              {userProfile && (
-                <div className="border border-white/30 rounded-lg p-6 bg-white/70 backdrop-blur">
-                  <div className="text-center mb-6">
-                    <img src={avatarUrl} alt={displayName} className="w-16 h-16 rounded-full mx-auto mb-3 border-2 border-blue-400" />
-                    <h3 className="font-semibold text-lg text-gray-900">{displayName}</h3>
-                    <p className="text-sm text-gray-600 mt-1">{userProfile.profile?.bio || 'No bio yet'}</p>
-                    {userProfile.profile?.location && (
-                      <p className="text-xs text-gray-500 mt-2">{userProfile.profile.location}</p>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4 pt-6 border-t border-white/40">
-                    <div className="text-center">
-                      <div className="font-bold text-lg text-gray-900">{userProfile.stats.posts}</div>
-                      <div className="text-xs text-gray-600 font-medium">Posts</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="font-bold text-lg text-gray-900">{userProfile.stats.friends}</div>
-                      <div className="text-xs text-gray-600 font-medium">Friends</div>
-                    </div>
-                    <button
-                      onClick={fetchFollowers}
-                      className="text-center hover:opacity-75 transition-opacity cursor-pointer"
-                    >
-                      <div className="font-bold text-lg text-gray-900">{userProfile.stats.followers}</div>
-                      <div className="text-xs text-gray-600 font-medium">Followers</div>
-                    </button>
-                    <button
-                      onClick={fetchFollowing}
-                      className="text-center hover:opacity-75 transition-opacity cursor-pointer"
-                    >
-                      <div className="font-bold text-lg text-gray-900">{userProfile.stats.following}</div>
-                      <div className="text-xs text-gray-600 font-medium">Following</div>
-                    </button>
-                  </div>
-
-                  <Link href="/profile" className="mt-4 w-full block text-center py-2.5 bg-black text-white rounded-lg font-medium text-sm hover:bg-black/90 transition-colors duration-200">
-                    View Profile
-                  </Link>
-                </div>
-              )}
-            </div>
-          </aside>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          {/* Left Sidebar - User Profile with Rankings and Hopin Plans */}
+          <HomeSidebarProfile
+            userProfile={userProfile}
+            avatarUrl={avatarUrl}
+            displayName={displayName}
+            onFetchFollowers={fetchFollowers}
+            onFetchFollowing={fetchFollowing}
+          />
 
           {/* Center Feed */}
-          <div className="md:col-span-2 space-y-6">
+          <div className="md:col-span-1 space-y-6">
             {/* Create Post Card */}
             <div className="border border-white/30 rounded-lg overflow-hidden bg-white/80 backdrop-blur">
               {/* Tabs */}
@@ -603,11 +551,8 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Right Sidebar - Features Cards */}
-          <aside className="hidden md:block md:col-span-1 rounded-lg p-6 bg-white/50 backdrop-blur border border-white/30 shadow-sm overflow-y-auto max-h-[calc(100vh-200px)]">
-            <HopinProgramsCard />
-            <RankingCard />
-          </aside>
+          {/* Right Sidebar - Suggestions */}
+          <HomeSidebarSuggestions />
         </div>
       </main>
 
