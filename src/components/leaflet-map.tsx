@@ -182,6 +182,13 @@ export default function LeafletMap({
     const { url, attr } = basemap(basemapStyle);
     tileLayerRef.current = L.tileLayer(url, { attribution: attr }).addTo(map);
 
+    // Immediately invalidate size after tiles load to ensure proper rendering
+    try {
+      map.invalidateSize(false);
+    } catch (e) {
+      // ignore
+    }
+
     // restore route
     drawRoute(getPts());
 
@@ -207,10 +214,13 @@ export default function LeafletMap({
     };
     window.addEventListener("keydown", onKey);
 
-    // first paint - multiple attempts to ensure map renders
+    // first paint - aggressive multiple attempts to ensure map renders
+    setTimeout(scheduleInvalidate, 100);
     setTimeout(scheduleInvalidate, 200);
-    setTimeout(scheduleInvalidate, 500);
+    setTimeout(scheduleInvalidate, 400);
+    setTimeout(scheduleInvalidate, 600);
     setTimeout(scheduleInvalidate, 1000);
+    setTimeout(scheduleInvalidate, 1500);
 
     return () => {
       ro.disconnect();
