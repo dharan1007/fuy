@@ -4,6 +4,50 @@ import { NextResponse } from "next/server";
 
 export default withAuth(
   function middleware(req) {
+    const response = NextResponse.next();
+
+    // ===== SECURITY HEADERS =====
+
+    // Content Security Policy - Prevent XSS attacks
+    response.headers.set(
+      'Content-Security-Policy',
+      "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:; frame-ancestors 'none'; base-uri 'self'; form-action 'self';"
+    );
+
+    // X-Content-Type-Options - Prevent MIME sniffing
+    response.headers.set('X-Content-Type-Options', 'nosniff');
+
+    // X-Frame-Options - Prevent clickjacking (deny framing)
+    response.headers.set('X-Frame-Options', 'DENY');
+
+    // X-XSS-Protection - Enable browser XSS protection
+    response.headers.set('X-XSS-Protection', '1; mode=block');
+
+    // Strict-Transport-Security - Force HTTPS (only in production)
+    if (process.env.NODE_ENV === 'production') {
+      response.headers.set(
+        'Strict-Transport-Security',
+        'max-age=31536000; includeSubDomains; preload'
+      );
+    }
+
+    // Referrer-Policy - Control referrer information
+    response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+
+    // Permissions-Policy - Disable dangerous browser features
+    response.headers.set(
+      'Permissions-Policy',
+      'geolocation=(), microphone=(), camera=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=(), payment=()'
+    );
+
+    // Remove X-Powered-By header to hide server technology
+    response.headers.delete('X-Powered-By');
+
+    // Add custom headers
+    response.headers.set('X-App-Version', process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0');
+    response.headers.set('X-Security-Enabled', 'true');
+
+    // ===== AUTH LOGIC =====
     const token = req.nextauth.token;
     const isAuth = !!token;
     const isAuthPage =
@@ -19,7 +63,7 @@ export default withAuth(
 
     // Allow all requests through - let client-side useSession() handle authentication
     // This prevents premature redirects before the session is fully established
-    return NextResponse.next();
+    return response;
   },
   {
     callbacks: {
@@ -35,5 +79,6 @@ export const config = {
     "/signup",
     "/join",
     "/passkeys",
+    "/((?!_next/static|_next/image|favicon.ico).*)",
   ],
 };
