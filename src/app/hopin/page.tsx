@@ -30,43 +30,19 @@ function haversineKm(a: LatLng, b: LatLng) {
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
-function fmt(n: number, unit: "km" | "mi" = "km") {
-  return unit === "km"
-    ? `${n.toFixed(2)} km`
-    : `${(n * 0.621371).toFixed(2)} mi`;
-}
-
 function estimateHours(distanceKm: number, speedKmH: number) {
   if (!speedKmH) return 0;
   return distanceKm / speedKmH;
-}
-
-// Calculate calories based on MET (Metabolic Equivalent) values
-function estimateCalories(distanceKm: number, activity: 'walk' | 'run' | 'bike', userWeightKg: number = 70) {
-  const metValues = {
-    walk: 3.5,
-    run: 9.8,
-    bike: 7.5,
-  };
-
-  const speeds = { walk: 5, run: 9, bike: 16 };
-  const timeHours = distanceKm / speeds[activity];
-
-  const calories = metValues[activity] * userWeightKg * timeHours;
-  return Math.round(calories);
-}
-
-function estimateElevationGain(distanceKm: number, pointCount: number): number {
-  if (pointCount < 2) return 0;
-  const baseElevation = distanceKm * 12;
-  const variation = (pointCount - 1) * 20;
-  return Math.round(baseElevation + variation);
 }
 
 function hhmm(hours: number) {
   const h = Math.floor(hours);
   const m = Math.round((hours - h) * 60);
   return `${h}h ${m.toString().padStart(2, "0")}m`;
+}
+
+function formatDistance(km: number): string {
+  return `${km.toFixed(2)} km`;
 }
 
 function download(
@@ -148,12 +124,6 @@ function useLiveRoute(): LiveRoute {
 }
 
 /* ---------- page ---------- */
-type TogetherBurnUser = {
-  id: string;
-  name: string;
-  caloriesBurned: number;
-};
-
 export default function HopinPage() {
   const { distanceKm, isLoop, points, pts } = useLiveRoute();
 
@@ -163,19 +133,6 @@ export default function HopinPage() {
     bike: hhmm(estimateHours(distanceKm, 16)),
   };
 
-  const kcal = useMemo(
-    () => ({
-      walk: estimateCalories(distanceKm, 'walk'),
-      run: estimateCalories(distanceKm, 'run'),
-      bike: estimateCalories(distanceKm, 'bike'),
-    }),
-    [distanceKm]
-  );
-
-  const elevationGain = useMemo(
-    () => estimateElevationGain(distanceKm, points),
-    [distanceKm, points]
-  );
 
   const [cueSeed, setCueSeed] = useState("sky,texture,quiet,edges,colors");
   const cues = useMemo(
@@ -192,38 +149,6 @@ export default function HopinPage() {
   const [activeCategory, setActiveCategory] =
     useState<POICategory | null>(null);
 
-  // Custom calories and effort inputs
-  const [customCalories, setCustomCalories] = useState<Record<string, string>>({
-    walk: "",
-    run: "",
-    bike: "",
-  });
-  const [effortLevel, setEffortLevel] = useState<"easy" | "moderate" | "hard">("moderate");
-
-  // Together burn feature
-  const [togetherBurnUsers, setTogetherBurnUsers] = useState<TogetherBurnUser[]>([]);
-  const [newUserName, setNewUserName] = useState("");
-  const [newUserCalories, setNewUserCalories] = useState("");
-
-  const addTogetherBurnUser = () => {
-    if (!newUserName.trim() || !newUserCalories.trim()) return;
-    const newUser: TogetherBurnUser = {
-      id: Date.now().toString(),
-      name: newUserName,
-      caloriesBurned: parseInt(newUserCalories, 10) || 0,
-    };
-    setTogetherBurnUsers([...togetherBurnUsers, newUser]);
-    setNewUserName("");
-    setNewUserCalories("");
-  };
-
-  const removeTogetherBurnUser = (id: string) => {
-    setTogetherBurnUsers(togetherBurnUsers.filter(u => u.id !== id));
-  };
-
-  const totalTogetherBurn = useMemo(() => {
-    return togetherBurnUsers.reduce((sum, user) => sum + user.caloriesBurned, 0);
-  }, [togetherBurnUsers]);
 
   const suggestions = useMemo(() => {
     const km = distanceKm;
@@ -302,7 +227,7 @@ export default function HopinPage() {
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
                     <span className="text-xs text-gray-600 dark:text-gray-400">Distance</span>
-                    <span className="font-semibold text-gray-900 dark:text-white">{fmt(distanceKm, "km")}</span>
+                    <span className="font-semibold text-gray-900 dark:text-white">{formatDistance(distanceKm)}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-xs text-gray-600 dark:text-gray-400">Points</span>
@@ -418,136 +343,6 @@ export default function HopinPage() {
 
             {/* Right columns - Main content */}
             <div className="lg:col-span-3 space-y-6">
-              {/* Unified Burn & Effort Tracking Card */}
-              <div className="rounded-xl border border-gray-200 dark:border-neutral-700 bg-gradient-to-br from-orange-50 via-red-50 to-purple-50 dark:from-orange-950 dark:via-red-950 dark:to-purple-950 shadow p-6">
-                <div className="mb-6 font-semibold text-gray-900 dark:text-white text-lg">Burn & Effort Tracking</div>
-
-                {/* Effort Level Selector - Full Width */}
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Effort Level</label>
-                  <select
-                    value={effortLevel}
-                    onChange={(e) => setEffortLevel(e.target.value as "easy" | "moderate" | "hard")}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-900 dark:text-white"
-                  >
-                    <option value="easy">Easy</option>
-                    <option value="moderate">Moderate</option>
-                    <option value="hard">Hard</option>
-                  </select>
-                </div>
-
-                {/* Estimated Calories - 3 columns */}
-                <div className="mb-6">
-                  <label className="block text-xs font-semibold uppercase text-gray-700 dark:text-gray-300 mb-3 tracking-wide">Estimated Calories</label>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="bg-white dark:bg-neutral-800 rounded-lg p-3 border border-gray-200 dark:border-neutral-700">
-                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Walking</p>
-                      <p className="text-lg font-semibold text-orange-700 dark:text-orange-300">{kcal.walk}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">kcal</p>
-                    </div>
-                    <div className="bg-white dark:bg-neutral-800 rounded-lg p-3 border border-gray-200 dark:border-neutral-700">
-                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Running</p>
-                      <p className="text-lg font-semibold text-red-700 dark:text-red-300">{kcal.run}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">kcal</p>
-                    </div>
-                    <div className="bg-white dark:bg-neutral-800 rounded-lg p-3 border border-gray-200 dark:border-neutral-700">
-                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Biking</p>
-                      <p className="text-lg font-semibold text-orange-600 dark:text-orange-300">{kcal.bike}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">kcal</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Custom Calorie Inputs */}
-                <div className="mb-6">
-                  <label className="block text-xs font-semibold uppercase text-gray-700 dark:text-gray-300 mb-3 tracking-wide">Custom Calories (Optional)</label>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    <input
-                      type="number"
-                      placeholder="Walk"
-                      value={customCalories.walk}
-                      onChange={(e) => setCustomCalories({ ...customCalories, walk: e.target.value })}
-                      className="px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-900 dark:text-white"
-                    />
-                    <input
-                      type="number"
-                      placeholder="Run"
-                      value={customCalories.run}
-                      onChange={(e) => setCustomCalories({ ...customCalories, run: e.target.value })}
-                      className="px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-900 dark:text-white"
-                    />
-                    <input
-                      type="number"
-                      placeholder="Bike"
-                      value={customCalories.bike}
-                      onChange={(e) => setCustomCalories({ ...customCalories, bike: e.target.value })}
-                      className="px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-900 dark:text-white"
-                    />
-                  </div>
-                </div>
-
-                {/* Elevation Gain & Together Burn - 2 columns */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                  <div className="bg-white dark:bg-neutral-800 rounded-lg p-4 border border-gray-200 dark:border-neutral-700">
-                    <p className="text-xs font-semibold uppercase text-gray-700 dark:text-gray-300 mb-2 tracking-wide">Elevation Gain</p>
-                    <p className="text-xl font-bold text-gray-900 dark:text-white">{elevationGain}m</p>
-                  </div>
-                  <div className="bg-white dark:bg-neutral-800 rounded-lg p-4 border border-gray-200 dark:border-neutral-700">
-                    <p className="text-xs font-semibold uppercase text-gray-700 dark:text-gray-300 mb-2 tracking-wide">Group Burn Total</p>
-                    <p className="text-xl font-bold text-purple-600 dark:text-purple-400">{totalTogetherBurn} kcal</p>
-                  </div>
-                </div>
-
-                {/* Together Burn Users */}
-                <div>
-                  <label className="block text-xs font-semibold uppercase text-gray-700 dark:text-gray-300 mb-3 tracking-wide">Add Friends</label>
-                  <div className="mb-3 p-3 bg-white dark:bg-neutral-800 rounded-lg border border-gray-200 dark:border-neutral-700">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      <input
-                        type="text"
-                        placeholder="Friend's name"
-                        value={newUserName}
-                        onChange={(e) => setNewUserName(e.target.value)}
-                        className="px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-900 dark:text-white text-sm"
-                      />
-                      <input
-                        type="number"
-                        placeholder="Calories"
-                        value={newUserCalories}
-                        onChange={(e) => setNewUserCalories(e.target.value)}
-                        className="px-3 py-2 rounded-lg border border-gray-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-gray-900 dark:text-white text-sm"
-                      />
-                      <button
-                        onClick={addTogetherBurnUser}
-                        className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg font-medium text-sm transition-colors"
-                      >
-                        Add
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Users List */}
-                  {togetherBurnUsers.length > 0 && (
-                    <div className="space-y-2">
-                      {togetherBurnUsers.map((user) => (
-                        <div key={user.id} className="flex items-center justify-between bg-white dark:bg-neutral-800 p-3 rounded-lg border border-gray-200 dark:border-neutral-700">
-                          <div>
-                            <p className="font-medium text-gray-900 dark:text-white text-sm">{user.name}</p>
-                            <p className="text-xs text-gray-600 dark:text-gray-400">{user.caloriesBurned} kcal</p>
-                          </div>
-                          <button
-                            onClick={() => removeTogetherBurnUser(user.id)}
-                            className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium text-sm"
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
               {/* Route Shape & Export */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 shadow p-5">
