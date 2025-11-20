@@ -169,13 +169,8 @@ export default function LeafletMap({
     if (!leafletReady || !mapElRef.current || mapRef.current) return;
     const L = LRef.current as typeof import("leaflet");
 
-    // Ensure container has proper dimensions before creating map
-    const container = mapElRef.current;
-    if (!container || container.offsetWidth === 0 || container.offsetHeight === 0) {
-      console.warn('Map container has zero dimensions, retrying...');
-      setTimeout(() => {}, 50);
-      return;
-    }
+    // Log for debugging
+    console.log('[LeafletMap] Initializing map...');
 
     const map = L.map(mapElRef.current, {
       center,
@@ -184,13 +179,16 @@ export default function LeafletMap({
       zoomControl: true,
       attributionControl: true,
       preferCanvas: true, // Better performance with canvas rendering
+      fadeAnimation: true,
     });
     mapRef.current = map;
+    console.log('[LeafletMap] Map instance created:', { center, zoom });
 
     routeLayerRef.current = L.layerGroup().addTo(map);
     poiLayerRef.current = L.layerGroup().addTo(map);
 
     const { url, attr } = basemap(basemapStyle);
+    console.log('[LeafletMap] Creating tile layer with URL:', url);
     tileLayerRef.current = L.tileLayer(url, {
       attribution: attr,
       maxZoom: 19,
@@ -198,17 +196,24 @@ export default function LeafletMap({
       updateWhenIdle: false,
       keepBuffer: 2,
     }).addTo(map);
+    console.log('[LeafletMap] Tile layer added to map');
 
     // Ensure tile layer loads and then invalidate size
     const onTileLoad = () => {
+      console.log('[LeafletMap] Tile layer loaded');
       try {
         map.invalidateSize(true);
       } catch (e) {
-        // ignore
+        console.error('[LeafletMap] Error invalidating size:', e);
       }
     };
 
+    const onTileError = () => {
+      console.error('[LeafletMap] Tile layer failed to load');
+    };
+
     tileLayerRef.current.on('load', onTileLoad);
+    tileLayerRef.current.on('error', onTileError);
 
     // restore route
     drawRoute(getPts());
@@ -254,6 +259,7 @@ export default function LeafletMap({
       try {
         if (tileLayerRef.current) {
           tileLayerRef.current.off('load', onTileLoad);
+          tileLayerRef.current.off('error', onTileError);
         }
         map.remove();
       } finally {
@@ -270,7 +276,13 @@ export default function LeafletMap({
     const map = mapRef.current;
     if (tileLayerRef.current) map.removeLayer(tileLayerRef.current);
     const { url, attr } = basemap(basemapStyle);
-    tileLayerRef.current = L.tileLayer(url, { attribution: attr }).addTo(map);
+    tileLayerRef.current = L.tileLayer(url, {
+      attribution: attr,
+      maxZoom: 19,
+      minZoom: 0,
+      updateWhenIdle: false,
+      keepBuffer: 2,
+    }).addTo(map);
     scheduleInvalidate();
   }, [basemapStyle, leafletReady, scheduleInvalidate]);
 
@@ -592,7 +604,7 @@ export default function LeafletMap({
         overflow: "hidden",
       }}
     >
-      <div ref={mapElRef} style={{ position: "absolute", inset: 0, width: '100%', height: '100%', zIndex: 10 }} />
+      <div ref={mapElRef} style={{ position: "absolute", inset: 0, width: '100%', height: '100%', zIndex: 1 }} />
 
       {/* Toolbar */}
       <div

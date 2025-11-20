@@ -316,81 +316,17 @@ html.dark .card{
  }
 
 /* ====================================================================== */
-/*  LEAFLET MAP FIXES - Ensure proper tile rendering                     */
+/*  LEAFLET MAP FIXES - Minimal overrides for dark mode only             */
 /* ====================================================================== */
 
-/* Ensure Leaflet map container is properly sized */
-.leaflet-container {
-  background: #f0f0f0;
-  outline: 0;
-  position: relative;
-  width: 100%;
-  height: 100%;
-}
-
+/* Dark mode support */
 html.dark .leaflet-container {
   background: #1a1a1a;
 }
 
-/* Ensure tile layers render completely */
-.leaflet-tile-pane {
-  z-index: 2;
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-}
-
-.leaflet-tiles {
-  position: relative;
-  width: 100%;
-  height: 100%;
-}
-
-/* Fix tile rendering and prevent clipping */
-.leaflet-tile {
-  filter: inherit;
-  will-change: transform;
-  image-rendering: auto;
-  image-rendering: crisp-edges;
-  image-rendering: pixelated;
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-}
-
-/* Ensure proper rendering of vector layers */
-.leaflet-overlay-pane {
-  z-index: 4;
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-}
-
-/* Fix marker and popup positioning */
-.leaflet-marker-pane {
-  z-index: 6;
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-}
-
-.leaflet-popup-pane {
-  z-index: 7;
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-}
-
-/* Ensure polylines are visible */
-.leaflet-pane > svg,
-.leaflet-pane > canvas {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
+html.dark .leaflet-control-attribution {
+  background-color: rgba(0, 0, 0, 0.8);
+  color: #fff;
 }
 
 /* Custom marker styling */
@@ -400,20 +336,4 @@ html.dark .leaflet-container {
   justify-content: center;
   background: transparent;
   border: none;
-}
-
-/* Zoom control positioning */
-.leaflet-control-zoom {
-  z-index: 999;
-}
-
-/* Attribution control */
-.leaflet-control-attribution {
-  background-color: rgba(255, 255, 255, 0.8);
-  color: #333;
-}
-
-html.dark .leaflet-control-attribution {
-  background-color: rgba(0, 0, 0, 0.8);
-  color: #fff;
 }
