@@ -934,13 +934,6 @@ export default function JournalEditor() {
 
             <div className="ml-auto" />
             <Btn
-              variant="outline"
-              onClick={() => window.location.href = "/itp"}
-              title="Go to If-Then Plans"
-            >
-              Plans
-            </Btn>
-            <Btn
               variant={autoSaveEnabled ? "solid" : "soft"}
               onClick={() => {
                 setAutoSaveEnabled(!autoSaveEnabled);
