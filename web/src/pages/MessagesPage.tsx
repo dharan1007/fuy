@@ -574,7 +574,7 @@ function MessagesPageContent() {
         </div>
 
         <div className={styles.conversationsList}>
-          {/* AI Assistant - Always at top */}
+          {/* dbot - Always at top */}
           <div
             className={`${styles.conversationItem} ${
               showAIChat ? styles.active : ''
@@ -591,7 +591,7 @@ function MessagesPageContent() {
             </div>
             <div className={styles.conversationInfo}>
               <div className={styles.nameRow}>
-                <span className={styles.name}>AI Assistant</span>
+                <span className={styles.name}>dbot</span>
               </div>
               <span className={styles.preview}>
                 Hi! I'm here to help...
@@ -641,6 +641,31 @@ function MessagesPageContent() {
               // Handle actions here
             }}
           />
+        ) : !userId ? (
+          <div className={styles.emptyState}>
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+              <div style={{ textAlign: 'center' }}>
+                {/* Loading spinner animation */}
+                <div style={{
+                  width: '50px',
+                  height: '50px',
+                  border: '4px solid #e5e7eb',
+                  borderTop: '4px solid #3b82f6',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite',
+                  margin: '0 auto 20px',
+                }} />
+                <style>{`
+                  @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                  }
+                `}</style>
+                <h2 style={{ margin: '16px 0 8px 0', color: '#1f2937' }}>Loading your messages...</h2>
+                <p style={{ color: '#9ca3af', fontSize: '14px', margin: 0 }}>Getting your profile ready</p>
+              </div>
+            </div>
+          </div>
         ) : selectedConversation ? (
           <div className={styles.chatArea}>
             {/* Chat Header */}
