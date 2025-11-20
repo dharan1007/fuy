@@ -641,30 +641,48 @@ function MessagesPageContent() {
               // Handle actions here
             }}
           />
-        ) : !userId ? (
+        ) : !userId || loading ? (
           <div className={styles.emptyState}>
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-              <div style={{ textAlign: 'center' }}>
-                {/* Loading spinner animation */}
-                <div style={{
-                  width: '50px',
-                  height: '50px',
-                  border: '4px solid #e5e7eb',
-                  borderTop: '4px solid #3b82f6',
-                  borderRadius: '50%',
-                  animation: 'spin 1s linear infinite',
-                  margin: '0 auto 20px',
-                }} />
-                <style>{`
-                  @keyframes spin {
-                    0% { transform: rotate(0deg); }
-                    100% { transform: rotate(360deg); }
-                  }
-                `}</style>
-                <h2 style={{ margin: '16px 0 8px 0', color: '#1f2937' }}>Loading your messages...</h2>
-                <p style={{ color: '#9ca3af', fontSize: '14px', margin: 0 }}>Getting your profile ready</p>
+            {!userId ? (
+              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+                <div style={{ textAlign: 'center' }}>
+                  {/* Full-screen loading spinner animation */}
+                  <div style={{
+                    width: '50px',
+                    height: '50px',
+                    border: '4px solid #e5e7eb',
+                    borderTop: '4px solid #3b82f6',
+                    borderRadius: '50%',
+                    animation: 'spin 1s linear infinite',
+                    margin: '0 auto 20px',
+                  }} />
+                  <style>{`
+                    @keyframes spin {
+                      0% { transform: rotate(0deg); }
+                      100% { transform: rotate(360deg); }
+                    }
+                  `}</style>
+                  <h2 style={{ margin: '16px 0 8px 0', color: '#1f2937' }}>Loading your messages...</h2>
+                  <p style={{ color: '#9ca3af', fontSize: '14px', margin: 0 }}>Getting your profile ready</p>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+                <div style={{ textAlign: 'center' }}>
+                  {/* Small loading spinner while messages load */}
+                  <div style={{
+                    width: '32px',
+                    height: '32px',
+                    border: '3px solid #e5e7eb',
+                    borderTop: '3px solid #3b82f6',
+                    borderRadius: '50%',
+                    animation: 'spin 0.8s linear infinite',
+                    margin: '0 auto 12px',
+                  }} />
+                  <p style={{ color: '#9ca3af', fontSize: '14px', margin: 0 }}>Loading conversations...</p>
+                </div>
+              </div>
+            )}
           </div>
         ) : selectedConversation ? (
           <div className={styles.chatArea}>
@@ -924,9 +942,11 @@ function MessagesPageContent() {
                       style={{
                         display: 'flex',
                         flexDirection: 'column',
-                        marginBottom: isSameSender ? '2px' : '16px',
+                        marginBottom: isSameSender ? '6px' : '14px',
                         alignItems: isOwnMessage ? 'flex-end' : 'flex-start',
-                        paddingBottom: isSameSender ? 0 : '8px',
+                        paddingBottom: isSameSender ? '2px' : '6px',
+                        borderTop: !isSameSender && idx > 0 ? '1px solid #f3f4f6' : 'none',
+                        paddingTop: !isSameSender && idx > 0 ? '6px' : '0px',
                       }}
                     >
                       {/* Message Row */}
@@ -959,17 +979,20 @@ function MessagesPageContent() {
                         <div
                           className={styles.messageBubble}
                           style={{
-                            maxWidth: '60%',
+                            maxWidth: '65%',
                             padding: '10px 14px',
                             borderRadius: isOwnMessage
                               ? '18px 18px 4px 18px'
                               : '18px 18px 18px 4px',
-                            backgroundColor: isOwnMessage ? '#3b82f6' : '#e5e7eb',
+                            backgroundColor: isOwnMessage ? '#3b82f6' : '#f3f4f6',
                             color: isOwnMessage ? '#ffffff' : '#1f2937',
                             wordWrap: 'break-word',
                             wordBreak: 'break-word',
-                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                            boxShadow: isOwnMessage
+                              ? '0 2px 8px rgba(59, 130, 246, 0.15)'
+                              : '0 1px 3px rgba(0,0,0,0.08)',
                             transition: 'all 0.2s ease',
+                            border: isOwnMessage ? 'none' : '1px solid #e5e7eb',
                           }}
                           onMouseEnter={(e) => {
                             e.currentTarget.style.boxShadow = isOwnMessage
@@ -981,7 +1004,7 @@ function MessagesPageContent() {
                           }}
                         >
                           {!isOwnMessage && !isSameSender && (
-                            <p style={{ margin: '0 0 4px 0', fontSize: '12px', fontWeight: '600', opacity: 0.8 }}>
+                            <p style={{ margin: '0 0 6px 0', fontSize: '12px', fontWeight: '700', color: '#374151', letterSpacing: '0.3px' }}>
                               {msg.senderName}
                             </p>
                           )}
