@@ -86,16 +86,56 @@ function MessagesPageContent() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Sync API conversations with local state
+  // Sync API conversations with local state (merge to avoid losing selected conversation)
   useEffect(() => {
     if (apiConversations.length > 0) {
-      setConversations(apiConversations);
-    }
-  }, [apiConversations]);
+      setConversations((prevConversations) => {
+        // Merge new conversations with existing ones
+        const merged = [...apiConversations];
 
-  // Sync API messages with local state
+        // Keep the selected conversation if it's not in the new list
+        if (selectedConversationId) {
+          const selectedConv = prevConversations.find((c) => c.id === selectedConversationId);
+          if (selectedConv && !merged.find((c) => c.id === selectedConversationId)) {
+            merged.push(selectedConv);
+          }
+        }
+
+        // Remove duplicates, keeping the updated version
+        const deduped = Array.from(
+          new Map(merged.map((c) => [c.id, c])).values()
+        );
+
+        return deduped;
+      });
+    }
+  }, [apiConversations, selectedConversationId]);
+
+  // Sync API messages with local state (merge to avoid losing messages)
   useEffect(() => {
-    setMessages(apiMessages);
+    if (Object.keys(apiMessages).length > 0) {
+      setMessages((prevMessages) => {
+        const merged = { ...prevMessages };
+
+        // Merge API messages with existing ones
+        for (const [convId, newMsgs] of Object.entries(apiMessages)) {
+          const existing = merged[convId] || [];
+          const newMessages = (newMsgs as any[]).filter(
+            (msg) => !existing.find((m) => m.id === msg.id)
+          );
+
+          if (newMessages.length > 0) {
+            merged[convId] = [...existing, ...newMessages];
+            // Sort by timestamp
+            merged[convId].sort((a, b) => a.timestamp - b.timestamp);
+          } else if (!merged[convId]) {
+            merged[convId] = newMsgs as Message[];
+          }
+        }
+
+        return merged;
+      });
+    }
   }, [apiMessages]);
 
   // Auto-scroll to latest message
@@ -943,14 +983,13 @@ function MessagesPageContent() {
                         display: 'flex',
                         flexDirection: 'column',
                         marginBottom: isSameSender ? '6px' : '14px',
-                        alignItems: isOwnMessage ? 'flex-end' : 'flex-start',
                         paddingBottom: isSameSender ? '2px' : '6px',
                         borderTop: !isSameSender && idx > 0 ? '1px solid #f3f4f6' : 'none',
                         paddingTop: !isSameSender && idx > 0 ? '6px' : '0px',
                       }}
                     >
                       {/* Message Row */}
-                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', width: '100%' }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', width: '100%', justifyContent: isOwnMessage ? 'flex-end' : 'flex-start' }}>
                         {/* Avatar for received messages (grouped) */}
                         {!isOwnMessage && !isSameSender && (
                           <div
