@@ -1,33 +1,15 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
 /* ========================================================================================
-   TYPES
-======================================================================================== */
-
-interface ITPPlan {
-  id: string;
-  title: string;
-  cue: string;
-  cueType: string;
-  action: string;
-  priority?: number;
-  confidence?: number;
-  doneToday?: boolean;
-  tags?: string[];
-  category?: string;
-}
-
-/* ========================================================================================
    CONSTANTS (localStorage keys)
 ======================================================================================== */
 
-const ITP_LS_KEY = "fuy.itp.plans.v1";
 const POMO_LS_KEY = "fuy.pomo.v1";
 const BREATH_LS_LAST = "fuy.breath.last.v1";
 const THOUGHTS_TODAY = "fuy.thoughts.today.v1";
@@ -108,33 +90,6 @@ function useLSWatch<T>(
 
 export default function DashboardPage() {
   const { data: session, status } = useSession();
-  const router = useRouter();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [plans, setPlans] = useState<ITPPlan[]>([]);
-  const [isLoadingData, setIsLoadingData] = useState(true);
-
-  useEffect(() => {
-    setIsLoadingData(true);
-    // Load ITP plans
-    if (typeof window !== "undefined") {
-      try {
-        const raw = localStorage.getItem(ITP_LS_KEY);
-        if (raw) setPlans(JSON.parse(raw));
-      } catch {}
-    }
-    setIsLoadingData(false);
-  }, []);
-
-  useLSWatch<ITPPlan[]>(
-    ITP_LS_KEY,
-    () => {
-      const raw = localStorage.getItem(ITP_LS_KEY);
-      return raw ? (JSON.parse(raw) as ITPPlan[]) : [];
-    },
-    (v) => setPlans(v ?? [])
-  );
-
-  const doneCount = useMemo(() => plans.filter((p) => p.doneToday).length, [plans]);
 
   // Show loading spinner while session is being authenticated
   if (status === 'loading') {
@@ -211,7 +166,6 @@ export default function DashboardPage() {
 
             {/* WELLNESS CARDS - Responsive grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-5 lg:gap-6 w-full">
-              <ITPPreview />
               <BreathingPreview />
               <ThoughtsPreview />
               <GroundingPreview />
@@ -220,69 +174,6 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
-      </div>
-    </div>
-  );
-}
-
-/* ========================================================================================
-   ITP PREVIEW
-======================================================================================== */
-
-function ITPPreview() {
-  const router = useRouter();
-  const [plans, setPlans] = useState<ITPPlan[]>([]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const raw = localStorage.getItem(ITP_LS_KEY);
-      if (raw) setPlans(JSON.parse(raw));
-    } catch {}
-  }, []);
-
-  useLSWatch<ITPPlan[]>(
-    ITP_LS_KEY,
-    () => {
-      const raw = localStorage.getItem(ITP_LS_KEY);
-      return raw ? (JSON.parse(raw) as ITPPlan[]) : [];
-    },
-    (v) => setPlans(v ?? [])
-  );
-
-  const doneCount = useMemo(() => plans.filter((p) => p.doneToday).length, [plans]);
-  const total = plans.length || 1;
-  const percent = Math.round((doneCount / total) * 100);
-  const pendingCount = Math.max(0, plans.length - doneCount);
-
-  return (
-    <div
-      className="rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 border hover:shadow-lg transition-all backdrop-blur-md group active:scale-98 sm:active:scale-100"
-      style={{
-        backgroundColor: "rgba(124, 58, 237, 0.08)",
-        borderColor: "rgba(124, 58, 237, 0.2)",
-      }}
-      onClick={() => router.push("/itp")}
-    >
-      <h3 className="text-base sm:text-lg md:text-lg font-bold text-gray-900 mb-3 sm:mb-4 group-hover:text-purple-600 transition-colors line-clamp-2">ITP — Plan Tracker</h3>
-      <div className="space-y-2.5 sm:space-y-3">
-        <div className="flex justify-between items-center gap-2">
-          <span className="text-xs sm:text-sm text-gray-700">Done</span>
-          <span className="text-xs sm:text-sm font-semibold text-purple-600">{doneCount}/{plans.length}</span>
-        </div>
-        <div className="flex justify-between items-center gap-2">
-          <span className="text-xs sm:text-sm text-gray-700">Pending</span>
-          <span className="text-xs sm:text-sm font-semibold text-gray-900">{pendingCount}</span>
-        </div>
-        <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: "rgba(124, 58, 237, 0.1)" }}>
-          <div
-            className="h-full transition-all duration-500"
-            style={{ width: `${percent}%`, backgroundColor: "#7c3aed" }}
-          />
-        </div>
-        <p className="text-xs mt-2.5 sm:mt-3 text-gray-600">
-          Click to manage plans
-        </p>
       </div>
     </div>
   );

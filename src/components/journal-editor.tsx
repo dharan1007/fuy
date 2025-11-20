@@ -797,11 +797,13 @@ export default function JournalEditor() {
             onChange={(e) => setMood(e.target.value as Mood)}
             className="rounded-xl border border-black/20 bg-white px-2 py-2 text-sm"
           >
-            {["😍", "😀", "🙂", "😐", "😟", "😢", "😡"].map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
+            <option value="😍">Love</option>
+            <option value="😀">Happy</option>
+            <option value="🙂">Good</option>
+            <option value="😐">Neutral</option>
+            <option value="😟">Worried</option>
+            <option value="😢">Sad</option>
+            <option value="😡">Angry</option>
           </select>
 
           <div className="hidden items-center gap-1 md:flex">
@@ -931,6 +933,13 @@ export default function JournalEditor() {
             </Btn>
 
             <div className="ml-auto" />
+            <Btn
+              variant="outline"
+              onClick={() => window.location.href = "/itp"}
+              title="Go to If-Then Plans"
+            >
+              Plans
+            </Btn>
             <Btn
               variant={autoSaveEnabled ? "solid" : "soft"}
               onClick={() => {
