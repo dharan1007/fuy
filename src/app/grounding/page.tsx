@@ -289,13 +289,15 @@ export default function GroundingPage() {
                 position: "relative",
                 flexShrink: 0,
                 display: "block",
+                minHeight: "550px",
+                maxHeight: "550px",
               }}
             >
-              <div style={{ width: "100%", height: "100%" }}>
+              <div style={{ width: "100%", height: "100%", position: "relative", display: "block", overflow: "hidden" }}>
                 <LeafletMap
                   basemapStyle={basemapStyle}
                   activeCategory={null}
-                  height="100%"
+                  height="550px"
                 />
               </div>
             </div>

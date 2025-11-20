@@ -168,11 +168,22 @@ export default function LeafletMap({
   useEffect(() => {
     if (!leafletReady || !mapElRef.current || mapRef.current) return;
     const L = LRef.current as typeof import("leaflet");
+
+    // Ensure container has proper dimensions before creating map
+    const container = mapElRef.current;
+    if (!container || container.offsetWidth === 0 || container.offsetHeight === 0) {
+      console.warn('Map container has zero dimensions, retrying...');
+      setTimeout(() => {}, 50);
+      return;
+    }
+
     const map = L.map(mapElRef.current, {
       center,
       zoom,
       scrollWheelZoom: true,
       zoomControl: true,
+      attributionControl: true,
+      preferCanvas: true, // Better performance with canvas rendering
     });
     mapRef.current = map;
 
@@ -180,14 +191,24 @@ export default function LeafletMap({
     poiLayerRef.current = L.layerGroup().addTo(map);
 
     const { url, attr } = basemap(basemapStyle);
-    tileLayerRef.current = L.tileLayer(url, { attribution: attr }).addTo(map);
+    tileLayerRef.current = L.tileLayer(url, {
+      attribution: attr,
+      maxZoom: 19,
+      minZoom: 0,
+      updateWhenIdle: false,
+      keepBuffer: 2,
+    }).addTo(map);
 
-    // Immediately invalidate size after tiles load to ensure proper rendering
-    try {
-      map.invalidateSize(false);
-    } catch (e) {
-      // ignore
-    }
+    // Ensure tile layer loads and then invalidate size
+    const onTileLoad = () => {
+      try {
+        map.invalidateSize(true);
+      } catch (e) {
+        // ignore
+      }
+    };
+
+    tileLayerRef.current.on('load', onTileLoad);
 
     // restore route
     drawRoute(getPts());
@@ -215,10 +236,12 @@ export default function LeafletMap({
     window.addEventListener("keydown", onKey);
 
     // first paint - aggressive multiple attempts to ensure map renders
+    // Start with immediate, then progressively longer intervals
+    setTimeout(scheduleInvalidate, 0);
+    setTimeout(scheduleInvalidate, 50);
     setTimeout(scheduleInvalidate, 100);
     setTimeout(scheduleInvalidate, 200);
-    setTimeout(scheduleInvalidate, 400);
-    setTimeout(scheduleInvalidate, 600);
+    setTimeout(scheduleInvalidate, 500);
     setTimeout(scheduleInvalidate, 1000);
     setTimeout(scheduleInvalidate, 1500);
 
@@ -229,6 +252,9 @@ export default function LeafletMap({
       // cancel any pending rAF to avoid running after removal
       if (rafId.current != null) cancelAnimationFrame(rafId.current);
       try {
+        if (tileLayerRef.current) {
+          tileLayerRef.current.off('load', onTileLoad);
+        }
         map.remove();
       } finally {
         mapRef.current = null;
