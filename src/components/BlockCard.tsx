@@ -155,100 +155,112 @@ export default function BlockCard({ block, active }: Props) {
         />
       )}
 
-      <div className="h-full w-full rounded-2xl bg-white shadow-sm ring-1 ring-black/15">
-        {block.type === "TEXT" && (
-          <textarea
-            data-no-drag
-            className="h-full w-full resize-none rounded-2xl bg-white p-3 text-sm outline-none"
-            value={block.text || ""}
-            onChange={(e) => update({ text: e.target.value })}
-            placeholder="Write…"
-          />
-        )}
+      {block.type === "TEXT" && (
+        <textarea
+          data-no-drag
+          className="h-full w-full resize-none bg-transparent p-2 text-sm outline-none"
+          style={{
+            border: active ? "2px solid #000" : "1px solid #ddd",
+            borderRadius: 8,
+          }}
+          value={block.text || ""}
+          onChange={(e) => update({ text: e.target.value })}
+          placeholder="Write…"
+        />
+      )}
 
-        {block.type === "CHECKLIST" && (
-          <div className="flex h-full w-full flex-col gap-2 p-2">
-            <div className="flex-1 overflow-auto">
-              {(block.checklist ?? []).map((it, i) => (
-                <label
-                  key={it.id}
-                  className="mb-1 flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-black/5"
-                >
-                  <input
-                    data-no-drag
-                    type="checkbox"
-                    className="size-4"
-                    checked={!!it.done}
-                    onChange={(e) => {
-                      const next = [...(block.checklist ?? [])];
-                      next[i] = { ...it, done: e.target.checked };
-                      update({ checklist: next });
-                    }}
-                  />
-                  <input
-                    data-no-drag
-                    className="flex-1 border-none bg-transparent text-sm outline-none"
-                    value={it.text}
-                    onChange={(e) => {
-                      const next = [...(block.checklist ?? [])];
-                      next[i] = { ...it, text: e.target.value };
-                      update({ checklist: next });
-                    }}
-                    placeholder="List item"
-                  />
-                </label>
-              ))}
-            </div>
-            <div className="flex items-center gap-2">
+      {block.type === "CHECKLIST" && (
+        <div
+          className="flex h-full w-full flex-col gap-2 p-2"
+          style={{
+            border: active ? "2px solid #000" : "1px solid #ddd",
+            borderRadius: 8,
+            backgroundColor: "transparent",
+          }}
+        >
+          <div className="flex-1 overflow-auto">
+            {(block.checklist ?? []).map((it, i) => (
+              <label
+                key={it.id}
+                className="mb-1 flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-black/5"
+              >
+                <input
+                  data-no-drag
+                  type="checkbox"
+                  className="size-4"
+                  checked={!!it.done}
+                  onChange={(e) => {
+                    const next = [...(block.checklist ?? [])];
+                    next[i] = { ...it, done: e.target.checked };
+                    update({ checklist: next });
+                  }}
+                />
+                <input
+                  data-no-drag
+                  className="flex-1 border-none bg-transparent text-sm outline-none"
+                  value={it.text}
+                  onChange={(e) => {
+                    const next = [...(block.checklist ?? [])];
+                    next[i] = { ...it, text: e.target.value };
+                    update({ checklist: next });
+                  }}
+                  placeholder="List item"
+                />
+              </label>
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              data-no-drag
+              className="rounded-md border border-black/20 px-2 py-1 text-sm hover:bg-black/5"
+              onClick={() =>
+                update({
+                  checklist: [
+                    ...(block.checklist ?? []),
+                    { id: crypto.randomUUID(), text: "New item", done: false },
+                  ],
+                })
+              }
+            >
+              Add
+            </button>
+            {!!(block.checklist ?? []).length && (
               <button
                 data-no-drag
-                className="rounded-md border border-black/20 px-2 py-1 text-sm"
+                className="rounded-md border border-black/20 px-2 py-1 text-sm hover:bg-black/5"
                 onClick={() =>
                   update({
-                    checklist: [
-                      ...(block.checklist ?? []),
-                      { id: crypto.randomUUID(), text: "New item", done: false },
-                    ],
+                    checklist: (block.checklist ?? []).filter((x) => !x.done),
                   })
                 }
               >
-                Add
+                Clear done
               </button>
-              {!!(block.checklist ?? []).length && (
-                <button
-                  data-no-drag
-                  className="rounded-md border border-black/20 px-2 py-1 text-sm"
-                  onClick={() =>
-                    update({
-                      checklist: (block.checklist ?? []).filter((x) => !x.done),
-                    })
-                  }
-                >
-                  Clear done
-                </button>
-              )}
-            </div>
+            )}
           </div>
-        )}
+        </div>
+      )}
 
-        {block.type === "DRAW" && (
-          <DrawLayer stroke={block.drawing?.stroke ?? "#000"} strokeWidth={block.drawing?.strokeWidth ?? 2}
-            onMutatePaths={(paths) => update({ drawing: { stroke: "#000", strokeWidth: 2, paths } })}
-          />
-        )}
+      {block.type === "DRAW" && (
+        <DrawLayer
+          stroke={block.drawing?.stroke ?? "#000"}
+          strokeWidth={block.drawing?.strokeWidth ?? 2}
+          onMutatePaths={(paths) => update({ drawing: { stroke: "#000", strokeWidth: 2, paths } })}
+          active={active}
+        />
+      )}
 
-        {block.type === "IMAGE" && (
-          <ImageLayer block={block} onPatch={update} />
-        )}
+      {block.type === "IMAGE" && (
+        <ImageLayer block={block} onPatch={update} active={active} />
+      )}
 
-        {block.type === "VIDEO" && (
-          <VideoLayer block={block} onPatch={update} />
-        )}
+      {block.type === "VIDEO" && (
+        <VideoLayer block={block} onPatch={update} active={active} />
+      )}
 
-        {block.type === "AUDIO" && (
-          <AudioLayer block={block} onPatch={update} />
-        )}
-      </div>
+      {block.type === "AUDIO" && (
+        <AudioLayer block={block} onPatch={update} active={active} />
+      )}
 
       {/* resizer */}
       <div
@@ -292,10 +304,12 @@ function DrawLayer({
   stroke,
   strokeWidth,
   onMutatePaths,
+  active,
 }: {
   stroke: string;
   strokeWidth: number;
   onMutatePaths: (paths: { points: [number, number][] }[]) => void;
+  active?: boolean;
 }) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const draw = useRef({ down: false });
@@ -345,38 +359,57 @@ function DrawLayer({
   }, [onMutatePaths]);
 
   return (
-    <svg ref={svgRef} data-no-drag className="h-full w-full rounded-2xl bg-white">
+    <svg
+      ref={svgRef}
+      data-no-drag
+      className="h-full w-full"
+      style={{
+        border: active ? "2px solid #000" : "1px solid #ddd",
+        borderRadius: 8,
+        backgroundColor: "transparent",
+      }}
+    >
       {/* paths are drawn by consumer via patching; this stub keeps the layer */}
       {/* keep simple: actual path rendering occurs from parent Block state */}
     </svg>
   );
 }
 
-function ImageLayer({ block, onPatch }: { block: Block; onPatch: (p: Partial<Block>) => void }) {
+function ImageLayer({ block, onPatch, active }: { block: Block; onPatch: (p: Partial<Block>) => void; active?: boolean }) {
   const [tmpUrl, setTmpUrl] = useState(block.url || "");
   useEffect(() => setTmpUrl(block.url || ""), [block.url]);
 
   return (
-    <div className="flex h-full w-full flex-col">
-      <div className="relative flex-1 overflow-hidden rounded-2xl bg-black/5">
+    <div
+      className="flex h-full w-full flex-col"
+      style={{
+        border: active ? "2px solid #000" : "1px solid #ddd",
+        borderRadius: 8,
+        backgroundColor: "transparent",
+        overflow: "hidden",
+      }}
+    >
+      <div className="relative flex-1 overflow-hidden">
         {block.url ? (
-          <img src={block.url} alt={block.caption || "image"} className="h-full w-full bg-black/10 object-contain" />
+          <img src={block.url} alt={block.caption || "image"} className="h-full w-full object-contain" />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-sm text-black/50">
-            Drop an image or paste a URL below
+          <div className="flex h-full w-full items-center justify-center text-xs text-black/40">
+            Paste image URL below
           </div>
         )}
       </div>
-      <div className="flex items-center gap-2 p-2">
+      <div className="flex items-center gap-1 p-1 bg-black/5">
         <input
-          className="flex-1 rounded-xl border border-black/20 bg-white px-2 py-1 text-sm outline-none"
+          data-no-drag
+          className="flex-1 border-none bg-transparent px-1 py-0.5 text-xs outline-none"
           placeholder="Caption"
           value={block.caption || ""}
           onChange={(e) => onPatch({ caption: e.target.value })}
         />
         <input
-          className="flex-1 min-w-[180px] rounded-xl border border-black/20 bg-white px-2 py-1 text-sm outline-none"
-          placeholder="Paste image URL…"
+          data-no-drag
+          className="flex-1 min-w-[120px] border-none bg-transparent px-1 py-0.5 text-xs outline-none"
+          placeholder="Image URL…"
           value={tmpUrl}
           onChange={(e) => setTmpUrl(e.target.value)}
           onBlur={() => tmpUrl.trim() && onPatch({ url: tmpUrl.trim() })}
@@ -386,25 +419,34 @@ function ImageLayer({ block, onPatch }: { block: Block; onPatch: (p: Partial<Blo
   );
 }
 
-function VideoLayer({ block, onPatch }: { block: Block; onPatch: (p: Partial<Block>) => void }) {
+function VideoLayer({ block, onPatch, active }: { block: Block; onPatch: (p: Partial<Block>) => void; active?: boolean }) {
   const [tmpUrl, setTmpUrl] = useState(block.url || "");
   useEffect(() => setTmpUrl(block.url || ""), [block.url]);
 
   return (
-    <div className="flex h-full w-full flex-col">
-      <div className="relative flex-1 overflow-hidden rounded-2xl bg-black/80">
+    <div
+      className="flex h-full w-full flex-col"
+      style={{
+        border: active ? "2px solid #000" : "1px solid #ddd",
+        borderRadius: 8,
+        backgroundColor: "transparent",
+        overflow: "hidden",
+      }}
+    >
+      <div className="relative flex-1 overflow-hidden bg-black/10">
         {block.url ? (
           <video src={block.url} controls className="h-full w-full object-contain" />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-sm text-white/70">
-            Paste a video URL below
+          <div className="flex h-full w-full items-center justify-center text-xs text-black/40">
+            Paste video URL below
           </div>
         )}
       </div>
-      <div className="flex items-center gap-2 p-2">
+      <div className="flex items-center gap-1 p-1 bg-black/5">
         <input
-          className="flex-1 rounded-xl border border-black/20 bg-white px-2 py-1 text-sm outline-none"
-          placeholder="Paste video URL…"
+          data-no-drag
+          className="flex-1 border-none bg-transparent px-1 py-0.5 text-xs outline-none"
+          placeholder="Video URL…"
           value={tmpUrl}
           onChange={(e) => setTmpUrl(e.target.value)}
           onBlur={() => tmpUrl.trim() && onPatch({ url: tmpUrl.trim() })}
@@ -414,25 +456,34 @@ function VideoLayer({ block, onPatch }: { block: Block; onPatch: (p: Partial<Blo
   );
 }
 
-function AudioLayer({ block, onPatch }: { block: Block; onPatch: (p: Partial<Block>) => void }) {
+function AudioLayer({ block, onPatch, active }: { block: Block; onPatch: (p: Partial<Block>) => void; active?: boolean }) {
   const [tmpUrl, setTmpUrl] = useState(block.url || "");
   useEffect(() => setTmpUrl(block.url || ""), [block.url]);
 
   return (
-    <div className="flex h-full w-full flex-col">
-      <div className="flex-1 overflow-hidden rounded-2xl bg-black/5">
+    <div
+      className="flex h-full w-full flex-col"
+      style={{
+        border: active ? "2px solid #000" : "1px solid #ddd",
+        borderRadius: 8,
+        backgroundColor: "transparent",
+        overflow: "hidden",
+      }}
+    >
+      <div className="flex-1 overflow-hidden p-2 bg-black/5">
         {block.url ? (
-          <div className="p-3"><audio src={block.url} controls className="w-full" /></div>
+          <audio src={block.url} controls className="w-full" />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-sm text-black/60">
-            Paste an audio URL below
+          <div className="flex h-full w-full items-center justify-center text-xs text-black/40">
+            Paste audio URL below
           </div>
         )}
       </div>
-      <div className="flex items-center gap-2 p-2">
+      <div className="flex items-center gap-1 p-1 bg-black/5 border-t border-black/10">
         <input
-          className="flex-1 rounded-xl border border-black/20 bg-white px-2 py-1 text-sm outline-none"
-          placeholder="Paste audio URL…"
+          data-no-drag
+          className="flex-1 border-none bg-transparent px-1 py-0.5 text-xs outline-none"
+          placeholder="Audio URL…"
           value={tmpUrl}
           onChange={(e) => setTmpUrl(e.target.value)}
           onBlur={() => tmpUrl.trim() && onPatch({ url: tmpUrl.trim() })}
