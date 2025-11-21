@@ -1,5 +1,7 @@
 // src/app/api/hopin/my-plans/route.ts
 import { NextResponse } from 'next/server';
+
+export const dynamic = 'force-dynamic';
 import { prisma } from '@/lib/prisma';
 import { getSessionUser } from '@/lib/session';
 
