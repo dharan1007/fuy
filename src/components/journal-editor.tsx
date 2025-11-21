@@ -6,6 +6,7 @@ import {
   BlockType,
   JournalEntry,
   Mood,
+  Sheet,
   TemplateFull,
   TemplateVisibility,
   analyzeEntryForTags,
@@ -41,7 +42,8 @@ export default function JournalEditor() {
   const [title, setTitle] = useState("Morning Reflection");
   const [mood, setMood] = useState<Mood>("🙂");
   const [tags, setTags] = useState<string[]>([]);
-  const [blocks, setBlocks] = useState<Block[]>([]);
+  const [sheets, setSheets] = useState<Sheet[]>([{ id: uid(), name: "Sheet 1", blocks: [] }]);
+  const [activeSheetId, setActiveSheetId] = useState<string>(sheets[0]?.id || "");
   const [activeId, setActiveId] = useState<string | null>(null);
 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -50,7 +52,7 @@ export default function JournalEditor() {
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
-  const panRef = useRef({ down: false, sx: 0, sy: 0, ox: 0, oy: 0 });
+  const panRef = useRef({ down: false, sx: 0, sy: 0, ox: 0, oy: 0, isDragging: false });
 
   const [sidebarW, setSidebarW] = useState(360);
   const sideResRef = useRef({ down: false, sx: 0, sw: 360 });
@@ -87,6 +89,17 @@ export default function JournalEditor() {
     setCommunityTemplates(loadCommunity());
   }, []);
 
+  // Helper to get current sheet's blocks
+  const currentSheet = sheets.find(s => s.id === activeSheetId) || sheets[0];
+  const blocks = currentSheet?.blocks || [];
+
+  // Helper to update current sheet's blocks
+  const updateBlocks = (newBlocks: Block[]) => {
+    setSheets(prev => prev.map(s =>
+      s.id === activeSheetId ? { ...s, blocks: newBlocks } : s
+    ));
+  };
+
   const textSummary = useMemo(() => pickSummary(blocks), [blocks]);
   useEffect(() => {
     const info = analyzeEntryForTags(textSummary);
@@ -102,17 +115,31 @@ export default function JournalEditor() {
 
     const down = (e: MouseEvent) => {
       const t = e.target as HTMLElement;
+      // Detect if we're clicking on a block (for dragging)
+      const isBlockDrag = t.closest("[data-block]") !== null && !t.closest("[data-no-drag]");
+
+      if (isBlockDrag) {
+        // Let the block handle dragging, don't pan
+        panRef.current.isDragging = true;
+        return;
+      }
+
       if (t.closest("[data-resizer]") || t.closest("[data-no-drag]") || t.closest("[data-block-toolbar]")) return;
       if (e.button !== 0) return;
-      panRef.current = { down: true, sx: e.clientX, sy: e.clientY, ox: offset.x, oy: offset.y };
+
+      panRef.current = { down: true, sx: e.clientX, sy: e.clientY, ox: offset.x, oy: offset.y, isDragging: false };
     };
     const move = (e: MouseEvent) => {
+      if (panRef.current.isDragging) return; // Don't pan while dragging blocks
       if (!panRef.current.down) return;
       const dx = e.clientX - panRef.current.sx;
       const dy = e.clientY - panRef.current.sy;
       setOffset({ x: panRef.current.ox + dx, y: panRef.current.oy + dy });
     };
-    const up = () => { panRef.current.down = false; };
+    const up = () => {
+      panRef.current.down = false;
+      panRef.current.isDragging = false;
+    };
     const wheel = (e: WheelEvent) => {
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
@@ -162,7 +189,7 @@ export default function JournalEditor() {
       if (changed) {
         const arr = [...blocks];
         arr[idx] = b;
-        setBlocks(arr);
+        updateBlocks(arr);
       }
       return;
     }
@@ -215,26 +242,26 @@ export default function JournalEditor() {
       const e = ev as CustomEvent<{ id: string }>;
       const id = e.detail?.id;
       if (!id) return;
-      setBlocks((prev) => prev.filter((b) => b.id !== id));
+      updateBlocks(blocks.filter((b) => b.id !== id));
       setActiveId((aid) => (aid === id ? null : aid));
     };
     const onUpdate = (ev: Event) => {
       const e = ev as CustomEvent<{ id: string; patch: Partial<Block> }>;
       const { id, patch } = e.detail || {};
       if (!id || !patch) return;
-      setBlocks((prev) => prev.map((b) => (b.id === id ? { ...b, ...patch } : b)));
+      updateBlocks(blocks.map((b) => (b.id === id ? { ...b, ...patch } : b)));
     };
     const onMove = (ev: Event) => {
       const e = ev as CustomEvent<{ id: string; x: number; y: number }>;
       const { id, x, y } = e.detail || {};
       if (!id) return;
-      setBlocks((prev) => prev.map((b) => (b.id === id ? { ...b, x, y } : b)));
+      updateBlocks(blocks.map((b) => (b.id === id ? { ...b, x, y } : b)));
     };
     const onResize = (ev: Event) => {
       const e = ev as CustomEvent<{ id: string; w: number; h: number }>;
       const { id, w, h } = e.detail || {};
       if (!id) return;
-      setBlocks((prev) => prev.map((b) => (b.id === id ? { ...b, w, h } : b)));
+      updateBlocks(blocks.map((b) => (b.id === id ? { ...b, w, h } : b)));
     };
     const onActivate = (ev: Event) => {
       const e = ev as CustomEvent<{ id: string }>;
@@ -254,7 +281,7 @@ export default function JournalEditor() {
       window.removeEventListener("block:resize", onResize as EventListener);
       window.removeEventListener("block:activate", onActivate as EventListener);
     };
-  }, []);
+  }, [blocks, updateBlocks]);
 
   /* ------------ TEMPLATE EVENT BRIDGE ------------- */
   useEffect(() => {
@@ -311,7 +338,7 @@ export default function JournalEditor() {
       window.removeEventListener("preview:save", onPrevSave as EventListener);
       window.removeEventListener("preview:close", onPrevClose as EventListener);
     };
-  }, [communityTemplates, localTemplates]);
+  }, [communityTemplates, localTemplates, updateBlocks, blocks]);
 
   /* ------------ block/template helpers ------------- */
   const addBlock = (partial: Partial<Block>) => {
@@ -324,7 +351,7 @@ export default function JournalEditor() {
       h: 180,
       ...partial,
     };
-    setBlocks((s) => [...s, b]);
+    updateBlocks([...blocks, b]);
     setActiveId(b.id);
   };
 
@@ -368,7 +395,7 @@ export default function JournalEditor() {
         maxH = 0;
       }
     }
-    setBlocks((s) => [...s, ...newBlocks]);
+    updateBlocks([...blocks, ...newBlocks]);
     if (newBlocks[0]) setActiveId(newBlocks[0].id);
   };
 
@@ -383,7 +410,7 @@ export default function JournalEditor() {
       coverUrl: blocks.find((b) => b.type === "IMAGE")?.url,
       mood,
       tags: Array.from(new Set([...(tags ?? []), ...(computed.tags ?? [])])).slice(0, 12),
-      blocks,
+      sheets,
       summary: computed.summary,
     };
     const all = [entry, ...entries];
@@ -394,7 +421,8 @@ export default function JournalEditor() {
 
   const newFromBlank = () => {
     setTitle("New Journal");
-    setBlocks([]);
+    setSheets([{ id: uid(), name: "Sheet 1", blocks: [] }]);
+    setActiveSheetId((s) => s); // Keep the first sheet
     setActiveId(null);
     setMood("🙂");
     setTags([]);
@@ -408,7 +436,10 @@ export default function JournalEditor() {
 
   const openEntry = (e: JournalEntry) => {
     setTitle(e.title);
-    setBlocks(e.blocks);
+    // Support both old format (blocks) and new format (sheets)
+    const loadedSheets = e.sheets || (e.blocks ? [{ id: uid(), name: "Sheet 1", blocks: e.blocks }] : [{ id: uid(), name: "Sheet 1", blocks: [] }]);
+    setSheets(loadedSheets);
+    setActiveSheetId(loadedSheets[0]?.id || "");
     setMood(e.mood ?? "🙂");
     setTags(e.tags ?? []);
     const d = new Date(e.dateISO);
@@ -583,7 +614,7 @@ export default function JournalEditor() {
     }
 
     if (created.length) {
-      setBlocks((prev) => [...prev, ...created]);
+      updateBlocks([...blocks, ...created]);
       setActiveId(created[0].id);
     }
   }
@@ -953,6 +984,47 @@ export default function JournalEditor() {
               dbot
             </Btn>
           </div>
+        </div>
+
+        {/* Sheet Tabs */}
+        <div className="sticky top-[104px] z-10 border-b border-black/10 bg-white px-3 py-2 flex items-center gap-2 overflow-x-auto">
+          {sheets.map((sheet) => (
+            <button
+              key={sheet.id}
+              onClick={() => {
+                setActiveSheetId(sheet.id);
+                setActiveId(null);
+              }}
+              className={`px-3 py-1 rounded-lg text-sm whitespace-nowrap ${
+                activeSheetId === sheet.id
+                  ? 'bg-black text-white'
+                  : 'bg-black/5 hover:bg-black/10'
+              }`}
+            >
+              {sheet.name}
+            </button>
+          ))}
+          <button
+            onClick={() => {
+              const name = prompt("Sheet name?") || `Sheet ${sheets.length + 1}`;
+              setSheets([...sheets, { id: uid(), name, blocks: [] }]);
+            }}
+            className="px-3 py-1 rounded-lg text-sm bg-black/5 hover:bg-black/10 whitespace-nowrap"
+          >
+            + Add
+          </button>
+          {sheets.length > 1 && (
+            <button
+              onClick={() => {
+                const newSheets = sheets.filter(s => s.id !== activeSheetId);
+                setSheets(newSheets);
+                setActiveSheetId(newSheets[0]?.id || "");
+              }}
+              className="ml-auto px-3 py-1 rounded-lg text-sm bg-red-50 text-red-600 hover:bg-red-100 whitespace-nowrap"
+            >
+              Delete
+            </button>
+          )}
         </div>
 
         {/* Canvas */}

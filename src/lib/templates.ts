@@ -26,6 +26,12 @@ export type Block = {
   overlay?: { paths: { points: [number, number][] }[]; stroke: string; strokeWidth: number };
 };
 
+export type Sheet = {
+  id: string;
+  name: string;
+  blocks: Block[];
+};
+
 export type TemplateVisibility = "PRIVATE" | "PUBLIC";
 
 export type TemplateReview = {
@@ -62,7 +68,8 @@ export type JournalEntry = {
   coverUrl?: string;
   mood?: Mood;
   tags?: string[];
-  blocks: Block[];
+  sheets: Sheet[];
+  blocks?: Block[]; // legacy support
   summary: string;
 };
 
