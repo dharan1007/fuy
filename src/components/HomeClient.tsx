@@ -289,32 +289,32 @@ export default function HomeClient() {
             <header className="sticky top-0 z-50 px-4 sm:px-6 py-4 pointer-events-none relative">
                 <div className="flex items-center justify-between gap-3 sm:gap-4">
                     {/* Logo/Explore Module */}
-                    <div className="bg-white/50 backdrop-blur-md border border-white/40 rounded-lg sm:rounded-xl px-4 sm:px-6 py-2.5 sm:py-3 shadow-sm pointer-events-auto hover:bg-white/60 transition-all">
+                    <div className="bg-transparent backdrop-blur-md border border-white/40 rounded-lg sm:rounded-xl px-4 sm:px-6 py-2.5 sm:py-3 shadow-sm pointer-events-auto hover:bg-white/10 transition-all">
                         <Link href="/" className="flex items-center gap-2">
                             <span className="text-lg sm:text-2xl">◌</span>
-                            <span className="hidden sm:inline text-sm font-semibold text-gray-800">Explore</span>
+                            <span className="hidden sm:inline text-sm font-semibold text-white">Explore</span>
                         </Link>
                     </div>
 
                     {/* Navigation Module - Desktop Only */}
-                    <div className="hidden sm:flex bg-white/50 backdrop-blur-md border border-white/40 rounded-xl px-6 py-3 shadow-sm pointer-events-auto hover:bg-white/60 transition-all items-center gap-6">
+                    <div className="hidden sm:flex bg-transparent backdrop-blur-md border border-white/40 rounded-xl px-6 py-3 shadow-sm pointer-events-auto hover:bg-white/10 transition-all items-center gap-6">
                         {/* Canvas */}
-                        <Link href="/journal" className="text-sm font-semibold text-gray-700 hover:text-white transition-colors">
+                        <Link href="/journal" className="text-sm font-semibold text-white hover:text-white/80 transition-colors">
                             ▭
                         </Link>
 
                         {/* Hopin */}
-                        <Link href="/hopin" className="text-sm font-semibold text-gray-700 hover:text-white transition-colors">
+                        <Link href="/hopin" className="text-sm font-semibold text-white hover:text-white/80 transition-colors">
                             ⊞
                         </Link>
 
                         {/* Shop */}
-                        <Link href="/shop" className="text-sm font-semibold text-gray-700 hover:text-white transition-colors">
+                        <Link href="/shop" className="text-sm font-semibold text-white hover:text-white/80 transition-colors">
                             ◆
                         </Link>
 
                         {/* Dashboard */}
-                        <Link href="/dashboard" className="text-sm font-semibold text-gray-700 hover:text-white transition-colors">
+                        <Link href="/dashboard" className="text-sm font-semibold text-white hover:text-white/80 transition-colors">
                             ⊕
                         </Link>
                     </div>
@@ -323,12 +323,12 @@ export default function HomeClient() {
                     <div className="sm:hidden relative">
                         <button
                             onClick={() => setShowNavMenu(!showNavMenu)}
-                            className="bg-white/50 backdrop-blur-md border border-white/40 rounded-lg px-3 py-2 shadow-sm pointer-events-auto hover:bg-white/60 transition-all text-gray-800 font-semibold"
+                            className="bg-transparent backdrop-blur-md border border-white/40 rounded-lg px-3 py-2 shadow-sm pointer-events-auto hover:bg-white/10 transition-all text-white font-semibold"
                         >
                             ≡
                         </button>
                         {showNavMenu && (
-                            <div className="absolute right-0 mt-2 w-40 bg-white border border-black/10 rounded-lg shadow-lg p-2 space-y-1 pointer-events-auto">
+                            <div className="absolute right-0 mt-2 w-40 bg-black/80 backdrop-blur-md border border-white/20 rounded-lg shadow-lg p-2 space-y-1 pointer-events-auto">
                                 <Link href="/journal" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors">
                                     ▭ Canvas
                                 </Link>

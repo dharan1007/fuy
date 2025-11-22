@@ -20,7 +20,9 @@ LogBox.ignoreLogs([
   'DETECT_SCREEN_CAPTURE',
   'HostObject::get for prop',
   'NativeUnimoduleProxy',
+  'Invariant Violation',
 ]);
+
 
 export default function App() {
   useEffect(() => {
