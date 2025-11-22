@@ -9,9 +9,9 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as ImagePicker from 'expo-image-picker';
+// import * as ImagePicker from 'expo-image-picker';
 import { GlassBackground, GlassSurface, GlassButton } from '../../components/glass';
-import { TitleL, BodyM, BodyS, Caption } from '../../components/typography';
+import { TitleL, BodyL, BodyM, BodyS, Caption } from '../../components/typography';
 import { useGlassTokens, GLASS_TOKENS } from '../../theme';
 import SellerService from '../../services/sellerService';
 import { SellerProfile } from '../../types/seller';
@@ -97,44 +97,7 @@ export default function SellerStoreProfileScreen({ navigation, sellerId }: any) 
   };
 
   const pickImage = async (type: 'logo' | 'banner') => {
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: type === 'logo' ? [1, 1] : [16, 9],
-        quality: 0.8,
-      });
-
-      if (!result.cancelled) {
-        const imageFile = {
-          uri: result.assets[0].uri,
-          type: 'image/jpeg',
-          name: `store-${type}-${Date.now()}.jpg`,
-        } as any;
-
-        try {
-          setSaving(true);
-          const url =
-            type === 'logo'
-              ? await sellerService.uploadStoreLogo(sellerId, imageFile)
-              : await sellerService.uploadStoreBanner(sellerId, imageFile);
-
-          Alert.alert('Success', `${type} uploaded successfully`);
-          // Update local profile
-          if (type === 'logo') {
-            setProfile((p) => (p ? { ...p, logoUrl: url } : null));
-          } else {
-            setProfile((p) => (p ? { ...p, bannerUrl: url } : null));
-          }
-        } catch (error: any) {
-          Alert.alert('Upload Error', error.message);
-        } finally {
-          setSaving(false);
-        }
-      }
-    } catch (error: any) {
-      Alert.alert('Error', error.message);
-    }
+    Alert.alert('Notice', 'Image upload is temporarily disabled to fix crash issues.');
   };
 
   const saveProfile = async () => {
@@ -194,14 +157,14 @@ export default function SellerStoreProfileScreen({ navigation, sellerId }: any) 
                 <BodyM style={{ fontWeight: '600' }}>Store Logo</BodyM>
                 <BodyS contrast="low">Square (1:1)</BodyS>
               </View>
-              {profile?.logoUrl && (
+              {profile?.storeLogo && (
                 <View style={styles.logoPreview}>
                   <BodyL style={{ fontSize: 48 }}>📸</BodyL>
                 </View>
               )}
               <GlassButton
                 variant="secondary"
-                label={profile?.logoUrl ? 'Change Logo' : 'Upload Logo'}
+                label={profile?.storeLogo ? 'Change Logo' : 'Upload Logo'}
                 size="small"
                 onPress={() => pickImage('logo')}
               />
@@ -213,14 +176,14 @@ export default function SellerStoreProfileScreen({ navigation, sellerId }: any) 
                 <BodyM style={{ fontWeight: '600' }}>Store Banner</BodyM>
                 <BodyS contrast="low">Wide (16:9)</BodyS>
               </View>
-              {profile?.bannerUrl && (
+              {profile?.storeBanner && (
                 <View style={styles.bannerPreview}>
                   <BodyL style={{ fontSize: 48 }}>🖼️</BodyL>
                 </View>
               )}
               <GlassButton
                 variant="secondary"
-                label={profile?.bannerUrl ? 'Change Banner' : 'Upload Banner'}
+                label={profile?.storeBanner ? 'Change Banner' : 'Upload Banner'}
                 size="small"
                 onPress={() => pickImage('banner')}
               />
