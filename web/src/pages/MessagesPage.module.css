@@ -371,6 +371,11 @@
   transform: scale(0.95);
 }
 
+/* Mobile Menu Toggle - Hidden by default on desktop */
+.mobileMenuToggle {
+  display: none;
+}
+
 /* Messages Area */
 .messagesArea {
   flex: 1;

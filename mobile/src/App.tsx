@@ -16,16 +16,30 @@ LogBox.ignoreLogs([
   'ViewManagerAdapter_ExpoBlurView',
   'Push notifications only work on physical devices',
   'Push notifications could not be initialized',
+  'Permission Denial: registerScreenCaptureObserver',
+  'DETECT_SCREEN_CAPTURE',
+  'HostObject::get for prop',
+  'NativeUnimoduleProxy',
 ]);
 
 export default function App() {
   useEffect(() => {
     // Initialize app services when app launches
-    initializationService.initialize();
+    try {
+      initializationService.initialize().catch((error) => {
+        console.warn('Initialization service failed, but app will continue:', error);
+      });
+    } catch (error) {
+      console.warn('Failed to start initialization service:', error);
+    }
 
     // Cleanup when app closes
     return () => {
-      initializationService.cleanup();
+      try {
+        initializationService.cleanup();
+      } catch (error) {
+        console.warn('Cleanup failed:', error);
+      }
     };
   }, []);
 

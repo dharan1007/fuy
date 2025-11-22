@@ -9,40 +9,57 @@ class InitializationService {
 
     try {
       // Initialize offline queue
-      await offlineQueue.initialize();
-      console.log('✓ Offline queue initialized');
+      try {
+        await offlineQueue.initialize();
+        console.log('✓ Offline queue initialized');
+      } catch (error) {
+        console.warn('Offline queue initialization failed:', error);
+      }
 
       // Initialize push notifications (Expo) - FREE!
-      const notificationsReady = await expoNotificationsService.initialize();
-      if (notificationsReady) {
-        console.log('✓ Push notifications initialized (Expo)');
-      } else {
-        console.warn('Push notifications could not be initialized (might not be on physical device)');
+      try {
+        const notificationsReady = await expoNotificationsService.initialize();
+        if (notificationsReady) {
+          console.log('✓ Push notifications initialized (Expo)');
+        } else {
+          console.warn('Push notifications could not be initialized (might not be on physical device)');
+        }
+      } catch (error) {
+        console.warn('Push notifications initialization failed:', error);
       }
 
       // Try to connect WebSocket if user is authenticated
-      const token = await AsyncStorage.getItem('authToken');
-      if (token) {
-        try {
-          await webSocketService.connect(token);
-          console.log('✓ WebSocket connected');
-        } catch (error) {
-          console.warn('WebSocket connection failed, will retry later:', error);
+      try {
+        const token = await AsyncStorage.getItem('authToken');
+        if (token) {
+          try {
+            await webSocketService.connect(token);
+            console.log('✓ WebSocket connected');
+          } catch (error) {
+            console.warn('WebSocket connection failed, will retry later:', error);
+          }
         }
+      } catch (error) {
+        console.warn('Failed to check auth token:', error);
       }
 
       console.log('✓ App services initialized');
       return true;
     } catch (error) {
       console.error('Failed to initialize app services:', error);
+      // Don't throw - let the app continue even if some services fail
       return false;
     }
   }
 
   async cleanup() {
     console.log('Cleaning up app services...');
-    webSocketService.disconnect();
-    console.log('✓ WebSocket disconnected');
+    try {
+      webSocketService.disconnect();
+      console.log('✓ WebSocket disconnected');
+    } catch (error) {
+      console.warn('Cleanup warning:', error);
+    }
   }
 
   setupAuthListener() {

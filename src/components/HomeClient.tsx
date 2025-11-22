@@ -284,7 +284,7 @@ export default function HomeClient() {
     return (
         <div className="min-h-screen text-white flex flex-col relative overflow-hidden">
             <ScrollStarfield />
-            <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/30 to-black/40 z-5 pointer-events-none" />
+            {/* Removed overlay to show starfield background */}
             {/* HEADER - Minimal Floating */}
             <header className="sticky top-0 z-50 px-4 sm:px-6 py-4 pointer-events-none relative">
                 <div className="flex items-center justify-between gap-3 sm:gap-4">
@@ -299,22 +299,22 @@ export default function HomeClient() {
                     {/* Navigation Module - Desktop Only */}
                     <div className="hidden sm:flex bg-white/50 backdrop-blur-md border border-white/40 rounded-xl px-6 py-3 shadow-sm pointer-events-auto hover:bg-white/60 transition-all items-center gap-6">
                         {/* Canvas */}
-                        <Link href="/journal" className="text-sm font-semibold text-gray-700 hover:text-blue-600 transition-colors">
+                        <Link href="/journal" className="text-sm font-semibold text-gray-700 hover:text-white transition-colors">
                             ▭
                         </Link>
 
                         {/* Hopin */}
-                        <Link href="/hopin" className="text-sm font-semibold text-gray-700 hover:text-blue-600 transition-colors">
+                        <Link href="/hopin" className="text-sm font-semibold text-gray-700 hover:text-white transition-colors">
                             ⊞
                         </Link>
 
                         {/* Shop */}
-                        <Link href="/shop" className="text-sm font-semibold text-gray-700 hover:text-blue-600 transition-colors">
+                        <Link href="/shop" className="text-sm font-semibold text-gray-700 hover:text-white transition-colors">
                             ◆
                         </Link>
 
                         {/* Dashboard */}
-                        <Link href="/dashboard" className="text-sm font-semibold text-gray-700 hover:text-blue-600 transition-colors">
+                        <Link href="/dashboard" className="text-sm font-semibold text-gray-700 hover:text-white transition-colors">
                             ⊕
                         </Link>
                     </div>
@@ -408,7 +408,7 @@ export default function HomeClient() {
                                             value={postTitle}
                                             onChange={(e) => setPostTitle(e.target.value)}
                                             maxLength={100}
-                                            className="w-full px-4 py-2 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm bg-white/5 text-white placeholder-white/50"
+                                            className="w-full px-4 py-2 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-sm bg-white/5 text-white placeholder-white/50"
                                         />
                                         <textarea
                                             placeholder="Share your thoughts..."
@@ -416,13 +416,13 @@ export default function HomeClient() {
                                             onChange={(e) => setPostContent(e.target.value)}
                                             maxLength={2000}
                                             rows={4}
-                                            className="w-full px-4 py-2 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm bg-white/5 text-white placeholder-white/50 resize-none"
+                                            className="w-full px-4 py-2 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-sm bg-white/5 text-white placeholder-white/50 resize-none"
                                         />
                                         <div className="flex gap-4">
                                             <select
                                                 value={postFeature}
                                                 onChange={(e) => setPostFeature(e.target.value)}
-                                                className="flex-1 px-4 py-2 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm bg-white/5 text-white"
+                                                className="flex-1 px-4 py-2 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-sm bg-white/5 text-white"
                                             >
                                                 <option disabled>Select feature</option>
                                                 {features.map(f => <option key={f} value={f}>{f}</option>)}
@@ -430,7 +430,7 @@ export default function HomeClient() {
                                             <select
                                                 value={postVisibility}
                                                 onChange={(e) => setPostVisibility(e.target.value)}
-                                                className="flex-1 px-4 py-2 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm bg-white/5 text-white"
+                                                className="flex-1 px-4 py-2 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-sm bg-white/5 text-white"
                                             >
                                                 {visibilities.map(v => <option key={v} value={v}>{v}</option>)}
                                             </select>
@@ -452,7 +452,7 @@ export default function HomeClient() {
                                         <input
                                             type="url"
                                             placeholder="Paste link..."
-                                            className="w-full px-4 py-2 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 text-sm bg-white/5 text-white placeholder-white/50"
+                                            className="w-full px-4 py-2 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-sm bg-white/5 text-white placeholder-white/50"
                                         />
                                         <p className="text-xs text-white/50">Share interesting links with your network</p>
                                     </div>
@@ -467,7 +467,7 @@ export default function HomeClient() {
                                 <button
                                     type="submit"
                                     disabled={postSubmitting || !postContent.trim()}
-                                    className="w-full py-2 bg-blue-600 text-white rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="w-full py-2 border border-white bg-transparent text-white rounded-lg font-medium text-sm hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {postSubmitting ? 'Posting...' : 'Post'}
                                 </button>
@@ -544,7 +544,7 @@ export default function HomeClient() {
                 <nav className="bg-white/10 backdrop-blur-2xl border border-white/20 rounded-full px-8 py-4 shadow-lg pointer-events-auto flex items-center gap-8 hover:bg-white/15 transition-all">
                     {/* Create Post */}
                     <button
-                        className="text-2xl text-white/80 hover:text-blue-400 transition-colors hover:scale-110 transform duration-200"
+                        className="text-2xl text-white/80 hover:text-white transition-colors hover:scale-110 transform duration-200"
                         title="Create Post"
                         onClick={() => {
                             // Can be connected to a create post modal
@@ -556,7 +556,7 @@ export default function HomeClient() {
                     {/* Explore */}
                     <Link
                         href="/explore"
-                        className="p-1.5 text-white/80 hover:text-blue-400 transition-colors hover:scale-110 transform duration-200"
+                        className="p-1.5 text-white/80 hover:text-white transition-colors hover:scale-110 transform duration-200"
                         title="Explore"
                     >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -566,7 +566,7 @@ export default function HomeClient() {
 
                     {/* Notifications */}
                     <button
-                        className="relative p-1.5 text-white/80 hover:text-blue-400 transition-colors hover:scale-110 transform duration-200"
+                        className="relative p-1.5 text-white/80 hover:text-white transition-colors hover:scale-110 transform duration-200"
                         title="Notifications"
                         onClick={() => setIsNotificationsOpen(true)}
                     >
@@ -583,7 +583,7 @@ export default function HomeClient() {
                     {/* Messages */}
                     <Link
                         href="/chat"
-                        className="relative p-1.5 text-white/80 hover:text-blue-400 transition-colors hover:scale-110 transform duration-200"
+                        className="relative p-1.5 text-white/80 hover:text-white transition-colors hover:scale-110 transform duration-200"
                         title="Messages"
                     >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
