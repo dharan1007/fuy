@@ -6,7 +6,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import StarfieldBackground from "@/components/LandingPage/StarfieldBackground";
+import ScrollStarfield from "@/components/ScrollStarfield";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -52,7 +52,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative">
-      <StarfieldBackground />
+      <ScrollStarfield />
       <div className="w-full max-w-md relative z-10">
         <div className="bg-black/80 backdrop-blur-md border border-white/10 rounded-2xl shadow-xl p-6 sm:p-8 space-y-6">
           <div className="text-center">

@@ -12,7 +12,7 @@ import HomeSidebarSuggestions from '@/components/HomeSidebarSuggestions';
 import HopinProgramsCard from '@/components/HopinProgramsCard';
 import RankingCard from '@/components/RankingCard';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import ParticlesBackground from '@/components/ParticlesBackground';
+import ScrollStarfield from '@/components/ScrollStarfield';
 import LandingPage from '@/components/LandingPage/LandingPage';
 
 interface UserProfile {
@@ -283,7 +283,7 @@ export default function HomeClient() {
 
     return (
         <div className="min-h-screen text-white flex flex-col relative overflow-hidden">
-            <ParticlesBackground />
+            <ScrollStarfield />
             <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/30 to-black/40 z-5 pointer-events-none" />
             {/* HEADER - Minimal Floating */}
             <header className="sticky top-0 z-50 px-4 sm:px-6 py-4 pointer-events-none relative">
@@ -372,7 +372,7 @@ export default function HomeClient() {
                                 <button
                                     onClick={() => setCreatePostTab('text')}
                                     className={`flex-1 py-4 text-sm font-medium text-center transition-colors ${createPostTab === 'text'
-                                        ? 'bg-blue-600 text-white'
+                                        ? 'border border-white bg-transparent text-white'
                                         : 'bg-transparent text-white/80 hover:bg-white/5'
                                         }`}
                                 >
@@ -381,7 +381,7 @@ export default function HomeClient() {
                                 <button
                                     onClick={() => setCreatePostTab('media')}
                                     className={`flex-1 py-4 text-sm font-medium text-center transition-colors border-l border-white/10 ${createPostTab === 'media'
-                                        ? 'bg-blue-600 text-white'
+                                        ? 'border border-white bg-transparent text-white'
                                         : 'bg-transparent text-white/80 hover:bg-white/5'
                                         }`}
                                 >
@@ -390,7 +390,7 @@ export default function HomeClient() {
                                 <button
                                     onClick={() => setCreatePostTab('link')}
                                     className={`flex-1 py-4 text-sm font-medium text-center transition-colors border-l border-white/10 ${createPostTab === 'link'
-                                        ? 'bg-blue-600 text-white'
+                                        ? 'border border-white bg-transparent text-white'
                                         : 'bg-transparent text-white/80 hover:bg-white/5'
                                         }`}
                                 >
