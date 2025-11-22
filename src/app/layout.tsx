@@ -34,7 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     // suppressHydrationWarning avoids class mismatch warnings while we toggle 'dark' pre-hydration
     <html lang="en" className="h-full" suppressHydrationWarning>
-      <body className="min-h-screen h-full bg-white text-neutral-900 antialiased dark:bg-black dark:text-white">
+      <body className="min-h-screen h-full bg-black text-white antialiased">
         {/* Ensure correct theme before anything paints */}
         <ThemeNoFlashScript />
 

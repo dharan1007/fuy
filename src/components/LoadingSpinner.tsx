@@ -78,7 +78,7 @@ export default function LoadingSpinner({
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-white">
+    <div className="min-h-screen flex items-center justify-center px-4 bg-black/50 backdrop-blur-md text-white">
       <div className="text-center space-y-4">
         <div className="flex justify-center">
           <div className="relative w-16 h-16">

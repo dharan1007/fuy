@@ -72,13 +72,13 @@ export default function UserListModal({
 
       {/* Modal */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-96 flex flex-col">
+        <div className="bg-black/80 backdrop-blur-xl border border-white/20 rounded-lg shadow-2xl max-w-md w-full max-h-96 flex flex-col text-white">
           {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-gray-200">
-            <h2 className="text-xl font-bold text-gray-900">{title}</h2>
+          <div className="flex items-center justify-between p-6 border-b border-white/10">
+            <h2 className="text-xl font-bold text-white">{title}</h2>
             <button
               onClick={onClose}
-              className="text-gray-500 hover:text-gray-700 text-2xl font-light w-8 h-8 flex items-center justify-center"
+              className="text-white/50 hover:text-white text-2xl font-light w-8 h-8 flex items-center justify-center"
             >
               ×
             </button>
@@ -99,11 +99,11 @@ export default function UserListModal({
                 <div className="text-gray-500 text-center">No users to display</div>
               </div>
             ) : (
-              <ul className="divide-y divide-gray-200">
+              <ul className="divide-y divide-white/10">
                 {users.map((item) => (
                   <li
                     key={item.id}
-                    className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+                    className="flex items-center justify-between p-4 hover:bg-white/5 transition-colors"
                   >
                     <Link
                       href={`/profile/${item.user.id}`}
@@ -115,10 +115,10 @@ export default function UserListModal({
                         className="w-10 h-10 rounded-full border-2 border-blue-400 flex-shrink-0"
                       />
                       <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-gray-900 truncate">
+                        <div className="font-medium text-white truncate">
                           {getDisplayName(item.user)}
                         </div>
-                        <div className="text-xs text-gray-500">
+                        <div className="text-sm text-white/60">
                           {item.user.name && `@${item.user.name}`}
                         </div>
                       </div>

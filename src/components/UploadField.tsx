@@ -24,9 +24,9 @@ export default function UploadField({ accept = "image/*,video/*,audio/*", channe
     if (file.type.startsWith("video/")) return "VIDEO";
     if (file.type.startsWith("audio/")) return "AUDIO";
     const ext = (file.name.split(".").pop() || "").toLowerCase();
-    if (["png","jpg","jpeg","gif","webp","bmp","svg"].includes(ext)) return "IMAGE";
-    if (["mp4","mov","webm","mkv","avi"].includes(ext)) return "VIDEO";
-    if (["mp3","wav","m4a","ogg","flac"].includes(ext)) return "AUDIO";
+    if (["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"].includes(ext)) return "IMAGE";
+    if (["mp4", "mov", "webm", "mkv", "avi"].includes(ext)) return "VIDEO";
+    if (["mp3", "wav", "m4a", "ogg", "flac"].includes(ext)) return "AUDIO";
     return "IMAGE";
   }
 
@@ -65,7 +65,7 @@ export default function UploadField({ accept = "image/*,video/*,audio/*", channe
 
   return (
     <div
-      className={`rounded-2xl border border-dashed ${dragOver ? "border-stone-400 bg-stone-50" : "border-stone-300 bg-white"} p-3 text-sm text-stone-600`}
+      className={`rounded-2xl border border-dashed ${dragOver ? "border-white/40 bg-white/10" : "border-white/20 bg-transparent"} p-3 text-sm text-white/70`}
       onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
       onDragLeave={() => setDragOver(false)}
       onDrop={(e) => { e.preventDefault(); setDragOver(false); handleFiles(e.dataTransfer.files); }}
