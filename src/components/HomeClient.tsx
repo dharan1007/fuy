@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { Palette, Rocket, ShoppingBag, LayoutDashboard, Menu } from 'lucide-react';
 import SearchModal from '@/components/SearchModal';
 import NotificationsModal from '@/components/NotificationsModal';
 import UserListModal from '@/components/UserListModal';
@@ -300,22 +301,22 @@ export default function HomeClient() {
                     <div className="hidden sm:flex bg-transparent backdrop-blur-md border border-white/40 rounded-xl px-6 py-3 shadow-sm pointer-events-auto hover:bg-white/10 transition-all items-center gap-6">
                         {/* Canvas */}
                         <Link href="/journal" className="text-sm font-semibold text-white hover:text-white/80 transition-colors">
-                            Γû¡
+                            <Palette className="w-5 h-5" />
                         </Link>
 
                         {/* Hopin */}
                         <Link href="/hopin" className="text-sm font-semibold text-white hover:text-white/80 transition-colors">
-                            Γè₧
+                            <Rocket className="w-5 h-5" />
                         </Link>
 
                         {/* Shop */}
                         <Link href="/shop" className="text-sm font-semibold text-white hover:text-white/80 transition-colors">
-                            Γùå
+                            <ShoppingBag className="w-5 h-5" />
                         </Link>
 
                         {/* Dashboard */}
                         <Link href="/dashboard" className="text-sm font-semibold text-white hover:text-white/80 transition-colors">
-                            Γèò
+                            <LayoutDashboard className="w-5 h-5" />
                         </Link>
                     </div>
 
@@ -325,21 +326,21 @@ export default function HomeClient() {
                             onClick={() => setShowNavMenu(!showNavMenu)}
                             className="bg-transparent backdrop-blur-md border border-white/40 rounded-lg px-3 py-2 shadow-sm pointer-events-auto hover:bg-white/10 transition-all text-white font-semibold"
                         >
-                            Γëí
+                            <Menu className="w-5 h-5" />
                         </button>
                         {showNavMenu && (
                             <div className="absolute right-0 mt-2 w-40 bg-black/80 backdrop-blur-md border border-white/20 rounded-lg shadow-lg p-2 space-y-1 pointer-events-auto">
-                                <Link href="/journal" className="block px-4 py-2 text-sm text-white hover:bg-white/10 rounded transition-colors">
-                                    Γû¡ Canvas
+                                <Link href="/journal" className="flex items-center gap-2 px-4 py-2 text-sm text-white hover:bg-white/10 rounded transition-colors">
+                                    <Palette className="w-4 h-4" /> Canvas
                                 </Link>
-                                <Link href="/hopin" className="block px-4 py-2 text-sm text-white hover:bg-white/10 rounded transition-colors">
-                                    Γè₧ Hopin
+                                <Link href="/hopin" className="flex items-center gap-2 px-4 py-2 text-sm text-white hover:bg-white/10 rounded transition-colors">
+                                    <Rocket className="w-4 h-4" /> Hopin
                                 </Link>
-                                <Link href="/shop" className="block px-4 py-2 text-sm text-white hover:bg-white/10 rounded transition-colors">
-                                    Γùå Shop
+                                <Link href="/shop" className="flex items-center gap-2 px-4 py-2 text-sm text-white hover:bg-white/10 rounded transition-colors">
+                                    <ShoppingBag className="w-4 h-4" /> Shop
                                 </Link>
-                                <Link href="/dashboard" className="block px-4 py-2 text-sm text-white hover:bg-white/10 rounded transition-colors">
-                                    Γèò Dashboard
+                                <Link href="/dashboard" className="flex items-center gap-2 px-4 py-2 text-sm text-white hover:bg-white/10 rounded transition-colors">
+                                    <LayoutDashboard className="w-4 h-4" /> Dashboard
                                 </Link>
                             </div>
                         )}
