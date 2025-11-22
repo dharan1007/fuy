@@ -10,16 +10,16 @@ export const GLASS_TOKENS = {
   // ============================================
   gradient: {
     primary: {
-      start: '#FFFFFF',
-      end: '#FFFFFF',
+      start: '#000000',
+      end: '#000000',
     },
     secondary: {
-      start: '#FFFFFF',
-      end: '#FFFFFF',
+      start: '#000000',
+      end: '#111111',
     },
     tertiary: {
-      start: '#FFFFFF',
-      end: '#FFFFFF',
+      start: '#000000',
+      end: '#000000',
     },
   },
 
@@ -29,29 +29,29 @@ export const GLASS_TOKENS = {
   glass: {
     // Blur radius for backdrop filter (px)
     blur: {
-      light: 0,
-      medium: 0,
-      heavy: 0,
+      light: 10,
+      medium: 20,
+      heavy: 30,
     },
     // Border radius for glass surfaces
     radius: {
       small: 8,
-      medium: 12,
-      large: 16,
-      xl: 20,
+      medium: 16,
+      large: 24,
+      xl: 32,
       full: 999,
     },
     // Backdrop tint color (rgba base for white/black overlay)
     tint: {
-      light: '#FFFFFF',
-      medium: '#FFFFFF',
-      heavy: '#FFFFFF',
+      light: 'rgba(255, 255, 255, 0.05)',
+      medium: 'rgba(255, 255, 255, 0.08)',
+      heavy: 'rgba(255, 255, 255, 0.12)',
     },
     // Glass border colors
     border: {
-      light: '#E5D7D0',
-      medium: '#D0D0D0',
-      dark: '#B0B0B0',
+      light: 'rgba(255, 255, 255, 0.15)',
+      medium: 'rgba(255, 255, 255, 0.2)',
+      dark: 'rgba(255, 255, 255, 0.3)',
     },
   },
 
@@ -60,10 +60,34 @@ export const GLASS_TOKENS = {
   // ============================================
   shadow: {
     // iOS-style subtle shadows
-    xs: {},
-    sm: {},
-    md: {},
-    lg: {},
+    xs: {
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.18,
+      shadowRadius: 1.00,
+      elevation: 1,
+    },
+    sm: {
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 3.84,
+      elevation: 5,
+    },
+    md: {
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.30,
+      shadowRadius: 4.65,
+      elevation: 8,
+    },
+    lg: {
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.37,
+      shadowRadius: 7.49,
+      elevation: 12,
+    },
   },
 
   // ============================================
@@ -71,43 +95,43 @@ export const GLASS_TOKENS = {
   // ============================================
   colors: {
     // Primary brand colors
-    primary: '#FF7A5C',      // Warm coral/orange-red
-    secondary: '#FFB3A7',    // Soft peachy pink
+    primary: '#FFFFFF',      // White for primary actions in dark mode
+    secondary: 'rgba(255, 255, 255, 0.7)',    // Translucent white
 
     // Semantic colors
-    success: '#FFD4C5',      // Very light peach
-    warning: '#FFB3A7',      // Peachy pink
-    danger: '#FF6464',       // Coral red
-    info: '#6A6AFF',         // Soft purple
+    success: '#34C759',      // iOS Green
+    warning: '#FF9500',      // iOS Orange
+    danger: '#FF3B30',       // iOS Red
+    info: '#007AFF',         // iOS Blue
 
     // Mood colors (for Canvas/journal)
     mood: {
-      joy: '#FFB3A7',        // Peachy pink
-      calm: '#FFD4C5',       // Very light peach
-      reflect: '#FFE5DB',    // Pale rose
+      joy: '#FFD60A',        // Yellow
+      calm: '#64D2FF',       // Light Blue
+      reflect: '#BF5AF2',    // Purple
     },
 
     // Text & foreground
     text: {
-      primary: '#000000',    // Black - main text
-      secondary: '#666666',  // Dark gray - secondary text
-      tertiary: '#999999',   // Medium gray - tertiary text
-      muted: '#999999',      // Muted text
-      inverse: '#FFFFFF',    // White on dark
+      primary: '#FFFFFF',    // White - main text
+      secondary: 'rgba(255, 255, 255, 0.7)',  // Translucent white
+      tertiary: 'rgba(255, 255, 255, 0.5)',   // More translucent
+      muted: 'rgba(255, 255, 255, 0.3)',      // Muted text
+      inverse: '#000000',    // Black on light
     },
 
     // Backgrounds & surfaces
     background: {
-      primary: '#FFFFFF',
-      secondary: '#FAFAF8',
-      tertiary: '#FFF5F0',
+      primary: '#000000',
+      secondary: '#000000',
+      tertiary: '#000000',
     },
 
     // Borders
     border: {
-      light: '#E5D7D0',
-      lighter: '#F0F0F0',
-      dark: '#D0D0D0',
+      light: 'rgba(255, 255, 255, 0.1)',
+      lighter: 'rgba(255, 255, 255, 0.05)',
+      dark: 'rgba(255, 255, 255, 0.2)',
     },
   },
 
@@ -135,13 +159,13 @@ export const GLASS_TOKENS = {
     // Font sizes
     size: {
       xs: 11,
-      sm: 12,
-      base: 14,
-      lg: 16,
-      xl: 18,
-      '2xl': 20,
-      '3xl': 24,
-      '4xl': 32,
+      sm: 13,
+      base: 15,
+      lg: 17,
+      xl: 20,
+      '2xl': 22,
+      '3xl': 28,
+      '4xl': 34,
     },
     // Font weights
     weight: {
@@ -153,14 +177,14 @@ export const GLASS_TOKENS = {
     },
     // Typography scale mappings
     scale: {
-      titleL: { size: 32, weight: '500', lineHeight: 40 },      // Screen titles
-      titleM: { size: 24, weight: '500', lineHeight: 32 },      // Section headers
-      titleS: { size: 20, weight: '500', lineHeight: 28 },      // Card titles
-      bodyM: { size: 16, weight: '400', lineHeight: 24 },       // Body text, labels
-      bodyS: { size: 14, weight: '400', lineHeight: 20 },       // Secondary text
-      labelM: { size: 14, weight: '500', lineHeight: 20 },      // Button labels, chips
-      labelS: { size: 12, weight: '500', lineHeight: 16 },      // Metadata, small labels
-      caption: { size: 11, weight: '400', lineHeight: 14 },     // Timestamps, helpers
+      titleL: { size: 34, weight: '700', lineHeight: 41 },      // Large Title
+      titleM: { size: 28, weight: '700', lineHeight: 34 },      // Title 1
+      titleS: { size: 22, weight: '600', lineHeight: 28 },      // Title 2
+      bodyM: { size: 17, weight: '400', lineHeight: 22 },       // Body
+      bodyS: { size: 15, weight: '400', lineHeight: 20 },       // Callout
+      labelM: { size: 15, weight: '600', lineHeight: 20 },      // Headline
+      labelS: { size: 13, weight: '500', lineHeight: 18 },      // Footnote
+      caption: { size: 11, weight: '400', lineHeight: 13 },     // Caption 2
     },
   },
 
@@ -170,14 +194,14 @@ export const GLASS_TOKENS = {
   motion: {
     // Durations (ms)
     duration: {
-      short: 150,
-      base: 250,
-      long: 350,
-      extraLong: 500,
+      short: 200,
+      base: 300,
+      long: 500,
+      extraLong: 800,
     },
     // Easing curves
     easing: {
-      easeOut: [0.25, 0.46, 0.45, 0.94],     // cubic-bezier
+      easeOut: [0.25, 0.1, 0.25, 1],     // iOS ease out
       easeInOut: [0.42, 0, 0.58, 1],
       linear: [0, 0, 1, 1],
     },
@@ -187,22 +211,22 @@ export const GLASS_TOKENS = {
   // OPACITY SCALE
   // ============================================
   opacity: {
-    disabled: 1,
-    hover: 1,
-    pressed: 1,
-    focus: 1,
-    divider: 1,
+    disabled: 0.5,
+    hover: 0.8,
+    pressed: 0.7,
+    focus: 0.8,
+    divider: 0.1,
   },
 
   // ============================================
   // TEXT CONTRAST LEVELS (on glass backgrounds)
   // ============================================
   textContrast: {
-    high: '#000000',      // Primary text - titles, important labels
-    medium: '#666666',    // Secondary text - labels, descriptions
-    low: '#999999',       // Tertiary text - metadata, timestamps
-    muted: '#AAAAAA',     // Muted text - disabled, hints
-    inverse: '#FFFFFF',   // Light text - on dark glass
+    high: '#FFFFFF',      // Primary text - titles, important labels
+    medium: 'rgba(255, 255, 255, 0.7)',    // Secondary text - labels, descriptions
+    low: 'rgba(255, 255, 255, 0.5)',       // Tertiary text - metadata, timestamps
+    muted: 'rgba(255, 255, 255, 0.3)',     // Muted text - disabled, hints
+    inverse: '#000000',   // Dark text - on light glass
   },
 
   // ============================================
@@ -210,14 +234,14 @@ export const GLASS_TOKENS = {
   // ============================================
   iconOpacity: {
     primary: 1,
-    secondary: 1,
-    tertiary: 1,
-    disabled: 1,
+    secondary: 0.7,
+    tertiary: 0.5,
+    disabled: 0.3,
   },
   dividerOpacity: {
-    subtle: 1,
-    light: 1,
-    medium: 1,
+    subtle: 0.05,
+    light: 0.1,
+    medium: 0.2,
   },
 
   // ============================================
@@ -225,8 +249,8 @@ export const GLASS_TOKENS = {
   // ============================================
   glassElevation: {
     surfaceBase: { blur: 0, opacity: 1 },
-    surfaceRaised: { blur: 0, opacity: 1 },
-    surfaceElevated: { blur: 0, opacity: 1 },
+    surfaceRaised: { blur: 10, opacity: 1 },
+    surfaceElevated: { blur: 20, opacity: 1 },
   },
 
   // ============================================
@@ -234,9 +258,9 @@ export const GLASS_TOKENS = {
   // ============================================
   spacing_rhythm: {
     listItemGap: 16,        // Space between list items
-    sectionGap: 24,         // Space between major sections
-    cardMargin: 32,         // Margin around large cards/components
-    innerPadding: 12,       // Padding inside components
+    sectionGap: 32,         // Space between major sections
+    cardMargin: 20,         // Margin around large cards/components
+    innerPadding: 16,       // Padding inside components
   },
 
   // ============================================
@@ -272,17 +296,17 @@ export const GLASS_SURFACES = {
 
   // Header/Navigation bars
   header: {
-    blur: GLASS_TOKENS.glass.blur.medium,
-    tint: GLASS_TOKENS.glass.tint.light,
+    blur: GLASS_TOKENS.glass.blur.heavy,
+    tint: 'rgba(0, 0, 0, 0.5)', // Darker tint for header
     radius: 0,
     border: true,
     borderColor: GLASS_TOKENS.glass.border.light,
-    shadow: GLASS_TOKENS.shadow.xs,
+    shadow: GLASS_TOKENS.shadow.sm,
   },
 
   // Card containers
   card: {
-    blur: GLASS_TOKENS.glass.blur.light,
+    blur: GLASS_TOKENS.glass.blur.medium,
     tint: GLASS_TOKENS.glass.tint.medium,
     radius: GLASS_TOKENS.glass.radius.large,
     border: true,
@@ -293,7 +317,7 @@ export const GLASS_SURFACES = {
   // Bottom sheets/modals
   sheet: {
     blur: GLASS_TOKENS.glass.blur.heavy,
-    tint: GLASS_TOKENS.glass.tint.heavy,
+    tint: 'rgba(20, 20, 20, 0.8)', // Dark sheet
     radius: GLASS_TOKENS.glass.radius.xl,
     border: true,
     borderColor: GLASS_TOKENS.glass.border.light,
@@ -303,20 +327,20 @@ export const GLASS_SURFACES = {
   // Floating buttons & interactive elements
   interactive: {
     blur: GLASS_TOKENS.glass.blur.medium,
-    tint: GLASS_TOKENS.glass.tint.medium,
+    tint: 'rgba(255, 255, 255, 0.1)',
     radius: GLASS_TOKENS.glass.radius.full,
     border: true,
-    borderColor: GLASS_TOKENS.glass.border.light,
+    borderColor: GLASS_TOKENS.glass.border.medium,
     shadow: GLASS_TOKENS.shadow.md,
   },
 
   // Thin separators/dividers
   divider: {
-    blur: GLASS_TOKENS.glass.blur.light,
-    tint: GLASS_TOKENS.glass.tint.light,
+    blur: 0,
+    tint: 'transparent',
     radius: 0,
     border: true,
-    borderColor: GLASS_TOKENS.glass.border.medium,
+    borderColor: GLASS_TOKENS.glass.border.light,
     borderless: true,
     shadow: GLASS_TOKENS.shadow.xs,
   },
@@ -344,9 +368,9 @@ export const A11Y = {
 
   // High contrast mode overrides
   highContrast: {
-    borderOpacity: 0.3,
-    tintOpacity: 0.4,
-    textContrast: 0.95,
+    borderOpacity: 0.5,
+    tintOpacity: 0.2,
+    textContrast: 1,
   },
 } as const;
 
@@ -354,13 +378,13 @@ export const A11Y = {
  * Default theme configuration
  */
 export const DEFAULT_THEME_CONFIG = {
-  mode: 'light' as const,
-  glassBlur: 0, // Disabled - expo-blur native module not compiled in Android build
+  mode: 'dark' as const, // Default to dark mode
+  glassBlur: 20,
   glassOpacity: 1,
-  enableGradient: true,
-  enableNoise: true,
-  noiseOpacity: 0.15,
-  enableParallax: true,
+  enableGradient: false, // Solid black background preferred
+  enableNoise: false,
+  noiseOpacity: 0,
+  enableParallax: false,
   motionReduced: false,
 } as const;
 
