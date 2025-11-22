@@ -329,16 +329,16 @@ export default function HomeClient() {
                         </button>
                         {showNavMenu && (
                             <div className="absolute right-0 mt-2 w-40 bg-black/80 backdrop-blur-md border border-white/20 rounded-lg shadow-lg p-2 space-y-1 pointer-events-auto">
-                                <Link href="/journal" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors">
+                                <Link href="/journal" className="block px-4 py-2 text-sm text-white hover:bg-white/10 rounded transition-colors">
                                     ▭ Canvas
                                 </Link>
-                                <Link href="/hopin" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors">
+                                <Link href="/hopin" className="block px-4 py-2 text-sm text-white hover:bg-white/10 rounded transition-colors">
                                     ⊞ Hopin
                                 </Link>
-                                <Link href="/shop" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors">
+                                <Link href="/shop" className="block px-4 py-2 text-sm text-white hover:bg-white/10 rounded transition-colors">
                                     ◆ Shop
                                 </Link>
-                                <Link href="/dashboard" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors">
+                                <Link href="/dashboard" className="block px-4 py-2 text-sm text-white hover:bg-white/10 rounded transition-colors">
                                     ⊕ Dashboard
                                 </Link>
                             </div>
