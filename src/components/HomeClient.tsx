@@ -282,7 +282,7 @@ export default function HomeClient() {
     const avatarUrl = userProfile?.profile?.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${displayName}`;
 
     return (
-        <div className="min-h-screen bg-black text-white flex flex-col relative overflow-hidden">
+        <div className="min-h-screen text-white flex flex-col relative overflow-hidden">
             <ScrollStarfield />
             {/* Removed overlay to show starfield background */}
             {/* HEADER - Minimal Floating */}
@@ -291,8 +291,8 @@ export default function HomeClient() {
                     {/* Logo/Explore Module */}
                     <div className="bg-transparent backdrop-blur-md border border-white/40 rounded-lg sm:rounded-xl px-4 sm:px-6 py-2.5 sm:py-3 shadow-sm pointer-events-auto hover:bg-white/10 transition-all">
                         <Link href="/" className="flex items-center gap-2">
-                            <span className="text-lg sm:text-2xl">Γùî</span>
-                            <span className="hidden sm:inline text-sm font-semibold text-white">Explore</span>
+                            <span className="text-lg sm:text-2xl font-bold text-white">FUY</span>
+                            <span className="hidden sm:inline text-sm font-semibold text-white/70">Media</span>
                         </Link>
                     </div>
 
