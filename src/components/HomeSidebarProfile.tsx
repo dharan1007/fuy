@@ -136,7 +136,7 @@ export default function HomeSidebarProfile({
     <aside className="md:col-span-1">
       <div className="sticky top-20 space-y-6">
         {/* Main Profile Card - Liquid Glass */}
-        <div className="rounded-2xl p-6 bg-white/10 backdrop-blur-2xl border border-white/20 shadow-lg hover:shadow-xl transition-all">
+        <div className="rounded-2xl p-6 bg-transparent backdrop-blur-md border border-white/20 hover:border-white/40 transition-all">
           <div className="text-center mb-6">
             <img
               src={avatarUrl}
@@ -176,14 +176,14 @@ export default function HomeSidebarProfile({
             </button>
           </div>
 
-          <Link href="/profile" className="mt-4 w-full block text-center py-2.5 bg-blue-600 text-white rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors">
+          <Link href="/profile" className="mt-4 w-full block text-center py-2.5 bg-transparent border border-white/20 text-white rounded-lg font-medium text-sm hover:bg-white/10 transition-colors">
             View Profile
           </Link>
         </div>
 
         {/* Rankings Card - Liquid Glass */}
         {userRanks.length > 0 && (
-          <div className="rounded-2xl p-4 bg-white/10 backdrop-blur-2xl border border-white/20 shadow-lg">
+          <div className="rounded-2xl p-4 bg-transparent backdrop-blur-md border border-white/20 hover:border-white/40 transition-all">
             <div className="flex items-center gap-2 mb-4">
               <span className="text-xs font-bold text-white">RANK</span>
               <h4 className="font-semibold text-white text-sm">Your Rankings</h4>
@@ -204,7 +204,7 @@ export default function HomeSidebarProfile({
 
         {/* Hopin Plans Card - Liquid Glass */}
         {hopinPlans.length > 0 && (
-          <div className="rounded-2xl p-4 bg-white/10 backdrop-blur-2xl border border-white/20 shadow-lg">
+          <div className="rounded-2xl p-4 bg-transparent backdrop-blur-md border border-white/20 hover:border-white/40 transition-all">
             <div className="flex items-center gap-2 mb-4">
               <span className="text-xs font-bold text-white">PLANS</span>
               <h4 className="font-semibold text-white text-sm">Active Plans</h4>
@@ -223,7 +223,7 @@ export default function HomeSidebarProfile({
         )}
 
         {/* TODO List Card - Liquid Glass */}
-        <div className="rounded-2xl p-4 bg-white/10 backdrop-blur-2xl border border-white/20 shadow-lg">
+        <div className="rounded-2xl p-4 bg-transparent backdrop-blur-md border border-white/20 hover:border-white/40 transition-all">
           <div className="flex items-center gap-2 mb-4 justify-between">
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-white">TODO</span>
@@ -232,19 +232,19 @@ export default function HomeSidebarProfile({
             <div className="flex gap-1">
               <button
                 onClick={() => setTimePeriod('day')}
-                className={`px-2 py-1 text-xs rounded ${timePeriod === 'day' ? 'bg-blue-600 text-white' : 'bg-white/20 text-white hover:bg-white/30'}`}
+                className={`px-2 py-1 text-xs rounded border ${timePeriod === 'day' ? 'bg-white/10 border-white text-white' : 'bg-transparent border-white/20 text-white/70 hover:bg-white/5'}`}
               >
                 Day
               </button>
               <button
                 onClick={() => setTimePeriod('week')}
-                className={`px-2 py-1 text-xs rounded ${timePeriod === 'week' ? 'bg-blue-600 text-white' : 'bg-white/20 text-white hover:bg-white/30'}`}
+                className={`px-2 py-1 text-xs rounded border ${timePeriod === 'week' ? 'bg-white/10 border-white text-white' : 'bg-transparent border-white/20 text-white/70 hover:bg-white/5'}`}
               >
                 Week
               </button>
               <button
                 onClick={() => setTimePeriod('month')}
-                className={`px-2 py-1 text-xs rounded ${timePeriod === 'month' ? 'bg-blue-600 text-white' : 'bg-white/20 text-white hover:bg-white/30'}`}
+                className={`px-2 py-1 text-xs rounded border ${timePeriod === 'month' ? 'bg-white/10 border-white text-white' : 'bg-transparent border-white/20 text-white/70 hover:bg-white/5'}`}
               >
                 Month
               </button>
@@ -264,7 +264,7 @@ export default function HomeSidebarProfile({
               <p className="text-xs text-white/70 mb-3">No tasks yet</p>
               <button
                 onClick={() => router.push('/journal')}
-                className="w-full px-3 py-2 bg-blue-600 text-white rounded text-xs font-medium hover:bg-blue-700 transition-colors"
+                className="w-full px-3 py-2 bg-transparent border border-white/20 text-white rounded text-xs font-medium hover:bg-white/10 transition-colors"
               >
                 Create New
               </button>

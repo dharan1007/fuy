@@ -366,7 +366,7 @@ export default function HomeClient() {
                     {/* Center Feed */}
                     <div className="md:col-span-2 space-y-6 px-3 sm:px-4 lg:px-8">
                         {/* Create Post Card */}
-                        <div className="border border-white/20 rounded-lg overflow-hidden bg-white/10 backdrop-blur-2xl">
+                        <div className="border border-white/20 rounded-lg overflow-hidden bg-transparent backdrop-blur-md">
                             {/* Tabs */}
                             <div className="flex border-b border-white/10">
                                 <button
@@ -477,12 +477,12 @@ export default function HomeClient() {
                         {/* Posts Feed */}
                         <div className="space-y-4">
                             {posts.length === 0 ? (
-                                <div className="text-center py-12 border border-white/20 rounded-lg bg-white/10 backdrop-blur-2xl">
+                                <div className="text-center py-12 border border-white/20 rounded-lg bg-transparent backdrop-blur-md">
                                     <p className="text-white/70">No posts yet. Be the first to share!</p>
                                 </div>
                             ) : (
                                 posts.map((post) => (
-                                    <div key={post.id} className="border border-white/20 rounded-lg p-6 bg-white/10 backdrop-blur-2xl hover:border-white/40 transition-colors">
+                                    <div key={post.id} className="border border-white/20 rounded-lg p-6 bg-transparent backdrop-blur-md hover:border-white/40 transition-colors">
                                         <div className="flex items-start gap-4 mb-4">
                                             <img
                                                 src={post.user.profile?.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${post.user.profile?.displayName || post.user.email}`}

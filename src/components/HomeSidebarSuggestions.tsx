@@ -69,7 +69,7 @@ export default function HomeSidebarSuggestions() {
     <div className="space-y-4">
       {/* Suggested Users - Liquid Glass */}
       {suggestedUsers.length > 0 && (
-        <div className="rounded-2xl p-4 bg-white/10 backdrop-blur-2xl border border-white/20 shadow-lg">
+        <div className="rounded-2xl p-4 bg-transparent backdrop-blur-md border border-white/20 hover:border-white/40 transition-all">
           <h4 className="font-semibold text-white mb-4 flex items-center gap-2">
             <span className="text-xs font-bold text-white">USERS</span>
           </h4>
@@ -98,7 +98,7 @@ export default function HomeSidebarSuggestions() {
       )}
 
       {/* Suggested Creators - Liquid Glass */}
-      <div className="rounded-2xl p-4 bg-white/10 backdrop-blur-2xl border border-white/20 shadow-lg">
+      <div className="rounded-2xl p-4 bg-transparent backdrop-blur-md border border-white/20 hover:border-white/40 transition-all">
         <h4 className="font-semibold text-white mb-4 flex items-center gap-2">
           <span className="text-xs font-bold text-white">CREATORS</span>
         </h4>
@@ -127,7 +127,7 @@ export default function HomeSidebarSuggestions() {
 
       {/* Suggested Products - Liquid Glass */}
       {suggestedProducts.length > 0 && (
-        <div className="rounded-2xl p-4 bg-white/10 backdrop-blur-2xl border border-white/20 shadow-lg">
+        <div className="rounded-2xl p-4 bg-transparent backdrop-blur-md border border-white/20 hover:border-white/40 transition-all">
           <h4 className="font-semibold text-white mb-4 flex items-center gap-2">
             <span className="text-xs font-bold text-white">PRODUCTS</span>
           </h4>
@@ -153,7 +153,7 @@ export default function HomeSidebarSuggestions() {
 
       {/* Suggested Plans/Features - Liquid Glass */}
       {suggestedPlans.length > 0 && (
-        <div className="rounded-2xl p-4 bg-white/10 backdrop-blur-2xl border border-white/20 shadow-lg">
+        <div className="rounded-2xl p-4 bg-transparent backdrop-blur-md border border-white/20 hover:border-white/40 transition-all">
           <h4 className="font-semibold text-white mb-4 flex items-center gap-2">
             <span className="text-xs font-bold text-white">PLANS</span>
           </h4>
