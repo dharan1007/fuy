@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 // import * as ImagePicker from 'expo-image-picker';
 import { GlassBackground, GlassSurface, GlassButton } from '../../components/glass';
-import { TitleL, BodyL, BodyM, BodyS, Caption } from '../../components/typography';
+import { TitleL, BodyM, BodyS, Caption } from '../../components/typography';
 import { useGlassTokens, GLASS_TOKENS } from '../../theme';
 import SellerService from '../../services/sellerService';
 import { SellerProfile } from '../../types/seller';
@@ -60,11 +60,11 @@ export default function SellerStoreProfileScreen({ navigation, sellerId }: any) 
         storeName: data.storeName || '',
         storeSlug: data.storeSlug || '',
         storeDescription: data.storeDescription || '',
-        storeColor: data.storeColor || '#6AA8FF',
-        email: data.email || '',
-        phone: data.phone || '',
-        businessName: data.businessName || '',
-        businessAddress: data.businessAddress || '',
+        storeColor: data.primaryColor || '#6AA8FF',
+        email: data.ownerEmail || '',
+        phone: data.ownerPhone || '',
+        businessName: data.ownerName || '', // Using ownerName as businessName fallback
+        businessAddress: '', // Not in profile yet
       });
     } catch (error: any) {
       Alert.alert('Error', 'Failed to load profile: ' + error.message);
@@ -159,7 +159,7 @@ export default function SellerStoreProfileScreen({ navigation, sellerId }: any) 
               </View>
               {profile?.storeLogo && (
                 <View style={styles.logoPreview}>
-                  <BodyL style={{ fontSize: 48 }}>📸</BodyL>
+                  <BodyM style={{ fontSize: 48 }}>📸</BodyM>
                 </View>
               )}
               <GlassButton
@@ -178,7 +178,7 @@ export default function SellerStoreProfileScreen({ navigation, sellerId }: any) 
               </View>
               {profile?.storeBanner && (
                 <View style={styles.bannerPreview}>
-                  <BodyL style={{ fontSize: 48 }}>🖼️</BodyL>
+                  <BodyM style={{ fontSize: 48 }}>🖼️</BodyM>
                 </View>
               )}
               <GlassButton
