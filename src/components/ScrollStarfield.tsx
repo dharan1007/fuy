@@ -1,41 +1,32 @@
 'use client';
 
 import React, { useRef, Suspense } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Stars } from '@react-three/drei';
+import { Canvas, useFrame } from '@react-three/fiber';
+import { Stars, ScrollControls, Scroll, useScroll } from '@react-three/drei';
 import * as THREE from 'three';
 
 function StarfieldScene() {
     const starsRef = useRef<THREE.Group>(null);
-    const { camera } = useThree();
+    const scroll = useScroll(); // This returns null or empty object if not inside ScrollControls
 
-    // Store initial camera position
-    const initialY = useRef(0);
-
-    useFrame((state) => {
-        // Get scroll position
-        const scrollY = window.scrollY;
-        const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-        const scrollProgress = maxScroll > 0 ? scrollY / maxScroll : 0;
-
+    useFrame((state, delta) => {
         if (starsRef.current) {
-            // Move stars based on scroll
-            // We move the group up/down to simulate camera movement through the field
-            // or rotate it for a different effect. Let's do rotation + slight movement
+            // Use scroll offset if available (Landing mode), otherwise use time/mouse (Default mode)
+            const offset = scroll?.offset ?? 0;
 
-            // Rotate based on scroll "frame by frame" feel
-            starsRef.current.rotation.x = scrollProgress * Math.PI * 0.5; // Rotate 90 degrees over full scroll
-            starsRef.current.rotation.y = scrollProgress * Math.PI * 0.2;
+            if (scroll) {
+                // Landing mode: Scroll-driven
+                starsRef.current.rotation.x = offset * Math.PI * 0.5;
+                starsRef.current.rotation.y = offset * Math.PI * 0.25;
+                starsRef.current.position.z = offset * 20;
+            } else {
+                // Default mode: Auto-rotation or mouse parallax
+                starsRef.current.rotation.y += delta * 0.05;
+                starsRef.current.rotation.x += delta * 0.02;
+            }
 
-            // Also move slightly in Z to give depth feeling
-            starsRef.current.position.z = scrollProgress * 10;
-
-            // Mouse parallax (subtle)
-            const mouseX = state.pointer.x;
-            const mouseY = state.pointer.y;
-
-            starsRef.current.rotation.x += mouseY * 0.05;
-            starsRef.current.rotation.y += mouseX * 0.05;
+            // Subtle continuous rotation for both
+            starsRef.current.rotation.z += delta * 0.05;
         }
     });
 
@@ -54,15 +45,44 @@ function StarfieldScene() {
     );
 }
 
-export default function ScrollStarfield() {
+interface ScrollStarfieldProps {
+    children?: React.ReactNode;
+    variant?: 'default' | 'landing';
+}
+
+export default function ScrollStarfield({ children, variant = 'default' }: ScrollStarfieldProps) {
+    if (variant === 'landing') {
+        return (
+            <div className="w-full h-screen bg-black">
+                <Suspense fallback={<div className="w-full h-full bg-black" />}>
+                    <Canvas camera={{ position: [0, 0, 5], fov: 45 }}>
+                        <color attach="background" args={['#000000']} />
+                        <ScrollControls pages={3} damping={0.2}>
+                            <Scroll>
+                                <StarfieldScene />
+                            </Scroll>
+                            <Scroll html style={{ width: '100%' }}>
+                                {children}
+                            </Scroll>
+                        </ScrollControls>
+                    </Canvas>
+                </Suspense>
+            </div>
+        );
+    }
+
+    // Default fixed background for Home, Login, Signup
     return (
-        <div className="fixed inset-0 z-[-1] bg-black pointer-events-none">
-            <Suspense fallback={<div className="w-full h-full bg-black" />}>
-                <Canvas camera={{ position: [0, 0, 5], fov: 45 }}>
-                    <color attach="background" args={['#000000']} />
-                    <StarfieldScene />
-                </Canvas>
-            </Suspense>
-        </div>
+        <>
+            <div className="fixed inset-0 z-[-1] bg-black pointer-events-none">
+                <Suspense fallback={<div className="w-full h-full bg-black" />}>
+                    <Canvas camera={{ position: [0, 0, 5], fov: 45 }}>
+                        <color attach="background" args={['#000000']} />
+                        <StarfieldScene />
+                    </Canvas>
+                </Suspense>
+            </div>
+            {children}
+        </>
     );
 }

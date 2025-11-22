@@ -9,13 +9,10 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 export default function LandingPage() {
   return (
     <div className="w-full h-screen bg-black text-white overflow-hidden">
-      <Suspense fallback={<LoadingSpinner message="Loading 3D Experience..." />}>
-        <ScrollStarfield />
-        <div className="relative z-10">
-          <HeroSection />
-          <FeatureSection />
-        </div>
-      </Suspense>
+      <ScrollStarfield variant="landing">
+        <HeroSection />
+        <FeatureSection />
+      </ScrollStarfield>
     </div>
   );
 }
