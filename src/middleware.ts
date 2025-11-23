@@ -38,7 +38,7 @@ export default withAuth(
     // Permissions-Policy - Disable dangerous browser features
     response.headers.set(
       'Permissions-Policy',
-      'geolocation=(), microphone=(), camera=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=(), payment=()'
+      'geolocation=(), microphone=(self), camera=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=(), payment=()'
     );
 
     // Remove X-Powered-By header to hide server technology

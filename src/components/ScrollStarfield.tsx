@@ -55,7 +55,7 @@ export default function ScrollStarfield({ children, variant = 'default' }: Scrol
         return (
             <div className="w-full h-screen bg-black">
                 <Suspense fallback={<div className="w-full h-full bg-black" />}>
-                    <Canvas camera={{ position: [0, 0, 5], fov: 45 }} gl={{ powerPreference: "high-performance" }}>
+                    <Canvas camera={{ position: [0, 0, 5], fov: 45 }} gl={{ powerPreference: "high-performance", failIfMajorPerformanceCaveat: true }}>
                         <color attach="background" args={['#000000']} />
                         <ScrollControls pages={3} damping={0.2}>
                             <Scroll>
@@ -76,7 +76,7 @@ export default function ScrollStarfield({ children, variant = 'default' }: Scrol
         <>
             <div className="fixed inset-0 z-[-1] bg-black pointer-events-none">
                 <Suspense fallback={<div className="w-full h-full bg-black" />}>
-                    <Canvas camera={{ position: [0, 0, 5], fov: 45 }} gl={{ powerPreference: "high-performance" }}>
+                    <Canvas camera={{ position: [0, 0, 5], fov: 45 }} gl={{ powerPreference: "high-performance", failIfMajorPerformanceCaveat: true }}>
                         <color attach="background" args={['#000000']} />
                         <StarfieldScene />
                     </Canvas>

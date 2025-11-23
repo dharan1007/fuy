@@ -150,7 +150,10 @@ export default function AIChatbot() {
         if (recognitionRef.current && !isListening && !isSpeaking) {
             try {
                 // Explicitly request microphone permission first
-                await navigator.mediaDevices.getUserMedia({ audio: true });
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+                // Stop the stream immediately - we just needed the permission
+                stream.getTracks().forEach(track => track.stop());
 
                 // Then start speech recognition
                 recognitionRef.current.start();
@@ -160,6 +163,8 @@ export default function AIChatbot() {
 
                 if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
                     setMicError('🎤 Microphone access denied. Please allow microphone permissions in your browser settings.');
+                } else if (e.name === 'NotFoundError') {
+                    setMicError('No microphone found. Please check your device.');
                 } else {
                     setMicError('Failed to access microphone. Please try again.');
                 }
