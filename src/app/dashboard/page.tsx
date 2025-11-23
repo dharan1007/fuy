@@ -12,7 +12,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 
 const POMO_LS_KEY = "fuy.pomo.v1";
 const BREATH_LS_LAST = "fuy.breath.last.v1";
-const THOUGHTS_TODAY = "fuy.thoughts.today.v1";
+
 const GROUND_LS_LAST = "fuy.grounding.last.v1";
 const SC_LS_LAST = "fuy.sc.last.v1";
 
@@ -167,7 +167,7 @@ export default function DashboardPage() {
             {/* WELLNESS CARDS - Responsive grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-5 lg:gap-6 w-full">
               <BreathingPreview />
-              <ThoughtsPreview />
+              <ChatbotPreview />
               <GroundingPreview />
               <SelfCompassionPreview />
               <PomodoroPreview />
@@ -192,7 +192,7 @@ function BreathingPreview() {
     try {
       const raw = localStorage.getItem(BREATH_LS_LAST);
       if (raw) setInfo(JSON.parse(raw));
-    } catch {}
+    } catch { }
   }, []);
 
   useLSWatch(
@@ -240,59 +240,7 @@ function BreathingPreview() {
   );
 }
 
-/* ========================================================================================
-   THOUGHTS PREVIEW
-======================================================================================== */
 
-function ThoughtsPreview() {
-  const router = useRouter();
-  const [thoughts, setThoughts] = useState(0);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const raw = localStorage.getItem(THOUGHTS_TODAY);
-      if (raw) setThoughts(JSON.parse(raw).length || 0);
-    } catch {}
-  }, []);
-
-  useLSWatch(
-    THOUGHTS_TODAY,
-    () => {
-      const raw = localStorage.getItem(THOUGHTS_TODAY);
-      return raw ? JSON.parse(raw) : [];
-    },
-    (v) => setThoughts(v?.length || 0)
-  );
-
-  return (
-    <div
-      className="rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 border hover:shadow-lg transition-all backdrop-blur-md group active:scale-98 sm:active:scale-100"
-      style={{
-        backgroundColor: "rgba(34, 197, 94, 0.08)",
-        borderColor: "rgba(34, 197, 94, 0.2)",
-      }}
-      onClick={() => router.push("/thoughts")}
-    >
-      <h3 className="text-base sm:text-lg md:text-lg font-bold text-gray-900 mb-3 sm:mb-4 group-hover:text-green-600 transition-colors line-clamp-2">Thoughts Today</h3>
-      <div className="space-y-2.5 sm:space-y-3">
-        <div className="flex justify-between items-center gap-2">
-          <span className="text-xs sm:text-sm text-gray-700">Recorded</span>
-          <span className="text-xs sm:text-sm font-semibold text-green-600">{thoughts}</span>
-        </div>
-        <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: "rgba(34, 197, 94, 0.1)" }}>
-          <div
-            className="h-full transition-all duration-500"
-            style={{ width: `${Math.min(100, (thoughts / 10) * 100)}%`, backgroundColor: "#22c55e" }}
-          />
-        </div>
-        <p className="text-xs mt-2.5 sm:mt-3 text-gray-600">
-          Click to log thoughts
-        </p>
-      </div>
-    </div>
-  );
-}
 
 /* ========================================================================================
    WREX PREVIEW
@@ -307,7 +255,7 @@ function GroundingPreview() {
     try {
       const raw = localStorage.getItem(GROUND_LS_LAST);
       if (raw) setInfo(JSON.parse(raw));
-    } catch {}
+    } catch { }
   }, []);
 
   useLSWatch(
@@ -363,7 +311,7 @@ function SelfCompassionPreview() {
     try {
       const raw = localStorage.getItem(SC_LS_LAST);
       if (raw) setInfo(JSON.parse(raw));
-    } catch {}
+    } catch { }
   }, []);
 
   useLSWatch(
@@ -416,7 +364,7 @@ function PomodoroPreview() {
           today: data.sessions?.filter((s: any) => new Date(s.startTime).toDateString() === new Date().toDateString()).length || 0,
         });
       }
-    } catch {}
+    } catch { }
   }, []);
 
   useLSWatch(
@@ -456,6 +404,44 @@ function PomodoroPreview() {
         </div>
         <p className="text-xs sm:text-sm mt-2.5 sm:mt-3 text-gray-600">
           Click to start timer
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ========================================================================================
+   CHATBOT PREVIEW ("dbot")
+======================================================================================== */
+
+function ChatbotPreview() {
+  const router = useRouter();
+
+  return (
+    <div
+      className="rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 border hover:shadow-lg transition-all backdrop-blur-md group active:scale-98 sm:active:scale-100"
+      style={{
+        backgroundColor: "rgba(0, 0, 0, 0.05)",
+        borderColor: "rgba(0, 0, 0, 0.1)",
+      }}
+      onClick={() => router.push("/chatbot")}
+    >
+      <h3 className="text-base sm:text-lg md:text-lg font-bold text-gray-900 mb-3 sm:mb-4 group-hover:text-black transition-colors line-clamp-2">
+        AI Companion
+      </h3>
+      <div className="space-y-2.5 sm:space-y-3">
+        <div className="flex justify-between items-center gap-2">
+          <span className="text-xs sm:text-sm text-gray-700">Status</span>
+          <span className="text-xs sm:text-sm font-semibold text-black">Active</span>
+        </div>
+        <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: "rgba(0, 0, 0, 0.1)" }}>
+          <div
+            className="h-full transition-all duration-500 bg-black"
+            style={{ width: '100%' }}
+          />
+        </div>
+        <p className="text-xs mt-2.5 sm:mt-3 text-gray-600">
+          Chat with dbot
         </p>
       </div>
     </div>

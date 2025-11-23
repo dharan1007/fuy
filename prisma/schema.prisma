@@ -84,6 +84,10 @@ model User {
   collaborationInvitesReceived CollaborationInvite[] @relation("CollaborationInvitesReceived")
   collaborationUpdates CollaborationUpdate[]
 
+  // --- AI Chatbot ("dbot") ---
+  userInsights UserInsight[]
+  aiChatSessions AIChatSession[]
+
   // --- Shop & E-commerce ---
   brandsOwned     Brand[]              @relation("BrandsOwned")
   productReviews  ProductReview[]      @relation("ProductReviews")
@@ -1183,5 +1187,50 @@ model WebhookLog {
   @@index([paymentId])
   @@index([eventType])
   @@index([status])
+  @@index([createdAt])
+}
+
+// ------------------------
+// AI Chatbot / Podcaster ("dbot")
+// ------------------------
+
+model UserInsight {
+  id        String   @id @default(cuid())
+  userId    String
+  // e.g. "User feels anxious about work", "User likes nature metaphors"
+  content   String
+  // Confidence score (0.0 - 1.0)
+  confidence Float   @default(1.0)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model AIChatSession {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages AIChatMessage[]
+
+  @@index([userId])
+  @@index([updatedAt])
+}
+
+model AIChatMessage {
+  id        String   @id @default(cuid())
+  sessionId String
+  role      String   // "user" | "assistant" | "system"
+  content   String
+  createdAt DateTime @default(now())
+
+  session AIChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
   @@index([createdAt])
 }
