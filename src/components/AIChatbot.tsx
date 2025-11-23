@@ -146,13 +146,25 @@ export default function AIChatbot() {
         synthesisRef.current.speak(utterance);
     };
 
-    const startListening = () => {
+    const startListening = async () => {
         if (recognitionRef.current && !isListening && !isSpeaking) {
             try {
+                // Explicitly request microphone permission first
+                await navigator.mediaDevices.getUserMedia({ audio: true });
+
+                // Then start speech recognition
                 recognitionRef.current.start();
                 setIsListening(true);
-            } catch (e) {
-                console.error("Speech recognition error:", e);
+            } catch (e: any) {
+                console.error("Microphone access error:", e);
+
+                if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
+                    setMicError('🎤 Microphone access denied. Please allow microphone permissions in your browser settings.');
+                } else {
+                    setMicError('Failed to access microphone. Please try again.');
+                }
+
+                setTimeout(() => setMicError(null), 5000);
             }
         }
     };

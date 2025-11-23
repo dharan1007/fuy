@@ -126,5 +126,26 @@ Response:`;
                 },
             });
         }
+    },
+
+    // Transcribe audio using local Whisper model
+    async transcribeAudio(audioBlob: Blob): Promise<string> {
+        try {
+            // Load Whisper model (lightweight version)
+            const transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny.en');
+
+            // Convert blob to array buffer
+            const arrayBuffer = await audioBlob.arrayBuffer();
+            const audioData = new Float32Array(arrayBuffer);
+
+            // Transcribe
+            const result = await transcriber(audioData);
+
+            // @ts-ignore - Type handling for Transformers.js output
+            return result?.text || result || '';
+        } catch (error) {
+            console.error('Transcription Error:', error);
+            throw new Error('Failed to transcribe audio');
+        }
     }
 };
