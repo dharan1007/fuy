@@ -56,13 +56,35 @@ export default function AIChatbot() {
             if (SpeechRecognition) {
                 const recognition = new SpeechRecognition();
                 recognition.continuous = false;
-                recognition.interimResults = false;
+                recognition.interimResults = true; // Enable interim results
                 recognition.lang = 'en-US';
+
                 recognition.onresult = (event: any) => {
-                    const transcript = event.results[0][0].transcript;
-                    setInput(transcript);
-                    sendMessage(transcript); // Auto-send on voice input
+                    let finalTranscript = '';
+                    let interimTranscript = '';
+
+                    for (let i = event.resultIndex; i < event.results.length; ++i) {
+                        if (event.results[i].isFinal) {
+                            finalTranscript += event.results[i][0].transcript;
+                        } else {
+                            interimTranscript += event.results[i][0].transcript;
+                        }
+                    }
+
+                    if (finalTranscript) {
+                        setInput(finalTranscript);
+                        sendMessage(finalTranscript); // Auto-send on voice input
+                    } else if (interimTranscript) {
+                        setInput(interimTranscript); // Show what's being spoken
+                    }
                 };
+
+                recognition.onerror = (event: any) => {
+                    console.error("Speech recognition error", event.error);
+                    setIsListening(false);
+                    // Optional: Show a toast or alert to the user
+                };
+
                 recognition.onend = () => {
                     setIsListening(false);
                 };
@@ -71,6 +93,13 @@ export default function AIChatbot() {
 
             // TTS
             synthesisRef.current = window.speechSynthesis;
+
+            // Pre-load voices
+            if (window.speechSynthesis.onvoiceschanged !== undefined) {
+                window.speechSynthesis.onvoiceschanged = () => {
+                    // Voices loaded
+                };
+            }
         }
     }, []);
 
@@ -217,8 +246,8 @@ export default function AIChatbot() {
                     <button
                         onClick={togglePodcastMode}
                         className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${podcastMode
-                                ? 'bg-red-500/20 text-red-200 border border-red-500/30'
-                                : 'bg-white/5 text-white/60 hover:bg-white/10'
+                            ? 'bg-red-500/20 text-red-200 border border-red-500/30'
+                            : 'bg-white/5 text-white/60 hover:bg-white/10'
                             }`}
                     >
                         {podcastMode ? '🎙️ Live' : 'Voice Mode'}
@@ -260,8 +289,8 @@ export default function AIChatbot() {
                     <button
                         onClick={isListening ? stopListening : startListening}
                         className={`p-3 rounded-full transition-all ${isListening
-                                ? 'bg-red-500/20 text-red-400 animate-pulse'
-                                : 'bg-white/5 text-white/40 hover:bg-white/10'
+                            ? 'bg-red-500/20 text-red-400 animate-pulse'
+                            : 'bg-white/5 text-white/40 hover:bg-white/10'
                             }`}
                     >
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

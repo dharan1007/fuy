@@ -1,11 +1,10 @@
-"use client";
-
 import React, { useRef } from 'react';
 import { toPng } from 'html-to-image';
 
 interface CharmCardProps {
     title: string;
     quote: string;
+    // onClose is a function prop, valid since CharmCard is only used within client components
     onClose: () => void;
 }
 
