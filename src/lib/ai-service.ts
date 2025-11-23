@@ -6,7 +6,7 @@ import { UserInsight, AIChatMessage } from '@prisma/client';
 class AIModelService {
     private static instance: AIModelService;
     private pipe: any = null;
-    private modelName = 'Xenova/LaMini-Flan-T5-248M'; // Lightweight instruction-tuned model
+    private modelName = 'Xenova/Phi-1_5'; // Better 1.3B parameter model
 
     private constructor() { }
 
@@ -20,7 +20,7 @@ class AIModelService {
     public async getPipeline(): Promise<any> {
         if (!this.pipe) {
             console.log('Loading AI model...');
-            this.pipe = await pipeline('text2text-generation', this.modelName);
+            this.pipe = await pipeline('text-generation', this.modelName);
             console.log('AI model loaded.');
         }
         return this.pipe;
@@ -33,41 +33,56 @@ export const aiService = {
         userMessage: string,
         context: string,
         systemPrompt: string,
+        conversationHistory: Array<{ role: string; content: string }> = [],
         options: any = {}
     ): Promise<string> {
         try {
             const model = await AIModelService.getInstance().getPipeline();
 
-            // Construct a prompt that includes system instructions and context
-            // LaMini/Flan-T5 works well with instruction format
-            const fullPrompt = `
-Instruction: ${systemPrompt}
+            // Build conversation history string
+            let historyText = '';
+            if (conversationHistory.length > 0) {
+                const recentHistory = conversationHistory.slice(-6); // Last 3 exchanges
+                historyText = recentHistory.map(msg =>
+                    `${msg.role === 'user' ? 'User' : 'dbot'}: ${msg.content}`
+                ).join('\n');
+            }
 
-Context: ${context}
+            // Construct a better prompt for Phi-1.5
+            const fullPrompt = `${systemPrompt}
 
+${historyText ? `Previous conversation:\n${historyText}\n` : ''}
 User: ${userMessage}
-
-Response:`;
+dbot:`;
 
             const output = await model(fullPrompt, {
-                max_new_tokens: 150,
-                temperature: options.temperature || 0.7,
+                max_new_tokens: 200,
+                temperature: 0.9,
                 do_sample: true,
-                top_k: options.top_k || 50,
-                repetition_penalty: options.repetition_penalty || 1.1,
+                top_p: 0.95,
+                top_k: 50,
+                repetition_penalty: 1.15,
+                num_return_sequences: 1,
             });
 
-            // @ts-ignore - Transformers.js types can be tricky, output is usually an array
+            // @ts-ignore - Transformers.js types can be tricky
             let responseText = output[0]?.generated_text || "I'm having trouble thinking right now.";
 
-            // Clean up response if needed
-            responseText = responseText.trim();
+            // Extract only the new response (after "dbot:")
+            const dbotIndex = responseText.lastIndexOf('dbot:');
+            if (dbotIndex !== -1) {
+                responseText = responseText.substring(dbotIndex + 5).trim();
+            }
 
-            return responseText;
+            // Clean up response
+            responseText = responseText.split('\n')[0].trim(); // Take first line only
+            responseText = responseText.replace(/^["']|["']$/g, ''); // Remove surrounding quotes
+
+            return responseText || "I'm listening. Tell me more.";
 
         } catch (error) {
             console.error('AI Generation Error:', error);
-            return "I'm sorry, I'm having a bit of a headache. Can we try again?";
+            return "I'm sorry, I'm having a bit of trouble. Can we try again?";
         }
     },
 
