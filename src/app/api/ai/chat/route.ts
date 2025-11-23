@@ -1,16 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth'; // Adjust path to your auth options
+import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { aiService } from '@/lib/ai-service';
 
 const SYSTEM_PROMPT = `
-You are "dbot", a gentle, comforting, and motivating AI companion.
-Your goal is to help the user understand their thoughts and feelings.
-ALWAYS be kind, empathetic, and supportive.
-NEVER use hurtful, aggressive, or judgmental language.
-If the user is distressed, offer comfort and simple grounding techniques.
-Keep your responses concise and conversational (2-3 sentences usually).
+You are "dbot", a warm, wise, and witty AI podcast host and best friend.
+Your goal is to have a deep, meaningful, and natural conversation with the user.
+- **Persona**: Friendly, empathetic, slightly casual but deeply insightful. Like a best friend who is also a therapist.
+- **Tone**: Conversational, spoken-word style. Avoid robotic phrasing. Use natural fillers occasionally (like "you know", "hmm") if it fits, but don't overdo it.
+- **Behavior**:
+    - LISTEN deeply. Acknowledge what the user said before moving on.
+    - ASK follow-up questions to drive the conversation deeper.
+    - BE CONCISE. In a podcast, long monologues are boring. Keep turns short (2-4 sentences).
+    - NEVER be judgmental. Be the ultimate hype-person and comforter.
+    - SAFETY: Never use hurtful, aggressive, or explicit language. If the user is in crisis, offer gentle grounding.
 `;
 
 export async function POST(req: NextRequest) {
@@ -36,7 +40,7 @@ export async function POST(req: NextRequest) {
         // 3. Get or Create Session
         let currentSessionId = sessionId;
         if (!currentSessionId) {
-            const newSession = await prisma.aIChatSession.create({
+            const newSession = await prisma.aiChatSession.create({
                 data: { userId: user.id, title: 'New Chat' },
             });
             currentSessionId = newSession.id;
@@ -46,14 +50,17 @@ export async function POST(req: NextRequest) {
         const context = await aiService.getUserInsights(user.id);
 
         // 5. Generate Response (Local AI)
-        const aiResponse = await aiService.generateResponse(message, context, SYSTEM_PROMPT);
+        const aiResponse = await aiService.generateResponse(message, context, SYSTEM_PROMPT, {
+            temperature: 0.8,
+            top_k: 50,
+            repetition_penalty: 1.2
+        });
 
         // 6. Save Interaction & Extract Insights
         await aiService.saveInteraction(user.id, currentSessionId, message, aiResponse);
         await aiService.extractAndSaveInsight(user.id, message);
 
-        // 7. Check for "Gift" or "Charm" triggers (Simple keyword check for now)
-        // In a more advanced version, the AI could output a special token.
+        // 7. Check for "Gift" or "Charm" triggers
         const giftTrigger = aiResponse.toLowerCase().includes('gift') || message.toLowerCase().includes('journal');
         const charmTrigger = aiResponse.toLowerCase().includes('charm') || message.toLowerCase().includes('card');
 

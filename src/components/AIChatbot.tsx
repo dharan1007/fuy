@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import CharmCard from './CharmCard';
 
 interface Message {
@@ -12,12 +13,20 @@ interface Message {
 
 export default function AIChatbot() {
     const { data: session } = useSession();
+    const router = useRouter();
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [sessionId, setSessionId] = useState<string | null>(null);
     const [charm, setCharm] = useState<{ title: string; quote: string } | null>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
+
+    // Voice Mode State
+    const [isListening, setIsListening] = useState(false);
+    const [isSpeaking, setIsSpeaking] = useState(false);
+    const [podcastMode, setPodcastMode] = useState(false);
+    const recognitionRef = useRef<any>(null);
+    const synthesisRef = useRef<SpeechSynthesis | null>(null);
 
     // Initial greeting
     useEffect(() => {
@@ -39,10 +48,96 @@ export default function AIChatbot() {
         }
     }, [messages]);
 
-    const sendMessage = async () => {
-        if (!input.trim() || isLoading) return;
+    // Initialize Speech API
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            // STT
+            const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+            if (SpeechRecognition) {
+                const recognition = new SpeechRecognition();
+                recognition.continuous = false;
+                recognition.interimResults = false;
+                recognition.lang = 'en-US';
+                recognition.onresult = (event: any) => {
+                    const transcript = event.results[0][0].transcript;
+                    setInput(transcript);
+                    sendMessage(transcript); // Auto-send on voice input
+                };
+                recognition.onend = () => {
+                    setIsListening(false);
+                };
+                recognitionRef.current = recognition;
+            }
 
-        const userMsg: Message = { id: Date.now().toString(), role: 'user', content: input };
+            // TTS
+            synthesisRef.current = window.speechSynthesis;
+        }
+    }, []);
+
+    const speak = (text: string) => {
+        if (!synthesisRef.current) return;
+
+        // Cancel any current speech
+        synthesisRef.current.cancel();
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1.1; // Slightly faster for natural flow
+        utterance.pitch = 1.0;
+
+        // Try to find a good voice
+        const voices = synthesisRef.current.getVoices();
+        const preferredVoice = voices.find(v => v.name.includes('Google US English') || v.name.includes('Samantha'));
+        if (preferredVoice) utterance.voice = preferredVoice;
+
+        utterance.onstart = () => setIsSpeaking(true);
+        utterance.onend = () => {
+            setIsSpeaking(false);
+            // Podcast Mode: Start listening again after speaking
+            if (podcastMode && recognitionRef.current) {
+                setTimeout(() => {
+                    startListening();
+                }, 500);
+            }
+        };
+
+        synthesisRef.current.speak(utterance);
+    };
+
+    const startListening = () => {
+        if (recognitionRef.current && !isListening && !isSpeaking) {
+            try {
+                recognitionRef.current.start();
+                setIsListening(true);
+            } catch (e) {
+                console.error("Speech recognition error:", e);
+            }
+        }
+    };
+
+    const stopListening = () => {
+        if (recognitionRef.current) {
+            recognitionRef.current.stop();
+            setIsListening(false);
+            setPodcastMode(false); // Stop loop if manually stopped
+        }
+    };
+
+    const togglePodcastMode = () => {
+        if (podcastMode) {
+            setPodcastMode(false);
+            stopListening();
+            synthesisRef.current?.cancel();
+        } else {
+            setPodcastMode(true);
+            startListening();
+        }
+    };
+
+    const sendMessage = async (textOverride?: string) => {
+        const textToSend = textOverride || input;
+        if (!textToSend.trim() || isLoading) return;
+
+        const userMsg: Message = { id: Date.now().toString(), role: 'user', content: textToSend };
         setMessages((prev) => [...prev, userMsg]);
         setInput('');
         setIsLoading(true);
@@ -67,8 +162,18 @@ export default function AIChatbot() {
             const aiMsg: Message = { id: Date.now().toString(), role: 'assistant', content: data.response };
             setMessages((prev) => [...prev, aiMsg]);
 
+            // Speak response if in podcast mode or if voice was used
+            if (podcastMode || textOverride) {
+                speak(data.response);
+            }
+
             if (data.charm) {
                 setCharm(data.charm);
+            }
+
+            // Check for integration triggers
+            if (data.response.toLowerCase().includes("hopin") || textToSend.toLowerCase().includes("trip")) {
+                // Optional: Auto-redirect or show toast
             }
 
         } catch (error) {
@@ -92,10 +197,33 @@ export default function AIChatbot() {
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-white/5 bg-white/5">
                 <div className="flex items-center gap-3">
-                    <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.5)]"></div>
+                    <div className={`w-3 h-3 rounded-full ${isListening ? 'bg-red-500 animate-pulse' : 'bg-green-500'} shadow-[0_0_10px_rgba(34,197,94,0.5)]`}></div>
                     <span className="text-white/90 font-medium tracking-wide">dbot</span>
                 </div>
-                <div className="text-xs text-white/40 uppercase tracking-widest">AI Companion</div>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => router.push('/journal')}
+                        className="px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-xs text-white/60 transition-colors"
+                    >
+                        Canvas
+                    </button>
+                    <button
+                        onClick={() => router.push('/hopin')}
+                        className="px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-xs text-white/60 transition-colors"
+                    >
+                        Hopin
+                    </button>
+                    <div className="w-px h-4 bg-white/10 mx-1"></div>
+                    <button
+                        onClick={togglePodcastMode}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${podcastMode
+                                ? 'bg-red-500/20 text-red-200 border border-red-500/30'
+                                : 'bg-white/5 text-white/60 hover:bg-white/10'
+                            }`}
+                    >
+                        {podcastMode ? '🎙️ Live' : 'Voice Mode'}
+                    </button>
+                </div>
             </div>
 
             {/* Messages Area */}
@@ -107,8 +235,8 @@ export default function AIChatbot() {
                     >
                         <div
                             className={`max-w-[80%] px-5 py-3 rounded-2xl text-sm leading-relaxed shadow-sm backdrop-blur-md border ${msg.role === 'user'
-                                    ? 'bg-white/10 text-white border-white/10 rounded-br-none'
-                                    : 'bg-black/40 text-neutral-200 border-white/5 rounded-bl-none'
+                                ? 'bg-white/10 text-white border-white/10 rounded-br-none'
+                                : 'bg-black/40 text-neutral-200 border-white/5 rounded-bl-none'
                                 }`}
                         >
                             {msg.content}
@@ -129,17 +257,31 @@ export default function AIChatbot() {
             {/* Input Area */}
             <div className="p-4 border-t border-white/5 bg-white/5">
                 <div className="relative flex items-center gap-2">
+                    <button
+                        onClick={isListening ? stopListening : startListening}
+                        className={`p-3 rounded-full transition-all ${isListening
+                                ? 'bg-red-500/20 text-red-400 animate-pulse'
+                                : 'bg-white/5 text-white/40 hover:bg-white/10'
+                            }`}
+                    >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                            <line x1="12" y1="19" x2="12" y2="23"></line>
+                            <line x1="8" y1="23" x2="16" y2="23"></line>
+                        </svg>
+                    </button>
                     <input
                         type="text"
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-                        placeholder="Type your thoughts..."
+                        placeholder={podcastMode ? "Listening..." : "Type your thoughts..."}
                         className="w-full bg-black/20 border border-white/10 rounded-full px-6 py-3 text-white placeholder-white/30 focus:outline-none focus:border-white/30 focus:bg-black/40 transition-all"
-                        disabled={isLoading}
+                        disabled={isLoading || podcastMode}
                     />
                     <button
-                        onClick={sendMessage}
+                        onClick={() => sendMessage()}
                         disabled={isLoading || !input.trim()}
                         className="absolute right-2 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white disabled:opacity-50 transition-colors"
                     >

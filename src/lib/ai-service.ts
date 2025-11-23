@@ -32,7 +32,8 @@ export const aiService = {
     async generateResponse(
         userMessage: string,
         context: string,
-        systemPrompt: string
+        systemPrompt: string,
+        options: any = {}
     ): Promise<string> {
         try {
             const model = await AIModelService.getInstance().getPipeline();
@@ -50,8 +51,10 @@ Response:`;
 
             const output = await model(fullPrompt, {
                 max_new_tokens: 150,
-                temperature: 0.7,
+                temperature: options.temperature || 0.7,
                 do_sample: true,
+                top_k: options.top_k || 50,
+                repetition_penalty: options.repetition_penalty || 1.1,
             });
 
             // @ts-ignore - Transformers.js types can be tricky, output is usually an array
@@ -88,22 +91,27 @@ Response:`;
         aiContent: string
     ) {
         // Save User Message
-        await prisma.aIChatMessage.create({
+        await prisma.aiChatMessage.create({
             data: {
                 sessionId,
                 role: 'user',
                 content: userContent,
+                userId // Added userId to match schema if needed, or remove if not in schema
             },
         });
 
         // Save AI Message
-        await prisma.aIChatMessage.create({
+        await prisma.aiChatMessage.create({
             data: {
                 sessionId,
                 role: 'assistant',
                 content: aiContent,
+                userId // Added userId
             },
         });
+
+        // Update session with new messages (optional, if you want to keep a running log in the session object itself)
+        // But creating separate message records is usually enough.
     },
 
     // DB Helper: Extract and Save New Insight (Mock/Heuristic for now to save compute)

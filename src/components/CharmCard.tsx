@@ -40,23 +40,20 @@ export default function CharmCard({ title, quote, onClose }: CharmCardProps) {
                         boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37)',
                     }}
                 >
-                    {/* Decorative noise/texture overlay could go here */}
+                    {/* Decorative noise/texture overlay */}
                     <div className="absolute inset-0 opacity-20 pointer-events-none bg-[url('https://grainy-gradients.vercel.app/noise.svg')] mix-blend-overlay"></div>
 
                     <div className="relative z-10 flex flex-col items-center gap-4">
-                        <div className="w-12 h-12 rounded-full border border-white/30 flex items-center justify-center mb-4">
-                            <span className="text-2xl">✨</span>
+                        <div className="space-y-2">
+                            <h3 className="text-2xl font-serif italic text-white">{title}</h3>
+                            <p className="text-[10px] text-white/60 uppercase tracking-widest">Daily Charm</p>
                         </div>
-
-                        <h3 className="text-xl font-light tracking-widest text-white uppercase opacity-90">
-                            {title}
-                        </h3>
 
                         <div className="w-16 h-[1px] bg-gradient-to-r from-transparent via-white/50 to-transparent my-2"></div>
 
-                        <p className="text-lg font-medium text-white leading-relaxed italic opacity-90 font-serif">
+                        <blockquote className="text-lg text-white font-medium leading-relaxed italic opacity-90 font-serif">
                             "{quote}"
-                        </p>
+                        </blockquote>
                     </div>
 
                     <div className="absolute bottom-6 text-[10px] tracking-widest text-white/40 uppercase">
@@ -65,19 +62,26 @@ export default function CharmCard({ title, quote, onClose }: CharmCardProps) {
                 </div>
 
                 {/* Actions */}
-                <div className="flex gap-4">
-                    <button
-                        onClick={handleDownload}
-                        className="px-6 py-2 rounded-full bg-white text-black text-sm font-medium hover:bg-neutral-200 transition-colors shadow-lg"
-                    >
-                        Save Card
-                    </button>
-                    <button
-                        onClick={onClose}
-                        className="px-6 py-2 rounded-full border border-white/20 text-white text-sm font-medium hover:bg-white/10 transition-colors"
-                    >
-                        Close
-                    </button>
+                <div className="w-full max-w-[300px] flex flex-col gap-3">
+                    <div className="flex justify-center gap-2">
+                        <button className="px-3 py-1 rounded-full border border-white/20 text-[10px] uppercase tracking-wider text-white hover:bg-white/10 transition-colors">Public</button>
+                        <button className="px-3 py-1 rounded-full border border-white/20 text-[10px] uppercase tracking-wider text-white hover:bg-white/10 transition-colors">Followers</button>
+                        <button className="px-3 py-1 rounded-full border border-white/20 text-[10px] uppercase tracking-wider bg-white text-black transition-colors">Private</button>
+                    </div>
+                    <div className="flex gap-2 w-full">
+                        <button
+                            onClick={handleDownload}
+                            className="flex-1 py-2 rounded-full bg-white text-black text-xs font-medium uppercase tracking-widest hover:bg-neutral-200 transition-colors shadow-lg"
+                        >
+                            Save
+                        </button>
+                        <button
+                            onClick={onClose}
+                            className="px-4 py-2 rounded-full border border-white/20 text-white text-xs font-medium hover:bg-white/10 transition-colors"
+                        >
+                            Close
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

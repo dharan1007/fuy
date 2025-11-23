@@ -167,7 +167,10 @@ export default function DashboardPage() {
             {/* WELLNESS CARDS - Responsive grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-5 lg:gap-6 w-full">
               <BreathingPreview />
-              <ChatbotPreview />
+              <ChatbotPreview
+                title="dbot"
+                description="Your AI best friend & podcast host."
+              />
               <GroundingPreview />
               <SelfCompassionPreview />
               <PomodoroPreview />
@@ -414,7 +417,7 @@ function PomodoroPreview() {
    CHATBOT PREVIEW ("dbot")
 ======================================================================================== */
 
-function ChatbotPreview() {
+function ChatbotPreview({ title = "dbot", description = "Chat with dbot" }: { title?: string, description?: string }) {
   const router = useRouter();
 
   return (
@@ -427,7 +430,7 @@ function ChatbotPreview() {
       onClick={() => router.push("/chatbot")}
     >
       <h3 className="text-base sm:text-lg md:text-lg font-bold text-gray-900 mb-3 sm:mb-4 group-hover:text-black transition-colors line-clamp-2">
-        AI Companion
+        {title}
       </h3>
       <div className="space-y-2.5 sm:space-y-3">
         <div className="flex justify-between items-center gap-2">
@@ -441,7 +444,7 @@ function ChatbotPreview() {
           />
         </div>
         <p className="text-xs mt-2.5 sm:mt-3 text-gray-600">
-          Chat with dbot
+          {description}
         </p>
       </div>
     </div>
