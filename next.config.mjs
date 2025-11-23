@@ -31,7 +31,11 @@ const nextConfig = {
         headers: [
           {
             key: 'Permissions-Policy',
-            value: 'microphone=*, camera=*, geolocation=*',
+            value: 'microphone=(self)',
+          },
+          {
+            key: 'Feature-Policy',
+            value: 'microphone \'self\'',
           },
         ],
       },
