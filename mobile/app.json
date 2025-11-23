@@ -1,50 +1,32 @@
 {
   "expo": {
-    "name": "FUY",
-    "slug": "fuy-mobile",
+    "name": "mobile",
+    "slug": "mobile",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
     "ios": {
-      "bundleIdentifier": "com.fuy.mobile"
+      "supportsTablet": true
     },
     "android": {
-      "package": "com.fuy.mobile",
-      "permissions": [
-        "android.permission.DETECT_SCREEN_CAPTURE",
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION"
-      ]
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true
     },
-    "extra": {
-      "USE_EMULATOR": "false",
-      "EXPO_PUBLIC_API_URL": "",
-      "ONESIGNAL_APP_ID": "YOUR_ONESIGNAL_APP_ID",
-      "ONESIGNAL_REST_API_KEY": "YOUR_ONESIGNAL_REST_API_KEY",
-      "eas": {
-        "projectId": "816a31ef-3c5e-4026-835f-255c73866a0f"
-      }
-    },
-    "runtimeVersion": {
-      "policy": "appVersion"
+    "web": {
+      "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      [
-        "expo-build-properties",
-        {
-          "android": {
-            "compileSdkVersion": 33,
-            "targetSdkVersion": 33,
-            "minSdkVersion": 21,
-            "usesCleartextTraffic": true
-          }
-        }
-      ]
-    ],
-    "owner": "dharantej"
+      "expo-router"
+    ]
   }
 }

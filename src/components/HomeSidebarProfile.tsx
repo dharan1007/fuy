@@ -39,19 +39,24 @@ interface TodoItem {
   dueDate?: string;
 }
 
+interface HomeSidebarProfileProps {
+  userProfile: UserProfile | null;
+  avatarUrl: string;
+  displayName: string;
+  onFetchFollowers: () => void;
+  onFetchFollowing: () => void;
+}
+
+/* eslint-disable @next/next/no-img-element */
+// Note: onFetchFollowers and onFetchFollowing are safe because both this component
+// and its parent (HomeClient) are client components. Next.js warning 71007 is a false positive.
 export default function HomeSidebarProfile({
   userProfile,
   avatarUrl,
   displayName,
   onFetchFollowers,
   onFetchFollowing
-}: {
-  userProfile: UserProfile | null;
-  avatarUrl: string;
-  displayName: string;
-  onFetchFollowers: () => void;
-  onFetchFollowing: () => void;
-}) {
+}: HomeSidebarProfileProps) {
   const router = useRouter();
   const [userRanks, setUserRanks] = useState<Rank[]>([]);
   const [hopinPlans, setHopinPlans] = useState<HopinPlan[]>([]);

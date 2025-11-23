@@ -533,12 +533,61 @@ export default function HomeClient() {
                     </div>
 
                     {/* Right Sidebar - Features Cards */}
-                    <aside className="hidden md:block md:col-span-1 px-3 sm:px-4 lg:px-6 space-y-4">
+                    <aside className="md:col-span-1 p-4 bg-transparent backdrop-blur-md border border-white/20 rounded-2xl hover:border-white/40 space-y-4">
                         <HopinProgramsCard />
                         <RankingCard />
                     </aside>
                 </div>
             </main>
+
+            {/* Footer */}
+            <footer className="relative mt-16 border-t border-white/10 bg-transparent">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+                        {/* Brand */}
+                        <div>
+                            <h3 className="font-bold text-lg mb-4 text-white">FUY Media</h3>
+                            <p className="text-sm text-gray-300">Real-time messaging platform connecting people authentically.</p>
+                        </div>
+                        {/* Quick Links */}
+                        <div>
+                            <h4 className="font-semibold text-sm mb-4 text-white">Product</h4>
+                            <ul className="space-y-2">
+                                <li><Link href="/journal" className="text-sm text-gray-300 hover:text-white transition-colors">Journal</Link></li>
+                                <li><Link href="/hopin" className="text-sm text-gray-300 hover:text-white transition-colors">Hopin</Link></li>
+                                <li><Link href="/shop" className="text-sm text-gray-300 hover:text-white transition-colors">Shop</Link></li>
+                                <li><Link href="/dashboard" className="text-sm text-gray-300 hover:text-white transition-colors">Dashboard</Link></li>
+                            </ul>
+                        </div>
+                        {/* Community */}
+                        <div>
+                            <h4 className="font-semibold text-sm mb-4 text-white">Community</h4>
+                            <ul className="space-y-2">
+                                <li><Link href="/chat" className="text-sm text-gray-300 hover:text-white transition-colors">Messages</Link></li>
+                                <li><Link href="/profile" className="text-sm text-gray-300 hover:text-white transition-colors">Profile</Link></li>
+                                <li><Link href="/contact-us" className="text-sm text-gray-300 hover:text-white transition-colors">Contact Us</Link></li>
+                            </ul>
+                        </div>
+                        {/* Policies */}
+                        <div>
+                            <h4 className="font-semibold text-sm mb-4 text-white">Policies & Legal</h4>
+                            <ul className="space-y-2">
+                                <li><Link href="/privacy-policy" className="text-sm text-gray-300 hover:text-white transition-colors">Privacy Policy</Link></li>
+                                <li><Link href="/terms-and-conditions" className="text-sm text-gray-300 hover:text-white transition-colors">Terms & Conditions</Link></li>
+                                <li><Link href="/cancellation-refund-policy" className="text-sm text-gray-300 hover:text-white transition-colors">Cancellation & Refund</Link></li>
+                                <li><Link href="/shipping-policy" className="text-sm text-gray-300 hover:text-white transition-colors">Shipping Policy</Link></li>
+                            </ul>
+                        </div>
+                    </div>
+                    {/* Divider */}
+                    <div className="border-t border-white/10 mt-8 pt-8">
+                        <div className="flex flex-col md:flex-row justify-between items-center text-xs text-gray-400">
+                            <p>&copy; 2025 FUY Media. All rights reserved.</p>
+                            <p>Email: <a href="mailto:fuymedia@gmail.com" className="hover:text-white transition-colors">fuymedia@gmail.com</a></p>
+                        </div>
+                    </div>
+                </div>
+            </footer>
 
             {/* Bottom Floating Curved Nav Bar */}
             <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 pointer-events-none">
@@ -594,88 +643,33 @@ export default function HomeClient() {
                             3
                         </span>
                     </Link>
+                    <SearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
+                    <NotificationsModal isOpen={isNotificationsOpen} onClose={() => {
+                        setIsNotificationsOpen(false);
+                        fetchUnreadCount();
+                        // Refresh profile to update follower/following counts
+                        fetchUserProfile();
+                    }} />
+                    <UserListModal
+                        isOpen={showFollowersModal}
+                        title="Followers"
+                        users={followersList}
+                        onClose={() => setShowFollowersModal(false)}
+                        onRemoveFriend={handleRemoveFriend}
+                        isLoading={loadingFollowers}
+                        error={followersError}
+                    />
+                    <UserListModal
+                        isOpen={showFollowingModal}
+                        title="Following"
+                        users={followingList}
+                        onClose={() => setShowFollowingModal(false)}
+                        onRemoveFriend={handleRemoveFriend}
+                        isLoading={loadingFollowing}
+                        error={followingError}
+                    />
                 </nav>
             </div>
-
-            {/* Footer */}
-            <footer className="relative mt-16 border-t border-white/50 bg-gradient-to-b from-white/60 to-white/40 backdrop-blur-xl">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-                        {/* Brand */}
-                        <div>
-                            <h3 className="font-bold text-lg mb-4 text-gray-900">FUY Media</h3>
-                            <p className="text-sm text-gray-700">Real-time messaging platform connecting people authentically.</p>
-                        </div>
-
-                        {/* Quick Links */}
-                        <div>
-                            <h4 className="font-semibold text-sm mb-4 text-gray-900">Product</h4>
-                            <ul className="space-y-2">
-                                <li><Link href="/journal" className="text-sm text-gray-700 hover:text-gray-900 transition-colors">Journal</Link></li>
-                                <li><Link href="/hopin" className="text-sm text-gray-700 hover:text-gray-900 transition-colors">Hopin</Link></li>
-                                <li><Link href="/shop" className="text-sm text-gray-700 hover:text-gray-900 transition-colors">Shop</Link></li>
-                                <li><Link href="/dashboard" className="text-sm text-gray-700 hover:text-gray-900 transition-colors">Dashboard</Link></li>
-                            </ul>
-                        </div>
-
-                        {/* Community */}
-                        <div>
-                            <h4 className="font-semibold text-sm mb-4 text-gray-900">Community</h4>
-                            <ul className="space-y-2">
-                                <li><Link href="/chat" className="text-sm text-gray-700 hover:text-gray-900 transition-colors">Messages</Link></li>
-                                <li><Link href="/profile" className="text-sm text-gray-700 hover:text-gray-900 transition-colors">Profile</Link></li>
-                                <li><Link href="/contact-us" className="text-sm text-gray-700 hover:text-gray-900 transition-colors">Contact Us</Link></li>
-                            </ul>
-                        </div>
-
-                        {/* Policies */}
-                        <div>
-                            <h4 className="font-semibold text-sm mb-4 text-gray-900">Policies & Legal</h4>
-                            <ul className="space-y-2">
-                                <li><Link href="/privacy-policy" className="text-sm text-gray-700 hover:text-gray-900 transition-colors">Privacy Policy</Link></li>
-                                <li><Link href="/terms-and-conditions" className="text-sm text-gray-700 hover:text-gray-900 transition-colors">Terms & Conditions</Link></li>
-                                <li><Link href="/cancellation-refund-policy" className="text-sm text-gray-700 hover:text-gray-900 transition-colors">Cancellation & Refund</Link></li>
-                                <li><Link href="/shipping-policy" className="text-sm text-gray-700 hover:text-gray-900 transition-colors">Shipping Policy</Link></li>
-                            </ul>
-                        </div>
-                    </div>
-
-                    {/* Divider */}
-                    <div className="border-t border-white/50 mt-8 pt-8">
-                        <div className="flex flex-col md:flex-row justify-between items-center text-xs text-gray-800">
-                            <p>&copy; 2025 FUY Media. All rights reserved.</p>
-                            <p>Email: <a href="mailto:fuymedia@gmail.com" className="hover:text-gray-900 transition-colors">fuymedia@gmail.com</a></p>
-                        </div>
-                    </div>
-                </div>
-            </footer>
-
-            {/* Modals */}
-            <SearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
-            <NotificationsModal isOpen={isNotificationsOpen} onClose={() => {
-                setIsNotificationsOpen(false);
-                fetchUnreadCount();
-                // Refresh profile to update follower/following counts
-                fetchUserProfile();
-            }} />
-            <UserListModal
-                isOpen={showFollowersModal}
-                title="Followers"
-                users={followersList}
-                onClose={() => setShowFollowersModal(false)}
-                onRemoveFriend={handleRemoveFriend}
-                isLoading={loadingFollowers}
-                error={followersError}
-            />
-            <UserListModal
-                isOpen={showFollowingModal}
-                title="Following"
-                users={followingList}
-                onClose={() => setShowFollowingModal(false)}
-                onRemoveFriend={handleRemoveFriend}
-                isLoading={loadingFollowing}
-                error={followingError}
-            />
         </div>
     );
 }

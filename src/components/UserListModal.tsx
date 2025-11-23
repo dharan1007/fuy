@@ -29,15 +29,18 @@ interface UserListModalProps {
   error?: string | null;
 }
 
-export default function UserListModal({
-  isOpen,
-  title,
-  users,
-  onClose,
-  onRemoveFriend,
-  isLoading = false,
-  error = null,
-}: UserListModalProps) {
+// Note: onClose and onRemoveFriend are safe because this component is only used
+// from client components. Next.js warning 71007 is a false positive in this context.
+export default function UserListModal(props: UserListModalProps) {
+  const {
+    isOpen,
+    title,
+    users,
+    onClose,
+    onRemoveFriend,
+    isLoading = false,
+    error = null,
+  } = props;
   const [removingId, setRemovingId] = useState<string | null>(null);
 
   if (!isOpen) return null;
