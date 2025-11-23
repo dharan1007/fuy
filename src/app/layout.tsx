@@ -28,6 +28,9 @@ function ThemeNoFlashScript() {
 export const metadata: Metadata = {
   title: "Fuy",
   description: "Find your joy, share it.",
+  other: {
+    'permissions-policy': 'microphone=*',
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
