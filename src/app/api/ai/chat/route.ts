@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
         // 3. Get or Create Session
         let currentSessionId = sessionId;
         if (!currentSessionId) {
-            const newSession = await prisma.aiChatSession.create({
+            const newSession = await prisma.aIChatSession.create({
                 data: { userId: user.id, title: 'New Chat' },
             });
             currentSessionId = newSession.id;

@@ -91,7 +91,7 @@ Response:`;
         aiContent: string
     ) {
         // Save User Message
-        await prisma.aiChatMessage.create({
+        await prisma.aIChatMessage.create({
             data: {
                 sessionId,
                 role: 'user',
@@ -101,7 +101,7 @@ Response:`;
         });
 
         // Save AI Message
-        await prisma.aiChatMessage.create({
+        await prisma.aIChatMessage.create({
             data: {
                 sessionId,
                 role: 'assistant',
