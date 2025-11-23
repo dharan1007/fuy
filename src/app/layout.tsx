@@ -36,7 +36,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className="h-full" suppressHydrationWarning>
       <head>
         {/* Permissions policy meta tag for microphone access */}
-        <meta httpEquiv="Permissions-Policy" content="microphone=(self)" />
+
       </head>
       <body className="min-h-screen h-full bg-black text-white antialiased">
         {/* Ensure correct theme before anything paints */}
