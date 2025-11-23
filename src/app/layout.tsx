@@ -28,15 +28,16 @@ function ThemeNoFlashScript() {
 export const metadata: Metadata = {
   title: "Fuy",
   description: "Find your joy, share it.",
-  other: {
-    'permissions-policy': 'microphone=*',
-  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     // suppressHydrationWarning avoids class mismatch warnings while we toggle 'dark' pre-hydration
     <html lang="en" className="h-full" suppressHydrationWarning>
+      <head>
+        {/* Permissions policy meta tag for microphone access */}
+        <meta httpEquiv="Permissions-Policy" content="microphone=*, camera=*, geolocation=*" />
+      </head>
       <body className="min-h-screen h-full bg-black text-white antialiased">
         {/* Ensure correct theme before anything paints */}
         <ThemeNoFlashScript />
