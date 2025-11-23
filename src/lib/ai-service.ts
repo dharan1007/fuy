@@ -96,7 +96,6 @@ Response:`;
                 sessionId,
                 role: 'user',
                 content: userContent,
-                userId // Added userId to match schema if needed, or remove if not in schema
             },
         });
 
@@ -106,7 +105,6 @@ Response:`;
                 sessionId,
                 role: 'assistant',
                 content: aiContent,
-                userId // Added userId
             },
         });
 
