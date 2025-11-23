@@ -7,6 +7,21 @@ const nextConfig = {
   },
   // IMPORTANT: build for SSR, not static export
   output: "standalone",
+
+  // Fix for @xenova/transformers and other native modules
+  experimental: {
+    serverComponentsExternalPackages: ['sharp', 'onnxruntime-node', '@xenova/transformers'],
+  },
+
+  webpack: (config) => {
+    // Ignore node-specific modules when bundling for the browser
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      "sharp$": false,
+      "onnxruntime-node$": false,
+    };
+    return config;
+  },
 };
 
 export default nextConfig;
