@@ -5,7 +5,7 @@ import { UserInsight, AIChatMessage } from '@prisma/client';
 // Singleton to hold the pipeline
 class AIModelService {
     private static instance: AIModelService;
-    private pipe: Pipeline | null = null;
+    private pipe: any = null;
     private modelName = 'Xenova/LaMini-Flan-T5-248M'; // Lightweight instruction-tuned model
 
     private constructor() { }
@@ -17,7 +17,7 @@ class AIModelService {
         return AIModelService.instance;
     }
 
-    public async getPipeline(): Promise<Pipeline> {
+    public async getPipeline(): Promise<any> {
         if (!this.pipe) {
             console.log('Loading AI model...');
             this.pipe = await pipeline('text2text-generation', this.modelName);
