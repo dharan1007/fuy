@@ -25,6 +25,7 @@ export default function AIChatbot() {
     const [isListening, setIsListening] = useState(false);
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [podcastMode, setPodcastMode] = useState(false);
+    const [micError, setMicError] = useState<string | null>(null);
     const recognitionRef = useRef<any>(null);
     const synthesisRef = useRef<SpeechSynthesis | null>(null);
 
@@ -82,7 +83,20 @@ export default function AIChatbot() {
                 recognition.onerror = (event: any) => {
                     console.error("Speech recognition error", event.error);
                     setIsListening(false);
-                    // Optional: Show a toast or alert to the user
+
+                    // Show user-friendly error message
+                    if (event.error === 'not-allowed') {
+                        setMicError('🎤 Microphone access denied. Please allow microphone permissions in your browser settings.');
+                    } else if (event.error === 'no-speech') {
+                        setMicError('No speech detected. Please try again.');
+                    } else if (event.error === 'network') {
+                        setMicError('Network error. Check your internet connection.');
+                    } else {
+                        setMicError(`Microphone error: ${event.error}`);
+                    }
+
+                    // Auto-dismiss after 5 seconds
+                    setTimeout(() => setMicError(null), 5000);
                 };
 
                 recognition.onend = () => {
@@ -324,6 +338,15 @@ export default function AIChatbot() {
                     <span className="text-[10px] text-white/20">dbot learns from our conversations to help you better.</span>
                 </div>
             </div>
+
+            {/* Error Notification */}
+            {micError && (
+                <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50 animate-in slide-in-from-top duration-300">
+                    <div className="bg-red-500/90 backdrop-blur-md text-white px-6 py-3 rounded-full shadow-2xl border border-red-400/50 text-sm font-medium max-w-md">
+                        {micError}
+                    </div>
+                </div>
+            )}
 
             {/* Charm Card Modal */}
             {charm && (
