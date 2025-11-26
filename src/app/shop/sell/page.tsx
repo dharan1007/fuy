@@ -14,9 +14,12 @@ const PRODUCT_TYPES = [
     { id: "DIGITAL_ASSET", label: "Asset", icon: FileText, description: "Files, presets, etc." },
 ];
 
-export default function SellPage() {
+import { Suspense } from "react";
+
+function SellPageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
+    // ... (rest of the component logic)
     const fileInputRef = useRef<HTMLInputElement>(null);
     const imageInputRef = useRef<HTMLInputElement>(null);
     const [step, setStep] = useState(1);
@@ -417,5 +420,13 @@ export default function SellPage() {
                 </AnimatePresence>
             </div>
         </div>
+    );
+}
+
+export default function SellPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen bg-black text-white p-12">Loading...</div>}>
+            <SellPageContent />
+        </Suspense>
     );
 }

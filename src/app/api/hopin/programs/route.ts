@@ -1,5 +1,8 @@
+
 import { getSessionUser } from "@/lib/session";
 import { NextRequest, NextResponse } from "next/server";
+
+export const dynamic = 'force-dynamic';
 
 // Mock data for Hopin programs
 const HOPIN_PROGRAMS = [

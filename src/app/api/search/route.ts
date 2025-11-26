@@ -2,6 +2,8 @@ import { getSessionUser } from "@/lib/session";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+export const dynamic = 'force-dynamic';
+
 // Type definitions
 interface SearchUser {
   id: string;
@@ -132,10 +134,10 @@ export async function GET(req: NextRequest) {
     const posts =
       type === "all" || type === "posts"
         ? MOCK_POSTS.filter(
-            (post) =>
-              post.content.toLowerCase().includes(query) ||
-              post.author.toLowerCase().includes(query)
-          )
+          (post) =>
+            post.content.toLowerCase().includes(query) ||
+            post.author.toLowerCase().includes(query)
+        )
         : [];
 
     // Fetch real users from database
@@ -188,22 +190,22 @@ export async function GET(req: NextRequest) {
     const templates =
       type === "all" || type === "templates"
         ? MOCK_TEMPLATES.filter(
-            (template) =>
-              template.title.toLowerCase().includes(query) ||
-              template.description.toLowerCase().includes(query) ||
-              template.category.toLowerCase().includes(query)
-          )
+          (template) =>
+            template.title.toLowerCase().includes(query) ||
+            template.description.toLowerCase().includes(query) ||
+            template.category.toLowerCase().includes(query)
+        )
         : [];
 
     // Filter places
     const places =
       type === "all" || type === "places"
         ? MOCK_PLACES.filter(
-            (place) =>
-              place.name.toLowerCase().includes(query) ||
-              place.address.toLowerCase().includes(query) ||
-              place.category.toLowerCase().includes(query)
-          )
+          (place) =>
+            place.name.toLowerCase().includes(query) ||
+            place.address.toLowerCase().includes(query) ||
+            place.category.toLowerCase().includes(query)
+        )
         : [];
 
     return NextResponse.json({

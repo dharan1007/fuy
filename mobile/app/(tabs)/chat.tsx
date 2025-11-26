@@ -6,10 +6,22 @@ import { Mic, Send, Search, Settings, MoreVertical, Phone, Video, Image as Image
 import { SafeAreaView } from 'react-native-safe-area-context';
 import io, { Socket } from 'socket.io-client';
 
-const { width, height } = Dimensions.get('window');
-const API_URL = 'http://localhost:3000'; // Replace with actual IP for mobile testing
+import Constants from 'expo-constants';
 
-// --- Types ---
+const { width } = Dimensions.get('window');
+
+const getApiUrl = () => {
+    if (__DEV__) {
+        const hostUri = Constants.expoConfig?.hostUri;
+        if (hostUri) {
+            return `http://${hostUri.split(':')[0]}:3000`;
+        }
+    }
+    return process.env.EXPO_PUBLIC_API_URL || 'https://your-production-url.com';
+};
+
+const API_URL = getApiUrl();
+
 type PersonaType = 'friend' | 'therapist' | 'coach' | 'mystic';
 type ThemeMode = 'light' | 'dark' | 'cosmic';
 
@@ -48,6 +60,20 @@ export default function ChatScreen() {
 
     const socketRef = useRef<Socket | null>(null);
     const slideAnim = useRef(new Animated.Value(width)).current;
+    const activeConversationIdRef = useRef<string | null>(null);
+
+    const markMessagesAsRead = async (conversationId: string, messageIds: string[]) => {
+        if (!conversationId || messageIds.length === 0) return;
+        try {
+            await fetch(`${API_URL}/api/chat/${conversationId}/read`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ messageIds })
+            });
+        } catch (err) {
+            console.error('Failed to mark messages as read', err);
+        }
+    };
 
     // --- Socket & Initial Data ---
     useEffect(() => {

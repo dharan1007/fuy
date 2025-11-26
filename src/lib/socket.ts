@@ -16,11 +16,9 @@ export function initializeSocket(httpServer: any): SocketIOServer {
 
   io = new SocketIOServer(httpServer, {
     cors: {
-      origin:
-        process.env.NODE_ENV === "production"
-          ? process.env.NEXT_PUBLIC_APP_URL || "*"
-          : "*",
+      origin: "*", // Allow all origins for mobile app access
       methods: ["GET", "POST"],
+      credentials: true,
     },
     transports: ["websocket", "polling"],
   });

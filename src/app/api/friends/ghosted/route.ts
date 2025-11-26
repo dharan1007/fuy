@@ -1,8 +1,11 @@
+
 // src/app/api/friends/ghosted/route.ts
 import { logger } from "@/lib/logger";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
+
+export const dynamic = 'force-dynamic';
 
 // Get ghosted friend requests (requests the current user sent but were ghosted by recipient)
 export async function GET(req: Request) {
