@@ -121,7 +121,7 @@ export function useMessaging() {
   const fetchConversations = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/chat/conversations?page=1&limit=20');
+      const response = await fetch('/api/chat/conversations?page=1&limit=100');
       if (response.ok) {
         const data = await response.json();
         const currentUserId = (session?.user as any)?.id;

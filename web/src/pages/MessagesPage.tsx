@@ -72,7 +72,7 @@ function MessagesPageContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showFriendsDropdown, setShowFriendsDropdown] = useState(false);
   const [showRetentionSettings, setShowRetentionSettings] = useState(false);
-  const [chatRetention, setChatRetention] = useState<'1day' | '7days' | '30days' | 'forever'>('1day');
+  const [chatRetention, setChatRetention] = useState<'1day' | '7days' | '30days' | 'forever'>('forever');
   const [messageInput, setMessageInput] = useState('');
   const [typingTimeout, setTypingTimeout] = useState<NodeJS.Timeout | null>(null);
   const [searchResults, setSearchResults] = useState<Friend[]>([]);
@@ -88,26 +88,24 @@ function MessagesPageContent() {
   useEffect(() => {
     if (apiConversations.length > 0) {
       setConversations((prevConversations) => {
-        // Merge new conversations with existing ones
-        const merged = [...apiConversations];
+        // Create a map of existing conversations for easy lookup
+        const convMap = new Map(prevConversations.map(c => [c.id, c]));
 
-        // Keep the selected conversation if it's not in the new list
-        if (selectedConversationId) {
-          const selectedConv = prevConversations.find((c) => c.id === selectedConversationId);
-          if (selectedConv && !merged.find((c) => c.id === selectedConversationId)) {
-            merged.push(selectedConv);
-          }
-        }
+        // Update or add new conversations from API
+        apiConversations.forEach(apiConv => {
+          convMap.set(apiConv.id, apiConv);
+        });
 
-        // Remove duplicates, keeping the updated version
-        const deduped = Array.from(
-          new Map(merged.map((c) => [c.id, c])).values()
-        );
+        // Convert back to array
+        const merged = Array.from(convMap.values());
 
-        return deduped;
+        // Sort by last message time (descending)
+        merged.sort((a, b) => b.lastMessageTime - a.lastMessageTime);
+
+        return merged;
       });
     }
-  }, [apiConversations, selectedConversationId]);
+  }, [apiConversations]);
 
   // Sync API messages with local state (merge to avoid losing messages)
   useEffect(() => {
@@ -181,28 +179,22 @@ function MessagesPageContent() {
     setIsSearching(true);
     searchTimeoutRef.current = setTimeout(async () => {
       try {
-        // Step 1: Search in followers and following (first tier)
-        const followersRes = await fetch(
-          `/api/users/followers-following?type=followers&search=${encodeURIComponent(query)}`
-        );
-        const followingRes = await fetch(
-          `/api/users/followers-following?type=following&search=${encodeURIComponent(query)}`
-        );
+        // Run all search queries in parallel
+        const [followersRes, followingRes, allUsersRes] = await Promise.all([
+          fetch(`/api/users/followers-following?type=followers&search=${encodeURIComponent(query)}`),
+          fetch(`/api/users/followers-following?type=following&search=${encodeURIComponent(query)}`),
+          fetch(`/api/search/users?search=${encodeURIComponent(query)}`)
+        ]);
 
         const followersData = followersRes.ok ? await followersRes.json() : { users: [] };
         const followingData = followingRes.ok ? await followingRes.json() : { users: [] };
+        const allUsersData = allUsersRes.ok ? await allUsersRes.json() : { users: [] };
 
         // Combine followers and following results
         const followersFollowingResults = [...followersData.users, ...followingData.users];
         const followersFollowingMap = new Map(
-          followersFollowingResults.map(u => [u.id, u])
+          followersFollowingResults.map((u: Friend) => [u.id, u])
         );
-
-        // Step 2: Search all platform users (second tier) - for discovery
-        const allUsersRes = await fetch(
-          `/api/search/users?search=${encodeURIComponent(query)}`
-        );
-        const allUsersData = allUsersRes.ok ? await allUsersRes.json() : { users: [] };
 
         // Combine all results: followers/following prioritized, then new users
         const combinedResults = Array.from(followersFollowingMap.values());
