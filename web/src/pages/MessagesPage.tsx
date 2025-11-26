@@ -63,8 +63,7 @@ function MessagesPageContent() {
     stopTyping,
     createOrGetConversation,
     getAllChatUsers,
-    startPolling,
-    stopPolling,
+    getAllChatUsers,
   } = useMessaging();
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -346,7 +345,7 @@ function MessagesPageContent() {
         fetchMessages(selectedConversationId);
       }
       // Start polling for new messages in production
-      startPolling(selectedConversationId);
+      // startPolling(selectedConversationId);
 
       // Update online status based on message activity
       // User is considered "online" if they've sent a message within the last 5 minutes
@@ -373,15 +372,15 @@ function MessagesPageContent() {
         }
       }
     } else {
-      stopPolling();
+      // stopPolling();
     }
 
     return () => {
       if (!selectedConversationId) {
-        stopPolling();
+        // stopPolling();
       }
     };
-  }, [selectedConversationId, messages, fetchMessages, startPolling, stopPolling, selectedConversation]);
+  }, [selectedConversationId, messages, fetchMessages, selectedConversation]);
 
   // Cleanup search timeout on unmount
   useEffect(() => {
