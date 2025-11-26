@@ -58,9 +58,14 @@ export function useMessaging() {
 
     const userId = (session.user as any).id;
 
+    // Determine socket URL: prefer local origin if running locally
+    const socketUrl = (typeof window !== 'undefined' && window.location.hostname === 'localhost')
+      ? 'http://localhost:3000'
+      : (process.env.NEXT_PUBLIC_API_URL || window.location.origin);
+
     // Initialize Socket.io in all environments for real-time messaging
     const newSocket = io(
-      process.env.NEXT_PUBLIC_API_URL || window.location.origin,
+      socketUrl,
       {
         reconnection: true,
         reconnectionDelay: 500,
@@ -137,10 +142,15 @@ export function useMessaging() {
         const data = await response.json();
         const currentUserId = (session?.user as any)?.id;
         const formattedConversations = data.conversations.map((conv: any) => {
+          if (!conv.userA || !conv.userB) return null; // Skip invalid conversations
+
           const otherUser = conv.userA.id === currentUserId ? conv.userB : conv.userA;
+
+          if (!otherUser) return null;
+
           return {
             id: conv.id,
-            participantName: otherUser.profile?.displayName || otherUser.name,
+            participantName: otherUser.profile?.displayName || otherUser.name || 'Unknown User',
             participantId: otherUser.id,
             lastMessage: conv.messages[0]?.content || '',
             lastMessageTime: conv.messages[0]?.createdAt ? new Date(conv.messages[0].createdAt).getTime() : Date.now(),
@@ -149,7 +159,7 @@ export function useMessaging() {
             userA: conv.userA,
             userB: conv.userB,
           };
-        });
+        }).filter(Boolean); // Remove nulls
         setConversations(formattedConversations);
       }
     } catch (err) {

@@ -14,10 +14,12 @@ const getApiUrl = () => {
     if (__DEV__) {
         const hostUri = Constants.expoConfig?.hostUri;
         if (hostUri) {
-            return `http://${hostUri.split(':')[0]}:3000`;
+            const uri = `http://${hostUri.split(':')[0]}:3000`;
+            console.log('Development API URL:', uri);
+            return uri;
         }
     }
-    return process.env.EXPO_PUBLIC_API_URL || 'https://your-production-url.com';
+    return process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org';
 };
 
 const API_URL = getApiUrl();
@@ -260,26 +262,26 @@ export default function ChatScreen() {
     // --- Render Helpers ---
     const getGradientColors = (): [string, string, string] => {
         switch (activeTheme) {
-            case 'light': return ['#f0f9ff', '#e0f2fe', '#bae6fd'];
-            case 'dark': return ['#0f172a', '#1e293b', '#334155'];
-            case 'cosmic': return ['#0f0c29', '#302b63', '#24243e'];
-            default: return ['#0f0c29', '#302b63', '#24243e'];
+            case 'light': return ['#ffffff', '#f8f9fa', '#e9ecef']; // Pure White/Gray
+            case 'dark': return ['#000000', '#0a0a0a', '#171717']; // Pure Black
+            case 'cosmic': return ['#000000', '#0a0a0a', '#171717']; // Map cosmic to black
+            default: return ['#000000', '#0a0a0a', '#171717'];
         }
     };
 
     const renderHeader = () => (
         <View className="px-6 pt-4 pb-2 flex-row justify-between items-center z-10">
-            <Text className={`text-3xl font-bold ${activeTheme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+            <Text className={`text-3xl font-bold ${activeTheme === 'light' ? 'text-black' : 'text-white'}`}>
                 Messages
             </Text>
             <View className="flex-row gap-4">
-                <TouchableOpacity onPress={() => setActiveTheme(prev => prev === 'light' ? 'dark' : prev === 'dark' ? 'cosmic' : 'light')}>
-                    {activeTheme === 'light' ? <Sun color="#475569" size={24} /> : activeTheme === 'dark' ? <Moon color="white" size={24} /> : <Sparkles color="#c084fc" size={24} />}
+                <TouchableOpacity onPress={() => setActiveTheme(prev => prev === 'light' ? 'dark' : 'light')}>
+                    {activeTheme === 'light' ? <Sun color="black" size={24} /> : <Moon color="white" size={24} />}
                 </TouchableOpacity>
                 <TouchableOpacity>
                     <Image
                         source={{ uri: 'https://api.dicebear.com/7.x/avataaars/png?seed=User' }}
-                        className="w-10 h-10 rounded-full border-2 border-white/20"
+                        className={`w-10 h-10 rounded-full border-2 ${activeTheme === 'light' ? 'border-black/10' : 'border-white/20'}`}
                     />
                 </TouchableOpacity>
             </View>
@@ -288,17 +290,17 @@ export default function ChatScreen() {
 
     const renderSearchBar = () => (
         <View className="px-6 py-4">
-            <BlurView intensity={20} tint={activeTheme === 'light' ? 'light' : 'dark'} className="flex-row items-center px-4 py-3 rounded-2xl overflow-hidden border border-white/10">
-                <Search color={activeTheme === 'light' ? '#64748b' : 'rgba(255,255,255,0.5)'} size={20} />
+            <BlurView intensity={30} tint={activeTheme === 'light' ? 'light' : 'dark'} className={`flex-row items-center px-4 py-3 rounded-2xl overflow-hidden border ${activeTheme === 'light' ? 'border-black/5' : 'border-white/10'}`}>
+                <Search color={activeTheme === 'light' ? '#000' : '#fff'} size={20} />
                 <TextInput
                     placeholder="Search users..."
-                    placeholderTextColor={activeTheme === 'light' ? '#94a3b8' : 'rgba(255,255,255,0.3)'}
+                    placeholderTextColor={activeTheme === 'light' ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.4)'}
                     value={searchQuery}
                     onChangeText={(text) => {
                         setSearchQuery(text);
                         searchUsers(text);
                     }}
-                    className={`flex-1 ml-3 text-base ${activeTheme === 'light' ? 'text-slate-800' : 'text-white'}`}
+                    className={`flex-1 ml-3 text-base ${activeTheme === 'light' ? 'text-black' : 'text-white'}`}
                 />
             </BlurView>
         </View>
@@ -306,31 +308,30 @@ export default function ChatScreen() {
 
     const renderUserList = () => (
         <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false}>
-            {/* Dbot Special Card */}
+            {/* Dbot Special Card - Black & White */}
             <TouchableOpacity
                 onPress={() => handleUserSelect({ id: 'dbot', name: 'dbot AI', avatar: 'https://api.dicebear.com/7.x/bottts/png?seed=dbot', status: 'online' })}
                 className="mb-6"
             >
-                <LinearGradient
-                    colors={['#4f46e5', '#9333ea']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    className="p-4 rounded-3xl flex-row items-center shadow-lg"
+                <BlurView
+                    intensity={40}
+                    tint={activeTheme === 'light' ? 'light' : 'dark'}
+                    className={`p-4 rounded-3xl flex-row items-center overflow-hidden border ${activeTheme === 'light' ? 'border-black/5' : 'border-white/10'}`}
                 >
-                    <View className="w-14 h-14 rounded-full bg-white/20 items-center justify-center border border-white/30">
-                        <Sparkles color="white" size={28} />
+                    <View className={`w-14 h-14 rounded-full items-center justify-center border ${activeTheme === 'light' ? 'bg-black/5 border-black/10' : 'bg-white/10 border-white/20'}`}>
+                        <Sparkles color={activeTheme === 'light' ? 'black' : 'white'} size={28} />
                     </View>
                     <View className="flex-1 ml-4">
-                        <Text className="text-white text-lg font-bold">dbot AI</Text>
-                        <Text className="text-white/80 text-sm">Your personal companion</Text>
+                        <Text className={`text-lg font-bold ${activeTheme === 'light' ? 'text-black' : 'text-white'}`}>dbot AI</Text>
+                        <Text className={`text-sm ${activeTheme === 'light' ? 'text-black/60' : 'text-white/60'}`}>Your personal companion</Text>
                     </View>
-                    <View className="bg-white/20 px-3 py-1 rounded-full">
-                        <Text className="text-white text-xs font-medium">Active</Text>
+                    <View className={`px-3 py-1 rounded-full ${activeTheme === 'light' ? 'bg-black/5' : 'bg-white/10'}`}>
+                        <Text className={`text-xs font-medium ${activeTheme === 'light' ? 'text-black' : 'text-white'}`}>Active</Text>
                     </View>
-                </LinearGradient>
+                </BlurView>
             </TouchableOpacity>
 
-            <Text className={`text-sm font-semibold mb-4 ${activeTheme === 'light' ? 'text-slate-500' : 'text-white/40'}`}>
+            <Text className={`text-sm font-semibold mb-4 ${activeTheme === 'light' ? 'text-black/40' : 'text-white/40'}`}>
                 {searchQuery ? 'SEARCH RESULTS' : 'RECENT CONVERSATIONS'}
             </Text>
 
@@ -338,35 +339,35 @@ export default function ChatScreen() {
                 <TouchableOpacity
                     key={user.id}
                     onPress={() => handleUserSelect(user)}
-                    className="flex-row items-center mb-5"
+                    className={`flex-row items-center mb-5 p-3 rounded-2xl transition-all active:scale-95 ${activeTheme === 'light' ? 'active:bg-black/5' : 'active:bg-white/5'}`}
                 >
                     <View className="relative">
                         <Image source={{ uri: user.avatar }} className="w-14 h-14 rounded-2xl bg-gray-200" />
                         {user.status === 'online' && (
-                            <View className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white" />
+                            <View className={`absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 ${activeTheme === 'light' ? 'border-white' : 'border-black'}`} />
                         )}
                     </View>
-                    <View className="flex-1 ml-4 border-b border-white/5 pb-4">
+                    <View className={`flex-1 ml-4 border-b pb-4 ${activeTheme === 'light' ? 'border-black/5' : 'border-white/5'}`}>
                         <View className="flex-row justify-between items-center mb-1">
-                            <Text className={`text-base font-bold ${activeTheme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                            <Text className={`text-base font-bold ${activeTheme === 'light' ? 'text-black' : 'text-white'}`}>
                                 {user.name}
                             </Text>
                             {user.lastMessageAt && (
-                                <Text className={`text-xs ${activeTheme === 'light' ? 'text-slate-400' : 'text-white/30'}`}>
+                                <Text className={`text-xs ${activeTheme === 'light' ? 'text-black/40' : 'text-white/40'}`}>
                                     {new Date(user.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </Text>
                             )}
                         </View>
                         <Text
                             numberOfLines={1}
-                            className={`text-sm ${user.unreadCount ? (activeTheme === 'light' ? 'text-slate-800 font-semibold' : 'text-white font-semibold') : (activeTheme === 'light' ? 'text-slate-500' : 'text-white/50')}`}
+                            className={`text-sm ${user.unreadCount ? (activeTheme === 'light' ? 'text-black font-semibold' : 'text-white font-semibold') : (activeTheme === 'light' ? 'text-black/50' : 'text-white/50')}`}
                         >
                             {user.lastMessage || (user.status === 'online' ? 'Online' : `Last seen ${user.lastSeen ? new Date(user.lastSeen).toLocaleDateString() : 'recently'}`)}
                         </Text>
                     </View>
                     {user.unreadCount ? (
-                        <View className="w-6 h-6 bg-rose-500 rounded-full items-center justify-center ml-2">
-                            <Text className="text-white text-xs font-bold">{user.unreadCount}</Text>
+                        <View className={`w-6 h-6 rounded-full items-center justify-center ml-2 ${activeTheme === 'light' ? 'bg-black' : 'bg-white'}`}>
+                            <Text className={`text-xs font-bold ${activeTheme === 'light' ? 'text-white' : 'text-black'}`}>{user.unreadCount}</Text>
                         </View>
                     ) : null}
                 </TouchableOpacity>
@@ -386,17 +387,17 @@ export default function ChatScreen() {
                 <LinearGradient colors={getGradientColors()} className="flex-1">
                     <SafeAreaView className="flex-1">
                         {/* Chat Header */}
-                        <BlurView intensity={80} tint={activeTheme === 'light' ? 'light' : 'dark'} className="flex-row items-center justify-between px-4 py-3 border-b border-white/10">
+                        <BlurView intensity={80} tint={activeTheme === 'light' ? 'light' : 'dark'} className={`flex-row items-center justify-between px-4 py-3 border-b ${activeTheme === 'light' ? 'border-black/5' : 'border-white/10'}`}>
                             <View className="flex-row items-center">
                                 <TouchableOpacity onPress={handleBack} className="mr-3 p-2 rounded-full hover:bg-white/10">
-                                    <ChevronLeft color={activeTheme === 'light' ? '#1e293b' : 'white'} size={24} />
+                                    <ChevronLeft color={activeTheme === 'light' ? 'black' : 'white'} size={24} />
                                 </TouchableOpacity>
                                 <Image source={{ uri: selectedUser.avatar }} className="w-10 h-10 rounded-full bg-gray-200" />
                                 <View className="ml-3">
-                                    <Text className={`text-base font-bold ${activeTheme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                                    <Text className={`text-base font-bold ${activeTheme === 'light' ? 'text-black' : 'text-white'}`}>
                                         {selectedUser.name}
                                     </Text>
-                                    <Text className={`text-xs ${activeTheme === 'light' ? 'text-slate-500' : 'text-white/50'}`}>
+                                    <Text className={`text-xs ${activeTheme === 'light' ? 'text-black/50' : 'text-white/50'}`}>
                                         {isDbot ? `${persona} mode` : (selectedUser.status === 'online' ? 'Online' : 'Offline')}
                                     </Text>
                                 </View>
@@ -404,14 +405,14 @@ export default function ChatScreen() {
                             <View className="flex-row gap-4">
                                 {isDbot && (
                                     <TouchableOpacity onPress={() => setShowPersonaSelector(true)}>
-                                        <User color={activeTheme === 'light' ? '#1e293b' : 'white'} size={22} />
+                                        <User color={activeTheme === 'light' ? 'black' : 'white'} size={22} />
                                     </TouchableOpacity>
                                 )}
                                 <TouchableOpacity>
-                                    <Phone color={activeTheme === 'light' ? '#1e293b' : 'white'} size={22} />
+                                    <Phone color={activeTheme === 'light' ? 'black' : 'white'} size={22} />
                                 </TouchableOpacity>
                                 <TouchableOpacity>
-                                    <Video color={activeTheme === 'light' ? '#1e293b' : 'white'} size={22} />
+                                    <Video color={activeTheme === 'light' ? 'black' : 'white'} size={22} />
                                 </TouchableOpacity>
                             </View>
                         </BlurView>
@@ -431,20 +432,20 @@ export default function ChatScreen() {
                                         intensity={40}
                                         tint={activeTheme === 'light' ? 'light' : 'dark'}
                                         className={`px-5 py-3 rounded-2xl ${msg.role === 'user'
-                                            ? 'bg-blue-500/20 border-blue-400/30 rounded-br-none'
-                                            : 'bg-white/10 border-white/10 rounded-bl-none'
+                                            ? (activeTheme === 'light' ? 'bg-black/5 border-black/10' : 'bg-white/10 border-white/10') + ' rounded-br-none'
+                                            : (activeTheme === 'light' ? 'bg-white border-black/5' : 'bg-black/40 border-white/10') + ' rounded-bl-none'
                                             } border overflow-hidden`}
                                     >
-                                        <Text className={`text-base ${activeTheme === 'light' ? 'text-slate-800' : 'text-white'}`}>
+                                        <Text className={`text-base ${activeTheme === 'light' ? 'text-black' : 'text-white'}`}>
                                             {msg.content}
                                         </Text>
                                     </BlurView>
                                     <View className={`flex-row items-center mt-1 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                        <Text className={`text-[10px] ${activeTheme === 'light' ? 'text-slate-400' : 'text-white/30'}`}>
+                                        <Text className={`text-[10px] ${activeTheme === 'light' ? 'text-black/40' : 'text-white/30'}`}>
                                             {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </Text>
                                         {msg.role === 'user' && (
-                                            <Text className={`text-[10px] ml-1 ${activeTheme === 'light' ? 'text-slate-400' : 'text-white/30'}`}>
+                                            <Text className={`text-[10px] ml-1 ${activeTheme === 'light' ? 'text-black/40' : 'text-white/30'}`}>
                                                 {msg.readAt ? '• Read' : '• Sent'}
                                             </Text>
                                         )}
@@ -454,28 +455,28 @@ export default function ChatScreen() {
                         </ScrollView>
 
                         {/* Input Area */}
-                        <BlurView intensity={90} tint={activeTheme === 'light' ? 'light' : 'dark'} className="px-4 py-4 border-t border-white/10 pb-8">
+                        <BlurView intensity={90} tint={activeTheme === 'light' ? 'light' : 'dark'} className={`px-4 py-4 border-t ${activeTheme === 'light' ? 'border-black/5' : 'border-white/10'} pb-8`}>
                             <View className="flex-row items-center gap-3">
-                                <TouchableOpacity className="p-2 rounded-full bg-white/5">
-                                    <Sparkles color={activeTheme === 'light' ? '#64748b' : 'white'} size={20} />
+                                <TouchableOpacity className={`p-2 rounded-full ${activeTheme === 'light' ? 'bg-black/5' : 'bg-white/5'}`}>
+                                    <Sparkles color={activeTheme === 'light' ? 'black' : 'white'} size={20} />
                                 </TouchableOpacity>
                                 <TextInput
                                     placeholder={isDbot ? `Message ${persona}...` : "Type a message..."}
-                                    placeholderTextColor={activeTheme === 'light' ? '#94a3b8' : 'rgba(255,255,255,0.3)'}
+                                    placeholderTextColor={activeTheme === 'light' ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.4)'}
                                     value={inputText}
                                     onChangeText={setInputText}
-                                    className={`flex-1 h-12 px-4 rounded-full border border-white/10 ${activeTheme === 'light' ? 'bg-slate-100 text-slate-800' : 'bg-white/5 text-white'}`}
+                                    className={`flex-1 h-12 px-4 rounded-full border ${activeTheme === 'light' ? 'bg-white border-black/10 text-black' : 'bg-white/5 border-white/10 text-white'}`}
                                 />
                                 {inputText ? (
-                                    <TouchableOpacity onPress={() => sendMessage(inputText)} className="w-12 h-12 rounded-full bg-blue-600 items-center justify-center shadow-lg shadow-blue-500/30">
-                                        <Send color="white" size={20} />
+                                    <TouchableOpacity onPress={() => sendMessage(inputText)} className={`w-12 h-12 rounded-full items-center justify-center shadow-lg ${activeTheme === 'light' ? 'bg-black shadow-black/20' : 'bg-white shadow-white/20'}`}>
+                                        <Send color={activeTheme === 'light' ? 'white' : 'black'} size={20} />
                                     </TouchableOpacity>
                                 ) : (
                                     <TouchableOpacity
                                         onPress={() => setIsVoiceMode(!isVoiceMode)}
-                                        className={`w-12 h-12 rounded-full items-center justify-center border ${isVoiceMode ? 'bg-red-500/20 border-red-500' : 'bg-white/5 border-white/10'}`}
+                                        className={`w-12 h-12 rounded-full items-center justify-center border ${isVoiceMode ? 'bg-red-500/20 border-red-500' : (activeTheme === 'light' ? 'bg-black/5 border-black/10' : 'bg-white/5 border-white/10')}`}
                                     >
-                                        <Mic color={isVoiceMode ? '#ef4444' : (activeTheme === 'light' ? '#64748b' : 'white')} size={20} />
+                                        <Mic color={isVoiceMode ? '#ef4444' : (activeTheme === 'light' ? 'black' : 'white')} size={20} />
                                     </TouchableOpacity>
                                 )}
                             </View>
@@ -493,9 +494,9 @@ export default function ChatScreen() {
                                     <TouchableOpacity
                                         key={p}
                                         onPress={() => { setPersona(p as PersonaType); setShowPersonaSelector(false); }}
-                                        className={`px-6 py-3 rounded-full border ${persona === p ? 'bg-blue-600 border-blue-500' : 'bg-white/5 border-white/10'}`}
+                                        className={`px-6 py-3 rounded-full border ${persona === p ? 'bg-white text-black border-white' : 'bg-white/5 border-white/10'}`}
                                     >
-                                        <Text className="text-white capitalize font-medium">{p}</Text>
+                                        <Text className={`${persona === p ? 'text-black' : 'text-white'} capitalize font-medium`}>{p}</Text>
                                     </TouchableOpacity>
                                 ))}
                             </View>

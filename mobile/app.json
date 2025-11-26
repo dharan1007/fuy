@@ -27,6 +27,7 @@
     },
     "plugins": [
       "expo-router"
-    ]
+    ],
+    "scheme": "fuy"
   }
 }
