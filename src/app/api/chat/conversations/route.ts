@@ -29,7 +29,7 @@ export async function GET(req: Request) {
             }
           }
         }
-      } as any,
+      },
       include: {
         userA: {
           select: { id: true, name: true, profile: { select: { avatarUrl: true } }, lastSeen: true } as any,
@@ -44,24 +44,24 @@ export async function GET(req: Request) {
         states: {
           where: { userId: user.id }
         }
-      } as any,
+      },
       orderBy: { updatedAt: 'desc' },
-    });
+    }) as any[];
 
     // Format for frontend
-    const formatted = conversations.map(c => {
-      const otherUser = (c.participantA === user.id ? c.userB : c.userA) as any;
-      const lastMsg = c.messages[0];
-      const userState = c.states[0]; // Should be only one for this user
+    const formatted = conversations.map((c: any) => {
+      const otherUser = c.participantA === user.id ? c.userB : c.userA;
+      const lastMsg = c.messages?.[0];
+      const userState = c.states?.[0]; // Should be only one for this user
 
       return {
         id: c.id,
-        participantName: otherUser.name || 'Unknown User',
-        participantId: otherUser.id,
+        participantName: otherUser?.name || 'Unknown User',
+        participantId: otherUser?.id,
         lastMessage: lastMsg?.content || 'Started a conversation',
         lastMessageTime: lastMsg ? new Date(lastMsg.createdAt).getTime() : new Date(c.createdAt).getTime(),
         unreadCount: 0, // TODO: Implement unread count
-        avatar: otherUser.profile?.avatarUrl,
+        avatar: otherUser?.profile?.avatarUrl,
         userA: c.userA,
         userB: c.userB,
         isMuted: userState?.isMuted || false
