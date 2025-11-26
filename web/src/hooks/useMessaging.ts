@@ -241,7 +241,7 @@ export function useMessaging() {
       const response = await fetch('/api/chat/conversations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ friendId }),
+        body: JSON.stringify({ targetUserId: friendId }),
       });
 
       if (response.ok) {
