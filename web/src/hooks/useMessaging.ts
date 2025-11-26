@@ -112,19 +112,24 @@ export function useMessaging() {
 
   // Fetch initial data
   useEffect(() => {
-    if (session?.user) {
+    if (session?.user?.email) {
       fetchConversations();
       fetchFollowersAndFollowing();
     }
-  }, [session?.user]);
+  }, [session?.user?.email]);
 
   const fetchConversations = useCallback(async () => {
+    if (!session?.user?.email) return;
+
     try {
       setLoading(true);
       const response = await fetch('/api/chat/conversations?page=1&limit=100');
       if (response.ok) {
         const data = await response.json();
         const currentUserId = (session?.user as any)?.id;
+
+        if (!currentUserId) return;
+
         const formattedConversations = data.conversations.map((conv: any) => {
           if (!conv.userA || !conv.userB) return null;
           const otherUser = conv.userA.id === currentUserId ? conv.userB : conv.userA;
@@ -134,12 +139,13 @@ export function useMessaging() {
             id: conv.id,
             participantName: otherUser.profile?.displayName || otherUser.name || 'Unknown User',
             participantId: otherUser.id,
-            lastMessage: conv.messages[0]?.content || '',
-            lastMessageTime: conv.messages[0]?.createdAt ? new Date(conv.messages[0].createdAt).getTime() : Date.now(),
+            lastMessage: conv.messages?.[0]?.content || '',
+            lastMessageTime: conv.messages?.[0]?.createdAt ? new Date(conv.messages[0].createdAt).getTime() : Date.now(),
             unreadCount: 0,
             avatar: otherUser.profile?.avatarUrl,
             userA: conv.userA,
             userB: conv.userB,
+            isMuted: conv.isMuted // Pass this through from API
           };
         }).filter(Boolean);
         setConversations(formattedConversations);
@@ -150,7 +156,7 @@ export function useMessaging() {
     } finally {
       setLoading(false);
     }
-  }, [session?.user]);
+  }, [session?.user?.email]);
 
   const fetchFollowersAndFollowing = useCallback(async () => {
     try {

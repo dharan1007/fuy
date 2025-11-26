@@ -19,6 +19,7 @@ interface Conversation {
   lastMessageTime: number;
   unreadCount: number;
   avatar?: string;
+  isMuted?: boolean;
 }
 
 interface Message {
@@ -94,7 +95,8 @@ function MessagesPageContent() {
 
         // Update or add new conversations from API
         apiConversations.forEach(apiConv => {
-          convMap.set(apiConv.id, apiConv);
+          // Only update if changed (basic check) or just overwrite to be safe but keep local-only props if any
+          convMap.set(apiConv.id, { ...convMap.get(apiConv.id), ...apiConv });
         });
 
         // Convert back to array
@@ -103,6 +105,8 @@ function MessagesPageContent() {
         // Sort by last message time (descending)
         merged.sort((a, b) => b.lastMessageTime - a.lastMessageTime);
 
+        // Simple check to avoid state update if length and order are same (optimization)
+        // For now, just return merged to ensure we have latest data
         return merged;
       });
     }
