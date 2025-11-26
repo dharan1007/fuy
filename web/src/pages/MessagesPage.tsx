@@ -57,6 +57,7 @@ function MessagesPageContent() {
     onlineUsers,
     typingUsers,
     loading,
+    fetchConversations,
     fetchMessages,
     sendMessage,
     startTyping,
