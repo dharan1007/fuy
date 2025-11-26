@@ -63,7 +63,6 @@ function MessagesPageContent() {
     stopTyping,
     createOrGetConversation,
     getAllChatUsers,
-    getAllChatUsers,
   } = useMessaging();
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
