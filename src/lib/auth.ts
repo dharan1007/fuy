@@ -1,5 +1,5 @@
 // src/lib/auth.ts
-import type { NextAuthOptions } from "next-auth";
+import { getServerSession, type NextAuthOptions } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
 import { jwtVerify } from "jose";
@@ -110,3 +110,5 @@ export const authOptions: NextAuthOptions = {
     },
   },
 };
+
+export const auth = () => getServerSession(authOptions);

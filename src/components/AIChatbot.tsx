@@ -4,14 +4,21 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import CharmCard from './CharmCard';
+import { PersonaType } from '@/lib/ai-service';
 
 interface Message {
     id: string;
     role: 'user' | 'assistant';
     content: string;
+    sentiment?: string; // Color code
 }
 
-export default function AIChatbot() {
+interface AIChatbotProps {
+    className?: string;
+    style?: React.CSSProperties;
+}
+
+export default function AIChatbot({ className, style }: AIChatbotProps) {
     const { data: session } = useSession();
     const router = useRouter();
     const [messages, setMessages] = useState<Message[]>([]);
@@ -21,7 +28,51 @@ export default function AIChatbot() {
     const [charm, setCharm] = useState<{ title: string; quote: string } | null>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
 
-    // Voice Mode State
+    // --- Advanced AI State ---
+    const [persona, setPersona] = useState<PersonaType>('friend');
+    const [currentMood, setCurrentMood] = useState<string>('#3b82f6'); // Default blue
+    const [showSettings, setShowSettings] = useState(false);
+    const [autoRead, setAutoRead] = useState(false);
+
+    // --- Persistence ---
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('fuy.dbot.v1');
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    if (parsed.messages) setMessages(parsed.messages);
+                    if (parsed.sessionId) setSessionId(parsed.sessionId);
+                    if (parsed.persona) setPersona(parsed.persona);
+                    if (parsed.currentMood) setCurrentMood(parsed.currentMood);
+                    if (parsed.autoRead) setAutoRead(parsed.autoRead);
+                } catch (e) {
+                    console.error('Failed to load dbot state', e);
+                }
+            } else {
+                // Initial greeting if no history
+                setMessages([{
+                    id: 'init',
+                    role: 'assistant',
+                    content: "Hello. I am dbot. I'm here to listen, understand, and help you find clarity. How are you feeling right now?",
+                }]);
+            }
+        }
+    }, []);
+
+    useEffect(() => {
+        if (messages.length > 0 || sessionId) {
+            localStorage.setItem('fuy.dbot.v1', JSON.stringify({
+                messages,
+                sessionId,
+                persona,
+                currentMood,
+                autoRead
+            }));
+        }
+    }, [messages, sessionId, persona, currentMood, autoRead]);
+
+    // --- Voice Mode State ---
     const [isListening, setIsListening] = useState(false);
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [podcastMode, setPodcastMode] = useState(false);
@@ -29,18 +80,7 @@ export default function AIChatbot() {
     const recognitionRef = useRef<any>(null);
     const synthesisRef = useRef<SpeechSynthesis | null>(null);
 
-    // Initial greeting
-    useEffect(() => {
-        if (messages.length === 0) {
-            setMessages([
-                {
-                    id: 'init',
-                    role: 'assistant',
-                    content: "Hello. I am dbot. I'm here to listen, understand, and help you find clarity. How are you feeling right now?",
-                },
-            ]);
-        }
-    }, [messages.length]);
+
 
     // Auto-scroll
     useEffect(() => {
@@ -52,124 +92,70 @@ export default function AIChatbot() {
     // Initialize Speech API
     useEffect(() => {
         if (typeof window !== 'undefined') {
-            // STT
             const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
             if (SpeechRecognition) {
                 const recognition = new SpeechRecognition();
                 recognition.continuous = false;
-                recognition.interimResults = true; // Enable interim results
+                recognition.interimResults = true;
                 recognition.lang = 'en-US';
 
                 recognition.onresult = (event: any) => {
                     let finalTranscript = '';
-                    let interimTranscript = '';
-
                     for (let i = event.resultIndex; i < event.results.length; ++i) {
-                        if (event.results[i].isFinal) {
-                            finalTranscript += event.results[i][0].transcript;
-                        } else {
-                            interimTranscript += event.results[i][0].transcript;
-                        }
+                        if (event.results[i].isFinal) finalTranscript += event.results[i][0].transcript;
                     }
-
                     if (finalTranscript) {
                         setInput(finalTranscript);
-                        sendMessage(finalTranscript); // Auto-send on voice input
-                    } else if (interimTranscript) {
-                        setInput(interimTranscript); // Show what's being spoken
+                        sendMessage(finalTranscript);
                     }
                 };
 
                 recognition.onerror = (event: any) => {
-                    console.error("Speech recognition error", event.error);
+                    console.error("Speech error", event.error);
                     setIsListening(false);
-
-                    // Show user-friendly error message
-                    if (event.error === 'not-allowed') {
-                        setMicError('🎤 Microphone access denied. Please allow microphone permissions in your browser settings.');
-                    } else if (event.error === 'no-speech') {
-                        setMicError('No speech detected. Please try again.');
-                    } else if (event.error === 'network') {
-                        setMicError('Network error. Check your internet connection.');
-                    } else {
-                        setMicError(`Microphone error: ${event.error}`);
-                    }
-
-                    // Auto-dismiss after 5 seconds
+                    setMicError('Microphone error. Please check permissions.');
                     setTimeout(() => setMicError(null), 5000);
                 };
 
-                recognition.onend = () => {
-                    setIsListening(false);
-                };
+                recognition.onend = () => setIsListening(false);
                 recognitionRef.current = recognition;
             }
-
-            // TTS
             synthesisRef.current = window.speechSynthesis;
-
-            // Pre-load voices
-            if (window.speechSynthesis.onvoiceschanged !== undefined) {
-                window.speechSynthesis.onvoiceschanged = () => {
-                    // Voices loaded
-                };
-            }
         }
     }, []);
 
     const speak = (text: string) => {
         if (!synthesisRef.current) return;
-
-        // Cancel any current speech
         synthesisRef.current.cancel();
-
         const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 1.1; // Slightly faster for natural flow
-        utterance.pitch = 1.0;
+        utterance.rate = 1.0;
 
-        // Try to find a good voice
+        // Voice Selection (Feminine Priority)
         const voices = synthesisRef.current.getVoices();
-        const preferredVoice = voices.find(v => v.name.includes('Google US English') || v.name.includes('Samantha'));
+        const preferredVoice = voices.find(v =>
+            v.name.includes('Zira') ||
+            v.name.includes('Google US English') ||
+            v.name.includes('Samantha') ||
+            v.name.toLowerCase().includes('female')
+        );
         if (preferredVoice) utterance.voice = preferredVoice;
 
         utterance.onstart = () => setIsSpeaking(true);
         utterance.onend = () => {
             setIsSpeaking(false);
-            // Podcast Mode: Start listening again after speaking
-            if (podcastMode && recognitionRef.current) {
-                setTimeout(() => {
-                    startListening();
-                }, 500);
-            }
+            if (podcastMode && recognitionRef.current) setTimeout(() => startListening(), 500);
         };
-
         synthesisRef.current.speak(utterance);
     };
 
     const startListening = async () => {
         if (recognitionRef.current && !isListening && !isSpeaking) {
             try {
-                // Explicitly request microphone permission first
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
-                // Stop the stream immediately - we just needed the permission
-                stream.getTracks().forEach(track => track.stop());
-
-                // Then start speech recognition
+                await navigator.mediaDevices.getUserMedia({ audio: true });
                 recognitionRef.current.start();
                 setIsListening(true);
-            } catch (e: any) {
-                console.error("Microphone access error:", e);
-
-                if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
-                    setMicError('🎤 Microphone access denied. Please allow microphone permissions in your browser settings.');
-                } else if (e.name === 'NotFoundError') {
-                    setMicError('No microphone found. Please check your device.');
-                } else {
-                    setMicError('Failed to access microphone. Please try again.');
-                }
-
-                setTimeout(() => setMicError(null), 5000);
+            } catch (e) {
+                setMicError('Microphone access denied.');
             }
         }
     };
@@ -178,7 +164,7 @@ export default function AIChatbot() {
         if (recognitionRef.current) {
             recognitionRef.current.stop();
             setIsListening(false);
-            setPodcastMode(false); // Stop loop if manually stopped
+            setPodcastMode(false);
         }
     };
 
@@ -206,74 +192,72 @@ export default function AIChatbot() {
             const res = await fetch('/api/ai/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: userMsg.content, sessionId }),
+                body: JSON.stringify({ message: userMsg.content, sessionId, persona }),
             });
 
             const data = await res.json();
 
-            if (data.error) {
-                throw new Error(data.error);
-            }
+            if (data.sessionId) setSessionId(data.sessionId);
+            if (data.sentiment?.color) setCurrentMood(data.sentiment.color);
 
-            if (data.sessionId) {
-                setSessionId(data.sessionId);
-            }
-
-            const aiMsg: Message = { id: Date.now().toString(), role: 'assistant', content: data.response };
+            const aiMsg: Message = {
+                id: Date.now().toString(),
+                role: 'assistant',
+                content: data.response,
+                sentiment: data.sentiment?.color
+            };
             setMessages((prev) => [...prev, aiMsg]);
 
-            // Speak response if in podcast mode or if voice was used
-            if (podcastMode || textOverride) {
-                speak(data.response);
-            }
-
-            if (data.charm) {
-                setCharm(data.charm);
-            }
-
-            // Check for integration triggers
-            if (data.response.toLowerCase().includes("hopin") || textToSend.toLowerCase().includes("trip")) {
-                // Optional: Auto-redirect or show toast
-            }
+            if (podcastMode || autoRead || textOverride) speak(data.response);
+            if (data.charm) setCharm(data.charm);
 
         } catch (error) {
             console.error(error);
-            setMessages((prev) => [
-                ...prev,
-                { id: Date.now().toString(), role: 'assistant', content: "I'm having trouble connecting right now. Please try again gently." },
-            ]);
+            setMessages((prev) => [...prev, { id: Date.now().toString(), role: 'assistant', content: "I'm having trouble connecting. Please try again." }]);
         } finally {
             setIsLoading(false);
         }
     };
 
     return (
-        <div className="relative w-full h-[600px] max-w-4xl mx-auto rounded-3xl overflow-hidden border border-white/10 shadow-2xl flex flex-col"
+        <div className={`relative flex flex-col transition-all duration-500 overflow-hidden ${className || 'w-full h-[700px] max-w-5xl mx-auto rounded-3xl border border-white/10 shadow-2xl'}`}
             style={{
                 background: 'rgba(0, 0, 0, 0.6)',
                 backdropFilter: 'blur(20px)',
+                boxShadow: `0 0 100px ${currentMood}20`, // Dynamic mood glow
+                ...style
             }}>
 
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-white/5 bg-white/5">
-                <div className="flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded-full ${isListening ? 'bg-red-500 animate-pulse' : 'bg-green-500'} shadow-[0_0_10px_rgba(34,197,94,0.5)]`}></div>
-                    <span className="text-white/90 font-medium tracking-wide">dbot</span>
+                <div className="flex items-center gap-4">
+                    {/* Mood Orb */}
+                    <div className="relative w-4 h-4">
+                        <div className="absolute inset-0 rounded-full animate-pulse" style={{ background: currentMood, filter: 'blur(4px)' }}></div>
+                        <div className="relative w-full h-full rounded-full border border-white/20" style={{ background: currentMood }}></div>
+                    </div>
+
+                    <div className="flex flex-col">
+                        <span className="text-white font-medium tracking-wide">dbot</span>
+                        <span className="text-[10px] text-white/40 uppercase tracking-widest">{persona} Mode</span>
+                    </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    <button
-                        onClick={() => router.push('/journal')}
-                        className="px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-xs text-white/60 transition-colors"
+
+                <div className="flex items-center gap-3">
+                    {/* Persona Selector */}
+                    <select
+                        value={persona}
+                        onChange={(e) => setPersona(e.target.value as PersonaType)}
+                        className="bg-black/20 border border-white/10 rounded-full px-3 py-1 text-xs text-white/80 focus:outline-none hover:bg-white/5 transition-colors"
                     >
-                        Canvas
-                    </button>
-                    <button
-                        onClick={() => router.push('/hopin')}
-                        className="px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 text-xs text-white/60 transition-colors"
-                    >
-                        Hopin
-                    </button>
+                        <option value="friend">Best Friend</option>
+                        <option value="therapist">Therapist</option>
+                        <option value="coach">Coach</option>
+                        <option value="mystic">Mystic</option>
+                    </select>
+
                     <div className="w-px h-4 bg-white/10 mx-1"></div>
+
                     <button
                         onClick={togglePodcastMode}
                         className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${podcastMode
@@ -281,34 +265,75 @@ export default function AIChatbot() {
                             : 'bg-white/5 text-white/60 hover:bg-white/10'
                             }`}
                     >
-                        {podcastMode ? '🎙️ Live' : 'Voice Mode'}
+                        {podcastMode ? '🎙️ Live' : 'Voice'}
+                    </button>
+
+                    <button
+                        onClick={() => setShowSettings(!showSettings)}
+                        className="p-2 rounded-full hover:bg-white/10 text-white/60 transition-colors"
+                    >
+                        ⚙️
                     </button>
                 </div>
             </div>
 
+            {/* Settings Panel */}
+            {showSettings && (
+                <div className="absolute top-16 right-6 z-20 bg-black/90 border border-white/10 rounded-xl p-4 w-64 shadow-xl backdrop-blur-xl animate-in fade-in slide-in-from-top-2">
+                    <h3 className="text-xs font-bold text-white/40 uppercase mb-3">Settings</h3>
+                    <div className="space-y-3">
+                        <label className="flex items-center justify-between text-sm text-white/80 cursor-pointer">
+                            <span>Auto-Read Responses</span>
+                            <input
+                                type="checkbox"
+                                checked={autoRead}
+                                onChange={(e) => setAutoRead(e.target.checked)}
+                                className="accent-blue-500"
+                            />
+                        </label>
+                        <button
+                            onClick={() => router.push('/journal')}
+                            className="w-full text-left text-sm text-white/60 hover:text-white py-1 transition-colors"
+                        >
+                            Open Canvas
+                        </button>
+                        <button
+                            onClick={() => router.push('/hopin')}
+                            className="w-full text-left text-sm text-white/60 hover:text-white py-1 transition-colors"
+                        >
+                            Open Hopin
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Messages Area */}
             <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-6 scroll-smooth">
                 {messages.map((msg) => (
-                    <div
-                        key={msg.id}
-                        className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                    >
-                        <div
-                            className={`max-w-[80%] px-5 py-3 rounded-2xl text-sm leading-relaxed shadow-sm backdrop-blur-md border ${msg.role === 'user'
-                                ? 'bg-white/10 text-white border-white/10 rounded-br-none'
-                                : 'bg-black/40 text-neutral-200 border-white/5 rounded-bl-none'
-                                }`}
+                    <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-[80%] px-6 py-4 rounded-2xl text-sm leading-relaxed shadow-sm backdrop-blur-md border transition-all duration-300 ${msg.role === 'user'
+                            ? 'bg-white/10 text-white border-white/10 rounded-br-none'
+                            : 'bg-black/40 text-neutral-200 border-white/5 rounded-bl-none'
+                            }`}
+                            style={msg.role === 'assistant' && msg.sentiment ? { borderLeft: `3px solid ${msg.sentiment}` } : {}}
                         >
                             {msg.content}
                         </div>
                     </div>
                 ))}
+
+                {/* Thinking Process Visualization */}
                 {isLoading && (
                     <div className="flex justify-start">
-                        <div className="px-5 py-3 rounded-2xl bg-black/40 border border-white/5 rounded-bl-none flex gap-1 items-center">
-                            <span className="w-1.5 h-1.5 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                            <span className="w-1.5 h-1.5 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                            <span className="w-1.5 h-1.5 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                        <div className="px-5 py-3 rounded-2xl bg-black/40 border border-white/5 rounded-bl-none flex flex-col gap-2">
+                            <div className="flex gap-1 items-center">
+                                <span className="w-1.5 h-1.5 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                                <span className="w-1.5 h-1.5 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                                <span className="w-1.5 h-1.5 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                            </div>
+                            <span className="text-[10px] text-white/30 animate-pulse">
+                                {Math.random() > 0.5 ? 'Analyzing sentiment...' : 'Consulting knowledge base...'}
+                            </span>
                         </div>
                     </div>
                 )}
@@ -324,19 +349,14 @@ export default function AIChatbot() {
                             : 'bg-white/5 text-white/40 hover:bg-white/10'
                             }`}
                     >
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
-                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-                            <line x1="12" y1="19" x2="12" y2="23"></line>
-                            <line x1="8" y1="23" x2="16" y2="23"></line>
-                        </svg>
+                        🎤
                     </button>
                     <input
                         type="text"
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-                        placeholder={podcastMode ? "Listening..." : "Type your thoughts..."}
+                        placeholder={podcastMode ? "Listening..." : `Message ${persona}...`}
                         className="w-full bg-black/20 border border-white/10 rounded-full px-6 py-3 text-white placeholder-white/30 focus:outline-none focus:border-white/30 focus:bg-black/40 transition-all"
                         disabled={isLoading || podcastMode}
                     />
@@ -345,34 +365,27 @@ export default function AIChatbot() {
                         disabled={isLoading || !input.trim()}
                         className="absolute right-2 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white disabled:opacity-50 transition-colors"
                     >
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <line x1="22" y1="2" x2="11" y2="13"></line>
-                            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                        </svg>
+                        ➤
                     </button>
                 </div>
-                <div className="text-center mt-2">
-                    <span className="text-[10px] text-white/20">dbot learns from our conversations to help you better.</span>
+                <div className="text-center mt-2 flex justify-center gap-4">
+                    <span className="text-[10px] text-white/20">dbot v2.0 (Qwen 0.5B)</span>
+                    <span className="text-[10px] text-white/20">•</span>
+                    <span className="text-[10px] text-white/20">Offline Ready</span>
                 </div>
             </div>
 
             {/* Error Notification */}
             {micError && (
                 <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50 animate-in slide-in-from-top duration-300">
-                    <div className="bg-red-500/90 backdrop-blur-md text-white px-6 py-3 rounded-full shadow-2xl border border-red-400/50 text-sm font-medium max-w-md">
+                    <div className="bg-red-500/90 backdrop-blur-md text-white px-6 py-3 rounded-full shadow-2xl border border-red-400/50 text-sm font-medium">
                         {micError}
                     </div>
                 </div>
             )}
 
             {/* Charm Card Modal */}
-            {charm && (
-                <CharmCard
-                    title={charm.title}
-                    quote={charm.quote}
-                    onClose={() => setCharm(null)}
-                />
-            )}
+            {charm && <CharmCard title={charm.title} quote={charm.quote} onClose={() => setCharm(null)} />}
         </div>
     );
 }

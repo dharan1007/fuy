@@ -1,218 +1,141 @@
-import { PrismaClient } from "@prisma/client";
-import bcrypt from "bcryptjs";
+
+import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log("🌱 Seeding database with demo users and test data...");
+  console.log('Start seeding ...');
 
-  // Demo user credentials
-  const demoUsers = [
-    {
-      email: "jasmine@example.com",
-      password: "Jasmine@1234",
-      name: "Jasmine Lowery",
-      displayName: "Jasmine",
+  // Create a dummy user to own the brands
+  const user = await prisma.user.upsert({
+    where: { email: 'demo@example.com' },
+    update: {},
+    create: {
+      email: 'demo@example.com',
+      name: 'Demo User',
+      password: 'password123', // In a real app, this should be hashed
     },
-    {
-      email: "alex@example.com",
-      password: "Alex@1234",
-      name: "Alex Hunt",
-      displayName: "Alex",
-    },
-    {
-      email: "jordan@example.com",
-      password: "Jordan@1234",
-      name: "Jordan Church",
-      displayName: "Jordan",
-    },
-    {
-      email: "jacob@example.com",
-      password: "Jacob@1234",
-      name: "Jacob Mcleod",
-      displayName: "Jacob",
-    },
-    {
-      email: "carmen@example.com",
-      password: "Carmen@1234",
-      name: "Carmen Campos",
-      displayName: "Carmen",
-    },
-    {
-      email: "toriano@example.com",
-      password: "Toriano@1234",
-      name: "Toriano Cordia",
-      displayName: "Toriano",
-    },
-    {
-      email: "jesse@example.com",
-      password: "Jesse@1234",
-      name: "Jesse Rolira",
-      displayName: "Jesse",
-    },
-    {
-      email: "vanessa@example.com",
-      password: "Vanessa@1234",
-      name: "Vanessa Cox",
-      displayName: "Vanessa",
-    },
-    {
-      email: "anthony@example.com",
-      password: "Anthony@1234",
-      name: "Anthony Cordones",
-      displayName: "Anthony",
-    },
-    {
-      email: "ms@example.com",
-      password: "Ms@1234",
-      name: "Ms Potillo",
-      displayName: "Ms",
-    },
-  ];
+  });
 
-  // Create users
-  const createdUsers: any[] = [];
-  for (const userData of demoUsers) {
-    try {
-      // Check if user exists
-      const existingUser = await prisma.user.findUnique({
-        where: { email: userData.email.toLowerCase() },
-      });
-
-      if (existingUser) {
-        createdUsers.push(existingUser);
-        console.log(`✓ User already exists: ${userData.email}`);
-        continue;
-      }
-
-      // Hash password
-      const hashedPassword = await bcrypt.hash(userData.password, 10);
-
-      // Create user
-      const user = await prisma.user.create({
-        data: {
-          email: userData.email.toLowerCase(),
-          password: hashedPassword,
-          name: userData.name,
-          emailVerified: new Date(),
-        },
-      });
-
-      // Create profile
-      await prisma.profile.create({
-        data: {
-          userId: user.id,
-          displayName: userData.displayName || userData.name,
-          avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${userData.name}`,
-          bio: `${userData.displayName || userData.name} loves exploring and documenting adventures!`,
-        },
-      });
-
-      createdUsers.push(user);
-      console.log(`✓ Created user: ${userData.email}`);
-    } catch (error) {
-      console.error(`✗ Error creating user ${userData.email}:`, error);
-    }
-  }
-
-  // Create friendships between users (make everyone friends with first 2 users)
-  if (createdUsers.length >= 2) {
-    console.log("\n👥 Creating friendships...");
-    const baseUser = createdUsers[0];
-    const user2 = createdUsers[1];
-
-    for (let i = 2; i < createdUsers.length; i++) {
-      try {
-        // Create friendship with first user
-        await prisma.friendship.upsert({
-          where: {
-            userId_friendId: {
-              userId: baseUser.id,
-              friendId: createdUsers[i].id,
-            },
+  // Brand 1: NORDIC (Minimalist, High-end)
+  const nordic = await prisma.brand.create({
+    data: {
+      name: 'NORDIC',
+      slug: 'nordic',
+      description: 'Minimalist fashion for the modern soul. Sustainable, ethical, and timeless.',
+      logoUrl: 'https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?w=400&h=400&fit=crop', // Placeholder logo
+      bannerUrl: 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=1200&h=600&fit=crop',
+      websiteUrl: 'https://nordic-demo.com',
+      ownerId: user.id,
+      products: {
+        create: [
+          {
+            name: 'Essential White Tee',
+            description: '100% Organic Cotton. The perfect fit.',
+            price: 45.00,
+            externalUrl: 'https://example.com/buy/white-tee',
+            images: JSON.stringify(['https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800']),
+            slug: 'essential-white-tee-' + Date.now(),
           },
-          update: { status: "ACCEPTED" },
-          create: {
-            userId: baseUser.id,
-            friendId: createdUsers[i].id,
-            status: "ACCEPTED",
+          {
+            name: 'Charcoal Wool Coat',
+            description: 'Hand-stitched wool coat for winter elegance.',
+            price: 350.00,
+            externalUrl: 'https://example.com/buy/wool-coat',
+            images: JSON.stringify(['https://images.unsplash.com/photo-1539533018447-63fcce2678e3?w=800']),
+            slug: 'charcoal-wool-coat-' + Date.now(),
           },
-        });
+          {
+            name: 'Minimalist Leather Sneaker',
+            description: 'Handcrafted leather sneakers in pure white.',
+            price: 180.00,
+            externalUrl: 'https://example.com/buy/leather-sneaker',
+            images: JSON.stringify(['https://images.unsplash.com/photo-1560769629-975ec94e6a86?w=800']),
+            slug: 'minimalist-leather-sneaker-' + Date.now(),
+          },
+        ],
+      },
+    },
+  });
 
-        // Create friendship with second user
-        if (i > 2) {
-          await prisma.friendship.upsert({
-            where: {
-              userId_friendId: {
-                userId: user2.id,
-                friendId: createdUsers[i].id,
-              },
-            },
-            update: { status: "ACCEPTED" },
-            create: {
-              userId: user2.id,
-              friendId: createdUsers[i].id,
-              status: "ACCEPTED",
-            },
-          });
-        }
+  // Brand 2: STREET (Urban, Bold)
+  const street = await prisma.brand.create({
+    data: {
+      name: 'STREET',
+      slug: 'street',
+      description: 'Urban streetwear for the bold. Express yourself without limits.',
+      logoUrl: 'https://images.unsplash.com/photo-1516876437184-593fda40c7ce?w=400&h=400&fit=crop',
+      bannerUrl: 'https://images.unsplash.com/photo-1520483602335-3b2886923368?w=1200&h=600&fit=crop',
+      websiteUrl: 'https://street-demo.com',
+      ownerId: user.id,
+      products: {
+        create: [
+          {
+            name: 'Oversized Hoodie',
+            description: 'Heavyweight cotton hoodie with drop shoulders.',
+            price: 85.00,
+            externalUrl: 'https://example.com/buy/hoodie',
+            images: JSON.stringify(['https://images.unsplash.com/photo-1556906781-9a412961c28c?w=800']),
+            slug: 'oversized-hoodie-' + Date.now(),
+          },
+          {
+            name: 'Cargo Joggers',
+            description: 'Functional cargo pants with multiple pockets.',
+            price: 95.00,
+            externalUrl: 'https://example.com/buy/cargo-joggers',
+            images: JSON.stringify(['https://images.unsplash.com/photo-1517438476312-10d79c077509?w=800']),
+            slug: 'cargo-joggers-' + Date.now(),
+          },
+        ],
+      },
+    },
+  });
 
-        console.log(
-          `✓ Created friendship between ${baseUser.name} and ${createdUsers[i].name}`
-        );
-      } catch (error) {
-        console.error("Error creating friendship:", error);
-      }
-    }
-  }
+  // Brand 3: VOGUE (Chic, Trendy)
+  const vogue = await prisma.brand.create({
+    data: {
+      name: 'VOGUE',
+      slug: 'vogue',
+      description: 'Trendsetting fashion for the avant-garde.',
+      logoUrl: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?w=400&h=400&fit=crop',
+      bannerUrl: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=1200&h=600&fit=crop',
+      websiteUrl: 'https://vogue-demo.com',
+      ownerId: user.id,
+      products: {
+        create: [
+          {
+            name: 'Silk Evening Dress',
+            description: 'Elegant silk dress for special occasions.',
+            price: 420.00,
+            externalUrl: 'https://example.com/buy/silk-dress',
+            images: JSON.stringify(['https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=800']),
+            slug: 'silk-evening-dress-' + Date.now(),
+          },
+        ],
+      },
+    },
+  });
 
-  // Note: RouteWaypoint and PlaceReview need Prisma client regeneration
-  // These will be created once Prisma client is updated with new models
-  console.log("\n🗺️  Skipping route waypoints (requires Prisma regeneration)...");
-  console.log("⭐ Skipping place reviews (requires Prisma regeneration)...");
+  // Add Competitors (Self-relation)
+  // Nordic considers Street a competitor
+  await prisma.brand.update({
+    where: { id: nordic.id },
+    data: {
+      competitors: {
+        connect: [{ id: street.id }],
+      },
+    },
+  });
 
-  // Create sample posts
-  if (createdUsers.length > 0) {
-    console.log("\n📝 Creating sample posts...");
-    try {
-      await prisma.post.create({
-        data: {
-          userId: createdUsers[0].id,
-          content:
-            "Just completed an amazing 15km route through the city! The new route-planning features are incredible. 🗺️",
-          feature: "AWE",
-          visibility: "PUBLIC",
-          joyScore: 8,
-          creativityScore: 7,
-        },
-      });
-
-      await prisma.post.create({
-        data: {
-          userId: createdUsers[1].id,
-          content:
-            "Discovered an amazing café while exploring. The photos feature makes it so easy to document my favorite places! 📸",
-          feature: "JOY",
-          visibility: "PUBLIC",
-          joyScore: 9,
-          connectionScore: 6,
-        },
-      });
-
-      console.log(`✓ Created 2 sample posts`);
-    } catch (error) {
-      console.error("Error creating posts:", error);
-    }
-  }
-
-  console.log("\n✅ Seeding complete! All test data ready for development.");
+  console.log('Seeding finished.');
 }
 
 main()
-  .catch((error) => {
-    console.error("Seeding failed:", error);
-    process.exit(1);
-  })
-  .finally(async () => {
+  .then(async () => {
     await prisma.$disconnect();
+  })
+  .catch(async (e) => {
+    console.error(e);
+    await prisma.$disconnect();
+    process.exit(1);
   });

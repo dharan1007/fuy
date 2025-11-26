@@ -1,81 +1,95 @@
-import { logger } from "@/lib/logger";
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-
-export async function GET(req: Request) {
-  try {
-    const { searchParams } = new URL(req.url);
-    const search = searchParams.get("search");
-    const status = searchParams.get("status") || "ACTIVE";
-
-    const where: any = { status };
-    if (search) {
-      where.OR = [
-        { name: { contains: search, mode: "insensitive" } },
-        { description: { contains: search, mode: "insensitive" } },
-      ];
-    }
-
-    const brands = await prisma.brand.findMany({
-      where,
-      include: {
-        owner: { select: { id: true, name: true, email: true } },
-        _count: { select: { products: true } },
-      },
-      take: 20,
-      orderBy: { createdAt: "desc" },
-    });
-
-    return NextResponse.json({ brands });
-  } catch (error: any) {
-    logger.error("Get brands error:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch brands" },
-      { status: 500 }
-    );
-  }
-}
+import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { auth } from '@/lib/auth';
 
 export async function POST(req: Request) {
   try {
-    // TODO: Add auth check
-    const body = await req.json();
-    const { name, slug, description, logoUrl, bannerUrl, ownerId } = body;
+    const session = await auth();
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-    if (!name || !ownerId) {
-      return NextResponse.json(
-        { error: "Missing required fields" },
-        { status: 400 }
-      );
+    const body = await req.json();
+    const { name, description, logoUrl, bannerUrl, websiteUrl } = body;
+
+    if (!name) {
+      return NextResponse.json({ error: 'Name is required' }, { status: 400 });
+    }
+
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
+    // Check if slug exists
+    const existing = await prisma.brand.findUnique({ where: { slug } });
+    if (existing) {
+      return NextResponse.json({ error: 'Brand name already taken' }, { status: 400 });
     }
 
     const brand = await prisma.brand.create({
       data: {
         name,
-        slug: slug || name.toLowerCase().replace(/\s+/g, "-"),
+        slug,
         description,
         logoUrl,
         bannerUrl,
-        ownerId,
+        websiteUrl,
+        ownerId: session.user.id,
+        status: 'ACTIVE',
+        analyticsLog: {
+          create: {
+            totalViews: 0,
+            totalOrders: 0,
+            totalRevenue: 0,
+            activeUsers: 0,
+            avgRating: 0
+          }
+        }
       },
+    });
+
+    return NextResponse.json(brand);
+  } catch (error) {
+    console.error('Error creating brand:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
+}
+
+export async function GET(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const query = searchParams.get('q');
+    const mine = searchParams.get('mine');
+
+    let whereClause: any = { status: 'ACTIVE' };
+
+    if (mine === 'true') {
+      const session = await auth();
+      if (!session?.user?.id) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      whereClause = { ownerId: session.user.id };
+    } else if (query) {
+      whereClause = {
+        ...whereClause,
+        OR: [
+          { name: { contains: query, mode: 'insensitive' } },
+          { description: { contains: query, mode: 'insensitive' } },
+        ]
+      };
+    }
+
+    const brands = await prisma.brand.findMany({
+      where: whereClause,
       include: {
-        owner: { select: { id: true, name: true, email: true } },
+        _count: {
+          select: { products: true }
+        }
       },
+      orderBy: { createdAt: 'desc' }
     });
 
-    // Create analytics record
-    await prisma.brandAnalytics.create({
-      data: {
-        brandId: brand.id,
-      },
-    });
-
-    return NextResponse.json({ brand }, { status: 201 });
-  } catch (error: any) {
-    logger.error("Create brand error:", error);
-    return NextResponse.json(
-      { error: "Failed to create brand" },
-      { status: 500 }
-    );
+    return NextResponse.json(brands);
+  } catch (error) {
+    console.error('Error fetching brands:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

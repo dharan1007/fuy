@@ -171,6 +171,7 @@ export default function DashboardPage() {
                 title="dbot"
                 description="Your AI best friend & podcast host."
               />
+              <StorePreview />
               <GroundingPreview />
               <SelfCompassionPreview />
               <PomodoroPreview />
@@ -445,6 +446,57 @@ function ChatbotPreview({ title = "dbot", description = "Chat with dbot" }: { ti
         </div>
         <p className="text-xs mt-2.5 sm:mt-3 text-gray-600">
           {description}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ========================================================================================
+   BRAND PREVIEW
+======================================================================================== */
+
+function StorePreview() {
+  const router = useRouter();
+  const [hasStore, setHasStore] = useState(false);
+
+  useEffect(() => {
+    // Check for brands OR products
+    Promise.all([
+      fetch('/api/shop/brands?mine=true').then(res => res.json()),
+      fetch('/api/shop/user-products').then(res => res.json())
+    ]).then(([brands, products]) => {
+      if ((brands && brands.length > 0) || (products && products.length > 0)) {
+        setHasStore(true);
+      }
+    }).catch(() => { });
+  }, []);
+
+  return (
+    <div
+      className="rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 border hover:shadow-lg transition-all backdrop-blur-md group active:scale-98 sm:active:scale-100"
+      style={{
+        backgroundColor: "rgba(0, 0, 0, 0.8)",
+        borderColor: "rgba(255, 255, 255, 0.1)",
+      }}
+      onClick={() => router.push("/dashboard/store")}
+    >
+      <h3 className="text-base sm:text-lg md:text-lg font-bold text-white mb-3 sm:mb-4 group-hover:text-gray-300 transition-colors line-clamp-2">
+        My Store
+      </h3>
+      <div className="space-y-2.5 sm:space-y-3">
+        <div className="flex justify-between items-center gap-2">
+          <span className="text-xs sm:text-sm text-gray-400">Status</span>
+          <span className="text-xs sm:text-sm font-semibold text-white">{hasStore ? "Active" : "Start Selling"}</span>
+        </div>
+        <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: "rgba(255, 255, 255, 0.2)" }}>
+          <div
+            className="h-full transition-all duration-500 bg-white"
+            style={{ width: hasStore ? '100%' : '0%' }}
+          />
+        </div>
+        <p className="text-xs mt-2.5 sm:mt-3 text-gray-400">
+          Manage your listings & sales
         </p>
       </div>
     </div>

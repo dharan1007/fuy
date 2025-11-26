@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { AIChatInterface } from '../components/ai';
+import AIChatbot from '@/components/AIChatbot';
 import { useMessaging } from '../hooks/useMessaging';
 import { ThemeProvider, useTheme } from '@/context/ThemeContext';
 import styles from './MessagesPage.module.css';
@@ -155,7 +155,7 @@ function MessagesPageContent() {
   // Filter local friends first
   const filteredLocalFriends = allChatUsers.filter(friend =>
     (friend.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    friend.profile?.displayName?.toLowerCase().includes(searchQuery.toLowerCase()))
+      friend.profile?.displayName?.toLowerCase().includes(searchQuery.toLowerCase()))
     && searchQuery.length > 0
   );
 
@@ -616,9 +616,8 @@ function MessagesPageContent() {
         <div className={styles.conversationsList}>
           {/* dbot - Always at top */}
           <div
-            className={`${styles.conversationItem} ${
-              showAIChat ? styles.active : ''
-            }`}
+            className={`${styles.conversationItem} ${showAIChat ? styles.active : ''
+              }`}
             onClick={() => handleSelectConversation('ai-assistant')}
           >
             <div className={styles.avatarAI}>
@@ -643,9 +642,8 @@ function MessagesPageContent() {
           {filteredConversations.map((conv) => (
             <div
               key={conv.id}
-              className={`${styles.conversationItem} ${
-                selectedConversationId === conv.id ? styles.active : ''
-              }`}
+              className={`${styles.conversationItem} ${selectedConversationId === conv.id ? styles.active : ''
+                }`}
               onClick={() => handleSelectConversation(conv.id)}
             >
               <div className={styles.avatar} style={conv.avatar ? {
@@ -674,13 +672,7 @@ function MessagesPageContent() {
       {/* Main Content Area */}
       <div className={styles.mainContent}>
         {showAIChat ? (
-          <AIChatInterface
-            userId={userId || ''}
-            onActionDetected={(action, data) => {
-              console.log('AI Action detected:', action, data);
-              // Handle actions here
-            }}
-          />
+          <AIChatbot className="h-full w-full border-none shadow-none rounded-none bg-transparent" />
         ) : !userId || loading ? (
           <div className={styles.emptyState}>
             {!userId ? (
@@ -831,7 +823,7 @@ function MessagesPageContent() {
                             border: 'none',
                             backgroundColor: chatRetention === option ? '#eff6ff' : 'transparent',
                             color: chatRetention === option ? '#1e40af' : '#374151',
-                              fontSize: '14px',
+                            fontSize: '14px',
                             transition: 'background-color 0.2s',
                             borderBottom: option !== 'forever' ? '1px solid #f3f4f6' : 'none',
                           }}
@@ -942,7 +934,7 @@ function MessagesPageContent() {
                             border: 'none',
                             backgroundColor: 'transparent',
                             color: '#374151',
-                              fontSize: '14px',
+                            fontSize: '14px',
                             transition: 'background-color 0.2s',
                             borderBottom: '1px solid #f3f4f6',
                             display: 'flex',

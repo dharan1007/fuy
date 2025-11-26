@@ -1,382 +1,437 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import Link from "next/link";
-import { useSession } from "next-auth/react";
-import AppHeader from "@/components/AppHeader";
-import LoadingSpinner from "@/components/LoadingSpinner";
+import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import Link from 'next/link';
+import { ShoppingBag, BookOpen, GraduationCap, LayoutTemplate, Map } from 'lucide-react';
+
+interface Brand {
+  id: string;
+  name: string;
+  description: string | null;
+  logoUrl: string | null;
+  slug: string;
+}
 
 interface Product {
   id: string;
   name: string;
   price: number;
-  discountPrice?: number;
-  images?: string[];
-  brand: { name: string; slug: string };
-  isFeatured: boolean;
-  isTrending: boolean;
+  images: string | null;
+  externalUrl: string;
+  brandId: string;
+  brand: {
+    name: string;
+    slug: string;
+  };
+  type: string;
+  seller?: {
+    name: string;
+    image: string | null;
+  };
 }
-
-interface Brand {
-  id: string;
-  name: string;
-  slug: string;
-  logoUrl?: string;
-}
-
-// Dummy data
-const DUMMY_PRODUCTS: Product[] = [
-  {
-    id: "1",
-    name: "Classic Black Jacket",
-    price: 89.99,
-    discountPrice: 64.99,
-    images: ["https://images.unsplash.com/photo-1551028719-00167b16ebc5?w=500&h=500&fit=crop"],
-    brand: { name: "StyleCo", slug: "styleco" },
-    isFeatured: true,
-    isTrending: false,
-  },
-  {
-    id: "2",
-    name: "Olive Green Blazer",
-    price: 109.99,
-    discountPrice: 79.99,
-    images: ["https://images.unsplash.com/photo-1551028719-00167b16ebc5?w=500&h=500&fit=crop"],
-    brand: { name: "FashionHub", slug: "fashionhub" },
-    isFeatured: true,
-    isTrending: false,
-  },
-  {
-    id: "3",
-    name: "White Button-Up Shirt",
-    price: 49.99,
-    discountPrice: 34.99,
-    images: ["https://images.unsplash.com/photo-1551028719-00167b16ebc5?w=500&h=500&fit=crop"],
-    brand: { name: "ClassicWear", slug: "classicwear" },
-    isFeatured: true,
-    isTrending: true,
-  },
-  {
-    id: "4",
-    name: "Black Leather Pants",
-    price: 129.99,
-    discountPrice: 99.99,
-    images: ["https://images.unsplash.com/photo-1551028719-00167b16ebc5?w=500&h=500&fit=crop"],
-    brand: { name: "StyleCo", slug: "styleco" },
-    isFeatured: true,
-    isTrending: false,
-  },
-  {
-    id: "5",
-    name: "Denim Jacket",
-    price: 79.99,
-    discountPrice: 59.99,
-    images: ["https://images.unsplash.com/photo-1551028719-00167b16ebc5?w=500&h=500&fit=crop"],
-    brand: { name: "DenimPro", slug: "denimpro" },
-    isFeatured: false,
-    isTrending: true,
-  },
-  {
-    id: "6",
-    name: "Summer Dress",
-    price: 69.99,
-    discountPrice: 49.99,
-    images: ["https://images.unsplash.com/photo-1595777707802-cbb3668cf981?w=500&h=500&fit=crop"],
-    brand: { name: "SummerStyle", slug: "summerstyle" },
-    isFeatured: false,
-    isTrending: true,
-  },
-  {
-    id: "7",
-    name: "Striped T-Shirt",
-    price: 39.99,
-    discountPrice: 29.99,
-    images: ["https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=500&h=500&fit=crop"],
-    brand: { name: "CasualWear", slug: "casualwear" },
-    isFeatured: false,
-    isTrending: true,
-  },
-  {
-    id: "8",
-    name: "Wool Sweater",
-    price: 99.99,
-    discountPrice: 74.99,
-    images: ["https://images.unsplash.com/photo-1556821552-5c0ead50f8f2?w=500&h=500&fit=crop"],
-    brand: { name: "CozyWear", slug: "cozywear" },
-    isFeatured: false,
-    isTrending: false,
-  },
-];
-
-const DUMMY_DEALS = [
-  {
-    id: "1",
-    title: "New Year Collection",
-    description: "Fresh styles for the new year",
-    discountValue: 25,
-    brandId: null,
-    brand: undefined,
-  },
-  {
-    id: "2",
-    title: "Discount Up to 25%",
-    description: "Selected items",
-    discountValue: 25,
-    brandId: null,
-    brand: undefined,
-  },
-  {
-    id: "3",
-    title: "Best Fashion in 2024",
-    description: "Trending now",
-    discountValue: 30,
-    brandId: null,
-    brand: undefined,
-  },
-  {
-    id: "4",
-    title: "End Year Sale",
-    description: "Limited time offer",
-    discountValue: 40,
-    brandId: null,
-    brand: undefined,
-  },
-];
-
-const DUMMY_BRANDS: Brand[] = [
-  { id: "1", name: "StyleCo", slug: "styleco", logoUrl: "https://via.placeholder.com/100?text=StyleCo" },
-  { id: "2", name: "FashionHub", slug: "fashionhub", logoUrl: "https://via.placeholder.com/100?text=FashionHub" },
-  { id: "3", name: "ClassicWear", slug: "classicwear", logoUrl: "https://via.placeholder.com/100?text=Classic" },
-  { id: "4", name: "DenimPro", slug: "denimpro", logoUrl: "https://via.placeholder.com/100?text=DenimPro" },
-  { id: "5", name: "SummerStyle", slug: "summerstyle", logoUrl: "https://via.placeholder.com/100?text=Summer" },
-  { id: "6", name: "CasualWear", slug: "casualwear", logoUrl: "https://via.placeholder.com/100?text=Casual" },
-];
 
 export default function ShopPage() {
-  const { data: session, status } = useSession();
-  const [searchQuery, setSearchQuery] = useState("");
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [newArrivals, setNewArrivals] = useState<Product[]>([]);
+  const [courses, setCourses] = useState<Product[]>([]);
+  const [books, setBooks] = useState<Product[]>([]);
+  const [templates, setTemplates] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [myBrands, setMyBrands] = useState<Brand[]>([]);
 
-  // Show loading spinner while session is authenticating
-  if (status === 'loading') {
-    return <LoadingSpinner message="Loading the shop..." />;
-  }
+  // Filter States
+  const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000]);
+  const [showFilters, setShowFilters] = useState(false);
 
-  const newArrivals = DUMMY_PRODUCTS.slice(0, 4);
-  const trendingProducts = DUMMY_PRODUCTS.filter((p) => p.isTrending);
+  const categories = ['ALL', 'CLOTHING', 'ACCESSORIES', 'DIGITAL', 'ART', 'OTHER'];
 
-  const renderProductCard = (product: Product) => (
-    <Link key={product.id} href={`/shop/product/${product.id}`}>
-      <div className="bg-white dark:bg-neutral-800 rounded-lg overflow-hidden shadow-md dark:shadow-lg hover:shadow-xl dark:hover:shadow-xl transition-all duration-300 cursor-pointer h-full border border-gray-200 dark:border-neutral-700">
-        {/* Product Image */}
-        <div className="relative w-full aspect-square bg-gray-200 dark:bg-neutral-700 overflow-hidden">
-          {product.images?.[0] ? (
-            <img
-              src={product.images[0]}
-              alt={product.name}
-              className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-neutral-700">
-              No Image
-            </div>
-          )}
-          {product.discountPrice && (
-            <div className="absolute top-3 right-3 bg-red-600 text-white px-3 py-1 rounded-full text-xs font-bold">
-              {Math.round(((product.price - product.discountPrice) / product.price) * 100)}% OFF
-            </div>
-          )}
-        </div>
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // Fetch Brands and New Arrivals (Physical)
+        const brandsRes = await fetch('/api/shop/brands');
+        if (brandsRes.ok) {
+          const data = await brandsRes.json();
+          setBrands(data.brands || []);
+          setNewArrivals(data.newArrivals || []);
+        }
 
-        {/* Product Info */}
-        <div className="p-4">
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1 font-medium">{product.brand?.name}</p>
-          <h3 className="font-semibold text-sm text-gray-900 dark:text-white line-clamp-2 mb-3">{product.name}</h3>
+        // Fetch Digital Products
+        const [coursesRes, booksRes, templatesRes] = await Promise.all([
+          fetch('/api/shop/products?type=COURSE&limit=4'),
+          fetch('/api/shop/products?type=EBOOK&limit=4'),
+          fetch('/api/shop/products?type=TEMPLATE&limit=4'),
+        ]);
 
-          {/* Price */}
-          <div className="flex items-baseline gap-2">
-            <span className="text-lg font-bold text-gray-900 dark:text-white">
-              ${(product.discountPrice || product.price).toFixed(2)}
-            </span>
-            {product.discountPrice && (
-              <span className="text-xs text-gray-500 dark:text-gray-400 line-through">${product.price.toFixed(2)}</span>
-            )}
-          </div>
-        </div>
-      </div>
-    </Link>
+        if (coursesRes.ok) setCourses(await coursesRes.json());
+        if (booksRes.ok) setBooks(await booksRes.json());
+        if (templatesRes.ok) setTemplates(await templatesRes.json());
+
+      } catch (error) {
+        console.error('Failed to fetch shop data', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const fetchUserBrands = async () => {
+      try {
+        const myRes = await fetch('/api/shop/brands?mine=true');
+        if (myRes.ok) {
+          const myData = await myRes.json();
+          setMyBrands(myData);
+        }
+      } catch (error) {
+        console.error('Failed to fetch user brands', error);
+      }
+    };
+
+    fetchData();
+    fetchUserBrands();
+  }, []);
+
+  const filteredBrands = brands.filter(b =>
+    b.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Filter Products (New Arrivals)
+  const filteredProducts = newArrivals.filter(p => {
+    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.brand.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesPrice = p.price >= priceRange[0] && p.price <= priceRange[1];
+    const matchesCategory = selectedCategory === 'ALL' ? true : (p as any).category === selectedCategory;
+    return matchesSearch && matchesPrice && matchesCategory;
+  });
+
+  const ProductCard = ({ product, type = "PHYSICAL" }: { product: Product, type?: string }) => {
+    const images = product.images ? JSON.parse(product.images) : [];
+    const image = images[0] || "/placeholder.png";
+
+    return (
+      <Link href={`/shop/product/${product.id}`}>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          className="group cursor-pointer"
+        >
+          <div className="aspect-[3/4] bg-gray-100 rounded-xl overflow-hidden mb-4 relative">
+            <img src={image} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+            {type !== "PHYSICAL" && (
+              <div className="absolute top-3 right-3 bg-white/90 backdrop-blur text-black px-2 py-1 rounded text-xs font-bold uppercase">
+                {type}
+              </div>
+            )}
+          </div>
+          <h3 className="font-bold text-lg leading-tight truncate">{product.name}</h3>
+          <p className="text-gray-500 text-sm">{product.brand?.name || product.seller?.name || "Unknown Seller"}</p>
+          <p className="font-bold mt-1">${product.price}</p>
+        </motion.div>
+      </Link>
+    );
+  };
+
   return (
-    <div className="min-h-screen bg-white dark:bg-neutral-900">
-      <AppHeader title="Shop" />
-
-      {/* Main Hero Section */}
-      <div className="relative w-full bg-black dark:bg-neutral-950 text-white overflow-hidden pt-4 sm:pt-6">
-        <div className="max-w-7xl mx-auto px-4 py-8 sm:py-16 flex flex-col md:flex-row items-center justify-between gap-6 md:gap-0">
-          <div className="flex-1 w-full md:w-auto">
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4">YOUR STYLE IS HERE!</h1>
-            <p className="text-base sm:text-lg text-gray-300 dark:text-gray-400 mb-6 sm:mb-8">Discover the latest fashion trends and exclusive collections</p>
-            <div className="flex gap-4">
-              <button className="px-6 py-2 bg-yellow-500 text-black font-bold rounded hover:bg-yellow-600 transition">
-                New Year Collection
-              </button>
-              <button className="px-6 py-2 border-2 border-white text-white font-bold rounded hover:bg-white hover:text-black transition">
-                View Collection
-              </button>
-            </div>
-            <div className="mt-4 sm:mt-8 flex flex-wrap gap-3 sm:gap-6 text-xs sm:text-sm">
-              <div className="flex items-center gap-2">
-                <span className="font-bold">New Year Collection</span>
-              </div>
-              <span className="text-gray-400 dark:text-gray-500">×</span>
-              <div className="flex items-center gap-2">
-                <span className="font-bold">Discount Up to 25%</span>
-              </div>
-              <span className="hidden sm:inline text-gray-400 dark:text-gray-500">×</span>
-              <div className="hidden sm:flex items-center gap-2">
-                <span className="font-bold">Best Fashion in 2024</span>
-              </div>
-              <span className="hidden sm:inline text-gray-400 dark:text-gray-500">×</span>
-              <div className="hidden sm:flex items-center gap-2">
-                <span className="font-bold">End Year Sale</span>
-              </div>
-            </div>
-          </div>
-          <div className="flex-1 relative w-full h-64 sm:h-80 md:h-96">
-            <img
-              src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&h=600&fit=crop"
-              alt="Fashion Hero"
-              className="w-full h-full object-cover rounded-lg"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Side Banners Section */}
-      <div className="max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
-        {/* End Year Big Sale Banner */}
-        <div className="col-span-1 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-neutral-800 dark:to-neutral-700 rounded-lg overflow-hidden">
-          <div className="relative h-64 sm:h-80 md:h-96 bg-gray-300 dark:bg-neutral-700 flex items-end justify-between p-4 sm:p-6">
-            <img
-              src="https://images.unsplash.com/photo-1495386794519-c21d9a3a8d6d?w=300&h=400&fit=crop"
-              alt="Model"
-              className="absolute inset-0 w-full h-full object-cover"
-            />
-            <div className="relative z-10">
-              <h3 className="text-lg sm:text-2xl font-bold text-white mb-2">END YEAR BIG SALE 🎉</h3>
-              <p className="text-white text-xs sm:text-sm mb-4">The Modern Classic</p>
-              <button className="px-4 sm:px-6 py-2 bg-yellow-500 text-black font-bold rounded text-sm hover:bg-yellow-600">
-                Shop Now
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Stay up to date banner */}
-        <div className="col-span-1 md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-          <div className="bg-gray-900 dark:bg-neutral-800 text-white rounded-lg p-4 sm:p-6 flex flex-col justify-between border border-gray-800 dark:border-neutral-700">
-            <div>
-              <h3 className="text-lg sm:text-2xl font-bold mb-2">STAY UP TO DATE BY JOINING OUR NEWSLETTER</h3>
-              <p className="text-xs sm:text-sm text-gray-300 dark:text-gray-400">Get the latest collection & exclusive vouchers</p>
-            </div>
-            <button className="px-4 sm:px-6 py-2 border border-white text-white font-bold rounded text-sm w-fit hover:bg-white hover:text-black transition mt-4">
-              Join Now
-            </button>
-          </div>
-
-          {/* Featured Collection Banner */}
-          <div className="bg-gradient-to-r from-blue-500 to-purple-600 dark:from-blue-700 dark:to-purple-800 rounded-lg p-4 sm:p-6 text-white flex flex-col justify-between">
-            <div>
-              <p className="text-xs sm:text-sm font-semibold mb-2">NEW COLLECTION</p>
-              <h3 className="text-lg sm:text-2xl font-bold">SUMMER VIBES</h3>
-            </div>
-            <button className="px-4 sm:px-6 py-2 bg-white dark:bg-gray-200 text-blue-600 dark:text-blue-700 font-bold rounded text-sm w-fit hover:bg-gray-100 dark:hover:bg-gray-300 transition mt-4">
-              Explore
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Hot Deals Section */}
-      <div className="max-w-7xl mx-auto px-4 py-12">
-        <h2 className="text-2xl font-bold mb-8 text-gray-900 dark:text-white">🔥 Hot Deals from Brands</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {DUMMY_DEALS.map((deal) => (
-            <div key={deal.id} className="bg-gradient-to-br from-blue-600 to-purple-600 dark:from-blue-700 dark:to-purple-800 text-white rounded-lg p-6 text-center">
-              <p className="text-sm font-medium mb-2">{deal.title}</p>
-              <div className="text-4xl font-bold mb-4">{deal.discountValue}% OFF</div>
-              <p className="text-sm text-blue-100 dark:text-blue-200 mb-4">{deal.description}</p>
-              <button className="w-full bg-yellow-400 dark:bg-yellow-500 text-gray-900 dark:text-black py-2 rounded font-bold hover:bg-yellow-500 dark:hover:bg-yellow-600 transition">
-                Shop Now
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* New Arrivals Section */}
-      <div className="max-w-7xl mx-auto px-4 py-12 border-t border-gray-200 dark:border-neutral-700">
-        <div className="flex justify-between items-center mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">📦 NEW ARRIVALS</h2>
-          <Link href="/shop/new" className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-semibold text-sm">
-            View All →
+    <div className="min-h-screen bg-white text-black font-sans">
+      {/* Navigation / Header */}
+      <nav className="flex items-center justify-between px-6 py-4 border-b border-gray-100 sticky top-0 bg-white/80 backdrop-blur-md z-50">
+        <div className="flex items-center gap-4">
+          <Link href="/" className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
           </Link>
+          <div className="text-2xl font-black tracking-tighter">STORE.</div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {newArrivals.map(renderProductCard)}
+
+        <div className="hidden md:flex gap-6 text-sm font-medium text-gray-500">
+          <Link href="#courses" className="hover:text-black transition-colors">Courses</Link>
+          <Link href="#books" className="hover:text-black transition-colors">Books</Link>
+          <Link href="#templates" className="hover:text-black transition-colors">Templates</Link>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="relative hidden sm:block">
+            <input
+              placeholder="Search..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="bg-gray-100 px-4 py-2 pl-10 rounded-full text-sm outline-none focus:ring-2 focus:ring-black/5 w-48 focus:w-64 transition-all"
+            />
+            <svg className="absolute left-3 top-2.5 text-gray-400" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
+          </div>
+
+          <Link href="/shop/sell" className="px-4 py-2 bg-black text-white rounded-full font-medium hover:text-red-500 transition-colors flex items-center gap-2">
+            <ShoppingBag className="w-4 h-4" />
+            Sell on FUY
+          </Link>
+
+          <Link href="/dashboard/purchases" className="hidden sm:block px-4 py-2 border border-gray-200 text-black text-sm font-bold rounded-full hover:bg-gray-50 transition-colors">
+            My Library
+          </Link>
+
+          {myBrands.length > 0 ? (
+            <Link href={`/shop/brand/${myBrands[0].slug}/dashboard`} className="hidden sm:block px-4 py-2 border border-black text-black text-sm font-bold rounded-full hover:bg-gray-50 transition-colors">
+              Brand Dashboard
+            </Link>
+          ) : (
+            <Link href="/shop/create-brand" className="hidden sm:block px-4 py-2 bg-black text-white text-sm font-bold rounded-full hover:bg-gray-800 transition-colors">
+              Create Brand
+            </Link>
+          )}
+        </div>
+      </nav>
+
+      {/* Hero Section */}
+      <div className="relative h-[60vh] w-full overflow-hidden bg-gray-100 flex items-center justify-center">
+        {/* Background Image */}
+        <img
+          src="https://images.unsplash.com/photo-1483985988355-763728e1935b?w=1600&h=900&fit=crop"
+          alt="Hero"
+          className="absolute inset-0 w-full h-full object-cover opacity-90"
+        />
+        <div className="absolute inset-0 bg-black/10" /> {/* Subtle overlay */}
+
+        <div className="relative z-10 text-center text-white mix-blend-difference">
+          <motion.h1
+            initial={{ y: 50, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+            className="text-6xl md:text-8xl font-black tracking-tighter uppercase leading-none mb-6"
+          >
+            Your Style<br />Is Here!
+          </motion.h1>
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.4, duration: 0.8 }}
+            className="flex gap-4 justify-center"
+          >
+            <button
+              onClick={() => {
+                const el = document.getElementById('new-arrivals');
+                el?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className="bg-white text-black px-8 py-3 font-bold rounded-full cursor-pointer hover:bg-gray-200 transition-colors"
+            >
+              Shop Collection
+            </button>
+          </motion.div>
         </div>
       </div>
 
-      {/* Trending Products Section */}
-      <div className="max-w-7xl mx-auto px-4 py-12 border-t border-gray-200 dark:border-neutral-700">
-        <div className="flex justify-between items-center mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">⭐ TRENDING</h2>
-          <Link href="/shop/trending" className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-semibold text-sm">
-            View All →
-          </Link>
+      {/* Filters Section */}
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        <div className="flex justify-end mb-6">
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-full text-sm font-bold hover:bg-gray-50 transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="4" y1="21" y2="14" /><line x1="4" x2="4" y1="10" y2="3" /><line x1="12" x2="12" y1="21" y2="12" /><line x1="12" x2="12" y1="8" y2="3" /><line x1="20" x2="20" y1="21" y2="16" /><line x1="20" x2="20" y1="12" y2="3" /><line x1="1" x2="7" y1="14" y2="14" /><line x1="9" x2="15" y1="8" y2="8" /><line x1="17" x2="23" y1="16" y2="16" /></svg>
+            Filters {showFilters ? '(-)' : '(+)'}
+          </button>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {trendingProducts.map(renderProductCard)}
-        </div>
+
+        {showFilters && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            className="mb-8 bg-white p-6 rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div>
+                <h3 className="text-sm font-bold uppercase text-gray-500 mb-4">Category</h3>
+                <div className="flex flex-wrap gap-2">
+                  {categories.map(cat => (
+                    <button
+                      key={cat}
+                      onClick={() => setSelectedCategory(cat)}
+                      className={`px-4 py-2 rounded-full text-xs font-bold transition-colors ${selectedCategory === cat ? 'bg-black text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <h3 className="text-sm font-bold uppercase text-gray-500 mb-4">Price Range (${priceRange[0]} - ${priceRange[1]})</h3>
+                <input
+                  type="range"
+                  min="0"
+                  max="1000"
+                  value={priceRange[1]}
+                  onChange={(e) => setPriceRange([priceRange[0], parseInt(e.target.value)])}
+                  className="w-full accent-black h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                />
+                <div className="flex justify-between text-xs text-gray-500 mt-2">
+                  <span>$0</span>
+                  <span>$1000+</span>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </div>
+
+      {/* Digital Marketplace Sections */}
+      <div className="max-w-7xl mx-auto px-6 pb-12 space-y-20">
+
+        {/* Courses */}
+        {courses.filter(p => {
+          const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
+          const matchesPrice = p.price >= priceRange[0] && p.price <= priceRange[1];
+          return matchesSearch && matchesPrice;
+        }).length > 0 && (
+            <section id="courses">
+              <div className="flex justify-between items-end mb-8">
+                <div className="flex items-center gap-3">
+                  <GraduationCap className="w-8 h-8" />
+                  <h2 className="text-3xl font-black uppercase tracking-tight">Popular Courses</h2>
+                </div>
+                <Link href="/shop/category/courses" className="text-sm font-bold border-b-2 border-black pb-1">View All</Link>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+                {courses.filter(p => {
+                  const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
+                  const matchesPrice = p.price >= priceRange[0] && p.price <= priceRange[1];
+                  return matchesSearch && matchesPrice;
+                }).map(product => <ProductCard key={product.id} product={product} type="COURSE" />)}
+              </div>
+            </section>
+          )}
+
+        {/* Books */}
+        {books.filter(p => {
+          const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
+          const matchesPrice = p.price >= priceRange[0] && p.price <= priceRange[1];
+          return matchesSearch && matchesPrice;
+        }).length > 0 && (
+            <section id="books">
+              <div className="flex justify-between items-end mb-8">
+                <div className="flex items-center gap-3">
+                  <BookOpen className="w-8 h-8" />
+                  <h2 className="text-3xl font-black uppercase tracking-tight">Trending Books</h2>
+                </div>
+                <Link href="/shop/category/books" className="text-sm font-bold border-b-2 border-black pb-1">View All</Link>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+                {books.filter(p => {
+                  const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
+                  const matchesPrice = p.price >= priceRange[0] && p.price <= priceRange[1];
+                  return matchesSearch && matchesPrice;
+                }).map(product => <ProductCard key={product.id} product={product} type="EBOOK" />)}
+              </div>
+            </section>
+          )}
+
+        {/* Templates */}
+        {templates.filter(p => {
+          const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
+          const matchesPrice = p.price >= priceRange[0] && p.price <= priceRange[1];
+          return matchesSearch && matchesPrice;
+        }).length > 0 && (
+            <section id="templates">
+              <div className="flex justify-between items-end mb-8">
+                <div className="flex items-center gap-3">
+                  <LayoutTemplate className="w-8 h-8" />
+                  <h2 className="text-3xl font-black uppercase tracking-tight">Top Templates</h2>
+                </div>
+                <Link href="/shop/category/templates" className="text-sm font-bold border-b-2 border-black pb-1">View All</Link>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+                {templates.filter(p => {
+                  const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
+                  const matchesPrice = p.price >= priceRange[0] && p.price <= priceRange[1];
+                  return matchesSearch && matchesPrice;
+                }).map(product => <ProductCard key={product.id} product={product} type="TEMPLATE" />)}
+              </div>
+            </section>
+          )}
+
       </div>
 
       {/* Brands Section */}
-      <div className="max-w-7xl mx-auto px-4 py-12 border-t border-gray-200 dark:border-neutral-700">
-        <h2 className="text-2xl font-bold mb-8 text-gray-900 dark:text-white">🏢 FEATURED BRANDS</h2>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          {DUMMY_BRANDS.map((brand) => (
-            <Link key={brand.id} href={`/shop/brand/${brand.slug}`}>
-              <div className="bg-white dark:bg-neutral-800 rounded-lg p-6 text-center hover:shadow-lg dark:hover:shadow-xl transition-shadow cursor-pointer border border-gray-200 dark:border-neutral-700">
-                <div className="w-full h-20 bg-gray-100 dark:bg-neutral-700 rounded flex items-center justify-center mb-3">
-                  <span className="text-sm font-semibold text-gray-600 dark:text-gray-300">{brand.name}</span>
-                </div>
-                <p className="font-semibold text-sm text-gray-900 dark:text-white">{brand.name}</p>
-              </div>
-            </Link>
-          ))}
+      <div className="bg-gray-50 py-20">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="flex justify-between items-end mb-12">
+            <h2 className="text-4xl font-black uppercase tracking-tight">Featured Brands</h2>
+            <Link href="/shop/brands" className="text-sm font-bold border-b-2 border-black pb-1">View All</Link>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+            {filteredBrands.map((brand, i) => (
+              <Link href={`/shop/brand/${brand.slug}`} key={brand.id}>
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.1 }}
+                  className="group cursor-pointer"
+                >
+                  <div className="aspect-[4/5] bg-white rounded-xl overflow-hidden mb-4 relative shadow-sm">
+                    {brand.logoUrl ? (
+                      <img src={brand.logoUrl} alt={brand.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-gray-300 font-bold text-2xl bg-gray-50">
+                        {brand.name[0]}
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                  </div>
+                  <h3 className="font-bold text-lg">{brand.name}</h3>
+                  <p className="text-gray-500 text-sm line-clamp-1">{brand.description}</p>
+                </motion.div>
+              </Link>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Seller CTA Section */}
-      <div className="bg-blue-600 dark:bg-blue-700 text-white py-16 mt-12">
-        <div className="max-w-4xl mx-auto text-center px-4">
-          <h2 className="text-4xl font-bold mb-4">Start Selling Today</h2>
-          <p className="text-lg mb-8 text-blue-100 dark:text-blue-200">Join thousands of sellers and reach millions of customers</p>
-          {session ? (
-            <Link
-              href="/seller/create-brand"
-              className="inline-block bg-yellow-400 dark:bg-yellow-500 text-gray-900 dark:text-black px-8 py-3 rounded-lg font-bold hover:bg-yellow-500 dark:hover:bg-yellow-600 transition-colors"
-            >
-              Create Your Brand Now →
-            </Link>
-          ) : (
-            <Link
-              href="/login"
-              className="inline-block bg-yellow-400 dark:bg-yellow-500 text-gray-900 dark:text-black px-8 py-3 rounded-lg font-bold hover:bg-yellow-500 dark:hover:bg-yellow-600 transition-colors"
-            >
-              Sign in to Start Selling →
-            </Link>
-          )}
+      {/* New Arrivals (Masonry-ish) */}
+      <div id="new-arrivals" className="bg-white py-20">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-4">
+            <h2 className="text-4xl font-black uppercase tracking-tight">New Arrivals</h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {filteredProducts.map((product, i) => (
+              <motion.div
+                key={product.id}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.1 }}
+                className={`bg-white p-4 rounded-2xl ${i === 1 ? 'md:mt-12' : ''}`} // Stagger effect
+              >
+                <div className="aspect-[3/4] bg-gray-100 rounded-xl overflow-hidden mb-4 relative group">
+                  {product.images ? (
+                    <img src={JSON.parse(product.images)[0]} alt={product.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full bg-gray-200" />
+                  )}
+                  <div className="absolute bottom-4 left-4 right-4 translate-y-full group-hover:translate-y-0 transition-transform">
+                    <button
+                      onClick={() => window.open(product.externalUrl, '_blank')}
+                      className="w-full py-3 bg-white text-black font-bold rounded-full shadow-lg hover:bg-black hover:text-white transition-colors"
+                    >
+                      Shop Now
+                    </button>
+                  </div>
+                </div>
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="font-bold text-lg leading-tight">{product.name}</h3>
+                    <p className="text-gray-500 text-sm">{product.brand?.name || product.seller?.name || "Unknown Seller"}</p>
+                  </div>
+                  <span className="font-bold">${product.price}</span>
+                </div>
+              </motion.div>
+            ))}
+            {filteredProducts.length === 0 && (
+              <div className="col-span-3 text-center py-20 text-gray-400">
+                <p>No products found matching your filters.</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

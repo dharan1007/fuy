@@ -25,6 +25,7 @@ model User {
   name      String?
   emailVerified DateTime?
   createdAt DateTime @default(now())
+  lastSeen  DateTime? // Track last active time for online status
   // Follower/Following counts for real-time updates
   followersCount  Int @default(0)
   followingCount  Int @default(0)
@@ -94,6 +95,10 @@ model User {
   brandReviews    BrandReview[]        @relation("BrandReviews")
   orders          Order[]              @relation("Orders")
   payments        Payment[]            // Razorpay payments
+
+  // --- User Marketplace ---
+  productsSold    Product[]            @relation("ProductsSold")
+  productViews    ProductView[]        @relation("ProductViews")
 
   // --- Awe Routes & Places ---
   waypoints       RouteWaypoint[]
@@ -833,6 +838,10 @@ model Brand {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
+  websiteUrl    String?
+  competitors   Brand[]        @relation("BrandCompetitors")
+  competitorOf  Brand[]        @relation("BrandCompetitors")
+
   owner        User           @relation("BrandsOwned", fields: [ownerId], references: [id], onDelete: Cascade)
   products     Product[]
   reviews      BrandReview[]
@@ -844,15 +853,22 @@ model Brand {
 
 model Product {
   id            String   @id @default(cuid())
-  brandId       String
+  brandId       String?
+  sellerId      String?
   name          String
   slug          String
   description   String?
   price         Float
+  externalUrl   String   @default("") // URL to buy the product
   discountPrice Float?
   discountPercent Int?    // 0-100
   stock         Int      @default(0)
   category      String?  // CLOTHING, ELECTRONICS, ACCESSORIES, etc.
+
+  // New fields for Digital Marketplace
+  type             String   @default("PHYSICAL") // PHYSICAL, COURSE, EBOOK, DIGITAL_ASSET, TEMPLATE, HOPIN_PLAN
+  digitalFileUrl   String?  // For Ebooks, Assets
+  linkedResourceId String?  // ID of the Canvas Template or Hopin Plan
   images        String?  // JSON array of image URLs
   tags          String?  // JSON array of tags
   status        String   @default("ACTIVE") // ACTIVE, INACTIVE, DISCONTINUED
@@ -861,18 +877,37 @@ model Product {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  brand        Brand          @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  brand        Brand?         @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  seller       User?          @relation("ProductsSold", fields: [sellerId], references: [id], onDelete: Cascade)
   reviews      ProductReview[]
   orderItems   OrderItem[]
   analyticsLog ProductAnalytics?
+  views        ProductView[]
 
   @@unique([brandId, slug])
   @@index([brandId])
+  @@index([sellerId])
   @@index([category])
   @@index([status])
   @@index([isTrending])
   @@index([isFeatured])
+  @@index([type])
 }
+
+model ProductView {
+  id        String   @id @default(cuid())
+  productId String
+  userId    String?
+  viewedAt  DateTime @default(now())
+
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user      User?    @relation("ProductViews", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([productId])
+  @@index([userId])
+  @@index([viewedAt])
+}
+
 
 model ProductReview {
   id        String   @id @default(cuid())
@@ -958,8 +993,9 @@ model OrderReturn {
 model ProductAnalytics {
   id             String   @id @default(cuid())
   productId      String   @unique
-  views          Int      @default(0)
-  purchases      Int      @default(0)
+  views          Int      @default(0) // Product Details View
+  impressions    Int      @default(0) // Store/List View
+  purchases      Int      @default(0) // Redirects (renamed concept in UI)
   revenue        Float    @default(0)
   avgRating      Float    @default(0)
   totalReviews   Int      @default(0)
@@ -971,14 +1007,15 @@ model ProductAnalytics {
 }
 
 model BrandAnalytics {
-  id             String   @id @default(cuid())
-  brandId        String   @unique
-  totalViews     Int      @default(0)
-  totalOrders    Int      @default(0)
-  totalRevenue   Float    @default(0)
-  activeUsers    Int      @default(0)
-  avgRating      Float    @default(0)
-  lastUpdated    DateTime @updatedAt
+  id               String   @id @default(cuid())
+  brandId          String   @unique
+  totalViews       Int      @default(0)
+  totalImpressions Int      @default(0) // New field
+  totalOrders      Int      @default(0) // Redirects
+  totalRevenue     Float    @default(0)
+  activeUsers      Int      @default(0)
+  avgRating        Float    @default(0)
+  lastUpdated      DateTime @updatedAt
 
   brand Brand @relation(fields: [brandId], references: [id], onDelete: Cascade)
 

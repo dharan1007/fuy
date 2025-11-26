@@ -1,4 +1,4 @@
-'use client';
+
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -96,40 +96,8 @@ export default function HomeSidebarProfile({
 
   const fetchTodos = async () => {
     try {
-      const res = await fetch('/api/hopin/my-plans');
-      if (res.ok) {
-        const data = await res.json();
-        // Filter todos based on time period
-        let filtered = data.plans || [];
-        const now = new Date();
-
-        if (timePeriod === 'day') {
-          const tomorrow = new Date(now);
-          tomorrow.setDate(tomorrow.getDate() + 1);
-          filtered = filtered.filter((p: any) => {
-            if (!p.dueDate) return false;
-            const dueDate = new Date(p.dueDate);
-            return dueDate < tomorrow && dueDate >= now;
-          });
-        } else if (timePeriod === 'week') {
-          const nextWeek = new Date(now);
-          nextWeek.setDate(nextWeek.getDate() + 7);
-          filtered = filtered.filter((p: any) => {
-            if (!p.dueDate) return false;
-            const dueDate = new Date(p.dueDate);
-            return dueDate < nextWeek && dueDate >= now;
-          });
-        } else if (timePeriod === 'month') {
-          const nextMonth = new Date(now);
-          nextMonth.setMonth(nextMonth.getMonth() + 1);
-          filtered = filtered.filter((p: any) => {
-            if (!p.dueDate) return false;
-            const dueDate = new Date(p.dueDate);
-            return dueDate < nextMonth && dueDate >= now;
-          });
-        }
-        setTodos(filtered);
-      }
+      // Placeholder for actual todos endpoint
+      setTodos([]);
     } catch (error) {
       console.error('Error fetching todos:', error);
     }

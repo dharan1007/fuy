@@ -3,6 +3,7 @@
 
 import useSWR from "swr";
 import { useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import AppHeader from "@/components/AppHeader";
 import UserListModal from "@/components/UserListModal";
 
@@ -343,6 +344,9 @@ export default function ProfileEditor() {
             </div>
           )}
         </section>
+
+        {/* My Brands */}
+        <MyBrandsSection />
       </div>
 
       {/* Modals */}
@@ -373,5 +377,39 @@ function Stat({ label, value, clickable }: { label: string; value: number; click
     <div className={`rounded-full bg-white/80 dark:bg-neutral-700/80 px-4 py-2 shadow text-sm border border-gray-200 dark:border-neutral-600 ${clickable ? 'cursor-pointer' : ''}`}>
       <span className="font-semibold text-gray-900 dark:text-white">{value}</span> <span className="text-gray-600 dark:text-gray-300">{label}</span>
     </div>
+  );
+}
+
+function MyBrandsSection() {
+  const { data: brands, error } = useSWR('/api/shop/brands?mine=true', fetcher);
+  const router = useRouter();
+
+  if (!brands || brands.length === 0) return null;
+
+  return (
+    <section className="mb-10">
+      <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">My Brands</h2>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {brands.map((brand: any) => (
+          <div
+            key={brand.id}
+            onClick={() => router.push(`/shop/brand/${brand.slug}/dashboard`)}
+            className="cursor-pointer rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 shadow-sm p-5 hover:shadow-md transition-all flex items-center gap-4"
+          >
+            {brand.logoUrl ? (
+              <img src={brand.logoUrl} alt={brand.name} className="w-12 h-12 rounded-full object-cover" />
+            ) : (
+              <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-lg font-bold">
+                {brand.name[0]}
+              </div>
+            )}
+            <div>
+              <h3 className="font-bold text-gray-900 dark:text-white">{brand.name}</h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Manage Brand →</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }

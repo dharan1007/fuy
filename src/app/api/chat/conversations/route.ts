@@ -1,213 +1,107 @@
-// src/app/api/chat/conversations/route.ts
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { requireUserId } from "@/lib/session";
-import { logger } from "@/lib/logger";
+import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
-// Get all conversations for the current user with pagination
+// GET: List conversations
 export async function GET(req: Request) {
   try {
-    const userId = await requireUserId();
-    const { searchParams } = new URL(req.url);
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "20");
-    const skip = (page - 1) * limit;
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+    if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
     const conversations = await prisma.conversation.findMany({
       where: {
         OR: [
-          { participantA: userId },
-          { participantB: userId },
+          { participantA: user.id },
+          { participantB: user.id },
         ],
       },
       include: {
         userA: {
-          select: {
-            id: true,
-            name: true,
-            profile: {
-              select: {
-                displayName: true,
-                avatarUrl: true,
-              },
-            },
-          },
+          select: { id: true, name: true, profile: { select: { avatarUrl: true } }, lastSeen: true },
         },
         userB: {
-          select: {
-            id: true,
-            name: true,
-            profile: {
-              select: {
-                displayName: true,
-                avatarUrl: true,
-              },
-            },
-          },
+          select: { id: true, name: true, profile: { select: { avatarUrl: true } }, lastSeen: true },
         },
         messages: {
+          orderBy: { createdAt: 'desc' },
           take: 1,
-          orderBy: { createdAt: "desc" },
-          select: {
-            content: true,
-            createdAt: true,
-            senderId: true,
-          },
         },
       },
-      orderBy: { lastMessageAt: "desc" },
-      skip,
-      take: limit,
+      orderBy: { updatedAt: 'desc' },
     });
 
-    // Get total count for pagination metadata
-    const total = await prisma.conversation.count({
-      where: {
-        OR: [
-          { participantA: userId },
-          { participantB: userId },
-        ],
-      },
+    // Format for frontend
+    const formatted = conversations.map(c => {
+      const otherUser = c.participantA === user.id ? c.userB : c.userA;
+      const lastMsg = c.messages[0];
+      return {
+        id: c.id,
+        user: {
+          id: otherUser.id,
+          name: otherUser.name,
+          avatar: otherUser.profile?.avatarUrl,
+          lastSeen: otherUser.lastSeen,
+        },
+        lastMessage: lastMsg?.content || '',
+        lastMessageAt: c.updatedAt,
+        unreadCount: 0, // TODO: Implement unread count logic if needed
+      };
     });
 
-    return NextResponse.json({
-      conversations,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit),
-      },
-    });
-  } catch (error: any) {
-    logger.error("Get conversations error:", error);
-    if (error?.message === "UNAUTHENTICATED") {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-    }
-    return NextResponse.json(
-      { error: "Failed to fetch conversations" },
-      { status: 500 }
-    );
+    return NextResponse.json({ conversations: formatted });
+  } catch (error) {
+    console.error('Error fetching conversations:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
 
-// Create or get a conversation with another user
+// POST: Create or get conversation
 export async function POST(req: Request) {
   try {
-    const userId = await requireUserId();
-    const body = await req.json();
-    const { friendId } = body;
-
-    logger.debug("[POST /api/chat/conversations] userId and friendId received");
-
-    if (!friendId) {
-      return NextResponse.json(
-        { error: "Friend ID is required" },
-        { status: 400 }
-      );
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (userId === friendId) {
-      return NextResponse.json(
-        { error: "Cannot create conversation with yourself" },
-        { status: 400 }
-      );
+    const { targetUserId } = await req.json();
+    if (!targetUserId) {
+      return NextResponse.json({ error: 'Target user ID required' }, { status: 400 });
     }
 
-    // Verify both users exist
-    const userExists = await prisma.user.findUnique({ where: { id: userId } });
-    const friendExists = await prisma.user.findUnique({ where: { id: friendId } });
+    const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+    if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
-    logger.debug("[POST /api/chat/conversations] User validation completed");
-
-    if (!userExists || !friendExists) {
-      return NextResponse.json(
-        { error: "User not found" },
-        { status: 404 }
-      );
-    }
-
-    // Check if conversation already exists
-    let conversation = await prisma.conversation.findFirst({
+    // Check existing
+    const existing = await prisma.conversation.findFirst({
       where: {
         OR: [
-          { participantA: userId, participantB: friendId },
-          { participantA: friendId, participantB: userId },
+          { participantA: user.id, participantB: targetUserId },
+          { participantA: targetUserId, participantB: user.id },
         ],
-      },
-      include: {
-        userA: {
-          select: {
-            id: true,
-            name: true,
-            profile: {
-              select: {
-                displayName: true,
-                avatarUrl: true,
-              },
-            },
-          },
-        },
-        userB: {
-          select: {
-            id: true,
-            name: true,
-            profile: {
-              select: {
-                displayName: true,
-                avatarUrl: true,
-              },
-            },
-          },
-        },
       },
     });
 
-    // If not, create a new one
-    if (!conversation) {
-      conversation = await prisma.conversation.create({
-        data: {
-          participantA: userId,
-          participantB: friendId,
-        },
-        include: {
-          userA: {
-            select: {
-              id: true,
-              name: true,
-              profile: {
-                select: {
-                  displayName: true,
-                  avatarUrl: true,
-                },
-              },
-            },
-          },
-          userB: {
-            select: {
-              id: true,
-              name: true,
-              profile: {
-                select: {
-                  displayName: true,
-                  avatarUrl: true,
-                },
-              },
-            },
-          },
-        },
-      });
+    if (existing) {
+      return NextResponse.json({ conversationId: existing.id });
     }
 
-    return NextResponse.json({ conversation });
-  } catch (error: any) {
-    logger.error("Create conversation error:", error);
-    if (error?.message === "UNAUTHENTICATED") {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-    }
-    return NextResponse.json(
-      { error: "Failed to create conversation" },
-      { status: 500 }
-    );
+    // Create new
+    const newConv = await prisma.conversation.create({
+      data: {
+        participantA: user.id,
+        participantB: targetUserId,
+      },
+    });
+
+    return NextResponse.json({ conversationId: newConv.id });
+  } catch (error) {
+    console.error('Error creating conversation:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
