@@ -58,10 +58,8 @@ export function useMessaging() {
 
     const userId = (session.user as any).id;
 
-    // Determine socket URL: prefer local origin if running locally
-    const socketUrl = (typeof window !== 'undefined' && window.location.hostname === 'localhost')
-      ? 'http://localhost:3000'
-      : (process.env.NEXT_PUBLIC_API_URL || window.location.origin);
+    // Initialize Socket.io - Enforcing Production URL
+    const socketUrl = process.env.NEXT_PUBLIC_API_URL || 'https://www.fuymedia.org';
 
     // Initialize Socket.io in all environments for real-time messaging
     const newSocket = io(

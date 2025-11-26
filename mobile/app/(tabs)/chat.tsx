@@ -11,14 +11,6 @@ import Constants from 'expo-constants';
 const { width } = Dimensions.get('window');
 
 const getApiUrl = () => {
-    if (__DEV__) {
-        const hostUri = Constants.expoConfig?.hostUri;
-        if (hostUri) {
-            const uri = `http://${hostUri.split(':')[0]}:3000`;
-            console.log('Development API URL:', uri);
-            return uri;
-        }
-    }
     return process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org';
 };
 
