@@ -46,7 +46,7 @@ export async function GET(req: Request) {
         }
       },
       orderBy: { updatedAt: 'desc' },
-    }) as any[];
+    } as any) as any[];
 
     // Format for frontend
     const formatted = conversations.map((c: any) => {
