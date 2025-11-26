@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { pusherServer } from "@/lib/pusher";
 // src/app/api/chat/messages/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
@@ -173,6 +174,22 @@ export async function POST(req: Request) {
         },
       });
     }
+
+    // Trigger Pusher event
+    await pusherServer.trigger(
+      `conversation-${conversationId}`,
+      "message:new",
+      {
+        id: message.id,
+        conversationId,
+        senderId: userId,
+        senderName: message.sender.name,
+        senderAvatar: message.sender.profile?.avatarUrl,
+        content: message.content,
+        timestamp: message.createdAt.getTime(),
+        read: false,
+      }
+    );
 
     return NextResponse.json({ message }, { status: 201 });
   } catch (error: any) {

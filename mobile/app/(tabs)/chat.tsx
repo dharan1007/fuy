@@ -4,7 +4,7 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Mic, Send, Search, Settings, MoreVertical, Phone, Video, Image as ImageIcon, Smile, X, ChevronLeft, Sparkles, User, Heart, Zap, Moon, Sun } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import io, { Socket } from 'socket.io-client';
+import Pusher from 'pusher-js/react-native';
 
 import Constants from 'expo-constants';
 
@@ -52,68 +52,59 @@ export default function ChatScreen() {
     const [showPersonaSelector, setShowPersonaSelector] = useState(false);
     const [currentUser, setCurrentUser] = useState<any>(null); // Should come from auth context
 
-    const socketRef = useRef<Socket | null>(null);
+    const pusherRef = useRef<Pusher | null>(null);
     const slideAnim = useRef(new Animated.Value(width)).current;
     const activeConversationIdRef = useRef<string | null>(null);
 
-    const markMessagesAsRead = async (conversationId: string, messageIds: string[]) => {
-        if (!conversationId || messageIds.length === 0) return;
-        try {
-            await fetch(`${API_URL}/api/chat/${conversationId}/read`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ messageIds })
-            });
-        } catch (err) {
-            console.error('Failed to mark messages as read', err);
-        }
-    };
-
-    // --- Socket & Initial Data ---
+    // --- Pusher & Initial Data ---
     useEffect(() => {
-        // Initialize Socket
-        socketRef.current = io(API_URL);
-
-        socketRef.current.on('connect', () => {
-            console.log('Connected to socket server');
-            // Register user (mock ID for now, should be real auth ID)
-            if (currentUser) {
-                socketRef.current?.emit('user:register', currentUser.id);
-            }
+        // Initialize Pusher
+        const pusher = new Pusher(process.env.EXPO_PUBLIC_PUSHER_KEY || 'ee5640481e0a26c0a4b8', {
+            cluster: process.env.EXPO_PUBLIC_PUSHER_CLUSTER || 'ap2',
         });
 
-        socketRef.current.on('message:new', (msg: any) => {
-            setMessages(prev => [...prev, {
-                id: msg.id,
-                role: msg.senderId === currentUser?.id ? 'user' : 'assistant', // Simplified role logic
-                content: msg.content,
-                timestamp: msg.timestamp,
-                senderId: msg.senderId
-            }]);
-
-            // Update conversation list last message
-            fetchConversations();
-        });
-
-        socketRef.current.on('user:online', ({ userId }) => {
-            setConversations(prev => prev.map(u => u.id === userId ? { ...u, status: 'online' } : u));
-        });
-
-        socketRef.current.on('user:offline', ({ userId }) => {
-            setConversations(prev => prev.map(u => u.id === userId ? { ...u, status: 'offline' } : u));
-        });
+        pusherRef.current = pusher;
 
         fetchConversations();
 
         return () => {
-            socketRef.current?.disconnect();
+            pusher.disconnect();
         };
     }, [currentUser]);
+
+    // Subscribe to conversation channel when entering a chat
+    useEffect(() => {
+        if (!pusherRef.current || !activeConversationIdRef.current) return;
+
+        const channelName = `conversation - ${activeConversationIdRef.current} `;
+        const channel = pusherRef.current.subscribe(channelName);
+
+        channel.bind('message:new', (msg: any) => {
+            setMessages(prev => {
+                // Avoid duplicates
+                if (prev.find(m => m.id === msg.id)) return prev;
+                return [...prev, {
+                    id: msg.id,
+                    role: msg.senderId === currentUser?.id ? 'user' : 'assistant',
+                    content: msg.content,
+                    timestamp: msg.timestamp,
+                    senderId: msg.senderId
+                }];
+            });
+            // Update conversation list last message
+            fetchConversations();
+        });
+
+        return () => {
+            pusherRef.current?.unsubscribe(channelName);
+        };
+    }, [selectedUser]); // Re-run when selected user changes (which implies conversation change)
+
 
     // --- API Calls ---
     const fetchConversations = async () => {
         try {
-            const res = await fetch(`${API_URL}/api/chat/conversations`);
+            const res = await fetch(`${API_URL} /api/chat / conversations`);
             const data = await res.json();
             if (data.conversations) {
                 setConversations(data.conversations.map((c: any) => ({
@@ -138,7 +129,7 @@ export default function ChatScreen() {
             return;
         }
         try {
-            const res = await fetch(`${API_URL}/api/users/search?q=${query}`);
+            const res = await fetch(`${API_URL} /api/users / search ? q = ${query} `);
             const data = await res.json();
             if (data.users) {
                 setSearchResults(data.users.map((u: any) => ({
@@ -155,17 +146,17 @@ export default function ChatScreen() {
     };
 
     const fetchMessages = async (userId: string) => {
-        // First get conversation ID (simplified logic: assume 1:1)
-        // In real app, we'd pass conversation ID directly
         try {
-            const res = await fetch(`${API_URL}/api/chat/conversations`, {
+            const res = await fetch(`${API_URL} /api/chat / conversations`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ targetUserId: userId })
             });
             const { conversationId } = await res.json();
 
-            const msgRes = await fetch(`${API_URL}/api/chat/${conversationId}/messages`);
+            activeConversationIdRef.current = conversationId;
+
+            const msgRes = await fetch(`${API_URL} /api/chat / ${conversationId}/messages`);
             const msgData = await msgRes.json();
             if (msgData.messages) {
                 setMessages(msgData.messages.map((m: any) => ({
@@ -198,7 +189,6 @@ export default function ChatScreen() {
         setInputText('');
 
         try {
-            // Get conv ID again (should cache this)
             const res = await fetch(`${API_URL}/api/chat/conversations`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -226,6 +216,8 @@ export default function ChatScreen() {
     const handleUserSelect = async (user: User) => {
         setSelectedUser(user);
         setMessages([]); // Clear prev messages
+        activeConversationIdRef.current = null; // Reset active conv ID
+
         Animated.spring(slideAnim, {
             toValue: 0,
             useNativeDriver: true,
@@ -247,7 +239,10 @@ export default function ChatScreen() {
             toValue: width,
             duration: 300,
             useNativeDriver: true,
-        }).start(() => setSelectedUser(null));
+        }).start(() => {
+            setSelectedUser(null);
+            activeConversationIdRef.current = null;
+        });
         fetchConversations(); // Refresh list on back
     };
 

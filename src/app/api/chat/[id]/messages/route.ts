@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { getSocket } from '@/lib/socket';
+import { pusherServer } from '@/lib/pusher';
 
 // GET: Fetch messages
 export async function GET(req: Request, { params }: { params: { id: string } }) {
@@ -71,14 +71,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
             },
         });
 
-        // Emit socket event
-        const io = getSocket();
-        if (io) {
-            io.to(`conversation:${conversationId}`).emit('message:new', {
-                ...message,
-                timestamp: message.createdAt.getTime(),
-            });
-        }
+        // Emit Pusher event
+        await pusherServer.trigger(`conversation-${conversationId}`, 'message:new', {
+            ...message,
+            timestamp: message.createdAt.getTime(),
+        });
 
         return NextResponse.json({ message });
     } catch (error) {
