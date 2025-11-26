@@ -635,6 +635,7 @@ function MessagesPageContent() {
               className={`${styles.conversationItem} ${selectedConversationId === conv.id ? styles.active : ''
                 }`}
               onClick={() => handleSelectConversation(conv.id)}
+              style={{ position: 'relative', group: 'group' }}
             >
               <div className={styles.avatar} style={conv.avatar ? {
                 backgroundImage: `url(${conv.avatar})`,
@@ -646,7 +647,11 @@ function MessagesPageContent() {
               </div>
               <div className={styles.conversationInfo}>
                 <div className={styles.nameRow}>
-                  <span className={styles.name}>{conv.participantName}</span>
+                  <span className={styles.name}>
+                    {conv.participantName}
+                    {/* @ts-ignore */}
+                    {conv.isMuted && <span style={{ fontSize: '10px', marginLeft: '6px', opacity: 0.6 }}>🔇</span>}
+                  </span>
                   <span className={styles.time}>{formatTime(conv.lastMessageTime)}</span>
                 </div>
                 <span className={styles.preview}>{conv.lastMessage}</span>
@@ -654,6 +659,93 @@ function MessagesPageContent() {
               {conv.unreadCount > 0 && (
                 <div className={styles.unreadBadge}>{conv.unreadCount}</div>
               )}
+
+              {/* Context Menu Trigger (Only visible on hover or if active) */}
+              <button
+                className="context-menu-trigger"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowFeatureModal(showFeatureModal === conv.id ? null : conv.id);
+                }}
+                style={{
+                  position: 'absolute',
+                  right: '8px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#9ca3af',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  display: 'none', // Shown via CSS hover
+                }}
+              >
+                ⋮
+              </button>
+
+              {/* Context Menu */}
+              {showFeatureModal === conv.id && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    right: '30px',
+                    top: '20px',
+                    backgroundColor: '#fff',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                    zIndex: 100,
+                    overflow: 'hidden',
+                    minWidth: '120px',
+                    border: '1px solid #e5e7eb'
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    onClick={() => handleConversationAction(conv.id, 'mute')}
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      padding: '8px 12px',
+                      textAlign: 'left',
+                      border: 'none',
+                      background: 'transparent',
+                      fontSize: '13px',
+                      cursor: 'pointer',
+                      color: '#374151'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                  >
+                    {/* @ts-ignore */}
+                    {conv.isMuted ? 'Unmute' : 'Mute'}
+                  </button>
+                  <button
+                    onClick={() => handleConversationAction(conv.id, 'delete')}
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      padding: '8px 12px',
+                      textAlign: 'left',
+                      border: 'none',
+                      background: 'transparent',
+                      fontSize: '13px',
+                      cursor: 'pointer',
+                      color: '#ef4444',
+                      borderTop: '1px solid #f3f4f6'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = '#fef2f2'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                  >
+                    Delete Chat
+                  </button>
+                </div>
+              )}
+
+              <style jsx>{`
+                .${styles.conversationItem}:hover .context-menu-trigger {
+                  display: block !important;
+                }
+              `}</style>
             </div>
           ))}
         </div>

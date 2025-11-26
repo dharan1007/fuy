@@ -79,6 +79,7 @@ model User {
   chatAnalytics     ChatAnalytics?        @relation("Analytics")
   featureSessions   FeatureSession[]      @relation("FeatureSessions")
   featureParticipant FeatureSessionParticipant[] @relation("FeatureParticipants")
+  conversationStates ConversationState[]
 
   // --- Collaboration Features ---
   collaborationInvitesSent CollaborationInvite[] @relation("CollaborationInvitesSent")
@@ -635,6 +636,26 @@ model Conversation {
   @@index([participantA])
   @@index([participantB])
   @@index([lastMessageAt])
+
+  states        ConversationState[]
+}
+
+model ConversationState {
+  id             String       @id @default(cuid())
+  conversationId String
+  userId         String
+  isDeleted      Boolean      @default(false)
+  isMuted        Boolean      @default(false)
+  lastDeletedAt  DateTime?    // To hide messages before this date if "deleted"
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+  @@index([conversationId])
 }
 
 model Message {

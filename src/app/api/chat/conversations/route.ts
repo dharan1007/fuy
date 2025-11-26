@@ -20,6 +20,15 @@ export async function GET(req: Request) {
           { participantA: user.id },
           { participantB: user.id },
         ],
+        // Exclude conversations deleted by this user
+        NOT: {
+          states: {
+            some: {
+              userId: user.id,
+              isDeleted: true
+            }
+          }
+        }
       },
       include: {
         userA: {
@@ -32,6 +41,9 @@ export async function GET(req: Request) {
           orderBy: { createdAt: 'desc' },
           take: 1,
         },
+        states: {
+          where: { userId: user.id }
+        }
       },
       orderBy: { updatedAt: 'desc' },
     });
@@ -40,17 +52,19 @@ export async function GET(req: Request) {
     const formatted = conversations.map(c => {
       const otherUser = (c.participantA === user.id ? c.userB : c.userA) as any;
       const lastMsg = c.messages[0];
+      const userState = c.states[0]; // Should be only one for this user
+
       return {
         id: c.id,
-        user: {
-          id: otherUser.id,
-          name: otherUser.name,
-          avatar: otherUser.profile?.avatarUrl,
-          lastSeen: otherUser.lastSeen,
-        },
-        lastMessage: lastMsg?.content || '',
-        lastMessageAt: c.updatedAt,
-        unreadCount: 0, // TODO: Implement unread count logic if needed
+        participantName: otherUser.name || 'Unknown User',
+        participantId: otherUser.id,
+        lastMessage: lastMsg?.content || 'Started a conversation',
+        lastMessageTime: lastMsg ? new Date(lastMsg.createdAt).getTime() : new Date(c.createdAt).getTime(),
+        unreadCount: 0, // TODO: Implement unread count
+        avatar: otherUser.profile?.avatarUrl,
+        userA: c.userA,
+        userB: c.userB,
+        isMuted: userState?.isMuted || false
       };
     });
 
