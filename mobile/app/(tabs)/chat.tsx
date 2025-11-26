@@ -76,7 +76,7 @@ export default function ChatScreen() {
     useEffect(() => {
         if (!pusherRef.current || !activeConversationIdRef.current) return;
 
-        const channelName = `conversation - ${activeConversationIdRef.current} `;
+        const channelName = `conversation-${activeConversationIdRef.current}`;
         const channel = pusherRef.current.subscribe(channelName);
 
         channel.bind('message:new', (msg: any) => {
@@ -104,7 +104,7 @@ export default function ChatScreen() {
     // --- API Calls ---
     const fetchConversations = async () => {
         try {
-            const res = await fetch(`${API_URL} /api/chat / conversations`);
+            const res = await fetch(`${API_URL}/api/chat/conversations`);
             const data = await res.json();
             if (data.conversations) {
                 setConversations(data.conversations.map((c: any) => ({
@@ -129,7 +129,7 @@ export default function ChatScreen() {
             return;
         }
         try {
-            const res = await fetch(`${API_URL} /api/users / search ? q = ${query} `);
+            const res = await fetch(`${API_URL}/api/users/search?q=${query}`);
             const data = await res.json();
             if (data.users) {
                 setSearchResults(data.users.map((u: any) => ({
@@ -147,7 +147,7 @@ export default function ChatScreen() {
 
     const fetchMessages = async (userId: string) => {
         try {
-            const res = await fetch(`${API_URL} /api/chat / conversations`, {
+            const res = await fetch(`${API_URL}/api/chat/conversations`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ targetUserId: userId })
@@ -156,7 +156,7 @@ export default function ChatScreen() {
 
             activeConversationIdRef.current = conversationId;
 
-            const msgRes = await fetch(`${API_URL} /api/chat / ${conversationId}/messages`);
+            const msgRes = await fetch(`${API_URL}/api/chat/${conversationId}/messages`);
             const msgData = await msgRes.json();
             if (msgData.messages) {
                 setMessages(msgData.messages.map((m: any) => ({
