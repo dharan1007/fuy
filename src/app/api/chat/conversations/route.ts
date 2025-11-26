@@ -29,7 +29,7 @@ export async function GET(req: Request) {
             }
           }
         }
-      },
+      } as any,
       include: {
         userA: {
           select: { id: true, name: true, profile: { select: { avatarUrl: true } }, lastSeen: true } as any,
@@ -44,7 +44,7 @@ export async function GET(req: Request) {
         states: {
           where: { userId: user.id }
         }
-      },
+      } as any,
       orderBy: { updatedAt: 'desc' },
     });
 
