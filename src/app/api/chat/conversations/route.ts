@@ -38,7 +38,7 @@ export async function GET(req: Request) {
 
     // Format for frontend
     const formatted = conversations.map(c => {
-      const otherUser = c.participantA === user.id ? c.userB : c.userA;
+      const otherUser = (c.participantA === user.id ? c.userB : c.userA) as any;
       const lastMsg = c.messages[0];
       return {
         id: c.id,
