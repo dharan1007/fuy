@@ -23,10 +23,10 @@ export async function GET(req: Request) {
       },
       include: {
         userA: {
-          select: { id: true, name: true, profile: { select: { avatarUrl: true } }, lastSeen: true },
+          select: { id: true, name: true, profile: { select: { avatarUrl: true } } },
         },
         userB: {
-          select: { id: true, name: true, profile: { select: { avatarUrl: true } }, lastSeen: true },
+          select: { id: true, name: true, profile: { select: { avatarUrl: true } } },
         },
         messages: {
           orderBy: { createdAt: 'desc' },
@@ -91,8 +91,8 @@ export async function POST(req: Request) {
       const fullConversation = await prisma.conversation.findUnique({
         where: { id: existing.id },
         include: {
-          userA: { select: { id: true, name: true, profile: { select: { avatarUrl: true } }, lastSeen: true } },
-          userB: { select: { id: true, name: true, profile: { select: { avatarUrl: true } }, lastSeen: true } },
+          userA: { select: { id: true, name: true, profile: { select: { avatarUrl: true } } } },
+          userB: { select: { id: true, name: true, profile: { select: { avatarUrl: true } } } },
         },
       });
       return NextResponse.json({ conversation: fullConversation });
@@ -105,8 +105,8 @@ export async function POST(req: Request) {
         participantB: targetUserId,
       },
       include: {
-        userA: { select: { id: true, name: true, profile: { select: { avatarUrl: true } }, lastSeen: true } },
-        userB: { select: { id: true, name: true, profile: { select: { avatarUrl: true } }, lastSeen: true } },
+        userA: { select: { id: true, name: true, profile: { select: { avatarUrl: true } } } },
+        userB: { select: { id: true, name: true, profile: { select: { avatarUrl: true } } } },
       },
     });
 
