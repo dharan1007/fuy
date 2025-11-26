@@ -88,7 +88,14 @@ export async function POST(req: Request) {
     });
 
     if (existing) {
-      return NextResponse.json({ conversationId: existing.id });
+      const fullConversation = await prisma.conversation.findUnique({
+        where: { id: existing.id },
+        include: {
+          userA: { select: { id: true, name: true, profile: { select: { avatarUrl: true } }, lastSeen: true } },
+          userB: { select: { id: true, name: true, profile: { select: { avatarUrl: true } }, lastSeen: true } },
+        },
+      });
+      return NextResponse.json({ conversation: fullConversation });
     }
 
     // Create new
@@ -97,9 +104,13 @@ export async function POST(req: Request) {
         participantA: user.id,
         participantB: targetUserId,
       },
+      include: {
+        userA: { select: { id: true, name: true, profile: { select: { avatarUrl: true } }, lastSeen: true } },
+        userB: { select: { id: true, name: true, profile: { select: { avatarUrl: true } }, lastSeen: true } },
+      },
     });
 
-    return NextResponse.json({ conversationId: newConv.id });
+    return NextResponse.json({ conversation: newConv });
   } catch (error) {
     console.error('Error creating conversation:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
