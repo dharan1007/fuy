@@ -418,6 +418,39 @@ function MessagesPageContent() {
     setShowMobileSidebar(false);
   };
 
+  const handleConversationAction = async (conversationId: string, action: 'mute' | 'delete') => {
+    try {
+      // Optimistic update
+      if (action === 'delete') {
+        setConversations(prev => prev.filter(c => c.id !== conversationId));
+        if (selectedConversationId === conversationId) {
+          setSelectedConversationId(null);
+        }
+      } else if (action === 'mute') {
+        // Toggle mute state locally if we had it in the type
+      }
+
+      setShowFeatureModal(null);
+
+      const conv = conversations.find(c => c.id === conversationId);
+      // @ts-ignore
+      const isMuted = conv?.isMuted;
+      const finalAction = action === 'mute' && isMuted ? 'unmute' : action;
+
+      await fetch(`/api/chat/conversations/${conversationId}/state`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: finalAction })
+      });
+
+      // Refresh conversations to get updated state
+      fetchConversations();
+
+    } catch (err) {
+      console.error('Failed to update conversation state:', err);
+    }
+  };
+
   return (
     <div className={styles.container} data-theme={theme}>
       {/* Sidebar - Conversations List */}
@@ -635,7 +668,7 @@ function MessagesPageContent() {
               className={`${styles.conversationItem} ${selectedConversationId === conv.id ? styles.active : ''
                 }`}
               onClick={() => handleSelectConversation(conv.id)}
-              style={{ position: 'relative', group: 'group' }}
+              style={{ position: 'relative' }}
             >
               <div className={styles.avatar} style={conv.avatar ? {
                 backgroundImage: `url(${conv.avatar})`,
