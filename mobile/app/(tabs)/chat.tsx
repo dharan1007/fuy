@@ -129,17 +129,40 @@ export default function ChatScreen() {
             return;
         }
         try {
-            const res = await fetch(`${API_URL}/api/users/search?q=${query}`);
-            const data = await res.json();
-            if (data.users) {
-                setSearchResults(data.users.map((u: any) => ({
-                    id: u.id,
-                    name: u.name,
-                    avatar: u.profile?.avatarUrl || 'https://api.dicebear.com/7.x/avataaars/png?seed=User',
-                    status: isUserOnline(u.lastSeen) ? 'online' : 'offline',
-                    lastSeen: u.lastSeen
-                })));
-            }
+            // Run all search queries in parallel
+            const [followersRes, followingRes, allUsersRes] = await Promise.all([
+                fetch(`${API_URL}/api/users/followers-following?type=followers&search=${encodeURIComponent(query)}`),
+                fetch(`${API_URL}/api/users/followers-following?type=following&search=${encodeURIComponent(query)}`),
+                fetch(`${API_URL}/api/search/users?search=${encodeURIComponent(query)}`)
+            ]);
+
+            const followersData = followersRes.ok ? await followersRes.json() : { users: [] };
+            const followingData = followingRes.ok ? await followingRes.json() : { users: [] };
+            const allUsersData = allUsersRes.ok ? await allUsersRes.json() : { users: [] };
+
+            // Combine followers and following results
+            const followersFollowingResults = [...(followersData.users || []), ...(followingData.users || [])];
+            const followersFollowingMap = new Map(
+                followersFollowingResults.map((u: any) => [u.id, u])
+            );
+
+            // Combine all results: followers/following prioritized, then new users
+            const combinedResults = Array.from(followersFollowingMap.values());
+
+            // Add all platform users that aren't already in followers/following
+            const newUsersNotInFollowersFollowing = (allUsersData.users || []).filter(
+                (user: any) => !followersFollowingMap.has(user.id)
+            );
+
+            const finalResults = [...combinedResults, ...newUsersNotInFollowersFollowing];
+
+            setSearchResults(finalResults.map((u: any) => ({
+                id: u.id,
+                name: u.name || u.profile?.displayName || 'Unknown',
+                avatar: u.profile?.avatarUrl || u.avatar || 'https://api.dicebear.com/7.x/avataaars/png?seed=User',
+                status: isUserOnline(u.lastSeen) ? 'online' : 'offline',
+                lastSeen: u.lastSeen
+            })));
         } catch (err) {
             console.error('Failed to search users', err);
         }
