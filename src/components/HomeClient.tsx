@@ -16,6 +16,16 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import ScrollStarfield from '@/components/ScrollStarfield';
 import LandingPage from '@/components/LandingPage/LandingPage';
 
+// Post type card components
+import ChapterCard from '@/components/post-cards/ChapterCard';
+import XrayCard from '@/components/post-cards/XrayCard';
+import BTSCard from '@/components/post-cards/BTSCard';
+import LillCard from '@/components/post-cards/LillCard';
+import FillCard from '@/components/post-cards/FillCard';
+import AudCard from '@/components/post-cards/AudCard';
+import ChanCard from '@/components/post-cards/ChanCard';
+import PullUpDownCard from '@/components/post-cards/PullUpDownCard';
+
 interface UserProfile {
     name: string | null;
     profile: {
@@ -375,7 +385,7 @@ export default function HomeClient() {
                                     <p className="text-white/70">No posts yet. Be the first to share!</p>
                                 </div>
                             ) : (
-                                posts.map((post) => (
+                                posts.map((post: any) => (
                                     <div key={post.id} className="border border-white/20 rounded-lg p-6 bg-transparent backdrop-blur-md hover:border-white/40 transition-colors">
                                         <div className="flex items-start gap-4 mb-4">
                                             <img
@@ -389,17 +399,37 @@ export default function HomeClient() {
                                             </div>
                                         </div>
 
-                                        <p className="text-sm text-white/80 mb-4 leading-relaxed">{post.content}</p>
-
-                                        {post.media && post.media.length > 0 && (
-                                            <div className="grid grid-cols-2 gap-2 mb-4">
-                                                {post.media.map((m, i) => (
-                                                    <img key={i} src={m.url} alt="post media" className="w-full h-32 object-cover rounded-lg bg-white/5" />
-                                                ))}
-                                            </div>
+                                        {/* Render type-specific card or standard content */}
+                                        {post.postType === 'CHAPTER' && post.chapterData ? (
+                                            <ChapterCard chapter={post.chapterData} />
+                                        ) : post.postType === 'XRAY' && post.xrayData ? (
+                                            <XrayCard xray={post.xrayData} />
+                                        ) : post.postType === 'BTS' && post.btsData ? (
+                                            <BTSCard bts={post.btsData} />
+                                        ) : post.postType === 'LILL' && post.lillData ? (
+                                            <LillCard lill={post.lillData} />
+                                        ) : post.postType === 'FILL' && post.fillData ? (
+                                            <FillCard fill={post.fillData} />
+                                        ) : post.postType === 'AUD' && post.audData ? (
+                                            <AudCard aud={post.audData} />
+                                        ) : post.postType === 'CHAN' && post.chanData ? (
+                                            <ChanCard chan={post.chanData} />
+                                        ) : post.postType === 'PULLUPDOWN' && post.pullUpDownData ? (
+                                            <PullUpDownCard pullUpDown={post.pullUpDownData} userVote={post.userVote} />
+                                        ) : (
+                                            <>
+                                                <p className="text-sm text-white/80 mb-4 leading-relaxed">{post.content}</p>
+                                                {post.media && post.media.length > 0 && (
+                                                    <div className="grid grid-cols-2 gap-2 mb-4">
+                                                        {post.media.map((m: any, i: number) => (
+                                                            <img key={i} src={m.url} alt="post media" className="w-full h-32 object-cover rounded-lg bg-white/5" />
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </>
                                         )}
 
-                                        <div className="flex items-center gap-6 text-xs text-white/60 border-t border-white/10 pt-4">
+                                        <div className="flex items-center gap-6 text-xs text-white/60 border-t border-white/10 pt-4 mt-4">
                                             <button className="flex items-center gap-2 hover:text-white/80 transition-colors">
                                                 <svg className="w-4 h-4" fill={post.likedByMe ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />

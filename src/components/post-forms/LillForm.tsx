@@ -1,0 +1,181 @@
+'use client';
+
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Upload } from 'lucide-react';
+
+type LillFormProps = {
+    onBack: () => void;
+};
+
+export default function LillForm({ onBack }: LillFormProps) {
+    const router = useRouter();
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+
+    const [content, setContent] = useState('');
+    const [visibility, setVisibility] = useState('PUBLIC');
+    const [videoFile, setVideoFile] = useState<File | null>(null);
+    const [duration, setDuration] = useState(0);
+
+    const handleVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            setVideoFile(file);
+
+            // Get video duration
+            const video = document.createElement('video');
+            video.preload = 'metadata';
+            video.onloadedmetadata = () => {
+                setDuration(Math.floor(video.duration));
+                URL.revokeObjectURL(video.src);
+            };
+            video.src = URL.createObjectURL(file);
+        }
+    };
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError('');
+        setLoading(true);
+
+        try {
+            if (!videoFile) {
+                throw new Error('Please select a video');
+            }
+
+            if (duration > 60) {
+                throw new Error('Lills must be 60 seconds or less');
+            }
+
+            // Upload video
+            const formData = new FormData();
+            formData.append('file', videoFile);
+            formData.append('type', 'video');
+
+            const uploadRes = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!uploadRes.ok) {
+                throw new Error('Video upload failed');
+            }
+
+            const uploadData = await uploadRes.json();
+
+            // Create lill post
+            const res = await fetch('/api/posts/lills', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    content,
+                    visibility,
+                    videoUrl: uploadData.url,
+                    duration,
+                }),
+            });
+
+            if (!res.ok) {
+                const data = await res.json();
+                throw new Error(data.error || 'Failed to create lill');
+            }
+
+            router.push('/');
+            router.refresh();
+        } catch (err: any) {
+            setError(err.message || 'Something went wrong');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6">
+                <h3 className="text-xl font-bold mb-4">Create Lill (Short Video)</h3>
+
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-white/80 mb-2">Caption</label>
+                        <textarea
+                            value={content}
+                            onChange={(e) => setContent(e.target.value)}
+                            placeholder="Add a caption..."
+                            rows={3}
+                            className="w-full px-4 py-3 bg-black/20 border border-white/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-white/50 text-white placeholder-white/40 resize-none"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-white/80 mb-2">
+                            Video (Max 60 seconds)
+                        </label>
+                        {videoFile ? (
+                            <div className="space-y-2">
+                                <div className="p-3 bg-black/20 border border-white/10 rounded-lg">
+                                    <p className="text-sm">{videoFile.name}</p>
+                                    <p className="text-xs text-white/60 mt-1">Duration: {duration}s</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setVideoFile(null)}
+                                    className="text-sm text-red-400 hover:text-red-300"
+                                >
+                                    Remove video
+                                </button>
+                            </div>
+                        ) : (
+                            <label className="flex items-center justify-center gap-2 p-8 border-2 border-dashed border-white/20 rounded-xl hover:border-white/40 hover:bg-white/5 cursor-pointer transition-colors">
+                                <Upload className="w-6 h-6" />
+                                <span>Upload Video</span>
+                                <input
+                                    type="file"
+                                    accept="video/*"
+                                    onChange={handleVideoChange}
+                                    className="hidden"
+                                />
+                            </label>
+                        )}
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-white/80 mb-2">Visibility</label>
+                        <select
+                            value={visibility}
+                            onChange={(e) => setVisibility(e.target.value)}
+                            className="w-full px-4 py-3 bg-black/20 border border-white/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-white/50 text-white"
+                        >
+                            <option value="PUBLIC">Public</option>
+                            <option value="FRIENDS">Friends Only</option>
+                            <option value="PRIVATE">Private</option>
+                        </select>
+                    </div>
+                </div>
+
+                {error && (
+                    <div className="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
+                        {error}
+                    </div>
+                )}
+
+                <div className="flex gap-3 mt-6">
+                    <button
+                        type="button"
+                        onClick={onBack}
+                        className="flex-1 py-3 bg-white/10 hover:bg-white/20 rounded-xl font-medium transition-colors"
+                    >
+                        Back
+                    </button>
+                    <button
+                        type="submit"
+                        disabled={loading || !videoFile}
+                        className="flex-1 py-3 bg-white text-black rounded-xl font-bold hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {loading ? 'Creating...' : 'Create Lill'}
+                    </button>
+                </div>
+            </div>
+        </form>
+    );
+}

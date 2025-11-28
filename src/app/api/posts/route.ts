@@ -200,6 +200,23 @@ export async function GET(req: NextRequest) {
           id: true,
         },
       },
+      // Include all new post types
+      chapterData: true,
+      xrayData: true,
+      btsData: true,
+      lillData: true,
+      fillData: true,
+      audData: true,
+      chanData: true,
+      pullUpDownData: {
+        include: {
+          votes: {
+            where: {
+              userId,
+            },
+          },
+        },
+      },
     },
     take: 50,
   });
@@ -210,6 +227,8 @@ export async function GET(req: NextRequest) {
     likes: post.likes?.length || 0,
     likedByMe: post.likes?.some((like) => like.userId === userId) || false,
     shares: post.shares?.length || 0,
+    // Add user vote status for polls
+    userVote: post.pullUpDownData?.votes?.[0]?.vote || null,
   }));
 
   return NextResponse.json(transformed);

@@ -1,0 +1,178 @@
+
+// Add this after the Media model (around line 263)
+
+// ========================
+// Advanced Post Types
+// ========================
+
+// Chapters - Multi-media collections with linking
+model Chapter {
+  id              String   @id @default(cuid())
+  postId          String   @unique
+  title           String?
+  description     String?
+  linkedChapterId String?  // Link to previous chapter
+  linkedPostId    String?  // Link to any previous post
+  mediaUrls       String   // JSON array of media URLs
+  mediaTypes      String   // JSON array of media types (image/video/audio/text)
+  orderIndex      Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  post          Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  linkedChapter Chapter? @relation("ChapterLinks", fields: [linkedChapterId], references: [id], onDelete: SetNull)
+  nextChapters  Chapter[] @relation("ChapterLinks")
+
+  @@index([postId])
+  @@index([linkedChapterId])
+  @@index([createdAt])
+}
+
+// Xrays - 2-layer interactive scratch posts
+model Xray {
+  id            String   @id @default(cuid())
+  postId        String   @unique
+  topLayerUrl   String   // Image/video URL for top layer
+  topLayerType  String   // IMAGE | VIDEO
+  bottomLayerUrl String  // Image/video URL revealed on scratch
+  bottomLayerType String // IMAGE | VIDEO
+  scratchPattern String  @default("RANDOM") // RANDOM | GRID | CUSTOM
+  revealPercent Int      @default(0) // Percentage revealed (for analytics)
+  createdAt     DateTime @default(now())
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+}
+
+// BTS - Behind the scenes (credits, tools, mindmaps)
+model BTS {
+  id          String   @id @default(cuid())
+  postId      String   @unique
+  credits     String?  // JSON array of {name, role, link}
+  tools       String?  // JSON array of {name, category, link}
+  mindmapData String?  // JSON mindmap structure
+  links       String?  // JSON array of {title, url, description}
+  resources   String?  // JSON array of additional resources
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+}
+
+// Lills - Short-form videos (like reels)
+model Lill {
+  id            String   @id @default(cuid())
+  postId        String   @unique
+  videoUrl      String
+  thumbnailUrl  String?
+  duration      Int      // Duration in seconds (max 60)
+  aspectRatio   String   @default("9:16") // Vertical video
+  musicUrl      String?  // Optional background music
+  musicTitle    String?
+  filters       String?  // JSON array of applied filters
+  createdAt     DateTime @default(now())
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+  @@index([createdAt])
+}
+
+// Fills - Long-form videos (YouTube-style)
+model Fill {
+  id            String   @id @default(cuid())
+  postId        String   @unique
+  videoUrl      String
+  thumbnailUrl  String?
+  duration      Int      // Duration in seconds
+  aspectRatio   String   @default("16:9") // Horizontal video
+  chapters      String?  // JSON array of {time, title} for video chapters
+  subtitlesUrl  String?  // Optional subtitles file
+  quality       String   @default("HD") // SD | HD | FHD | 4K
+  createdAt     DateTime @default(now())
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+  @@index([createdAt])
+}
+
+// Auds - Audio files
+model Aud {
+  id            String   @id @default(cuid())
+  postId        String   @unique
+  audioUrl      String
+  duration      Int      // Duration in seconds
+  waveformData  String?  // JSON array of amplitude values for visualization
+  coverImageUrl String?  // Optional cover art
+  artist        String?
+  title         String?
+  genre         String?
+  createdAt     DateTime @default(now())
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+  @@index([createdAt])
+}
+
+// Chans - Channels with episodes/scheduled content
+model Chan {
+  id            String   @id @default(cuid())
+  postId        String   @unique
+  channelName   String
+  description   String?
+  coverImageUrl String?
+  schedule      String?  // JSON array of {day, time, title}
+  isLive        Boolean  @default(false)
+  liveUrl       String?  // URL for live stream if active
+  episodes      String   // JSON array of {title, url, thumbnail, duration, publishedAt}
+  subscriberCount Int    @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+  @@index([isLive])
+  @@index([createdAt])
+}
+
+// PullUpDown - Voting/polling posts
+model PullUpDown {
+  id            String   @id @default(cuid())
+  postId        String   @unique
+  question      String
+  optionA       String   // First option
+  optionB       String   // Second option
+  optionACount  Int      @default(0)
+  optionBCount  Int      @default(0)
+  allowMultiple Boolean  @default(false)
+  expiresAt     DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  post  Post               @relation(fields: [postId], references: [id], onDelete: Cascade)
+  votes PullUpDownVote[]
+
+  @@index([postId])
+  @@index([expiresAt])
+}
+
+// Track individual votes for PullUpDown
+model PullUpDownVote {
+  id            String   @id @default(cuid())
+  pullUpDownId  String
+  userId        String
+  vote          String   // A | B
+  createdAt     DateTime @default(now())
+
+  pullUpDown PullUpDown @relation(fields: [pullUpDownId], references: [id], onDelete: Cascade)
+
+  @@unique([pullUpDownId, userId])
+  @@index([pullUpDownId])
+  @@index([userId])
+}
