@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Palette, Rocket, ShoppingBag, LayoutDashboard, Menu } from 'lucide-react';
 import SearchModal from '@/components/SearchModal';
-import NotificationsModal from '@/components/NotificationsModal';
+
 import UserListModal from '@/components/UserListModal';
 import HomeSidebarProfile from '@/components/HomeSidebarProfile';
 import HomeSidebarSuggestions from '@/components/HomeSidebarSuggestions';
@@ -60,7 +60,7 @@ export default function HomeClient() {
     const [posts, setPosts] = useState<PostData[]>([]);
     const [loading, setLoading] = useState(true);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
-    const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+
     const [unreadCount, setUnreadCount] = useState(0);
     const [showNavMenu, setShowNavMenu] = useState(false);
 
@@ -507,10 +507,10 @@ export default function HomeClient() {
                     </Link>
 
                     {/* Notifications */}
-                    <button
+                    <Link
+                        href="/notifications"
                         className="relative p-1.5 text-white/80 hover:text-white transition-colors hover:scale-110 transform duration-200"
                         title="Notifications"
-                        onClick={() => setIsNotificationsOpen(true)}
                     >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
@@ -520,7 +520,7 @@ export default function HomeClient() {
                                 {unreadCount > 9 ? '9+' : unreadCount}
                             </span>
                         )}
-                    </button>
+                    </Link>
 
                     {/* Messages */}
                     <Link
@@ -536,12 +536,7 @@ export default function HomeClient() {
                         </span>
                     </Link>
                     <SearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
-                    <NotificationsModal isOpen={isNotificationsOpen} onClose={() => {
-                        setIsNotificationsOpen(false);
-                        fetchUnreadCount();
-                        // Refresh profile to update follower/following counts
-                        fetchUserProfile();
-                    }} />
+
                     <UserListModal
                         isOpen={showFollowersModal}
                         title="Followers"

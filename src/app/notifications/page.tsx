@@ -29,6 +29,7 @@ type Notification = {
       name: string | null;
     };
   };
+  _actionTaken?: "ACCEPT" | "REJECT" | "GHOST";
 };
 
 export default function NotificationsPage() {
@@ -38,14 +39,16 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "unread">("all");
 
+  useEffect(() => {
+    if (status !== 'loading') {
+      loadNotifications();
+    }
+  }, [filter, status]);
+
   // Show loading spinner while session is authenticating
   if (status === 'loading') {
     return <LoadingSpinner message="Loading your notifications..." />;
   }
-
-  useEffect(() => {
-    loadNotifications();
-  }, [filter]);
 
   async function loadNotifications() {
     setLoading(true);
@@ -63,58 +66,104 @@ export default function NotificationsPage() {
 
   async function markAsRead(notificationId: string) {
     try {
+      // Optimistic update
+      setNotifications(prev => prev.map(n =>
+        n.id === notificationId ? { ...n, read: true } : n
+      ));
+
       await fetch("/api/notifications", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ notificationId }),
       });
-      loadNotifications();
+      // No need to reload, we already updated
     } catch (error) {
       console.error("Mark as read error:", error);
+      // Revert on error if needed, or just reload
+      loadNotifications();
     }
   }
 
   async function markAllAsRead() {
     try {
+      // Optimistic update
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+
       await fetch("/api/notifications", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ markAllRead: true }),
       });
-      loadNotifications();
     } catch (error) {
       console.error("Mark all as read error:", error);
+      loadNotifications();
     }
   }
 
   async function deleteNotification(notificationId: string) {
     try {
+      // Optimistic update
+      setNotifications(prev => prev.filter(n => n.id !== notificationId));
+
       await fetch(`/api/notifications?id=${notificationId}`, {
         method: "DELETE",
       });
-      loadNotifications();
     } catch (error) {
       console.error("Delete notification error:", error);
+      loadNotifications();
     }
   }
 
   async function handleFriendAction(friendshipId: string, action: "ACCEPT" | "REJECT" | "GHOST") {
+    // Optimistic update: Remove the notification or update its state immediately
+    // For friend requests, usually we want to remove the buttons or the whole notification if it's dealt with
+    // Let's assume we want to show a success state or just remove the buttons. 
+    // Since the user said "change the state of the button instantly", let's update the local state to reflect "Processing" or "Done"
+    // But simpler is to remove the notification from the list or mark it as handled if we had a status field.
+    // Given the current structure, let's remove the notification from the view as if it's done, 
+    // OR better, update a local "actionTaken" state for that notification if we want to show "Accepted".
+    // However, the simplest robust optimistic UI for this list is to remove it or show it as "Accepted".
+
+    // Let's try to update the UI to show the result immediately.
+    // We don't have a specific field for "friendRequestStatus" in the notification object in the frontend type.
+    // We can add a local state to track processed friendship IDs.
+
+    // Actually, let's just optimistically remove the notification or update it. 
+    // If we accept, it's no longer a pending request.
+
+    setNotifications(prev => prev.map(n => {
+      if (n.friendshipId === friendshipId) {
+        // Add a temporary flag to the notification object to show it's being processed or done
+        // We'll need to extend the type or just use a local set of IDs.
+        // For now, let's just remove it from the list to show "instant" action, 
+        // or better, replace the buttons with the action result text.
+        return { ...n, _actionTaken: action };
+      }
+      return n;
+    }));
+
     try {
       const res = await fetch("/api/friends/request", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ friendshipId, action }),
       });
-      if (res.ok) {
-        await loadNotifications();
-      } else {
+
+      if (!res.ok) {
         const error = await res.json();
         console.error("Friend action failed:", error.error);
         alert(`Failed to ${action.toLowerCase()} friend request: ${error.error}`);
+        // Revert changes
+        loadNotifications();
+      } else {
+        // Success - we could reload to get the final state, but we already updated optimistically.
+        // Maybe reload in background to be sure.
+        // loadNotifications(); 
       }
     } catch (error) {
       console.error("Friend action error:", error);
       alert("An error occurred while processing the friend request");
+      loadNotifications();
     }
   }
 
@@ -183,21 +232,19 @@ export default function NotificationsPage() {
           <div className="flex gap-2">
             <button
               onClick={() => setFilter("all")}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                filter === "all"
-                  ? "bg-blue-600 text-white"
-                  : "bg-white text-gray-700 hover:bg-gray-50"
-              }`}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === "all"
+                ? "bg-blue-600 text-white"
+                : "bg-white text-gray-700 hover:bg-gray-50"
+                }`}
             >
               All
             </button>
             <button
               onClick={() => setFilter("unread")}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                filter === "unread"
-                  ? "bg-blue-600 text-white"
-                  : "bg-white text-gray-700 hover:bg-gray-50"
-              }`}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === "unread"
+                ? "bg-blue-600 text-white"
+                : "bg-white text-gray-700 hover:bg-gray-50"
+                }`}
             >
               Unread
             </button>
@@ -239,11 +286,10 @@ export default function NotificationsPage() {
           {notifications.map((notif) => (
             <div
               key={notif.id}
-              className={`p-4 rounded-lg transition-colors ${
-                notif.read
-                  ? "bg-white hover:bg-gray-50"
-                  : "bg-blue-50 hover:bg-blue-100 border-l-4 border-blue-600"
-              }`}
+              className={`p-4 rounded-lg transition-colors ${notif.read
+                ? "bg-white hover:bg-gray-50"
+                : "bg-blue-50 hover:bg-blue-100 border-l-4 border-blue-600"
+                }`}
               onClick={() => !notif.read && markAsRead(notif.id)}
             >
               <div className="flex items-start gap-4">
@@ -270,47 +316,59 @@ export default function NotificationsPage() {
                       {/* Friend Request Actions */}
                       {notif.type === "FRIEND_REQUEST" && notif.sender && notif.friendshipId && (
                         <div className="flex gap-2 mt-3">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleFriendAction(notif.friendshipId!, "ACCEPT");
-                            }}
-                            className="flex items-center gap-1 px-3 py-1.5 bg-green-100 hover:bg-green-200 text-green-700 rounded-md text-xs font-medium transition-colors"
-                            title="Accept request"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                            Accept
-                          </button>
+                          {notif._actionTaken ? (
+                            <span className={`text-xs font-medium px-3 py-1.5 rounded-md ${notif._actionTaken === 'ACCEPT' ? 'bg-green-100 text-green-700' :
+                                notif._actionTaken === 'REJECT' ? 'bg-red-100 text-red-700' :
+                                  'bg-gray-200 text-gray-700'
+                              }`}>
+                              {notif._actionTaken === 'ACCEPT' ? 'Accepted' :
+                                notif._actionTaken === 'REJECT' ? 'Rejected' : 'Ghosted'}
+                            </span>
+                          ) : (
+                            <>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleFriendAction(notif.friendshipId!, "ACCEPT");
+                                }}
+                                className="flex items-center gap-1 px-3 py-1.5 bg-green-100 hover:bg-green-200 text-green-700 rounded-md text-xs font-medium transition-colors"
+                                title="Accept request"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                                Accept
+                              </button>
 
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleFriendAction(notif.friendshipId!, "REJECT");
-                            }}
-                            className="flex items-center gap-1 px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 rounded-md text-xs font-medium transition-colors"
-                            title="Reject request"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                            Reject
-                          </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleFriendAction(notif.friendshipId!, "REJECT");
+                                }}
+                                className="flex items-center gap-1 px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 rounded-md text-xs font-medium transition-colors"
+                                title="Reject request"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                                Reject
+                              </button>
 
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleFriendAction(notif.friendshipId!, "GHOST");
-                            }}
-                            className="flex items-center gap-1 px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md text-xs font-medium transition-colors"
-                            title="Ghost request (hide)"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-4.803M9 12a3 3 0 110-6 3 3 0 010 6zm9 0a9 9 0 11-18 0 9 9 0 0118 0zm-4 12a1 1 0 1 1-2 0 1 1 0 012 0z" />
-                            </svg>
-                            Ghost
-                          </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleFriendAction(notif.friendshipId!, "GHOST");
+                                }}
+                                className="flex items-center gap-1 px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md text-xs font-medium transition-colors"
+                                title="Ghost request (hide)"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-4.803M9 12a3 3 0 110-6 3 3 0 010 6zm9 0a9 9 0 11-18 0 9 9 0 0118 0zm-4 12a1 1 0 1 1-2 0 1 1 0 012 0z" />
+                                </svg>
+                                Ghost
+                              </button>
+                            </>
+                          )}
                         </div>
                       )}
                     </div>
