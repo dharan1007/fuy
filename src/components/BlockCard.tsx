@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { Block, MIN_H_CARD, MIN_W_CARD } from "@/lib/templates";
-import { GripHorizontal } from "lucide-react";
+import { GripHorizontal, Upload, Camera, Mic, Video as VideoIcon } from "lucide-react";
 
 type Props = {
   block: Block;
@@ -175,7 +175,7 @@ export default function BlockCard({ block, active }: Props) {
       {block.type === "TEXT" && (
         <textarea
           data-no-drag
-          className="h-full w-full resize-none bg-transparent p-2 text-sm outline-none"
+          className="h-full w-full resize-none bg-transparent p-2 text-base font-medium text-black outline-none placeholder:text-black/40"
           style={{
             border: active ? "2px solid #000" : "1px solid #ddd",
             borderRadius: 8,
@@ -214,7 +214,7 @@ export default function BlockCard({ block, active }: Props) {
                 />
                 <input
                   data-no-drag
-                  className="flex-1 border-none bg-transparent text-sm outline-none"
+                  className="flex-1 border-none bg-transparent text-base font-medium text-black outline-none placeholder:text-black/40"
                   value={it.text}
                   onChange={(e) => {
                     const next = [...(block.checklist ?? [])];
@@ -260,9 +260,11 @@ export default function BlockCard({ block, active }: Props) {
 
       {block.type === "DRAW" && (
         <DrawLayer
+          paths={block.drawing?.paths ?? []}
           stroke={block.drawing?.stroke ?? "#000"}
           strokeWidth={block.drawing?.strokeWidth ?? 2}
-          onMutatePaths={(paths) => update({ drawing: { stroke: "#000", strokeWidth: 2, paths } })}
+          onMutatePaths={(paths) => update({ drawing: { ...block.drawing!, paths } })}
+          onSettingsChange={(s) => update({ drawing: { ...block.drawing!, ...s } })}
           active={active}
         />
       )}
@@ -318,18 +320,35 @@ export default function BlockCard({ block, active }: Props) {
 /* ---------- Lightweight media/draw layers (event-bridge friendly) ---------- */
 
 function DrawLayer({
+  paths,
   stroke,
   strokeWidth,
   onMutatePaths,
+  onSettingsChange,
   active,
 }: {
+  paths: { points: [number, number][]; stroke?: string; strokeWidth?: number }[];
   stroke: string;
   strokeWidth: number;
-  onMutatePaths: (paths: { points: [number, number][] }[]) => void;
+  onMutatePaths: (paths: { points: [number, number][]; stroke?: string; strokeWidth?: number }[]) => void;
+  onSettingsChange: (settings: { stroke?: string; strokeWidth?: number }) => void;
   active?: boolean;
 }) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const draw = useRef({ down: false });
+
+  // Convert points array to SVG polyline string
+  const toPoints = (pts: [number, number][]) => pts.map((p) => p.join(",")).join(" ");
+
+  const pathsRef = useRef(paths);
+  const strokeRef = useRef(stroke);
+  const strokeWidthRef = useRef(strokeWidth);
+
+  useEffect(() => {
+    pathsRef.current = paths;
+    strokeRef.current = stroke;
+    strokeWidthRef.current = strokeWidth;
+  }, [paths, stroke, strokeWidth]);
 
   useEffect(() => {
     const svg = svgRef.current;
@@ -340,24 +359,34 @@ function DrawLayer({
       return [e.clientX - rect.left, e.clientY - rect.top];
     };
 
-    let paths: { points: [number, number][] }[] = [];
-
     const onDown = (e: PointerEvent) => {
+      if ((e.target as Element).closest("[data-no-drag]")) return;
       (e.target as Element).setPointerCapture(e.pointerId);
       draw.current.down = true;
       const p = getPoint(e);
-      paths = [...paths, { points: [p] }];
-      onMutatePaths(paths);
+      const newPath = {
+        points: [p],
+        stroke: strokeRef.current,
+        strokeWidth: strokeWidthRef.current,
+      };
+      onMutatePaths([...pathsRef.current, newPath]);
     };
+
     const onMove = (e: PointerEvent) => {
       if (!draw.current.down) return;
       const p = getPoint(e);
-      paths = [...paths];
-      paths[paths.length - 1] = {
-        points: [...paths[paths.length - 1].points, p],
+      const currentPaths = pathsRef.current;
+      if (currentPaths.length === 0) return;
+
+      const nextPaths = [...currentPaths];
+      const lastPath = nextPaths[nextPaths.length - 1];
+      nextPaths[nextPaths.length - 1] = {
+        ...lastPath,
+        points: [...lastPath.points, p],
       };
-      onMutatePaths(paths);
+      onMutatePaths(nextPaths);
     };
+
     const onUp = (e: PointerEvent) => {
       draw.current.down = false;
       (e.target as Element).releasePointerCapture(e.pointerId);
@@ -375,26 +404,108 @@ function DrawLayer({
     };
   }, [onMutatePaths]);
 
+  const colors = ["#000000", "#ef4444", "#3b82f6", "#22c55e", "#eab308", "#a855f7"];
+  const widths = [2, 4, 8];
+
   return (
-    <svg
-      ref={svgRef}
-      data-no-drag
-      className="h-full w-full"
-      style={{
-        border: active ? "2px solid #000" : "1px solid #ddd",
-        borderRadius: 8,
-        backgroundColor: "transparent",
-      }}
-    >
-      {/* paths are drawn by consumer via patching; this stub keeps the layer */}
-      {/* keep simple: actual path rendering occurs from parent Block state */}
-    </svg>
+    <div className="relative h-full w-full">
+      <svg
+        ref={svgRef}
+        className="h-full w-full touch-none"
+        style={{
+          border: active ? "2px solid #000" : "1px solid #ddd",
+          borderRadius: 8,
+          backgroundColor: "#fff", // White canvas for drawing
+          cursor: "crosshair",
+        }}
+      >
+        {paths.map((p, i) => (
+          <polyline
+            key={i}
+            points={toPoints(p.points)}
+            fill="none"
+            stroke={p.stroke || "#000"}
+            strokeWidth={p.strokeWidth || 2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        ))}
+      </svg>
+
+      {/* Toolbar */}
+      {active && (
+        <div
+          data-no-drag
+          className="absolute bottom-2 left-1/2 flex -translate-x-1/2 items-center gap-3 rounded-full border border-black/10 bg-white p-2 shadow-lg"
+        >
+          {/* Colors */}
+          <div className="flex items-center gap-1 border-r border-black/10 pr-2">
+            {colors.map((c) => (
+              <button
+                key={c}
+                className={`h-5 w-5 rounded-full border border-black/10 transition-transform hover:scale-110 ${stroke === c ? "ring-2 ring-black ring-offset-1" : ""
+                  }`}
+                style={{ backgroundColor: c }}
+                onClick={() => onSettingsChange({ stroke: c })}
+              />
+            ))}
+          </div>
+
+          {/* Widths */}
+          <div className="flex items-center gap-2 border-r border-black/10 pr-2">
+            {widths.map((w) => (
+              <button
+                key={w}
+                className={`flex h-6 w-6 items-center justify-center rounded-full hover:bg-black/5 ${strokeWidth === w ? "bg-black/5" : ""
+                  }`}
+                onClick={() => onSettingsChange({ strokeWidth: w })}
+              >
+                <div
+                  className="rounded-full bg-black"
+                  style={{ width: w, height: w }}
+                />
+              </button>
+            ))}
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center gap-1">
+            <button
+              className="rounded px-2 py-1 text-xs font-medium hover:bg-black/5"
+              onClick={() => onMutatePaths(paths.slice(0, -1))}
+              disabled={paths.length === 0}
+            >
+              Undo
+            </button>
+            <button
+              className="rounded px-2 py-1 text-xs font-medium text-red-500 hover:bg-red-50"
+              onClick={() => onMutatePaths([])}
+              disabled={paths.length === 0}
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
 function ImageLayer({ block, onPatch, active }: { block: Block; onPatch: (p: Partial<Block>) => void; active?: boolean }) {
   const [tmpUrl, setTmpUrl] = useState(block.url || "");
   useEffect(() => setTmpUrl(block.url || ""), [block.url]);
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const result = ev.target?.result as string;
+        onPatch({ url: result });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   return (
     <div
@@ -406,26 +517,36 @@ function ImageLayer({ block, onPatch, active }: { block: Block; onPatch: (p: Par
         overflow: "hidden",
       }}
     >
-      <div className="relative flex-1 overflow-hidden">
+      <div className="relative flex-1 overflow-hidden group/img">
         {block.url ? (
           <img src={block.url} alt={block.caption || "image"} className="h-full w-full object-contain" />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-xs text-black/40">
-            Paste image URL below
+          <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-xs text-black/40">
+            <div className="flex gap-2">
+              <label htmlFor={`img-upload-${block.id}`} className="cursor-pointer rounded-md bg-black/5 p-2 hover:bg-black/10">
+                <input id={`img-upload-${block.id}`} type="file" accept="image/*" className="hidden" onChange={handleFile} />
+                <Upload className="h-5 w-5 text-black/60" />
+              </label>
+              <label htmlFor={`img-camera-${block.id}`} className="cursor-pointer rounded-md bg-black/5 p-2 hover:bg-black/10">
+                <input id={`img-camera-${block.id}`} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFile} />
+                <Camera className="h-5 w-5 text-black/60" />
+              </label>
+            </div>
+            <span>Upload or Take Photo</span>
           </div>
         )}
       </div>
       <div className="flex items-center gap-1 p-1 bg-black/5">
         <input
           data-no-drag
-          className="flex-1 border-none bg-transparent px-1 py-0.5 text-xs outline-none"
+          className="flex-1 border-none bg-transparent px-1 py-0.5 text-sm font-medium text-black outline-none placeholder:text-black/40"
           placeholder="Caption"
           value={block.caption || ""}
           onChange={(e) => onPatch({ caption: e.target.value })}
         />
         <input
           data-no-drag
-          className="flex-1 min-w-[120px] border-none bg-transparent px-1 py-0.5 text-xs outline-none"
+          className="flex-1 min-w-[120px] border-none bg-transparent px-1 py-0.5 text-xs outline-none text-black/60"
           placeholder="Image URL…"
           value={tmpUrl}
           onChange={(e) => setTmpUrl(e.target.value)}
@@ -439,6 +560,18 @@ function ImageLayer({ block, onPatch, active }: { block: Block; onPatch: (p: Par
 function VideoLayer({ block, onPatch, active }: { block: Block; onPatch: (p: Partial<Block>) => void; active?: boolean }) {
   const [tmpUrl, setTmpUrl] = useState(block.url || "");
   useEffect(() => setTmpUrl(block.url || ""), [block.url]);
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const result = ev.target?.result as string;
+        onPatch({ url: result });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   return (
     <div
@@ -454,15 +587,25 @@ function VideoLayer({ block, onPatch, active }: { block: Block; onPatch: (p: Par
         {block.url ? (
           <video src={block.url} controls className="h-full w-full object-contain" />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-xs text-black/40">
-            Paste video URL below
+          <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-xs text-black/40">
+            <div className="flex gap-2">
+              <label htmlFor={`vid-upload-${block.id}`} className="cursor-pointer rounded-md bg-black/5 p-2 hover:bg-black/10">
+                <input id={`vid-upload-${block.id}`} type="file" accept="video/*" className="hidden" onChange={handleFile} />
+                <Upload className="h-5 w-5 text-black/60" />
+              </label>
+              <label htmlFor={`vid-camera-${block.id}`} className="cursor-pointer rounded-md bg-black/5 p-2 hover:bg-black/10">
+                <input id={`vid-camera-${block.id}`} type="file" accept="video/*" capture="environment" className="hidden" onChange={handleFile} />
+                <VideoIcon className="h-5 w-5 text-black/60" />
+              </label>
+            </div>
+            <span>Upload or Record Video</span>
           </div>
         )}
       </div>
       <div className="flex items-center gap-1 p-1 bg-black/5">
         <input
           data-no-drag
-          className="flex-1 border-none bg-transparent px-1 py-0.5 text-xs outline-none"
+          className="flex-1 border-none bg-transparent px-1 py-0.5 text-xs outline-none text-black/60"
           placeholder="Video URL…"
           value={tmpUrl}
           onChange={(e) => setTmpUrl(e.target.value)}
@@ -477,6 +620,18 @@ function AudioLayer({ block, onPatch, active }: { block: Block; onPatch: (p: Par
   const [tmpUrl, setTmpUrl] = useState(block.url || "");
   useEffect(() => setTmpUrl(block.url || ""), [block.url]);
 
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const result = ev.target?.result as string;
+        onPatch({ url: result });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   return (
     <div
       className="flex h-full w-full flex-col"
@@ -487,19 +642,29 @@ function AudioLayer({ block, onPatch, active }: { block: Block; onPatch: (p: Par
         overflow: "hidden",
       }}
     >
-      <div className="flex-1 overflow-hidden p-2 bg-black/5">
+      <div className="flex-1 overflow-hidden p-2 bg-black/5 flex items-center justify-center">
         {block.url ? (
           <audio src={block.url} controls className="w-full" />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-xs text-black/40">
-            Paste audio URL below
+          <div className="flex flex-col items-center gap-2 text-xs text-black/40">
+            <div className="flex gap-2">
+              <label htmlFor={`aud-upload-${block.id}`} className="cursor-pointer rounded-md bg-white p-2 hover:bg-gray-50 shadow-sm">
+                <input id={`aud-upload-${block.id}`} type="file" accept="audio/*" className="hidden" onChange={handleFile} />
+                <Upload className="h-5 w-5 text-black/60" />
+              </label>
+              <label htmlFor={`aud-mic-${block.id}`} className="cursor-pointer rounded-md bg-white p-2 hover:bg-gray-50 shadow-sm">
+                <input id={`aud-mic-${block.id}`} type="file" accept="audio/*" capture className="hidden" onChange={handleFile} />
+                <Mic className="h-5 w-5 text-black/60" />
+              </label>
+            </div>
+            <span>Upload or Record Audio</span>
           </div>
         )}
       </div>
       <div className="flex items-center gap-1 p-1 bg-black/5 border-t border-black/10">
         <input
           data-no-drag
-          className="flex-1 border-none bg-transparent px-1 py-0.5 text-xs outline-none"
+          className="flex-1 border-none bg-transparent px-1 py-0.5 text-xs outline-none text-black/60"
           placeholder="Audio URL…"
           value={tmpUrl}
           onChange={(e) => setTmpUrl(e.target.value)}

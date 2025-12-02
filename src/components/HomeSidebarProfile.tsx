@@ -165,8 +165,8 @@ export default function HomeSidebarProfile({
               </Link>
             </div>
             <div className="space-y-2">
-              {userRanks.slice(0, 3).map((rank) => (
-                <div key={rank.categoryId} className="flex justify-between items-center text-xs">
+              {userRanks.slice(0, 3).map((rank, i) => (
+                <div key={`${rank.categoryId}-${i}`} className="flex justify-between items-center text-xs">
                   <span className="text-white/80">Rank {rank.rank}</span>
                   <span className="font-semibold text-blue-300">#{rank.rank}</span>
                 </div>
@@ -186,8 +186,8 @@ export default function HomeSidebarProfile({
               </Link>
             </div>
             <div className="space-y-2">
-              {hopinPlans.slice(0, 3).map((plan) => (
-                <div key={plan.id} className="text-xs text-white/80 truncate hover:text-white">
+              {hopinPlans.slice(0, 3).map((plan, i) => (
+                <div key={`${plan.id}-${i}`} className="text-xs text-white/80 truncate hover:text-white">
                   • {plan.title}
                 </div>
               ))}
@@ -225,8 +225,8 @@ export default function HomeSidebarProfile({
           </div>
           {todos.length > 0 ? (
             <div className="space-y-2">
-              {todos.slice(0, 4).map((todo) => (
-                <div key={todo.id} className="text-xs text-white/80 truncate hover:text-white flex items-center gap-2">
+              {todos.slice(0, 4).map((todo, i) => (
+                <div key={`${todo.id}-${i}`} className="text-xs text-white/80 truncate hover:text-white flex items-center gap-2">
                   <span className="text-white/60">•</span>
                   <span>{todo.title}</span>
                 </div>

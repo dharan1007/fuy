@@ -85,9 +85,23 @@ export default function JournalEditor() {
 
   /* ------------ load & derive ------------- */
   useEffect(() => {
-    setEntries(loadEntries());
+    // Load local templates (keep local for now or migrate later)
     setLocalTemplates(loadLocalTemplates());
     setCommunityTemplates(loadCommunity());
+
+    // Load entries from API
+    async function fetchEntries() {
+      try {
+        const res = await fetch("/api/journal/list");
+        if (res.ok) {
+          const data = await res.json();
+          setEntries(data.entries || []);
+        }
+      } catch (e) {
+        console.error("Failed to load entries", e);
+      }
+    }
+    fetchEntries();
   }, []);
 
   // Helper to get current sheet's blocks
@@ -400,11 +414,12 @@ export default function JournalEditor() {
     if (newBlocks[0]) setActiveId(newBlocks[0].id);
   };
 
-  const saveEntry = () => {
-    const id = uid();
+  const saveEntry = async () => {
+    const id = uid(); // Always create new snapshot for now to match previous behavior
     const dateISO = selectedDate.toISOString();
     const computed = analyzeEntryForTags(pickSummary(blocks));
-    const entry: JournalEntry = {
+
+    const entryData = {
       id,
       title,
       dateISO,
@@ -412,12 +427,31 @@ export default function JournalEditor() {
       mood,
       tags: Array.from(new Set([...(tags ?? []), ...(computed.tags ?? [])])).slice(0, 12),
       sheets,
+      blocks: sheets[0]?.blocks || [], // Fallback for schema
       summary: computed.summary,
+      sensations: [],
     };
-    const all = [entry, ...entries];
-    setEntries(all);
-    saveEntries(all);
-    alert("Saved");
+
+    try {
+      const res = await fetch("/api/journal/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(entryData),
+      });
+
+      if (res.ok) {
+        // Refresh list
+        const listRes = await fetch("/api/journal/list");
+        if (listRes.ok) {
+          const listData = await listRes.json();
+          setEntries(listData.entries);
+        }
+        alert("Saved");
+      }
+    } catch (e) {
+      console.error("Failed to save", e);
+      alert("Failed to save");
+    }
   };
 
   const newFromBlank = () => {
@@ -429,10 +463,18 @@ export default function JournalEditor() {
     setTags([]);
   };
 
-  const deleteEntry = (id: string) => {
-    const all = entries.filter((e) => e.id !== id);
-    setEntries(all);
-    saveEntries(all);
+  const deleteEntry = async (id: string) => {
+    if (!confirm("Delete this entry?")) return;
+    try {
+      await fetch("/api/journal/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      setEntries(prev => prev.filter(e => e.id !== id));
+    } catch (e) {
+      console.error("Failed to delete", e);
+    }
   };
 
   const openEntry = (e: JournalEntry) => {

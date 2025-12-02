@@ -142,6 +142,30 @@ export default function BondsPage() {
     else setWeather("stormy");
   }, [streak]);
 
+  // Load data on mount
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const res = await fetch("/api/bonds");
+        if (res.ok) {
+          const { blueprint, drills } = await res.json();
+          if (blueprint) {
+            setBp(blueprint);
+          }
+          if (drills && drills.length > 0) {
+            setStreak(drills.length);
+            // Calculate level/coins based on drills count roughly
+            setBondLevel(Math.floor(drills.length / 5) + 1);
+            setGlowCoins(drills.length * 3);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to load bonds", e);
+      }
+    }
+    loadData();
+  }, []);
+
   const flagged = spoilers.filter(sp => compose.toLowerCase().includes(sp));
 
   // Local "scheduler"
@@ -400,7 +424,7 @@ export default function BondsPage() {
                 className="w-28 rounded-xl border border-slate-200 bg-white px-4 py-3.5"
                 placeholder="Emoji"
                 value={handEmoji}
-                onChange={e=>setHandEmoji(e.target.value)}
+                onChange={e => setHandEmoji(e.target.value)}
               />
               <button
                 className="rounded-full border border-slate-300 bg-white px-5 py-3 text-sm hover:bg-slate-50"
@@ -438,11 +462,10 @@ export default function BondsPage() {
                 <button
                   key={cell}
                   onClick={() => toggleBingo(cell)}
-                  className={`rounded-xl border px-2 py-3 text-sm transition ${
-                    bingoState.includes(cell)
+                  className={`rounded-xl border px-2 py-3 text-sm transition ${bingoState.includes(cell)
                       ? "bg-amber-50 border-amber-200"
                       : "bg-white border-slate-200 hover:bg-slate-50"
-                  }`}
+                    }`}
                 >
                   {cell}
                 </button>
@@ -510,13 +533,13 @@ export default function BondsPage() {
                 className="rounded-xl border border-slate-200 bg-white px-4 py-3.5 sm:col-span-2"
                 placeholder="Future message"
                 value={capsuleMsg}
-                onChange={e=>setCapsuleMsg(e.target.value)}
+                onChange={e => setCapsuleMsg(e.target.value)}
               />
               <input
                 type="datetime-local"
                 className="rounded-xl border border-slate-200 bg-white px-4 py-3.5"
                 value={capsuleWhen}
-                onChange={e=>setCapsuleWhen(e.target.value)}
+                onChange={e => setCapsuleWhen(e.target.value)}
               />
             </div>
             <button
@@ -555,10 +578,10 @@ export default function BondsPage() {
                     <div className="text-xs text-slate-500">Distance: {o.distance}</div>
                   </div>
                   <div className="flex gap-2">
-                    <button className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-50" onClick={()=>adjustOrbit(o.name, -1)}>
+                    <button className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-50" onClick={() => adjustOrbit(o.name, -1)}>
                       ⬅️ closer
                     </button>
-                    <button className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-50" onClick={()=>adjustOrbit(o.name, +1)}>
+                    <button className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-50" onClick={() => adjustOrbit(o.name, +1)}>
                       ➡️ farther
                     </button>
                   </div>
@@ -570,12 +593,12 @@ export default function BondsPage() {
                 className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3.5"
                 placeholder="Add orbit name"
                 value={newOrbitName}
-                onChange={e=>setNewOrbitName(e.target.value)}
+                onChange={e => setNewOrbitName(e.target.value)}
               />
               <select
                 className="rounded-xl border border-slate-200 bg-white px-4 py-3.5"
                 value={newOrbitType}
-                onChange={e=>setNewOrbitType(e.target.value as any)}
+                onChange={e => setNewOrbitType(e.target.value as any)}
               >
                 <option value="planet">planet</option>
                 <option value="moon">moon</option>
@@ -599,11 +622,10 @@ export default function BondsPage() {
                   <button
                     key={i}
                     onClick={() => craftAlchemy(ing)}
-                    className={`px-3 py-1.5 rounded-full text-xs border transition ${
-                      active
+                    className={`px-3 py-1.5 rounded-full text-xs border transition ${active
                         ? "bg-violet-50 border-violet-200"
                         : "bg-white border-slate-200 hover:bg-slate-50"
-                    }`}
+                      }`}
                   >
                     {ing}
                   </button>

@@ -18,7 +18,7 @@ export type Block = {
   editor?: EditorKind;
   checklist?: { id: string; text: string; done: boolean }[];
   drawing?: {
-    paths: { points: [number, number][] }[];
+    paths: { points: [number, number][]; stroke?: string; strokeWidth?: number }[];
     stroke: string;
     strokeWidth: number;
   };
@@ -220,7 +220,7 @@ export function loadLocalTemplates(): TemplateFull[] {
 export function saveLocalTemplates(templates: TemplateFull[]) {
   try {
     localStorage.setItem(TPL_STORE_KEY, JSON.stringify(templates));
-  } catch {}
+  } catch { }
 }
 
 export function loadCommunity(): TemplateFull[] {
@@ -254,7 +254,7 @@ export function saveCommunity(templates: TemplateFull[]) {
   try {
     const userOnly = templates.filter((t) => !t.id.startsWith("def-"));
     localStorage.setItem(TPL_COMMUNITY_KEY, JSON.stringify(userOnly));
-  } catch {}
+  } catch { }
 }
 
 export function newTemplateId() {
@@ -274,5 +274,5 @@ export function loadEntries(): JournalEntry[] {
 export function saveEntries(entries: JournalEntry[]) {
   try {
     localStorage.setItem(ENT_STORE_KEY, JSON.stringify(entries));
-  } catch {}
+  } catch { }
 }
