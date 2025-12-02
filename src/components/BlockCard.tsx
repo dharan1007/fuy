@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { Block, MIN_H_CARD, MIN_W_CARD } from "@/lib/templates";
+import { GripHorizontal } from "lucide-react";
 
 type Props = {
   block: Block;
@@ -53,6 +54,7 @@ export default function BlockCard({ block, active }: Props) {
 
     const mousedown = (e: MouseEvent) => {
       const t = e.target as HTMLElement;
+      if (!t.closest("[data-drag-handle]")) return;
       if (t.closest("[data-resizer]") || t.closest("[data-no-drag]") || t.closest("[data-block-toolbar]")) return;
       if (e.button !== 0) return;
       handleDragStart(e.clientX, e.clientY);
@@ -60,6 +62,7 @@ export default function BlockCard({ block, active }: Props) {
 
     const touchstart = (e: TouchEvent) => {
       const t = e.target as HTMLElement;
+      if (!t.closest("[data-drag-handle]")) return;
       if (t.closest("[data-resizer]") || t.closest("[data-no-drag]") || t.closest("[data-block-toolbar]")) return;
       if (e.touches.length !== 1) return;
       const touch = e.touches[0];
@@ -160,6 +163,14 @@ export default function BlockCard({ block, active }: Props) {
           }}
         />
       )}
+
+      {/* Drag Handle */}
+      <div
+        data-drag-handle
+        className="absolute right-2 top-2 z-20 flex h-6 w-6 cursor-move items-center justify-center rounded-md bg-black/5 hover:bg-black/10"
+      >
+        <GripHorizontal className="h-4 w-4 text-black/40" />
+      </div>
 
       {block.type === "TEXT" && (
         <textarea

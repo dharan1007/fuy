@@ -986,7 +986,7 @@ export default function JournalEditor() {
               {autoSaveEnabled ? "Auto-save" : "Saving disabled"}
             </Btn>
             <Btn variant="solid" onClick={() => setDbotOpen((s) => !s)} title="Open dbot - AI Assistant & Resources">
-              <Bot className="mr-2 h-4 w-4" /> dbot
+              dbot
             </Btn>
           </div>
         </div>
@@ -1001,8 +1001,8 @@ export default function JournalEditor() {
                 setActiveId(null);
               }}
               className={`px-3 py-1 rounded-lg text-sm whitespace-nowrap ${activeSheetId === sheet.id
-                  ? 'bg-black text-white'
-                  : 'bg-black/5 hover:bg-black/10'
+                ? 'bg-black text-white'
+                : 'bg-black/5 hover:bg-black/10'
                 }`}
             >
               {sheet.name}

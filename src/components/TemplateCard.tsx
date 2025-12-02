@@ -4,6 +4,7 @@ import React from "react";
 import { TemplateFull } from "@/lib/templates";
 import Btn from "./Btn";
 import { emit } from "@/lib/events";
+import { Eye, Bookmark, Trash2 } from 'lucide-react';
 
 export default function TemplateCard({
   tpl,
@@ -25,21 +26,21 @@ export default function TemplateCard({
           Use
         </Btn>
         <Btn variant="soft" onClick={() => emit("tpl:preview", { id: tpl.id })}>
-          👁️
+          <Eye className="h-4 w-4" />
         </Btn>
         {!isSaved ? (
           <Btn
             variant="outline"
             onClick={() => emit("tpl:toggleSave", { id: tpl.id })}
           >
-            💾
+            <Bookmark className="h-4 w-4" />
           </Btn>
         ) : (
           <Btn
             variant="outline"
             onClick={() => emit("tpl:toggleSave", { id: tpl.id })}
           >
-            🗑️ Unsave
+            <Trash2 className="h-4 w-4" /> Unsave
           </Btn>
         )}
       </div>
