@@ -2,59 +2,119 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Palette, Users, Compass, ShoppingBag } from 'lucide-react';
+import { Palette, Users, Compass, ShoppingBag, Sparkles, Heart, TrendingUp, Globe } from 'lucide-react';
 
 const features = [
   {
     title: "Space",
     icon: Palette,
-    description: "Your creative universe awaits",
+    tagline: "Your Creative Universe",
+    description: "Unleash your creativity and document your journey in a space designed for self-expression and growth.",
     features: [
-      { name: "Canvas", desc: "Express yourself through journaling and visual storytelling" },
-      { name: "Hopin", desc: "Plan adventures and discover new experiences" },
-      { name: "Wrex", desc: "Track your progress and celebrate achievements" }
+      {
+        name: "Canvas",
+        icon: Sparkles,
+        desc: "Transform your thoughts into beautiful visual stories. Journal with rich media, templates, and AI-powered insights to track your personal growth and creative evolution."
+      },
+      {
+        name: "Hopin",
+        icon: Globe,
+        desc: "Discover and plan extraordinary adventures. From weekend getaways to bucket-list experiences, collaborate with friends and find hidden gems recommended by fellow explorers."
+      },
+      {
+        name: "Wrex",
+        icon: TrendingUp,
+        desc: "Visualize your progress with beautiful analytics. Set goals, track milestones, and celebrate achievements with a community that supports your journey to becoming your best self."
+      }
     ],
-    color: "from-indigo-500 via-purple-500 to-pink-500",
-    bgGradient: "from-indigo-900/20 via-purple-900/20 to-pink-900/20"
+    color: "from-indigo-500 via-purple-500 to-pink-500"
   },
   {
     title: "Connect",
     icon: Users,
-    description: "Build meaningful relationships",
+    tagline: "Build Meaningful Relationships",
+    description: "Foster authentic connections and strengthen bonds with people who matter most in your life.",
     features: [
-      { name: "Together Planning", desc: "Collaborate and coordinate with friends seamlessly" },
-      { name: "Bond", desc: "Strengthen connections through shared experiences" },
-      { name: "Dashboard", desc: "Stay updated with your social circle" },
-      { name: "Chat Assistance", desc: "AI-powered onboarding and support for newcomers" }
+      {
+        name: "Together Planning",
+        icon: Users,
+        desc: "Coordinate effortlessly with your circle. Share calendars, plan events, and make group decisions seamlessly. Never miss a moment with synchronized schedules and smart reminders."
+      },
+      {
+        name: "Bond",
+        icon: Heart,
+        desc: "Deepen relationships through shared experiences. Create memory albums, exchange thoughtful messages, and build traditions that strengthen your connections over time."
+      },
+      {
+        name: "Dashboard",
+        icon: TrendingUp,
+        desc: "Stay in sync with your social circle. Get personalized updates, celebrate friends' milestones, and never miss important moments in the lives of people you care about."
+      },
+      {
+        name: "Chat Assistance",
+        icon: Sparkles,
+        desc: "AI-powered onboarding makes joining effortless. Get personalized recommendations, discover relevant communities, and connect with like-minded individuals from day one."
+      }
     ],
-    color: "from-emerald-500 via-teal-500 to-cyan-500",
-    bgGradient: "from-emerald-900/20 via-teal-900/20 to-cyan-900/20"
+    color: "from-emerald-500 via-teal-500 to-cyan-500"
   },
   {
     title: "Exploring",
     icon: Compass,
-    description: "Create and share your story",
+    tagline: "Create, Share, Inspire",
+    description: "Express yourself, share your story, and inspire others while discovering content that resonates with your passions.",
     features: [
-      { name: "Posting", desc: "Share your thoughts and moments with the world" },
-      { name: "Content Creation", desc: "Craft compelling stories with rich media" },
-      { name: "Getting Attention", desc: "Reach your audience and grow your influence" },
-      { name: "Discovery", desc: "Find content that resonates with you" }
+      {
+        name: "Posting",
+        icon: Sparkles,
+        desc: "Share your moments, thoughts, and creativity with the world. Rich media support, beautiful layouts, and powerful editing tools make every post a masterpiece."
+      },
+      {
+        name: "Content Creation",
+        icon: Palette,
+        desc: "Craft compelling stories with professional-grade tools. From photos and videos to long-form articles, create content that captivates and engages your audience."
+      },
+      {
+        name: "Getting Attention",
+        icon: TrendingUp,
+        desc: "Grow your influence organically. Smart algorithms surface your content to interested audiences, while analytics help you understand what resonates and refine your strategy."
+      },
+      {
+        name: "Discovery",
+        icon: Compass,
+        desc: "Find content that speaks to you. Personalized recommendations, trending topics, and curated collections ensure you never run out of inspiration and new perspectives."
+      }
     ],
-    color: "from-orange-500 via-red-500 to-rose-500",
-    bgGradient: "from-orange-900/20 via-red-900/20 to-rose-900/20"
+    color: "from-orange-500 via-red-500 to-rose-500"
   },
   {
     title: "Multiverse",
     icon: ShoppingBag,
-    description: "Your marketplace for digital and physical",
+    tagline: "Your Digital Marketplace",
+    description: "Monetize your creativity and discover unique products in a thriving ecosystem of creators and brands.",
     features: [
-      { name: "Digital Products", desc: "Sell and discover unique digital creations" },
-      { name: "Physical Stores", desc: "Showcase your brand and products" },
-      { name: "Brand Visibility", desc: "Get discovered by the right audience" },
-      { name: "Creator Economy", desc: "Monetize your passion and creativity" }
+      {
+        name: "Digital Products",
+        icon: Sparkles,
+        desc: "Sell your digital creations effortlessly. From art and music to courses and templates, reach a global audience and earn from your passion with built-in payment processing."
+      },
+      {
+        name: "Physical Stores",
+        icon: ShoppingBag,
+        desc: "Showcase your brand and products beautifully. Create stunning storefronts, manage inventory, and connect with customers who appreciate quality and authenticity."
+      },
+      {
+        name: "Brand Visibility",
+        icon: TrendingUp,
+        desc: "Get discovered by the right audience. Featured placements, targeted recommendations, and community engagement tools help your brand stand out in a crowded marketplace."
+      },
+      {
+        name: "Creator Economy",
+        icon: Heart,
+        desc: "Turn your passion into profit. Fair revenue sharing, transparent analytics, and supportive community tools empower creators to build sustainable businesses doing what they love."
+      }
     ],
-    color: "from-violet-500 via-fuchsia-500 to-pink-500",
-    bgGradient: "from-violet-900/20 via-fuchsia-900/20 to-pink-900/20"
+    color: "from-violet-500 via-fuchsia-500 to-pink-500"
   }
 ];
 
@@ -71,57 +131,72 @@ export default function FeatureSection() {
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8 }}
                 viewport={{ once: false, margin: "-100px" }}
-                className={`bg-gradient-to-br ${feature.bgGradient} backdrop-blur-xl border border-white/10 rounded-3xl p-8 sm:p-12 pointer-events-auto hover:border-white/20 transition-all duration-500`}
+                className="backdrop-blur-sm border border-white/10 rounded-3xl p-8 sm:p-12 pointer-events-auto hover:border-white/20 transition-all duration-500"
               >
                 {/* Header */}
-                <div className="flex items-center gap-4 mb-8">
+                <div className="mb-10">
                   <motion.div
                     initial={{ scale: 0, rotate: -180 }}
                     whileInView={{ scale: 1, rotate: 0 }}
                     transition={{ duration: 0.6, delay: 0.2 }}
                     viewport={{ once: false }}
-                    className={`p-4 rounded-2xl bg-gradient-to-br ${feature.color}`}
+                    className="flex items-center gap-4 mb-4"
                   >
-                    <Icon className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
+                    <div className={`p-4 rounded-2xl bg-gradient-to-br ${feature.color}`}>
+                      <Icon className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
+                    </div>
+                    <div>
+                      <h2 className={`text-4xl sm:text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r ${feature.color}`}>
+                        {feature.title}
+                      </h2>
+                    </div>
                   </motion.div>
-                  <div>
-                    <motion.h2
-                      initial={{ opacity: 0, x: -30 }}
-                      whileInView={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.6, delay: 0.3 }}
-                      viewport={{ once: false }}
-                      className={`text-4xl sm:text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r ${feature.color}`}
-                    >
-                      {feature.title}
-                    </motion.h2>
-                    <motion.p
-                      initial={{ opacity: 0, x: -30 }}
-                      whileInView={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.6, delay: 0.4 }}
-                      viewport={{ once: false }}
-                      className="text-lg sm:text-xl text-gray-300 mt-2"
-                    >
-                      {feature.description}
-                    </motion.p>
-                  </div>
+
+                  <motion.p
+                    initial={{ opacity: 0, x: -30 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.6, delay: 0.3 }}
+                    viewport={{ once: false }}
+                    className="text-2xl sm:text-3xl font-semibold text-white/90 mb-3"
+                  >
+                    {feature.tagline}
+                  </motion.p>
+
+                  <motion.p
+                    initial={{ opacity: 0, x: -30 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.6, delay: 0.4 }}
+                    viewport={{ once: false }}
+                    className="text-lg text-gray-300 max-w-3xl"
+                  >
+                    {feature.description}
+                  </motion.p>
                 </div>
 
                 {/* Features Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                  {feature.features.map((item, idx) => (
-                    <motion.div
-                      key={idx}
-                      initial={{ opacity: 0, y: 20 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.5, delay: 0.5 + idx * 0.1 }}
-                      viewport={{ once: false }}
-                      whileHover={{ scale: 1.05, y: -5 }}
-                      className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-6 hover:bg-white/10 hover:border-white/20 transition-all duration-300"
-                    >
-                      <h3 className="text-xl font-bold text-white mb-2">{item.name}</h3>
-                      <p className="text-sm text-gray-400 leading-relaxed">{item.desc}</p>
-                    </motion.div>
-                  ))}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {feature.features.map((item, idx) => {
+                    const ItemIcon = item.icon;
+                    return (
+                      <motion.div
+                        key={idx}
+                        initial={{ opacity: 0, y: 20 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5, delay: 0.5 + idx * 0.1 }}
+                        viewport={{ once: false }}
+                        whileHover={{ scale: 1.03, y: -5 }}
+                        className="backdrop-blur-sm border border-white/10 rounded-xl p-6 hover:border-white/30 transition-all duration-300 group"
+                      >
+                        <div className="flex items-start gap-3 mb-3">
+                          <div className={`p-2 rounded-lg bg-gradient-to-br ${feature.color} group-hover:scale-110 transition-transform`}>
+                            <ItemIcon className="w-5 h-5 text-white" />
+                          </div>
+                          <h3 className="text-xl font-bold text-white">{item.name}</h3>
+                        </div>
+                        <p className="text-sm text-gray-300 leading-relaxed">{item.desc}</p>
+                      </motion.div>
+                    );
+                  })}
                 </div>
               </motion.div>
             </div>
@@ -171,7 +246,7 @@ export default function FeatureSection() {
             </a>
             <a
               href="/login"
-              className="px-10 py-5 bg-white/10 backdrop-blur-md border-2 border-white/30 text-white font-bold rounded-full hover:bg-white/20 transition-all hover:scale-105 text-lg"
+              className="px-10 py-5 backdrop-blur-md border-2 border-white/30 text-white font-bold rounded-full hover:border-white/50 transition-all hover:scale-105 text-lg"
             >
               Sign In
             </a>
