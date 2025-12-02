@@ -33,6 +33,7 @@ import TemplatePreview from "./TemplatePreview";
 import generatePlan, { AIPlan, AIBlockPlan, AIOptions } from "@/lib/ai";
 import DbotModal from "./DbotModal";
 import { SuggestionsResponse } from "@/lib/ai-suggestions";
+import { Plus, Trash2, Bot } from "lucide-react";
 
 export default function JournalEditor() {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
@@ -568,14 +569,14 @@ export default function JournalEditor() {
       k === "TEXT"
         ? { w: 420, h: 240 }
         : k === "CHECKLIST"
-        ? { w: 360, h: 220 }
-        : k === "IMAGE"
-        ? { w: 460, h: 300 }
-        : k === "VIDEO"
-        ? { w: 460, h: 280 }
-        : k === "AUDIO"
-        ? { w: 380, h: 140 }
-        : { w: 480, h: 320 };
+          ? { w: 360, h: 220 }
+          : k === "IMAGE"
+            ? { w: 460, h: 300 }
+            : k === "VIDEO"
+              ? { w: 460, h: 280 }
+              : k === "AUDIO"
+                ? { w: 380, h: 140 }
+                : { w: 480, h: 320 };
 
     const created: Block[] = [];
 
@@ -673,7 +674,9 @@ export default function JournalEditor() {
       >
         <div className="flex items-center justify-between p-3">
           <div className="text-lg font-semibold">My Journal</div>
-          <Btn variant="soft" onClick={newFromBlank}>➕ New</Btn>
+          <Btn variant="soft" onClick={newFromBlank}>
+            <Plus className="mr-2 h-4 w-4" /> New
+          </Btn>
         </div>
 
         {/* calendar */}
@@ -720,8 +723,8 @@ export default function JournalEditor() {
                     isActive
                       ? "bg-black text-white"
                       : isToday
-                      ? "bg-black/10"
-                      : "bg-black/5 hover:bg-black/10",
+                        ? "bg-black/10"
+                        : "bg-black/5 hover:bg-black/10",
                   ].join(" ")}
                 >
                   {d.getDate()}
@@ -758,7 +761,9 @@ export default function JournalEditor() {
                     {new Date(e.dateISO).toLocaleString()}
                   </div>
                 </button>
-                <Btn variant="outline" onClick={() => deleteEntry(e.id)}>🗑️</Btn>
+                <Btn variant="outline" onClick={() => deleteEntry(e.id)}>
+                  <Trash2 className="h-4 w-4" />
+                </Btn>
               </li>
             ))}
           </ul>
@@ -975,13 +980,13 @@ export default function JournalEditor() {
               title={autoSaveEnabled ? "Auto-save enabled (saves every 30s)" : "Auto-save disabled"}
             >
               <svg className="w-4 h-4 mr-1 inline" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M15.172 7l-6.586 6.586a2 2 0 002.828 2.828l6.586-6.586a3 3 0 00-4.243-4.243z"/>
-                <path fillRule="evenodd" d="M4 12a8 8 0 1116 0 8 8 0 01-16 0zm11-4a1 1 0 10-2 0 1 1 0 002 0zM8 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd"/>
+                <path d="M15.172 7l-6.586 6.586a2 2 0 002.828 2.828l6.586-6.586a3 3 0 00-4.243-4.243z" />
+                <path fillRule="evenodd" d="M4 12a8 8 0 1116 0 8 8 0 01-16 0zm11-4a1 1 0 10-2 0 1 1 0 002 0zM8 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
               </svg>
               {autoSaveEnabled ? "Auto-save" : "Saving disabled"}
             </Btn>
             <Btn variant="solid" onClick={() => setDbotOpen((s) => !s)} title="Open dbot - AI Assistant & Resources">
-              dbot
+              <Bot className="mr-2 h-4 w-4" /> dbot
             </Btn>
           </div>
         </div>
@@ -995,11 +1000,10 @@ export default function JournalEditor() {
                 setActiveSheetId(sheet.id);
                 setActiveId(null);
               }}
-              className={`px-3 py-1 rounded-lg text-sm whitespace-nowrap ${
-                activeSheetId === sheet.id
+              className={`px-3 py-1 rounded-lg text-sm whitespace-nowrap ${activeSheetId === sheet.id
                   ? 'bg-black text-white'
                   : 'bg-black/5 hover:bg-black/10'
-              }`}
+                }`}
             >
               {sheet.name}
             </button>

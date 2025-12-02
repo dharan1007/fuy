@@ -5,6 +5,8 @@ import { TemplateFull } from "@/lib/templates";
 import Btn from "./Btn";
 import { emit } from "@/lib/events";
 
+import { Play, Bookmark, X } from 'lucide-react';
+
 export default function TemplatePreview({ tpl }: { tpl: TemplateFull }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -16,14 +18,14 @@ export default function TemplatePreview({ tpl }: { tpl: TemplateFull }) {
           </div>
         </div>
         <div className="mb-4 flex items-center gap-2">
-          <Btn variant="soft" onClick={() => emit("tplPreview:use", { id: tpl.id })}>
-            🚀 Use
+          <Btn variant="soft" onClick={() => emit("preview:use", { id: tpl.id })}>
+            <Play className="mr-2 h-4 w-4" /> Use
           </Btn>
-          <Btn variant="soft" onClick={() => emit("tplPreview:save", { id: tpl.id })}>
-            📌 Save
+          <Btn variant="soft" onClick={() => emit("preview:save", { id: tpl.id })}>
+            <Bookmark className="mr-2 h-4 w-4" /> Save
           </Btn>
-          <Btn variant="outline" onClick={() => emit("tplPreview:close")}>
-            ✖ Close
+          <Btn variant="outline" onClick={() => emit("preview:close")}>
+            <X className="mr-2 h-4 w-4" /> Close
           </Btn>
         </div>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3">

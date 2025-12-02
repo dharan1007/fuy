@@ -23,22 +23,28 @@ export default function BlockCard({ block, active }: Props) {
     window.dispatchEvent(new CustomEvent(name, { detail }));
 
   // drag to move
+  const blockRef = useRef(block);
+  blockRef.current = block;
+
+  // drag to move
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
 
     const handleDragStart = (x: number, y: number) => {
-      drag.current = { down: true, sx: x, sy: y, ox: block.x, oy: block.y };
-      emit("block:activate", { id: block.id });
+      const b = blockRef.current;
+      drag.current = { down: true, sx: x, sy: y, ox: b.x, oy: b.y };
+      emit("block:activate", { id: b.id });
     };
 
     const handleDragMove = (x: number, y: number) => {
       if (!drag.current.down) return;
+      const b = blockRef.current;
       const dx = x - drag.current.sx;
       const dy = y - drag.current.sy;
       const nx = Math.round(drag.current.ox + dx);
       const ny = Math.round(drag.current.oy + dy);
-      emit("block:move", { id: block.id, x: nx, y: ny });
+      emit("block:move", { id: b.id, x: nx, y: ny });
     };
 
     const handleDragEnd = () => {
@@ -89,7 +95,7 @@ export default function BlockCard({ block, active }: Props) {
       window.removeEventListener("mouseup", mouseup);
       window.removeEventListener("touchend", touchend);
     };
-  }, [block.id, block.x, block.y]);
+  }, []);
 
   // resize
   useEffect(() => {
@@ -99,7 +105,7 @@ export default function BlockCard({ block, active }: Props) {
       const dh = y - res.current.sy;
       const w = Math.max(MIN_W_CARD, res.current.sw + dw);
       const h = Math.max(MIN_H_CARD, res.current.sh + dh);
-      emit("block:resize", { id: block.id, w, h });
+      emit("block:resize", { id: blockRef.current.id, w, h });
     };
 
     const onMouseMove = (e: MouseEvent) => {
@@ -126,7 +132,7 @@ export default function BlockCard({ block, active }: Props) {
       window.removeEventListener("mouseup", onEnd);
       window.removeEventListener("touchend", onEnd);
     };
-  }, [block.id]);
+  }, []);
 
   // content renderers (all send updates via event)
   const update = (patch: Partial<Block>) =>
