@@ -5,42 +5,85 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { Stars, ScrollControls, Scroll, useScroll } from '@react-three/drei';
 import * as THREE from 'three';
 
-function StarfieldScene() {
+function EnhancedStarfield() {
     const starsRef = useRef<THREE.Group>(null);
-    const scroll = useScroll(); // This returns null or empty object if not inside ScrollControls
+    const bigStarsRef = useRef<THREE.Points>(null);
+    const scroll = useScroll();
+
+    // Create bigger, brighter stars
+    const bigStarsCount = 200;
+    const bigStarsPositions = React.useMemo(() => {
+        const positions = new Float32Array(bigStarsCount * 3);
+        for (let i = 0; i < bigStarsCount; i++) {
+            positions[i * 3] = (Math.random() - 0.5) * 200;
+            positions[i * 3 + 1] = (Math.random() - 0.5) * 200;
+            positions[i * 3 + 2] = (Math.random() - 0.5) * 200;
+        }
+        return positions;
+    }, []);
 
     useFrame((state, delta) => {
         if (starsRef.current) {
-            // Use scroll offset if available (Landing mode), otherwise use time/mouse (Default mode)
             const offset = scroll?.offset ?? 0;
 
             if (scroll) {
-                // Landing mode: Scroll-driven
-                starsRef.current.rotation.x = offset * Math.PI * 0.5;
-                starsRef.current.rotation.y = offset * Math.PI * 0.25;
-                starsRef.current.position.z = offset * 20;
+                // Landing mode: Scroll-driven with more dynamic movement
+                starsRef.current.rotation.x = offset * Math.PI * 0.6;
+                starsRef.current.rotation.y = offset * Math.PI * 0.3;
+                starsRef.current.position.z = offset * 25;
             } else {
-                // Default mode: Auto-rotation or mouse parallax
+                // Default mode: Auto-rotation
                 starsRef.current.rotation.y += delta * 0.05;
                 starsRef.current.rotation.x += delta * 0.02;
             }
 
-            // Subtle continuous rotation for both
-            starsRef.current.rotation.z += delta * 0.05;
+            // Continuous rotation
+            starsRef.current.rotation.z += delta * 0.03;
+        }
+
+        // Animate big stars with pulsing effect
+        if (bigStarsRef.current) {
+            const offset = scroll?.offset ?? 0;
+            bigStarsRef.current.rotation.y += delta * 0.1;
+            bigStarsRef.current.rotation.x += delta * 0.05;
+
+            if (scroll) {
+                bigStarsRef.current.position.z = offset * 15;
+            }
         }
     });
 
     return (
         <group ref={starsRef}>
+            {/* Regular stars */}
             <Stars
                 radius={100}
                 depth={50}
-                count={7000}
+                count={8000}
                 factor={4}
                 saturation={0}
                 fade
                 speed={1}
             />
+
+            {/* Bigger, brighter stars */}
+            <points ref={bigStarsRef}>
+                <bufferGeometry>
+                    <bufferAttribute
+                        attach="attributes-position"
+                        count={bigStarsCount}
+                        args={[bigStarsPositions, 3]}
+                    />
+                </bufferGeometry>
+                <pointsMaterial
+                    size={0.8}
+                    color="#ffffff"
+                    transparent
+                    opacity={0.9}
+                    sizeAttenuation
+                    blending={THREE.AdditiveBlending}
+                />
+            </points>
         </group>
     );
 }
@@ -57,9 +100,9 @@ export default function ScrollStarfield({ children, variant = 'default' }: Scrol
                 <Suspense fallback={<div className="w-full h-full bg-black" />}>
                     <Canvas camera={{ position: [0, 0, 5], fov: 45 }} gl={{ powerPreference: "high-performance", failIfMajorPerformanceCaveat: true }}>
                         <color attach="background" args={['#000000']} />
-                        <ScrollControls pages={3} damping={0.2}>
+                        <ScrollControls pages={5} damping={0.2}>
                             <Scroll>
-                                <StarfieldScene />
+                                <EnhancedStarfield />
                             </Scroll>
                             <Scroll html style={{ width: '100%' }}>
                                 {children}
@@ -78,7 +121,7 @@ export default function ScrollStarfield({ children, variant = 'default' }: Scrol
                 <Suspense fallback={<div className="w-full h-full bg-black" />}>
                     <Canvas camera={{ position: [0, 0, 5], fov: 45 }} gl={{ powerPreference: "high-performance", failIfMajorPerformanceCaveat: true }}>
                         <color attach="background" args={['#000000']} />
-                        <StarfieldScene />
+                        <EnhancedStarfield />
                     </Canvas>
                 </Suspense>
             </div>
