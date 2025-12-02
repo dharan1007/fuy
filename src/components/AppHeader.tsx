@@ -10,9 +10,10 @@ interface AppHeaderProps {
   title?: string;
   showBackButton?: boolean;
   showSettingsAndLogout?: boolean;
+  hideShopAndCart?: boolean;
 }
 
-export default function AppHeader({ title, showBackButton = false, showSettingsAndLogout = false }: AppHeaderProps) {
+export default function AppHeader({ title, showBackButton = false, showSettingsAndLogout = false, hideShopAndCart = false }: AppHeaderProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { data: session } = useSession();
@@ -124,7 +125,7 @@ export default function AppHeader({ title, showBackButton = false, showSettingsA
             )}
 
             {/* Shop button */}
-            {pathname !== "/shop" && (
+            {!hideShopAndCart && pathname !== "/shop" && (
               <Link
                 href="/shop"
                 className="p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 transition-colors text-gray-900 dark:text-white"
@@ -137,7 +138,7 @@ export default function AppHeader({ title, showBackButton = false, showSettingsA
             )}
 
             {/* Cart button */}
-            {pathname !== "/cart" && (
+            {!hideShopAndCart && pathname !== "/cart" && (
               <Link
                 href="/cart"
                 className="relative p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 transition-colors text-gray-900 dark:text-white"

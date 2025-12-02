@@ -4,13 +4,15 @@
 import AppHeader from "@/components/AppHeader";
 
 export default function FullPageLayout({
-  children
+  children,
+  hideShopAndCart = false,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
+  hideShopAndCart?: boolean;
 }) {
   return (
     <div className="min-h-screen">
-      <AppHeader showBackButton />
+      <AppHeader showBackButton hideShopAndCart={hideShopAndCart} />
       {children}
     </div>
   );

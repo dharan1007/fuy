@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "tsx watch server.ts",
+    "dev": "next dev",
     "build": "prisma generate && next build",
-    "start": "tsx server.ts",
+    "start": "next start",
     "lint": "eslint . --ext .ts,.tsx",
     "prisma:studio": "prisma studio",
     "prisma:seed": "tsx prisma/seed.ts",

@@ -2,5 +2,5 @@
 import FullPageLayout from "@/components/FullPageLayout";
 
 export default function LoginLayout({ children }: { children: React.ReactNode }) {
-  return <FullPageLayout>{children}</FullPageLayout>;
+  return <FullPageLayout hideShopAndCart={true}>{children}</FullPageLayout>;
 }

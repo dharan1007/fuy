@@ -1,3 +1,5 @@
+import FullPageLayout from "@/components/FullPageLayout";
+
 export default function SignupLayout({ children }: { children: React.ReactNode }) {
-  return children;
+  return <FullPageLayout hideShopAndCart={true}>{children}</FullPageLayout>;
 }

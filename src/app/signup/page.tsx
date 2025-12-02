@@ -6,6 +6,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ScrollStarfield from "@/components/ScrollStarfield";
+import {
+  startRegistration,
+} from "@simplewebauthn/browser";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -17,6 +20,7 @@ export default function SignupPage() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [loadingMessage, setLoadingMessage] = useState("Creating your account...");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -39,6 +43,7 @@ export default function SignupPage() {
     }
 
     setLoading(true);
+    setLoadingMessage("Creating your account...");
 
     try {
       // Create account
@@ -61,6 +66,7 @@ export default function SignupPage() {
       }
 
       // Auto sign in after successful signup
+      setLoadingMessage("Signing you in...");
       const signInRes = await signIn("credentials", {
         email: formData.email.toLowerCase(),
         password: formData.password,
@@ -82,9 +88,90 @@ export default function SignupPage() {
     }
   }
 
+  async function handlePasskeySignup() {
+    // Validate email and name first
+    if (!formData.name || !formData.email) {
+      setError("Please enter your name and email to sign up with a passkey");
+      return;
+    }
+
+    setError("");
+    setLoading(true);
+    setLoadingMessage("Preparing passkey registration...");
+
+    try {
+      // Get registration options
+      const optionsRes = await fetch("/api/webauthn/generate-signup-options", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: formData.email.toLowerCase(),
+          name: formData.name,
+        }),
+      });
+
+      if (!optionsRes.ok) {
+        const data = await optionsRes.json();
+        setError(data.error || "Failed to start passkey registration");
+        setLoading(false);
+        return;
+      }
+
+      const options = await optionsRes.json();
+      const challenge = optionsRes.headers.get("x-webauthn-challenge") || "";
+      const email = optionsRes.headers.get("x-signup-email") || "";
+      const name = optionsRes.headers.get("x-signup-name") || "";
+
+      // Start passkey registration
+      setLoadingMessage("Complete passkey registration on your device...");
+      const attestation = await startRegistration(options);
+
+      // Verify registration and create account
+      setLoadingMessage("Creating your account...");
+      const verifyRes = await fetch("/api/webauthn/verify-signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-webauthn-challenge": challenge,
+          "x-signup-email": email,
+          "x-signup-name": name,
+        },
+        body: JSON.stringify(attestation),
+      });
+
+      if (!verifyRes.ok) {
+        const data = await verifyRes.json();
+        setError(data.error || "Failed to verify passkey");
+        setLoading(false);
+        return;
+      }
+
+      const { loginToken } = await verifyRes.json();
+
+      // Auto sign in with the login token
+      setLoadingMessage("Signing you in...");
+      const signInRes = await signIn("credentials", {
+        loginToken,
+        redirect: false,
+      });
+
+      if (signInRes?.ok) {
+        await new Promise(resolve => setTimeout(resolve, 300));
+        router.push("/profile/setup");
+      } else {
+        setError("Account created but failed to sign in. Please try logging in.");
+        setLoading(false);
+      }
+    } catch (err: any) {
+      console.error("Passkey signup error:", err);
+      setError(err?.message || "Passkey registration failed. Please try again.");
+      setLoading(false);
+    }
+  }
+
   // Show loading spinner while creating account and signing in
   if (loading) {
-    return <LoadingSpinner variant="auth" message="Creating your account..." estimatedTime={3} />;
+    return <LoadingSpinner variant="auth" message={loadingMessage} estimatedTime={3} />;
   }
 
   return (
@@ -196,8 +283,9 @@ export default function SignupPage() {
             </button>
 
             <button
-              onClick={() => router.push("/passkeys")}
-              className="w-full border border-white/20 hover:bg-white/10 text-white py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+              onClick={handlePasskeySignup}
+              disabled={loading}
+              className="w-full border border-white/20 hover:bg-white/10 text-white py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
