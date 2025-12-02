@@ -26,8 +26,7 @@ const features = [
         icon: TrendingUp,
         desc: "Visualize your progress with beautiful analytics. Set goals, track milestones, and celebrate achievements with a community that supports your journey to becoming your best self."
       }
-    ],
-    color: "from-indigo-500 via-purple-500 to-pink-500"
+    ]
   },
   {
     title: "Connect",
@@ -55,8 +54,7 @@ const features = [
         icon: Sparkles,
         desc: "AI-powered onboarding makes joining effortless. Get personalized recommendations, discover relevant communities, and connect with like-minded individuals from day one."
       }
-    ],
-    color: "from-emerald-500 via-teal-500 to-cyan-500"
+    ]
   },
   {
     title: "Exploring",
@@ -84,8 +82,7 @@ const features = [
         icon: Compass,
         desc: "Find content that speaks to you. Personalized recommendations, trending topics, and curated collections ensure you never run out of inspiration and new perspectives."
       }
-    ],
-    color: "from-orange-500 via-red-500 to-rose-500"
+    ]
   },
   {
     title: "Multiverse",
@@ -113,8 +110,7 @@ const features = [
         icon: Heart,
         desc: "Turn your passion into profit. Fair revenue sharing, transparent analytics, and supportive community tools empower creators to build sustainable businesses doing what they love."
       }
-    ],
-    color: "from-violet-500 via-fuchsia-500 to-pink-500"
+    ]
   }
 ];
 
@@ -136,17 +132,17 @@ export default function FeatureSection() {
                 {/* Header */}
                 <div className="mb-10">
                   <motion.div
-                    initial={{ scale: 0, rotate: -180 }}
-                    whileInView={{ scale: 1, rotate: 0 }}
+                    initial={{ scale: 0 }}
+                    whileInView={{ scale: 1 }}
                     transition={{ duration: 0.6, delay: 0.2 }}
                     viewport={{ once: false }}
                     className="flex items-center gap-4 mb-4"
                   >
-                    <div className={`p-4 rounded-2xl bg-gradient-to-br ${feature.color}`}>
+                    <div className="p-4 rounded-2xl bg-white/10">
                       <Icon className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
                     </div>
                     <div>
-                      <h2 className={`text-4xl sm:text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r ${feature.color}`}>
+                      <h2 className="text-4xl sm:text-6xl font-bold text-white">
                         {feature.title}
                       </h2>
                     </div>
@@ -188,7 +184,7 @@ export default function FeatureSection() {
                         className="backdrop-blur-sm border border-white/10 rounded-xl p-6 hover:border-white/30 transition-all duration-300 group"
                       >
                         <div className="flex items-start gap-3 mb-3">
-                          <div className={`p-2 rounded-lg bg-gradient-to-br ${feature.color} group-hover:scale-110 transition-transform`}>
+                          <div className="p-2 rounded-lg bg-white/10 group-hover:scale-110 transition-transform">
                             <ItemIcon className="w-5 h-5 text-white" />
                           </div>
                           <h3 className="text-xl font-bold text-white">{item.name}</h3>
