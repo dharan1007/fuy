@@ -20,7 +20,7 @@ export async function POST(req: Request) {
             data: {
                 title,
                 description,
-                ownerId: session.user.id,
+                creatorId: session.user.id,
                 members: {
                     create: {
                         userId: session.user.id,
@@ -62,7 +62,7 @@ export async function GET(req: Request) {
         const plans = await prisma.plan.findMany({
             where: {
                 OR: [
-                    { ownerId: session.user.id },
+                    { creatorId: session.user.id },
                     { members: { some: { userId: session.user.id } } },
                 ],
             },
