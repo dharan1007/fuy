@@ -175,8 +175,13 @@ function SellPageContent() {
                                         <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/50" />
                                         <input
                                             type="number"
+                                            min="0"
                                             value={formData.price}
-                                            onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                                            onChange={(e) => {
+                                                const val = parseFloat(e.target.value);
+                                                if (val < 0) return;
+                                                setFormData({ ...formData, price: e.target.value })
+                                            }}
                                             className="w-full bg-white/5 border border-white/10 rounded-lg p-4 pl-12 focus:outline-none focus:border-white/50 transition-colors"
                                             placeholder="0.00"
                                         />

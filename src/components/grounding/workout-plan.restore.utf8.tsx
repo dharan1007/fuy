@@ -3,8 +3,16 @@
 import React, { useState, useEffect, useCallback } from "react";
 import clsx from "clsx";
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { ChevronDown, Users, Zap, Flame, Clock, Target, TrendingUp, Check, X } from "lucide-react";
+import { ChevronDown, Users, Zap, Flame, Clock, Target, TrendingUp, Bell, Check, X } from "lucide-react";
 import { sendNotification } from "@/lib/notifications";
+
+interface GymInvitation {
+  id: string;
+  from: string;
+  workoutName: string;
+  status: "pending" | "accepted" | "rejected";
+  createdAt: string;
+}
 
 interface Exercise {
   id: string;
@@ -66,7 +74,6 @@ interface GymPartner {
   avatar?: string;
   isActive?: boolean;
   currentWorkout?: string;
-  status?: string;
 }
 
 export default function WorkoutPlanManager() {
@@ -98,98 +105,12 @@ export default function WorkoutPlanManager() {
     { id: "p3", name: "Mike Chen", height: 178, weight: 80, isActive: false },
   ]);
   const [selectedPartner, setSelectedPartner] = useState<GymPartner | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [invitations, setInvitations] = useState<GymInvitation[]>([
+    { id: "inv1", from: "Sarah Smith", workoutName: "Push/Pull/Legs", status: "pending", createdAt: new Date().toISOString() },
+  ]);
+  const [showNotifications, setShowNotifications] = useState(false);
   const [restTimer, setRestTimer] = useState<{ exerciseIdx: number; setIdx: number; timeLeft: number } | null>(null);
   const [timerInterval, setTimerInterval] = useState<NodeJS.Timeout | null>(null);
-
-  // Fetch initial data
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Fetch Plans
-        const plansRes = await fetch("/api/grounding/workout-plans");
-        if (plansRes.ok) {
-          const data = await plansRes.json();
-          if (data.plans) setWorkoutPlans(data.plans);
-        }
-
-        // Fetch Partners
-        const partnersRes = await fetch("/api/grounding/partners");
-        if (partnersRes.ok) {
-          const data = await partnersRes.json();
-          if (data.partners) {
-            setGymPartners(data.partners.map((p: any) => ({
-              id: p.id,
-              name: p.name,
-              height: 0, // Placeholder
-              weight: 0, // Placeholder
-              isActive: p.status === "ACCEPTED",
-              status: p.status,
-              partnerId: p.partnerId
-            })));
-          }
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    };
-    fetchData();
-  }, []);
-
-  // Search for users to add as partners
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const handleSearchUsers = async (query: string) => {
-    if (!query) return;
-    try {
-      const res = await fetch(`/api/users/search?q=${query}`);
-      if (res.ok) {
-        const data = await res.json();
-        setSearchResults(data.users || []);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      handleSearchUsers(searchQuery);
-    }, 500);
-    return () => clearTimeout(delayDebounceFn);
-  }, [searchQuery]);
-
-  const sendPartnerRequest = async (partnerId: string) => {
-    try {
-      const res = await fetch("/api/grounding/partners", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "REQUEST", partnerId }),
-      });
-      if (res.ok) {
-        alert("Request sent!");
-        // Refresh partners
-        const partnersRes = await fetch("/api/grounding/partners");
-        if (partnersRes.ok) {
-          const data = await partnersRes.json();
-          if (data.partners) {
-            setGymPartners(data.partners.map((p: any) => ({
-              id: p.id,
-              name: p.name,
-              height: 0,
-              weight: 0,
-              isActive: p.status === "ACCEPTED",
-              status: p.status,
-              partnerId: p.partnerId
-            })));
-          }
-        }
-      } else {
-        alert("Failed to send request");
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
 
   const [newPlan, setNewPlan] = useState<Partial<WorkoutPlan>>({
     name: "",
@@ -208,7 +129,7 @@ export default function WorkoutPlanManager() {
     for (const line of lines) {
       const trimmed = line.trim();
       const exercisePattern =
-        /^([^-\d]+?)(?:\s*[-–]?\s*)?(\d+)\s*(?:x|sets?)\s*([\d\-x]+)\s*(?:reps?|@)?\s*(\d+(?:\.\d+)?)?(?:\s*(?:kg|lbs?|lb))?/i;
+        /^([^-\d]+?)(?:\s*[-ΓÇô]?\s*)?(\d+)\s*(?:x|sets?)\s*([\d\-x]+)\s*(?:reps?|@)?\s*(\d+(?:\.\d+)?)?(?:\s*(?:kg|lbs?|lb))?/i;
       const match = trimmed.match(exercisePattern);
 
       if (match) {
@@ -354,6 +275,24 @@ export default function WorkoutPlanManager() {
 
   const COLORS = ["#000000", "#3B82F6", "#EF4444", "#10B981", "#F59E0B", "#8B5CF6", "#EC4899"];
 
+  // Handle gym invitation
+  const handleInvitationResponse = (invitationId: string, accepted: boolean) => {
+    setInvitations((prev) =>
+      prev.map((inv) =>
+        inv.id === invitationId ? { ...inv, status: accepted ? "accepted" : "rejected" } : inv
+      )
+    );
+
+    const invitation = invitations.find((inv) => inv.id === invitationId);
+    if (invitation) {
+      sendNotification(
+        accepted ? "Invitation Accepted" : "Invitation Rejected",
+        `You ${accepted ? "accepted" : "rejected"} ${invitation.from}'s invitation to workout together`,
+        "invitation"
+      );
+    }
+  };
+
   // Start rest timer after set completion
   const startRestTimer = (exerciseIdx: number, setIdx: number, rpe: number) => {
     // Calculate rest time based on RPE and exercise intensity
@@ -475,7 +414,7 @@ export default function WorkoutPlanManager() {
                           }}
                           className="hidden"
                         />
-                        {setLog.completed && <span className="text-white font-bold">✓</span>}
+                        {setLog.completed && <span className="text-white font-bold">Γ£ô</span>}
                       </label>
 
                       {/* Set Details */}
@@ -536,9 +475,74 @@ export default function WorkoutPlanManager() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div className="border-b border-gray-200 pb-6">
-        <h2 className="text-4xl font-bold text-gray-900 mb-2">Workout Plans</h2>
-        <p className="text-gray-600">Create, manage, and track your workout routines with real-time partner collaboration</p>
+      <div className="border-b border-gray-200 pb-6 flex items-center justify-between">
+        <div>
+          <h2 className="text-4xl font-bold text-gray-900 mb-2">Workout Plans</h2>
+          <p className="text-gray-600">Create, manage, and track your workout routines with real-time partner collaboration</p>
+        </div>
+
+        {/* Notifications Bell */}
+        <div className="relative">
+          <button
+            onClick={() => setShowNotifications(!showNotifications)}
+            className="relative p-3 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-all"
+          >
+            <Bell size={20} className="text-gray-900" />
+            {invitations.filter((inv) => inv.status === "pending").length > 0 && (
+              <span className="absolute top-0 right-0 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                {invitations.filter((inv) => inv.status === "pending").length}
+              </span>
+            )}
+          </button>
+
+          {/* Notifications Dropdown */}
+          {showNotifications && (
+            <div className="absolute right-0 mt-2 w-80 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden z-50">
+              <div className="p-4 border-b border-gray-200 font-semibold text-gray-900">
+                Gym Invitations
+              </div>
+
+              {invitations.filter((inv) => inv.status === "pending").length > 0 ? (
+                <div className="space-y-2 p-4">
+                  {invitations
+                    .filter((inv) => inv.status === "pending")
+                    .map((inv) => (
+                      <div key={inv.id} className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+                        <div>
+                          <p className="font-semibold text-gray-900">{inv.from}</p>
+                          <p className="text-sm text-gray-600">Invited you to: {inv.workoutName}</p>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => {
+                              handleInvitationResponse(inv.id, true);
+                              setShowNotifications(false);
+                            }}
+                            className="flex-1 px-3 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-all flex items-center justify-center gap-2"
+                          >
+                            <Check size={16} /> Accept
+                          </button>
+                          <button
+                            onClick={() => {
+                              handleInvitationResponse(inv.id, false);
+                              setShowNotifications(false);
+                            }}
+                            className="flex-1 px-3 py-2 bg-gray-300 text-gray-900 rounded-lg font-medium hover:bg-gray-400 transition-all flex items-center justify-center gap-2"
+                          >
+                            <X size={16} /> Reject
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              ) : (
+                <div className="p-8 text-center text-gray-600">
+                  <p>No pending invitations</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Metrics Grid */}
@@ -657,7 +661,7 @@ export default function WorkoutPlanManager() {
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-500" />
                     <div className="flex-1">
                       <p className="font-semibold text-gray-900">{partner.name}</p>
-                      <p className="text-xs text-green-600 font-medium">● Currently working out</p>
+                      <p className="text-xs text-green-600 font-medium">ΓùÅ Currently working out</p>
                     </div>
                   </div>
                   <div className="text-xs text-gray-600 space-y-1">
@@ -721,36 +725,23 @@ export default function WorkoutPlanManager() {
           </div>
 
           <button
-            onClick={async () => {
+            onClick={() => {
               const exercises = parseWorkoutPlan(planInput);
+              const plan: WorkoutPlan = {
+                id: `plan-${Date.now()}`,
+                name: newPlan.name || "New Plan",
+                description: newPlan.description || "",
+                frequency: newPlan.frequency || "3x",
+                duration: newPlan.duration || 12,
+                exercises: exercises.length > 0 ? exercises : [],
+                schedule: {},
+                createdAt: new Date().toISOString(),
+              };
               if (exercises.length > 0) {
-                try {
-                  const res = await fetch("/api/grounding/workout-plans", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      name: newPlan.name || "New Plan",
-                      description: newPlan.description || "",
-                      frequency: newPlan.frequency || "3x",
-                      duration: newPlan.duration || 12,
-                      exercises,
-                      schedule: {},
-                    }),
-                  });
-
-                  if (res.ok) {
-                    const data = await res.json();
-                    setWorkoutPlans([data.plan, ...workoutPlans]); // Prepend new plan
-                    setNewPlan({ name: "", description: "", frequency: "3x", duration: 12, exercises: [], schedule: {} });
-                    setPlanInput("");
-                    setShowNewPlanForm(false);
-                  } else {
-                    alert("Failed to save plan");
-                  }
-                } catch (e) {
-                  console.error(e);
-                  alert("Error saving plan");
-                }
+                setWorkoutPlans([...workoutPlans, plan]);
+                setNewPlan({ name: "", description: "", frequency: "3x", duration: 12, exercises: [], schedule: {} });
+                setPlanInput("");
+                setShowNewPlanForm(false);
               }
             }}
             className="w-full px-6 py-3 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition-all"
@@ -826,8 +817,8 @@ export default function WorkoutPlanManager() {
                   <div>
                     <p className="font-semibold text-gray-900">{session.workoutName}</p>
                     <p className="text-sm text-gray-600">
-                      {new Date(session.date).toLocaleDateString()} • {session.duration} min
-                      {session.caloriesBurned && ` • ${session.caloriesBurned} cal`}
+                      {new Date(session.date).toLocaleDateString()} ΓÇó {session.duration} min
+                      {session.caloriesBurned && ` ΓÇó ${session.caloriesBurned} cal`}
                     </p>
                     {session.partnerName && (
                       <p className="text-sm text-blue-600 font-medium mt-1">Completed with {session.partnerName}</p>
@@ -849,75 +840,34 @@ export default function WorkoutPlanManager() {
           <div className="bg-white rounded-2xl p-8 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
             <h3 className="text-2xl font-bold text-gray-900 mb-6">Find Gym Partners</h3>
 
-            {/* Search Bar */}
-            <div className="mb-6">
-              <input
-                type="text"
-                placeholder="Search users by name..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black/20"
-              />
-            </div>
-
             <div className="space-y-4 mb-8">
-              {/* Show search results if searching, otherwise show existing partners */}
-              {searchQuery ? (
-                searchResults.map((user) => (
-                  <div
-                    key={user.id}
-                    className="p-4 rounded-xl border-2 border-gray-200 hover:border-gray-300 flex items-center justify-between"
-                  >
+              {gymPartners.map((partner) => (
+                <div
+                  key={partner.id}
+                  className={clsx(
+                    "p-4 rounded-xl border-2 cursor-pointer transition-all",
+                    selectedPartner?.id === partner.id
+                      ? "border-black bg-black/5"
+                      : "border-gray-200 hover:border-gray-300"
+                  )}
+                  onClick={() => setSelectedPartner(partner)}
+                >
+                  <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-full bg-gray-200 overflow-hidden">
-                        {user.profile?.avatarUrl ? (
-                          <img src={user.profile.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full bg-gradient-to-br from-blue-400 to-purple-500" />
-                        )}
-                      </div>
-                      <p className="font-semibold text-gray-900">{user.name}</p>
-                    </div>
-                    <button
-                      onClick={() => sendPartnerRequest(user.id)}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
-                    >
-                      Send Request
-                    </button>
-                  </div>
-                ))
-              ) : (
-                gymPartners.map((partner) => (
-                  <div
-                    key={partner.id}
-                    className={clsx(
-                      "p-4 rounded-xl border-2 cursor-pointer transition-all",
-                      selectedPartner?.id === partner.id
-                        ? "border-black bg-black/5"
-                        : "border-gray-200 hover:border-gray-300"
-                    )}
-                    onClick={() => setSelectedPartner(partner)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-500" />
-                        <div>
-                          <p className="font-semibold text-gray-900">{partner.name}</p>
-                          <p className="text-xs text-gray-500">{partner.status === "PENDING" ? "Request Pending" : "Partner"}</p>
-                        </div>
-                      </div>
-                      <div className={`px-4 py-2 rounded-lg ${partner.isActive ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}`}>
-                        {partner.isActive ? "● Active" : "Offline"}
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-500" />
+                      <div>
+                        <p className="font-semibold text-gray-900">{partner.name}</p>
+                        <p className="text-sm text-gray-600">
+                          Height: {partner.height}cm | Weight: {partner.weight}kg
+                        </p>
                       </div>
                     </div>
+                    <div className={`px-4 py-2 rounded-lg ${partner.isActive ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}`}>
+                      {partner.isActive ? "ΓùÅ Active" : "Offline"}
+                    </div>
                   </div>
-                )))}
-
-              {searchQuery && searchResults.length === 0 && (
-                <div className="text-center py-8 text-gray-600">
-                  <p>No users found matching "{searchQuery}"</p>
                 </div>
-              )}
+              ))}
             </div>
 
             <div className="flex gap-3">
@@ -938,7 +888,6 @@ export default function WorkoutPlanManager() {
                 onClick={() => {
                   setShowGymPatModal(false);
                   setSelectedPartner(null);
-                  setSearchQuery("");
                 }}
                 className="px-6 py-3 border border-gray-300 text-gray-900 rounded-xl font-semibold hover:bg-gray-50 transition-all"
               >

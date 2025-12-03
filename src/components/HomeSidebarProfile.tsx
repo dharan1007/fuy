@@ -43,6 +43,7 @@ interface HomeSidebarProfileProps {
   userProfile: UserProfile | null;
   avatarUrl: string;
   displayName: string;
+  userId?: string; // Added userId prop
   onFetchFollowers: () => void;
   onFetchFollowing: () => void;
 }
@@ -54,6 +55,7 @@ export default function HomeSidebarProfile({
   userProfile,
   avatarUrl,
   displayName,
+  userId,
   onFetchFollowers,
   onFetchFollowing
 }: HomeSidebarProfileProps) {
@@ -149,7 +151,10 @@ export default function HomeSidebarProfile({
             </button>
           </div>
 
-          <Link href="/profile" className="mt-4 w-full block text-center py-2.5 bg-transparent border border-white/20 text-white rounded-lg font-medium text-sm hover:bg-white/10 transition-colors">
+          <Link
+            href={userId ? `/profile/${userId}` : "/profile"}
+            className="mt-4 w-full block text-center py-2.5 bg-transparent border border-white/20 text-white rounded-lg font-medium text-sm hover:bg-white/10 transition-colors"
+          >
             View Profile
           </Link>
         </div>

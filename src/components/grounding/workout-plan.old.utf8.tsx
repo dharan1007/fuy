@@ -66,7 +66,6 @@ interface GymPartner {
   avatar?: string;
   isActive?: boolean;
   currentWorkout?: string;
-  status?: string;
 }
 
 export default function WorkoutPlanManager() {
@@ -102,95 +101,6 @@ export default function WorkoutPlanManager() {
   const [restTimer, setRestTimer] = useState<{ exerciseIdx: number; setIdx: number; timeLeft: number } | null>(null);
   const [timerInterval, setTimerInterval] = useState<NodeJS.Timeout | null>(null);
 
-  // Fetch initial data
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Fetch Plans
-        const plansRes = await fetch("/api/grounding/workout-plans");
-        if (plansRes.ok) {
-          const data = await plansRes.json();
-          if (data.plans) setWorkoutPlans(data.plans);
-        }
-
-        // Fetch Partners
-        const partnersRes = await fetch("/api/grounding/partners");
-        if (partnersRes.ok) {
-          const data = await partnersRes.json();
-          if (data.partners) {
-            setGymPartners(data.partners.map((p: any) => ({
-              id: p.id,
-              name: p.name,
-              height: 0, // Placeholder
-              weight: 0, // Placeholder
-              isActive: p.status === "ACCEPTED",
-              status: p.status,
-              partnerId: p.partnerId
-            })));
-          }
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    };
-    fetchData();
-  }, []);
-
-  // Search for users to add as partners
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const handleSearchUsers = async (query: string) => {
-    if (!query) return;
-    try {
-      const res = await fetch(`/api/users/search?q=${query}`);
-      if (res.ok) {
-        const data = await res.json();
-        setSearchResults(data.users || []);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      handleSearchUsers(searchQuery);
-    }, 500);
-    return () => clearTimeout(delayDebounceFn);
-  }, [searchQuery]);
-
-  const sendPartnerRequest = async (partnerId: string) => {
-    try {
-      const res = await fetch("/api/grounding/partners", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "REQUEST", partnerId }),
-      });
-      if (res.ok) {
-        alert("Request sent!");
-        // Refresh partners
-        const partnersRes = await fetch("/api/grounding/partners");
-        if (partnersRes.ok) {
-          const data = await partnersRes.json();
-          if (data.partners) {
-            setGymPartners(data.partners.map((p: any) => ({
-              id: p.id,
-              name: p.name,
-              height: 0,
-              weight: 0,
-              isActive: p.status === "ACCEPTED",
-              status: p.status,
-              partnerId: p.partnerId
-            })));
-          }
-        }
-      } else {
-        alert("Failed to send request");
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
   const [newPlan, setNewPlan] = useState<Partial<WorkoutPlan>>({
     name: "",
     description: "",
@@ -208,7 +118,7 @@ export default function WorkoutPlanManager() {
     for (const line of lines) {
       const trimmed = line.trim();
       const exercisePattern =
-        /^([^-\d]+?)(?:\s*[-–]?\s*)?(\d+)\s*(?:x|sets?)\s*([\d\-x]+)\s*(?:reps?|@)?\s*(\d+(?:\.\d+)?)?(?:\s*(?:kg|lbs?|lb))?/i;
+        /^([^-\d]+?)(?:\s*[-ΓÇô]?\s*)?(\d+)\s*(?:x|sets?)\s*([\d\-x]+)\s*(?:reps?|@)?\s*(\d+(?:\.\d+)?)?(?:\s*(?:kg|lbs?|lb))?/i;
       const match = trimmed.match(exercisePattern);
 
       if (match) {
@@ -475,7 +385,7 @@ export default function WorkoutPlanManager() {
                           }}
                           className="hidden"
                         />
-                        {setLog.completed && <span className="text-white font-bold">✓</span>}
+                        {setLog.completed && <span className="text-white font-bold">Γ£ô</span>}
                       </label>
 
                       {/* Set Details */}
@@ -657,7 +567,7 @@ export default function WorkoutPlanManager() {
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-500" />
                     <div className="flex-1">
                       <p className="font-semibold text-gray-900">{partner.name}</p>
-                      <p className="text-xs text-green-600 font-medium">● Currently working out</p>
+                      <p className="text-xs text-green-600 font-medium">ΓùÅ Currently working out</p>
                     </div>
                   </div>
                   <div className="text-xs text-gray-600 space-y-1">
@@ -721,36 +631,23 @@ export default function WorkoutPlanManager() {
           </div>
 
           <button
-            onClick={async () => {
+            onClick={() => {
               const exercises = parseWorkoutPlan(planInput);
+              const plan: WorkoutPlan = {
+                id: `plan-${Date.now()}`,
+                name: newPlan.name || "New Plan",
+                description: newPlan.description || "",
+                frequency: newPlan.frequency || "3x",
+                duration: newPlan.duration || 12,
+                exercises: exercises.length > 0 ? exercises : [],
+                schedule: {},
+                createdAt: new Date().toISOString(),
+              };
               if (exercises.length > 0) {
-                try {
-                  const res = await fetch("/api/grounding/workout-plans", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      name: newPlan.name || "New Plan",
-                      description: newPlan.description || "",
-                      frequency: newPlan.frequency || "3x",
-                      duration: newPlan.duration || 12,
-                      exercises,
-                      schedule: {},
-                    }),
-                  });
-
-                  if (res.ok) {
-                    const data = await res.json();
-                    setWorkoutPlans([data.plan, ...workoutPlans]); // Prepend new plan
-                    setNewPlan({ name: "", description: "", frequency: "3x", duration: 12, exercises: [], schedule: {} });
-                    setPlanInput("");
-                    setShowNewPlanForm(false);
-                  } else {
-                    alert("Failed to save plan");
-                  }
-                } catch (e) {
-                  console.error(e);
-                  alert("Error saving plan");
-                }
+                setWorkoutPlans([...workoutPlans, plan]);
+                setNewPlan({ name: "", description: "", frequency: "3x", duration: 12, exercises: [], schedule: {} });
+                setPlanInput("");
+                setShowNewPlanForm(false);
               }
             }}
             className="w-full px-6 py-3 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition-all"
@@ -826,8 +723,8 @@ export default function WorkoutPlanManager() {
                   <div>
                     <p className="font-semibold text-gray-900">{session.workoutName}</p>
                     <p className="text-sm text-gray-600">
-                      {new Date(session.date).toLocaleDateString()} • {session.duration} min
-                      {session.caloriesBurned && ` • ${session.caloriesBurned} cal`}
+                      {new Date(session.date).toLocaleDateString()} ΓÇó {session.duration} min
+                      {session.caloriesBurned && ` ΓÇó ${session.caloriesBurned} cal`}
                     </p>
                     {session.partnerName && (
                       <p className="text-sm text-blue-600 font-medium mt-1">Completed with {session.partnerName}</p>
@@ -861,59 +758,40 @@ export default function WorkoutPlanManager() {
             </div>
 
             <div className="space-y-4 mb-8">
-              {/* Show search results if searching, otherwise show existing partners */}
-              {searchQuery ? (
-                searchResults.map((user) => (
-                  <div
-                    key={user.id}
-                    className="p-4 rounded-xl border-2 border-gray-200 hover:border-gray-300 flex items-center justify-between"
-                  >
+              {gymPartners
+                .filter((partner) =>
+                  partner.name.toLowerCase().includes(searchQuery.toLowerCase())
+                )
+                .map((partner) => (
+                <div
+                  key={partner.id}
+                  className={clsx(
+                    "p-4 rounded-xl border-2 cursor-pointer transition-all",
+                    selectedPartner?.id === partner.id
+                      ? "border-black bg-black/5"
+                      : "border-gray-200 hover:border-gray-300"
+                  )}
+                  onClick={() => setSelectedPartner(partner)}
+                >
+                  <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-full bg-gray-200 overflow-hidden">
-                        {user.profile?.avatarUrl ? (
-                          <img src={user.profile.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full bg-gradient-to-br from-blue-400 to-purple-500" />
-                        )}
-                      </div>
-                      <p className="font-semibold text-gray-900">{user.name}</p>
-                    </div>
-                    <button
-                      onClick={() => sendPartnerRequest(user.id)}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
-                    >
-                      Send Request
-                    </button>
-                  </div>
-                ))
-              ) : (
-                gymPartners.map((partner) => (
-                  <div
-                    key={partner.id}
-                    className={clsx(
-                      "p-4 rounded-xl border-2 cursor-pointer transition-all",
-                      selectedPartner?.id === partner.id
-                        ? "border-black bg-black/5"
-                        : "border-gray-200 hover:border-gray-300"
-                    )}
-                    onClick={() => setSelectedPartner(partner)}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-500" />
-                        <div>
-                          <p className="font-semibold text-gray-900">{partner.name}</p>
-                          <p className="text-xs text-gray-500">{partner.status === "PENDING" ? "Request Pending" : "Partner"}</p>
-                        </div>
-                      </div>
-                      <div className={`px-4 py-2 rounded-lg ${partner.isActive ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}`}>
-                        {partner.isActive ? "● Active" : "Offline"}
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-500" />
+                      <div>
+                        <p className="font-semibold text-gray-900">{partner.name}</p>
+                        <p className="text-sm text-gray-600">
+                          Height: {partner.height}cm | Weight: {partner.weight}kg
+                        </p>
                       </div>
                     </div>
+                    <div className={`px-4 py-2 rounded-lg ${partner.isActive ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}`}>
+                      {partner.isActive ? "ΓùÅ Active" : "Offline"}
+                    </div>
                   </div>
-                )))}
-
-              {searchQuery && searchResults.length === 0 && (
+                </div>
+              ))}
+              {gymPartners.filter((partner) =>
+                partner.name.toLowerCase().includes(searchQuery.toLowerCase())
+              ).length === 0 && (
                 <div className="text-center py-8 text-gray-600">
                   <p>No users found matching "{searchQuery}"</p>
                 </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
 
 /* ---------------- Types ---------------- */
 type UUID = string;
@@ -21,23 +22,29 @@ export type Card = {
   createdAt: number;
 };
 
+export type PlanMember = {
+  id: string;
+  userId: string;
+  status: "PENDING" | "ACCEPTED" | "DECLINED";
+  user: {
+    id: string;
+    name: string | null;
+    email: string | null;
+    profile: {
+      avatarUrl: string | null;
+    } | null;
+  };
+};
+
 export type Plan = {
   id: UUID;
   title: string;
-  members: string[];   // names/emails
+  description?: string | null;
+  ownerId: string;
+  members: PlanMember[];
   cards: Card[];
-  createdAt: number;
+  createdAt: string;
 };
-
-type PlanIndexEntry = { id: string; title: string; createdAt: number };
-
-function uid(): UUID {
-  return Math.random().toString(36).slice(2) + Date.now().toString(36);
-}
-
-/* ---------------- LocalStorage Keys ---------------- */
-const LS_KEY_INDEX = "awe-routes:plans:index";
-const LS_KEY_PLAN = (id: string) => `awe-routes:plans:${id}`;
 
 /* ---------------- Component ---------------- */
 export default function PlanBoard({
@@ -45,178 +52,157 @@ export default function PlanBoard({
 }: {
   currentWaypointCount?: number;
 }) {
-  const [plans, setPlans] = useState<PlanIndexEntry[]>([]);
+  const { data: session } = useSession();
+  const [plans, setPlans] = useState<Plan[]>([]);
   const [activePlanId, setActivePlanId] = useState<string | null>(null);
   const [active, setActive] = useState<Plan | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  // load index & active plan (from ?plan=) on mount
+  // Search state
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [inviting, setInviting] = useState(false);
+
+  // Load plans from API
   useEffect(() => {
+    if (session?.user) {
+      fetchPlans();
+    }
+  }, [session]);
+
+  async function fetchPlans() {
     try {
-      const raw = localStorage.getItem(LS_KEY_INDEX);
-      const list = raw ? (JSON.parse(raw) as PlanIndexEntry[]) : [];
-      setPlans(list);
-
-      const url = new URL(window.location.href);
-      const qPlan = url.searchParams.get("plan");
-
-      if (qPlan) {
-        const p = loadPlan(qPlan);
-        if (p) {
-          setActivePlanId(p.id);
-          setActive(p);
-          if (!list.find((x) => x.id === p.id)) {
-            const updated = [...list, { id: p.id, title: p.title, createdAt: p.createdAt }];
-            setPlans(updated);
-            persistIndex(updated);
+      setLoading(true);
+      const res = await fetch("/api/hopin/plans");
+      if (res.ok) {
+        const data = await res.json();
+        setPlans(data);
+        // Restore active plan if exists
+        const url = new URL(window.location.href);
+        const qPlan = url.searchParams.get("plan");
+        if (qPlan) {
+          const found = data.find((p: Plan) => p.id === qPlan);
+          if (found) {
+            setActivePlanId(found.id);
+            setActive(found);
           }
-          return;
+        } else if (data.length > 0 && !activePlanId) {
+          setActivePlanId(data[0].id);
+          setActive(data[0]);
         }
       }
-
-      if (list.length) {
-        const first = loadPlan(list[0].id);
-        setActivePlanId(list[0].id);
-        setActive(first ?? null);
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
-
-  /* ---------- Persistence helpers ---------- */
-  function persistIndex(next: PlanIndexEntry[]) {
-    localStorage.setItem(LS_KEY_INDEX, JSON.stringify(next));
-  }
-  function persistPlan(p: Plan) {
-    localStorage.setItem(LS_KEY_PLAN(p.id), JSON.stringify(p));
-  }
-  function loadPlan(id: string): Plan | null {
-    try {
-      const raw = localStorage.getItem(LS_KEY_PLAN(id));
-      return raw ? (JSON.parse(raw) as Plan) : null;
-    } catch {
-      return null;
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
     }
   }
 
-  /* ---------- Plan CRUD ---------- */
-  function createPlan() {
+  async function createPlan() {
     const title = prompt("Plan title")?.trim();
     if (!title) return;
-    const p: Plan = { id: uid(), title, members: [], cards: [], createdAt: Date.now() };
-    const idx = [...plans, { id: p.id, title: p.title, createdAt: p.createdAt }];
-    setPlans(idx);
-    persistIndex(idx);
-    setActive(p);
-    setActivePlanId(p.id);
-    persistPlan(p);
-    const u = new URL(window.location.href);
-    u.searchParams.set("plan", p.id);
-    history.replaceState(null, "", u.toString());
+    try {
+      const res = await fetch("/api/hopin/plans", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title }),
+      });
+      if (res.ok) {
+        const newPlan = await res.json();
+        setPlans([newPlan, ...plans]);
+        setActivePlanId(newPlan.id);
+        setActive(newPlan);
+        const u = new URL(window.location.href);
+        u.searchParams.set("plan", newPlan.id);
+        history.replaceState(null, "", u.toString());
+      }
+    } catch (e) {
+      alert("Failed to create plan");
+    }
+  }
+
+  async function searchUsers(q: string) {
+    setSearchQuery(q);
+    if (q.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/users/search?q=${encodeURIComponent(q)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setSearchResults(data.users);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function inviteUser(userId: string) {
+    if (!active) return;
+    setInviting(true);
+    try {
+      const res = await fetch(`/api/hopin/plans/${active.id}/invite`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      });
+      if (res.ok) {
+        alert("Invite sent!");
+        setShowSearch(false);
+        setSearchQuery("");
+        fetchPlans(); // Refresh to see pending member
+      } else {
+        const err = await res.json();
+        alert(err.error || "Failed to invite");
+      }
+    } catch (e) {
+      alert("Error sending invite");
+    } finally {
+      setInviting(false);
+    }
   }
 
   function selectPlan(id: string) {
-    const p = loadPlan(id);
-    setActivePlanId(id);
-    setActive(p);
-    const u = new URL(window.location.href);
-    u.searchParams.set("plan", id);
-    history.replaceState(null, "", u.toString());
-  }
-
-  function deletePlan(id: string) {
-    if (!confirm("Delete this plan?")) return;
-    localStorage.removeItem(LS_KEY_PLAN(id));
-    const nextIdx = plans.filter((x) => x.id !== id);
-    setPlans(nextIdx);
-    persistIndex(nextIdx);
-    if (activePlanId === id) {
-      const nextActive = nextIdx[0] ?? null;
-      setActivePlanId(nextActive?.id ?? null);
-      setActive(nextActive ? loadPlan(nextActive.id) : null);
+    const found = plans.find((p) => p.id === id);
+    if (found) {
+      setActivePlanId(id);
+      setActive(found);
       const u = new URL(window.location.href);
-      if (nextActive) u.searchParams.set("plan", nextActive.id);
-      else u.searchParams.delete("plan");
+      u.searchParams.set("plan", id);
       history.replaceState(null, "", u.toString());
     }
   }
 
-  function copyInviteLink() {
-    if (!active) return;
-    const u = new URL(window.location.href);
-    u.searchParams.set("plan", active.id);
-    navigator.clipboard.writeText(u.toString()).then(
-      () => alert("Invite link copied! Share it with your friends."),
-      () => alert("Could not copy link; copy from the address bar.")
-    );
-  }
+  /* ---------- Cards (Local only for now, as per schema limitation) ---------- */
+  const [cards, setCards] = useState<Card[]>([]);
 
-  function exportPlan() {
-    if (!active) return;
-    const blob = new Blob([JSON.stringify(active, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${active.title.replace(/\s+/g, "_")}_${active.id}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  async function importPlan(f: File) {
-    try {
-      const json = JSON.parse(await f.text()) as Plan;
-      if (!json?.id || !json?.title) throw new Error();
-      persistPlan(json);
-      const idx = [
-        ...plans.filter((x) => x.id !== json.id),
-        { id: json.id, title: json.title, createdAt: json.createdAt ?? Date.now() },
-      ];
-      setPlans(idx);
-      persistIndex(idx);
-      setActivePlanId(json.id);
-      setActive(json);
-      const u = new URL(window.location.href);
-      u.searchParams.set("plan", json.id);
-      history.replaceState(null, "", u.toString());
-    } catch {
-      alert("Invalid plan file");
+  useEffect(() => {
+    if (activePlanId) {
+      const saved = localStorage.getItem(`awe-routes:plans:${activePlanId}:cards`);
+      if (saved) {
+        try {
+          setCards(JSON.parse(saved));
+        } catch { setCards([]); }
+      } else {
+        setCards([]);
+      }
+    } else {
+      setCards([]);
     }
-  }
+  }, [activePlanId]);
 
-  /* ---------- Members ---------- */
-  function addMember() {
-    if (!active) return;
-    const who = prompt("Add member (name or email)")?.trim();
-    if (!who) return;
-    const next: Plan = { ...active, members: [...active.members, who] };
-    setActive(next);
-    persistPlan(next);
-  }
+  useEffect(() => {
+    if (activePlanId) {
+      localStorage.setItem(`awe-routes:plans:${activePlanId}:cards`, JSON.stringify(cards));
+    }
+  }, [cards, activePlanId]);
 
-  function removeMember(i: number) {
-    if (!active) return;
-    const next: Plan = { ...active, members: active.members.filter((_, idx) => idx !== i) };
-    setActive(next);
-    persistPlan(next);
-  }
-
-  function renamePlan() {
-    if (!active) return;
-    const t = prompt("Rename plan", active.title)?.trim();
-    if (!t || t === active.title) return;
-    const next: Plan = { ...active, title: t };
-    setActive(next);
-    persistPlan(next);
-    const idx = plans.map((p: PlanIndexEntry) => (p.id === next.id ? { ...p, title: t } : p));
-    setPlans(idx);
-    persistIndex(idx);
-  }
-
-  /* ---------- Cards ---------- */
   function addCard(type: CardType) {
-    if (!active) return;
+    if (!activePlanId) return;
     const c: Card = {
-      id: uid(),
+      id: Math.random().toString(36).slice(2),
       type,
       title: type === "note" ? "New Note" : type === "todo" ? "New Todo" : "New Card",
       content: "",
@@ -225,26 +211,15 @@ export default function PlanBoard({
       waypoint: null,
       createdAt: Date.now(),
     };
-    const next: Plan = { ...active, cards: [c, ...active.cards] };
-    setActive(next);
-    persistPlan(next);
-  }
-
-  function deleteCard(id: string) {
-    if (!active) return;
-    const next: Plan = { ...active, cards: active.cards.filter((c) => c.id !== id) };
-    setActive(next);
-    persistPlan(next);
+    setCards([c, ...cards]);
   }
 
   function updateCard(update: Card) {
-    if (!active) return;
-    const next: Plan = {
-      ...active,
-      cards: active.cards.map((c) => (c.id === update.id ? update : c)),
-    };
-    setActive(next);
-    persistPlan(next);
+    setCards(cards.map((c) => (c.id === update.id ? update : c)));
+  }
+
+  function deleteCard(id: string) {
+    setCards(cards.filter((c) => c.id !== id));
   }
 
   /* ---------- Search / filter ---------- */
@@ -252,10 +227,9 @@ export default function PlanBoard({
   const [query, setQuery] = useState<string>("");
 
   const visibleCards: Card[] = useMemo(() => {
-    if (!active) return [];
     const q = query.trim().toLowerCase();
-    if (!q) return active.cards;
-    return active.cards.filter((c) => {
+    if (!q) return cards;
+    return cards.filter((c) => {
       const hay = [
         c.title,
         c.content ?? "",
@@ -266,7 +240,7 @@ export default function PlanBoard({
         .toLowerCase();
       return hay.includes(q);
     });
-  }, [active, query]);
+  }, [cards, query]);
 
   /* ---------- Render ---------- */
   return (
@@ -281,70 +255,22 @@ export default function PlanBoard({
             </button>
           </div>
 
-          <div className="grid gap-1">
-            {plans.length === 0 && <div className="text-sm text-stone-600">No plans yet.</div>}
-            {plans
-              .sort((a, b) => b.createdAt - a.createdAt)
-              .map((p) => (
-                <div
-                  key={p.id}
-                  className={`flex items-center justify-between rounded-lg border px-2 py-1.5 ${
-                    activePlanId === p.id
-                      ? "bg-stone-900 text-white border-stone-900"
-                      : "bg-white text-stone-900 border-stone-200"
+          <div className="grid gap-1 max-h-[200px] overflow-y-auto">
+            {loading && <div className="text-xs text-stone-500">Loading...</div>}
+            {!loading && plans.length === 0 && <div className="text-sm text-stone-600">No plans yet.</div>}
+            {plans.map((p) => (
+              <div
+                key={p.id}
+                className={`flex items-center justify-between rounded-lg border px-2 py-1.5 cursor-pointer ${activePlanId === p.id
+                    ? "bg-stone-900 text-white border-stone-900"
+                    : "bg-white text-stone-900 border-stone-200 hover:bg-stone-50"
                   }`}
-                >
-                  <button onClick={() => selectPlan(p.id)} className="text-left truncate">
-                    {p.title}
-                  </button>
-                  <button onClick={() => deletePlan(p.id)} className="text-xs opacity-80 hover:opacity-100">
-                    ✕
-                  </button>
-                </div>
-              ))}
-          </div>
-        </div>
-
-        {/* Invite & Share */}
-        <div className="rounded-2xl p-4 ring-1 ring-black/5 bg-white/80 grid gap-3">
-          <div className="font-medium">Invite & Share</div>
-          <div className="text-sm text-stone-700">
-            {active ? (
-              <>
-                <div className="mb-2">Share this plan with a link.</div>
-                <div className="flex gap-2">
-                  <button
-                    className="px-3 py-1.5 rounded-2xl text-[13px] transition bg-white text-stone-900 hover:bg-stone-50 border border-stone-200 shadow-sm"
-                    onClick={copyInviteLink}
-                  >
-                    Copy Invite Link
-                  </button>
-                  <button
-                    className="px-3 py-1.5 rounded-2xl text-[13px] transition bg-white text-stone-900 hover:bg-stone-50 border border-stone-200 shadow-sm"
-                    onClick={exportPlan}
-                  >
-                    Export JSON
-                  </button>
-                  <label className="cursor-pointer">
-                    <span className="px-3 py-1.5 rounded-2xl text-[13px] transition bg-white text-stone-900 hover:bg-stone-50 border border-stone-200 shadow-sm inline-block">
-                      Import JSON
-                    </span>
-                    <input
-                      type="file"
-                      className="hidden"
-                      accept="application/json"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (f) importPlan(f);
-                        e.currentTarget.value = "";
-                      }}
-                    />
-                  </label>
-                </div>
-              </>
-            ) : (
-              <div>Create a plan first.</div>
-            )}
+                onClick={() => selectPlan(p.id)}
+              >
+                <div className="truncate font-medium text-sm">{p.title}</div>
+                <div className="text-[10px] opacity-70 ml-2">{p.members.length} 👤</div>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -354,36 +280,32 @@ export default function PlanBoard({
             <div className="font-medium">Members</div>
             <button
               disabled={!active}
-              onClick={addMember}
+              onClick={() => setShowSearch(true)}
               className="px-2 py-1 rounded-lg text-[12px] border border-stone-200 bg-white hover:bg-stone-50 disabled:opacity-50"
             >
-              Add
+              + Add
             </button>
           </div>
-          <div className="grid gap-1">
-            {active?.members.length ? (
-              active.members.map((m, i) => (
-                <div
-                  key={i}
-                  className="flex items-center justify-between rounded-lg border px-2 py-1.5 bg-white border-stone-200"
-                >
-                  <span className="truncate">{m}</span>
-                  <button onClick={() => removeMember(i)} className="text-xs opacity-80 hover:opacity-100">
-                    ✕
-                  </button>
+          <div className="grid gap-2 max-h-[200px] overflow-y-auto">
+            {active?.members.map((m) => (
+              <div
+                key={m.id}
+                className="flex items-center justify-between rounded-lg border px-2 py-1.5 bg-white border-stone-200"
+              >
+                <div className="flex items-center gap-2 overflow-hidden">
+                  <img
+                    src={m.user.profile?.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${m.user.name}`}
+                    className="w-5 h-5 rounded-full bg-stone-200"
+                  />
+                  <div className="flex flex-col truncate">
+                    <span className="text-xs font-medium truncate">{m.user.name || "User"}</span>
+                    <span className="text-[10px] text-stone-500">{m.status}</span>
+                  </div>
                 </div>
-              ))
-            ) : (
-              <div className="text-sm text-stone-600">No members yet.</div>
-            )}
+              </div>
+            ))}
+            {!active && <div className="text-sm text-stone-600">Select a plan.</div>}
           </div>
-          <button
-            disabled={!active}
-            onClick={renamePlan}
-            className="px-3 py-1.5 rounded-2xl text-[13px] transition bg-white text-stone-900 hover:bg-stone-50 border border-stone-200 shadow-sm disabled:opacity-50"
-          >
-            Rename Plan
-          </button>
         </div>
       </aside>
 
@@ -427,6 +349,48 @@ export default function PlanBoard({
         />
       </section>
 
+      {/* Add Member Modal */}
+      {showSearch && (
+        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4" onClick={() => setShowSearch(false)}>
+          <div className="bg-white rounded-2xl w-full max-w-md p-4 space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center">
+              <h3 className="font-bold">Add Friend to Plan</h3>
+              <button onClick={() => setShowSearch(false)}>✕</button>
+            </div>
+            <input
+              autoFocus
+              className="w-full border p-2 rounded-lg"
+              placeholder="Search by name or email..."
+              value={searchQuery}
+              onChange={e => searchUsers(e.target.value)}
+            />
+            <div className="max-h-60 overflow-y-auto space-y-2">
+              {searchResults.map(u => (
+                <div key={u.id} className="flex items-center justify-between p-2 hover:bg-stone-50 rounded-lg border">
+                  <div className="flex items-center gap-2">
+                    <img src={u.profile?.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${u.name}`} className="w-8 h-8 rounded-full" />
+                    <div>
+                      <div className="font-medium text-sm">{u.name}</div>
+                      <div className="text-xs text-stone-500">{u.email}</div>
+                    </div>
+                  </div>
+                  <button
+                    disabled={inviting}
+                    onClick={() => inviteUser(u.id)}
+                    className="bg-black text-white px-3 py-1 rounded-lg text-xs hover:opacity-80 disabled:opacity-50"
+                  >
+                    Invite
+                  </button>
+                </div>
+              ))}
+              {searchQuery.length > 1 && searchResults.length === 0 && (
+                <div className="text-center text-stone-500 py-4">No users found</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {editing && active && (
         <EditorModal
           card={editing}
@@ -468,12 +432,12 @@ function CardsList({
                   {c.type === "note"
                     ? c.content || "—"
                     : c.type === "link"
-                    ? c.content || "—"
-                    : c.type === "image"
-                    ? c.content || "—"
-                    : c.type === "video"
-                    ? c.content || "—"
-                    : `${c.checklist?.filter((i) => i.done).length ?? 0}/${c.checklist?.length ?? 0} done`}
+                      ? c.content || "—"
+                      : c.type === "image"
+                        ? c.content || "—"
+                        : c.type === "video"
+                          ? c.content || "—"
+                          : `${c.checklist?.filter((i) => i.done).length ?? 0}/${c.checklist?.length ?? 0} done`}
                 </div>
                 <div className="mt-1 flex flex-wrap gap-1">
                   {c.tags.map((t: string) => (
@@ -558,25 +522,6 @@ function EditorModal({
     setLocal((prev) => ({ ...prev, checklist: (prev.checklist ?? []).filter((i) => i.id !== id) }));
   }
 
-  function attachWaypoint() {
-    if (maxWaypointIndex < 0) {
-      alert("No waypoints yet.");
-      return;
-    }
-    const idxStr = prompt(`Attach to waypoint # (1…${maxWaypointIndex + 1})`);
-    if (!idxStr) return;
-    const idx = Number(idxStr) - 1;
-    if (Number.isNaN(idx) || idx < 0 || idx > maxWaypointIndex) {
-      alert("Invalid waypoint number.");
-      return;
-    }
-    set("waypoint", { index: idx });
-  }
-
-  function detachWaypoint() {
-    set("waypoint", null);
-  }
-
   return (
     <div className="fixed inset-0 bg-black/40 grid place-items-center z-[60]" onClick={onClose}>
       <div
@@ -622,32 +567,32 @@ function EditorModal({
             local.type === "link" ||
             local.type === "image" ||
             local.type === "video") && (
-            <div className="grid gap-2 md:col-span-2">
-              <label className="text-[12px] text-stone-600">
-                {local.type === "note"
-                  ? "Note Content"
-                  : local.type === "link"
-                  ? "URL"
-                  : local.type === "image"
-                  ? "Image URL"
-                  : "Video URL"}
-              </label>
-              {local.type === "note" ? (
-                <textarea
-                  value={local.content ?? ""}
-                  onChange={(e) => set("content", e.target.value)}
-                  className="px-3 py-2 rounded-lg border border-stone-200 min-h-[120px]"
-                />
-              ) : (
-                <input
-                  value={local.content ?? ""}
-                  onChange={(e) => set("content", e.target.value)}
-                  placeholder="https://…"
-                  className="px-3 py-2 rounded-lg border border-stone-200"
-                />
-              )}
-            </div>
-          )}
+              <div className="grid gap-2 md:col-span-2">
+                <label className="text-[12px] text-stone-600">
+                  {local.type === "note"
+                    ? "Note Content"
+                    : local.type === "link"
+                      ? "URL"
+                      : local.type === "image"
+                        ? "Image URL"
+                        : "Video URL"}
+                </label>
+                {local.type === "note" ? (
+                  <textarea
+                    value={local.content ?? ""}
+                    onChange={(e) => set("content", e.target.value)}
+                    className="px-3 py-2 rounded-lg border border-stone-200 min-h-[120px]"
+                  />
+                ) : (
+                  <input
+                    value={local.content ?? ""}
+                    onChange={(e) => set("content", e.target.value)}
+                    placeholder="https://…"
+                    className="px-3 py-2 rounded-lg border border-stone-200"
+                  />
+                )}
+              </div>
+            )}
 
           {local.type === "todo" && (
             <div className="grid gap-2 md:col-span-2">

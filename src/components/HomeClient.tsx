@@ -361,13 +361,14 @@ export default function HomeClient() {
 
             {/* Main Content */}
             <main className="flex-1 w-full px-0 py-10 relative z-20">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-0 h-full">
+                <div className="grid grid-cols-1 md:grid-cols-[240px_1fr_280px] gap-0 h-full">
                     {/* Left Sidebar - Extreme Left */}
-                    <div className="md:col-span-1 px-3 sm:px-4 lg:px-6 flex flex-col gap-4">
+                    <div className="px-3 sm:px-4 lg:px-6 flex flex-col gap-4">
                         <HomeSidebarProfile
                             userProfile={userProfile}
                             avatarUrl={avatarUrl}
                             displayName={displayName}
+                            userId={session?.user?.id}
                             onFetchFollowers={fetchFollowers}
                             onFetchFollowing={fetchFollowing}
                         />
@@ -375,7 +376,7 @@ export default function HomeClient() {
                     </div>
 
                     {/* Center Feed */}
-                    <div className="md:col-span-2 space-y-6 px-3 sm:px-4 lg:px-8">
+                    <div className="space-y-6 px-3 sm:px-4 lg:px-8">
 
 
                         {/* Posts Feed */}
@@ -456,7 +457,7 @@ export default function HomeClient() {
                     </div>
 
                     {/* Right Sidebar - Features Cards */}
-                    <aside className="md:col-span-1 p-4 bg-transparent backdrop-blur-md border border-white/20 rounded-2xl hover:border-white/40 space-y-4">
+                    <aside className="p-4 bg-transparent backdrop-blur-md border border-white/20 rounded-2xl hover:border-white/40 space-y-4">
                         <HopinProgramsCard />
                         <RankingCard />
                     </aside>

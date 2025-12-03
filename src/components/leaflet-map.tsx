@@ -241,7 +241,6 @@ export default function LeafletMap({
     window.addEventListener("keydown", onKey);
 
     // first paint - aggressive multiple attempts to ensure map renders
-    // Start with immediate, then progressively longer intervals
     setTimeout(scheduleInvalidate, 0);
     setTimeout(scheduleInvalidate, 50);
     setTimeout(scheduleInvalidate, 100);
@@ -254,7 +253,6 @@ export default function LeafletMap({
       ro.disconnect();
       window.removeEventListener("resize", onWinResize);
       window.removeEventListener("keydown", onKey);
-      // cancel any pending rAF to avoid running after removal
       if (rafId.current != null) cancelAnimationFrame(rafId.current);
       try {
         if (tileLayerRef.current) {
@@ -282,6 +280,7 @@ export default function LeafletMap({
       minZoom: 0,
       updateWhenIdle: false,
       keepBuffer: 2,
+      className: 'map-tiles-filter' // Add class for CSS filtering
     }).addTo(map);
     scheduleInvalidate();
   }, [basemapStyle, leafletReady, scheduleInvalidate]);
@@ -303,10 +302,13 @@ export default function LeafletMap({
         if (abort) return;
         poiLayerRef.current?.clearLayers();
         (data.elements || []).forEach((p: any) => {
-          const marker = L.marker([p.lat, p.lon]);
+          // Monochrome POI marker
+          const markerHtml = `<div style="font-size: 20px; filter: grayscale(100%) brightness(200%);">📍</div>`;
+          const icon = L.divIcon({ html: markerHtml, className: 'poi-marker', iconSize: [24, 24], iconAnchor: [12, 12] });
+
+          const marker = L.marker([p.lat, p.lon], { icon });
           const placeName = p.tags?.name || "Unnamed";
 
-          // Create clickable marker that opens the modal
           marker.on("click", () => {
             setSelectedPlace({
               osmId: p.id?.toString() || `osm-${p.lat}-${p.lon}`,
@@ -337,8 +339,8 @@ export default function LeafletMap({
   const createCustomMarker = useCallback((lat: number, lng: number, label: string, emoji = "📍", waypointIndex?: number) => {
     const L = LRef.current;
 
-    // Create emoji-only marker (no white background)
-    const markerHtml = `<div style="font-size: 32px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">${emoji}</div>`;
+    // Create emoji-only marker (no white background) - Grayscale filter
+    const markerHtml = `<div style="font-size: 32px; filter: grayscale(100%) drop-shadow(0 2px 4px rgba(0,0,0,0.5));">${emoji}</div>`;
 
     const customIcon = L.divIcon({
       html: markerHtml,
@@ -350,13 +352,13 @@ export default function LeafletMap({
 
     const marker = L.marker([lat, lng], { icon: customIcon });
 
-    // Create popup content generator
+    // Create popup content generator (Monochrome styles)
     const createPopupContent = (isEditMode: boolean) => {
       const displayLabel = waypointIndex !== undefined ? (waypointLabels[waypointIndex] || label) : label;
 
       if (isEditMode) {
         return `
-          <div style="min-width: 200px; padding: 10px; font-family: sans-serif;">
+          <div style="min-width: 200px; padding: 10px; font-family: sans-serif; background: #000; color: #fff; border: 1px solid #333;">
             <input
               type="text"
               id="wp-input-${waypointIndex}"
@@ -364,7 +366,9 @@ export default function LeafletMap({
               style="
                 width: 100%;
                 padding: 8px;
-                border: 2px solid #f18f01;
+                background: #222;
+                color: #fff;
+                border: 1px solid #444;
                 border-radius: 4px;
                 font-weight: 600;
                 margin-bottom: 8px;
@@ -377,8 +381,8 @@ export default function LeafletMap({
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px;">
               <button id="wp-save-${waypointIndex}" style="
                 padding: 8px 12px;
-                background: #10b981;
-                color: white;
+                background: #fff;
+                color: #000;
                 border: none;
                 border-radius: 4px;
                 font-size: 12px;
@@ -386,9 +390,9 @@ export default function LeafletMap({
               ">✓ Save</button>
               <button id="wp-cancel-${waypointIndex}" style="
                 padding: 8px 12px;
-                background: #6b7280;
-                color: white;
-                border: none;
+                background: #333;
+                color: #fff;
+                border: 1px solid #555;
                 border-radius: 4px;
                 font-size: 12px;
                 font-weight: 600;
@@ -398,9 +402,9 @@ export default function LeafletMap({
               <button id="wp-delete-${waypointIndex}" style="
                 width: 100%;
                 padding: 8px 12px;
-                background: #ef4444;
-                color: white;
-                border: none;
+                background: transparent;
+                color: #fff;
+                border: 1px solid #fff;
                 border-radius: 4px;
                 font-size: 12px;
                 font-weight: 600;
@@ -410,13 +414,13 @@ export default function LeafletMap({
         `;
       } else {
         return `
-          <div style="min-width: 150px; padding: 10px; font-family: sans-serif;">
+          <div style="min-width: 150px; padding: 10px; font-family: sans-serif; background: #000; color: #fff;">
             <p style="margin: 0 0 10px 0; font-weight: 600; font-size: 14px; word-wrap: break-word;">${displayLabel}</p>
             <button id="wp-edit-${waypointIndex}" style="
               width: 100%;
               padding: 8px 12px;
-              background: #3b82f6;
-              color: white;
+              background: #fff;
+              color: #000;
               border: none;
               border-radius: 4px;
               font-size: 12px;
@@ -427,9 +431,9 @@ export default function LeafletMap({
               <button id="wp-delete-${waypointIndex}" style="
                 width: 100%;
                 padding: 8px 12px;
-                background: #ef4444;
-                color: white;
-                border: none;
+                background: transparent;
+                border: 1px solid #fff;
+                color: #fff;
                 border-radius: 4px;
                 font-size: 12px;
                 font-weight: 600;
@@ -551,7 +555,8 @@ export default function LeafletMap({
     listenerTrackerRef.current.clear();
     if (!pts.length) return;
     const latlngs = pts.map((p) => [p.lat, p.lng]) as [number, number][];
-    const poly = L.polyline(latlngs, { color: "#f18f01", weight: 4 });
+    // White route line for monochrome theme
+    const poly = L.polyline(latlngs, { color: "#ffffff", weight: 3, opacity: 0.8, dashArray: '1, 6' });
     poly.addTo(routeLayerRef.current);
     latlngs.forEach((ll, i) => {
       const emoji = i === 0 ? "🟢" : i === latlngs.length - 1 ? "🏁" : "📍";
@@ -587,7 +592,7 @@ export default function LeafletMap({
     try {
       if (!document.fullscreenElement) await el.requestFullscreen?.();
       else await document.exitFullscreen?.();
-    } catch {}
+    } catch { }
     // fix size after transition
     setTimeout(scheduleInvalidate, 120);
   }, [scheduleInvalidate]);
@@ -602,6 +607,7 @@ export default function LeafletMap({
         maxHeight: height,
         position: "relative",
         overflow: "hidden",
+        background: "#000", // Ensure black background
       }}
     >
       <div ref={mapElRef} style={{ position: "absolute", inset: 0, width: '100%', height: '100%', zIndex: 1 }} />
@@ -643,6 +649,18 @@ export default function LeafletMap({
           onClose={() => setSelectedPlace(null)}
         />
       )}
+
+      <style jsx global>{`
+        .leaflet-popup-content-wrapper, .leaflet-popup-tip {
+          background: #000 !important;
+          color: #fff !important;
+          border: 1px solid #333 !important;
+        }
+        .leaflet-container {
+          background: #000 !important;
+        }
+
+      `}</style>
     </div>
   );
 }
@@ -650,11 +668,12 @@ export default function LeafletMap({
 const btnStyle: React.CSSProperties = {
   padding: "6px 10px",
   borderRadius: 8,
-  border: "1px solid rgba(255,255,255,.25)",
-  background: "rgba(0,0,0,.75)",
+  border: "1px solid rgba(255,255,255,.2)",
+  background: "rgba(0,0,0,.6)",
   color: "white",
   fontSize: 13,
-  fontWeight: 600,
-  backdropFilter: "blur(6px)",
+  fontWeight: 500,
+  backdropFilter: "blur(4px)",
   whiteSpace: "nowrap",
+  cursor: "pointer",
 };

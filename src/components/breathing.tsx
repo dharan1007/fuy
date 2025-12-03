@@ -248,7 +248,7 @@ const breathingTechniques: BreathingTechnique[] = [
     difficulty: "Beginner",
     animationStyle: "spiral",
     reactions: { likes: 525, dislikes: 630, opinions: [] },
-    
+
   },
   {
     id: 14,
@@ -260,7 +260,7 @@ const breathingTechniques: BreathingTechnique[] = [
     difficulty: "Intermediate",
     animationStyle: "flower",
     reactions: { likes: 180, dislikes: 365, opinions: [] },
-    
+
   },
   {
     id: 15,
@@ -272,7 +272,7 @@ const breathingTechniques: BreathingTechnique[] = [
     difficulty: "Intermediate",
     animationStyle: "infinity",
     reactions: { likes: 265, dislikes: 605, opinions: [] },
-    
+
   },
   {
     id: 16,
@@ -284,7 +284,7 @@ const breathingTechniques: BreathingTechnique[] = [
     difficulty: "Beginner",
     animationStyle: "box",
     reactions: { likes: 109, dislikes: 506, opinions: [] },
-    
+
   },
   {
     id: 17,
@@ -296,7 +296,7 @@ const breathingTechniques: BreathingTechnique[] = [
     difficulty: "Advanced",
     animationStyle: "wave",
     reactions: { likes: 303, dislikes: 468, opinions: [] },
-    
+
   },
   {
     id: 18,
@@ -308,7 +308,7 @@ const breathingTechniques: BreathingTechnique[] = [
     difficulty: "Intermediate",
     animationStyle: "pulse",
     reactions: { likes: 188, dislikes: 292, opinions: [] },
-    
+
   },
   {
     id: 19,
@@ -320,7 +320,7 @@ const breathingTechniques: BreathingTechnique[] = [
     difficulty: "Beginner",
     animationStyle: "spiral",
     reactions: { likes: 287, dislikes: 246, opinions: [] },
-    
+
   },
   {
     id: 20,
@@ -332,7 +332,7 @@ const breathingTechniques: BreathingTechnique[] = [
     difficulty: "Advanced",
     animationStyle: "flower",
     reactions: { likes: 453, dislikes: 324, opinions: [] },
-    
+
   },
   {
     id: 21,
@@ -344,7 +344,7 @@ const breathingTechniques: BreathingTechnique[] = [
     difficulty: "Intermediate",
     animationStyle: "infinity",
     reactions: { likes: 396, dislikes: 254, opinions: [] },
-    
+
   },
   {
     id: 22,
@@ -356,7 +356,7 @@ const breathingTechniques: BreathingTechnique[] = [
     difficulty: "Intermediate",
     animationStyle: "box",
     reactions: { likes: 519, dislikes: 610, opinions: [] },
-    
+
   },
   {
     id: 23,
@@ -368,7 +368,7 @@ const breathingTechniques: BreathingTechnique[] = [
     difficulty: "Beginner",
     animationStyle: "wave",
     reactions: { likes: 481, dislikes: 640, opinions: [] },
-    
+
   },
   {
     id: 24,
@@ -404,7 +404,7 @@ const breathingTechniques: BreathingTechnique[] = [
     difficulty: "Beginner",
     animationStyle: "flower",
     reactions: { likes: 475, dislikes: 423, opinions: [] },
-    
+
   },
   {
     id: 27,
@@ -416,7 +416,7 @@ const breathingTechniques: BreathingTechnique[] = [
     difficulty: "Advanced",
     animationStyle: "infinity",
     reactions: { likes: 172, dislikes: 411, opinions: [] },
-    
+
   },
   {
     id: 28,
@@ -428,7 +428,7 @@ const breathingTechniques: BreathingTechnique[] = [
     difficulty: "Beginner",
     animationStyle: "box",
     reactions: { likes: 196, dislikes: 697, opinions: [] },
-    
+
   },
   {
     id: 29,
@@ -440,7 +440,7 @@ const breathingTechniques: BreathingTechnique[] = [
     difficulty: "Intermediate",
     animationStyle: "wave",
     reactions: { likes: 544, dislikes: 199, opinions: [] },
-    
+
   },
   {
     id: 30,
@@ -452,7 +452,7 @@ const breathingTechniques: BreathingTechnique[] = [
     difficulty: "Beginner",
     animationStyle: "pulse",
     reactions: { likes: 431, dislikes: 380, opinions: [] },
-    
+
   },
   {
     id: 31,
@@ -464,7 +464,7 @@ const breathingTechniques: BreathingTechnique[] = [
     difficulty: "Beginner",
     animationStyle: "spiral",
     reactions: { likes: 274, dislikes: 681, opinions: [] },
-    
+
   },
   {
     id: 32,
@@ -476,7 +476,7 @@ const breathingTechniques: BreathingTechnique[] = [
     difficulty: "Intermediate",
     animationStyle: "flower",
     reactions: { likes: 457, dislikes: 544, opinions: [] },
-    
+
   },
   {
     id: 33,
@@ -488,7 +488,7 @@ const breathingTechniques: BreathingTechnique[] = [
     difficulty: "Intermediate",
     animationStyle: "infinity",
     reactions: { likes: 260, dislikes: 638, opinions: [] },
-    
+
   },
   {
     id: 34,
@@ -500,7 +500,7 @@ const breathingTechniques: BreathingTechnique[] = [
     difficulty: "Intermediate",
     animationStyle: "box",
     reactions: { likes: 214, dislikes: 484, opinions: [] },
-    
+
   },
   {
     id: 35,
@@ -512,7 +512,7 @@ const breathingTechniques: BreathingTechnique[] = [
     difficulty: "Beginner",
     animationStyle: "wave",
     reactions: { likes: 364, dislikes: 440, opinions: [] },
-    
+
   },
   {
     id: 36,
@@ -524,7 +524,7 @@ const breathingTechniques: BreathingTechnique[] = [
     difficulty: "Intermediate",
     animationStyle: "pulse",
     reactions: { likes: 392, dislikes: 154, opinions: [] },
-    
+
   },
   {
     id: 37,
@@ -536,7 +536,7 @@ const breathingTechniques: BreathingTechnique[] = [
     difficulty: "Beginner",
     animationStyle: "spiral",
     reactions: { likes: 463, dislikes: 258, opinions: [] },
-    
+
   },
   {
     id: 38,
@@ -548,7 +548,7 @@ const breathingTechniques: BreathingTechnique[] = [
     difficulty: "Beginner",
     animationStyle: "flower",
     reactions: { likes: 236, dislikes: 400, opinions: [] },
-    
+
   },
   {
     id: 39,
@@ -560,7 +560,7 @@ const breathingTechniques: BreathingTechnique[] = [
     difficulty: "Intermediate",
     animationStyle: "infinity",
     reactions: { likes: 457, dislikes: 587, opinions: [] },
-    
+
   },
   {
     id: 40,
@@ -572,7 +572,7 @@ const breathingTechniques: BreathingTechnique[] = [
     difficulty: "Advanced",
     animationStyle: "box",
     reactions: { likes: 265, dislikes: 251, opinions: [] },
-    
+
   },
   {
     id: 41,
@@ -584,7 +584,7 @@ const breathingTechniques: BreathingTechnique[] = [
     difficulty: "Intermediate",
     animationStyle: "wave",
     reactions: { likes: 150, dislikes: 743, opinions: [] },
-    
+
   },
   {
     id: 42,
@@ -596,7 +596,7 @@ const breathingTechniques: BreathingTechnique[] = [
     difficulty: "Beginner",
     animationStyle: "pulse",
     reactions: { likes: 137, dislikes: 579, opinions: [] },
-    
+
   },
   {
     id: 43,
@@ -620,7 +620,7 @@ const breathingTechniques: BreathingTechnique[] = [
     difficulty: "Beginner",
     animationStyle: "flower",
     reactions: { likes: 553, dislikes: 596, opinions: [] },
-    
+
   },
   {
     id: 45,
@@ -632,7 +632,7 @@ const breathingTechniques: BreathingTechnique[] = [
     difficulty: "Intermediate",
     animationStyle: "infinity",
     reactions: { likes: 225, dislikes: 446, opinions: [] },
-    
+
   },
   {
     id: 46,
@@ -644,7 +644,7 @@ const breathingTechniques: BreathingTechnique[] = [
     difficulty: "Beginner",
     animationStyle: "box",
     reactions: { likes: 577, dislikes: 215, opinions: [] },
-    
+
   },
   {
     id: 47,
@@ -656,7 +656,7 @@ const breathingTechniques: BreathingTechnique[] = [
     difficulty: "Intermediate",
     animationStyle: "wave",
     reactions: { likes: 324, dislikes: 362, opinions: [] },
-    
+
   },
   {
     id: 48,
@@ -668,7 +668,7 @@ const breathingTechniques: BreathingTechnique[] = [
     difficulty: "Intermediate",
     animationStyle: "pulse",
     reactions: { likes: 120, dislikes: 542, opinions: [] },
-    
+
   },
   {
     id: 49,
@@ -680,7 +680,7 @@ const breathingTechniques: BreathingTechnique[] = [
     difficulty: "Intermediate",
     animationStyle: "spiral",
     reactions: { likes: 378, dislikes: 440, opinions: [] },
-    
+
   },
   {
     id: 50,
@@ -692,7 +692,7 @@ const breathingTechniques: BreathingTechnique[] = [
     difficulty: "Intermediate",
     animationStyle: "flower",
     reactions: { likes: 123, dislikes: 559, opinions: [] },
-    
+
   },
   {
     id: 51,
@@ -704,7 +704,7 @@ const breathingTechniques: BreathingTechnique[] = [
     difficulty: "Advanced",
     animationStyle: "infinity",
     reactions: { likes: 332, dislikes: 185, opinions: [] },
-    
+
   },
   {
     id: 52,
@@ -716,7 +716,7 @@ const breathingTechniques: BreathingTechnique[] = [
     difficulty: "Advanced",
     animationStyle: "box",
     reactions: { likes: 252, dislikes: 242, opinions: [] },
-    
+
   },
   {
     id: 53,
@@ -728,7 +728,7 @@ const breathingTechniques: BreathingTechnique[] = [
     difficulty: "Intermediate",
     animationStyle: "wave",
     reactions: { likes: 104, dislikes: 411, opinions: [] },
-    
+
   },
   {
     id: 54,
@@ -740,7 +740,7 @@ const breathingTechniques: BreathingTechnique[] = [
     difficulty: "Beginner",
     animationStyle: "pulse",
     reactions: { likes: 411, dislikes: 459, opinions: [] },
-    
+
   },
 ];
 
@@ -780,20 +780,19 @@ function ReactionIcon({
   dislikes: number;
   userLiked: boolean;
   userDisliked: boolean;
-  onLike: () => void;
-  onDislike: () => void;
-  onOpenOpinions: () => void;
+  onLike: (e: React.MouseEvent) => void;
+  onDislike: (e: React.MouseEvent) => void;
+  onOpenOpinions: (e: React.MouseEvent) => void;
 }) {
   return (
     <div className="flex gap-2">
       {/* Like Button */}
       <button
         onClick={onLike}
-        className={`cursor-target flex items-center gap-1.5 px-3 py-2 rounded-lg transition-all ${
-          userLiked
-            ? "bg-emerald-500 text-white shadow-sm"
-            : "bg-white/50 hover:bg-white/80 text-gray-700"
-        }`}
+        className={`cursor-target flex items-center gap-1.5 px-3 py-2 rounded-lg transition-all ${userLiked
+          ? "bg-emerald-500 text-white shadow-sm"
+          : "bg-white/50 hover:bg-white/80 text-gray-700"
+          }`}
       >
         <svg
           className="w-4 h-4"
@@ -814,11 +813,10 @@ function ReactionIcon({
       {/* Dislike Button */}
       <button
         onClick={onDislike}
-        className={`cursor-target flex items-center gap-1.5 px-3 py-2 rounded-lg transition-all ${
-          userDisliked
-            ? "bg-red-500 text-white shadow-sm"
-            : "bg-white/50 hover:bg-white/80 text-gray-700"
-        }`}
+        className={`cursor-target flex items-center gap-1.5 px-3 py-2 rounded-lg transition-all ${userDisliked
+          ? "bg-red-500 text-white shadow-sm"
+          : "bg-white/50 hover:bg-white/80 text-gray-700"
+          }`}
       >
         <svg
           className="w-4 h-4"
@@ -968,10 +966,10 @@ function DuplicatingDotsBackground() {
         p.age += 16; // Approximate delta time
 
         // Calculate progress (0 to 1)
-        const progress = p.age / p.duration;
+        const progress = Math.min(1, p.age / p.duration);
 
         // Size animation
-        p.size = p.maxSize * Math.sin(progress * Math.PI);
+        p.size = Math.max(0, p.maxSize * Math.sin(progress * Math.PI));
 
         // Glitch effect
         p.glitchAmount = Math.sin(p.age * 0.01) * 2;
@@ -1037,15 +1035,28 @@ function OpinionModal({
   techniqueName,
   opinions,
   onClose,
+  onAddOpinion,
 }: {
   techniqueName: string;
   opinions: string[];
   onClose: () => void;
+  onAddOpinion?: (text: string) => void;
 }) {
+  const [newOpinion, setNewOpinion] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    if (!newOpinion.trim() || !onAddOpinion) return;
+    setIsSubmitting(true);
+    await onAddOpinion(newOpinion);
+    setNewOpinion("");
+    setIsSubmitting(false);
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl max-w-md w-full max-h-[80vh] overflow-y-auto shadow-2xl animate-fadeIn">
-        <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex justify-between items-center">
+        <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex justify-between items-center z-10">
           <h2 className="text-xl font-semibold text-black">
             Opinions on "{techniqueName}"
           </h2>
@@ -1070,6 +1081,24 @@ function OpinionModal({
         </div>
 
         <div className="p-6 space-y-4">
+          {onAddOpinion && (
+            <div className="mb-6">
+              <textarea
+                value={newOpinion}
+                onChange={(e) => setNewOpinion(e.target.value)}
+                placeholder="Share your experience..."
+                className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 min-h-[80px] text-sm"
+              />
+              <button
+                onClick={handleSubmit}
+                disabled={!newOpinion.trim() || isSubmitting}
+                className="mt-2 w-full py-2 bg-emerald-500 text-white rounded-lg font-medium hover:bg-emerald-600 disabled:opacity-50 transition-colors"
+              >
+                {isSubmitting ? "Posting..." : "Post Opinion"}
+              </button>
+            </div>
+          )}
+
           {opinions.length === 0 ? (
             <p className="text-gray-600 text-center py-8">
               No opinions shared yet. Be the first to share your thoughts!
@@ -1107,15 +1136,22 @@ function BreathingCard({
   onStart: () => void;
   userLiked: boolean;
   userDisliked: boolean;
-  onLike: () => void;
-  onDislike: () => void;
-  onOpenOpinions: () => void;
+  onLike: (e: React.MouseEvent) => void;
+  onDislike: (e: React.MouseEvent) => void;
+  onOpenOpinions: (e: React.MouseEvent) => void;
 }) {
   return (
     <div className="bg-white/70 backdrop-blur border border-white/50 rounded-xl overflow-hidden hover:shadow-md transition-all duration-300 animate-fadeIn group">
-      <button
+      <div
         onClick={onToggle}
-        className="cursor-target w-full px-6 py-5 text-left hover:bg-white/50 transition-colors"
+        className="cursor-pointer w-full px-6 py-5 text-left hover:bg-white/50 transition-colors"
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            onToggle();
+          }
+        }}
       >
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1">
@@ -1134,18 +1170,27 @@ function BreathingCard({
             </div>
 
             {/* Reaction Icons */}
-            {technique.reactions && (
+            <div className="flex flex-wrap items-center gap-2">
               <ReactionIcon
                 techniqueId={technique.id}
-                likes={technique.reactions.likes}
-                dislikes={technique.reactions.dislikes}
+                likes={technique.reactions?.likes || 0}
+                dislikes={technique.reactions?.dislikes || 0}
                 userLiked={userLiked}
                 userDisliked={userDisliked}
                 onLike={onLike}
                 onDislike={onDislike}
                 onOpenOpinions={onOpenOpinions}
               />
-            )}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenOpinions(e);
+                }}
+                className="px-3 py-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 text-xs font-medium transition-colors"
+              >
+                Drop Opinion
+              </button>
+            </div>
           </div>
           <div className="text-gray-400 flex-shrink-0">
             {isExpanded ? (
@@ -1159,7 +1204,7 @@ function BreathingCard({
             )}
           </div>
         </div>
-      </button>
+      </div>
 
       {isExpanded && (
         <div className="border-t border-white/40 px-6 py-6 bg-white/50 space-y-5">
@@ -1635,6 +1680,8 @@ function ActiveBreathingSession({
   );
 }
 
+
+
 export function BreathingSession() {
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -1657,8 +1704,59 @@ export function BreathingSession() {
     return () => window.removeEventListener("mousemove", handleMouseMove);
   }, []);
 
+  const [techniquesData, setTechniquesData] = useState<BreathingTechnique[]>(breathingTechniques);
+
+  // Fetch reactions on mount
+  useEffect(() => {
+    const fetchReactions = async () => {
+      const updatedTechniques = await Promise.all(
+        breathingTechniques.map(async (tech) => {
+          try {
+            const res = await fetch(`/api/breathing/reactions?techniqueId=${tech.id}`);
+            if (res.ok) {
+              const data = await res.json();
+              return {
+                ...tech,
+                reactions: {
+                  likes: data.likes,
+                  dislikes: data.dislikes,
+                  opinions: data.opinions,
+                },
+              };
+            }
+          } catch (e) {
+            console.error(`Failed to fetch reactions for ${tech.id}`, e);
+          }
+          return tech;
+        })
+      );
+      setTechniquesData(updatedTechniques);
+
+      // Also fetch user reactions
+      const userReactionsMap = new Map<number, "like" | "dislike" | null>();
+      await Promise.all(
+        breathingTechniques.map(async (tech) => {
+          try {
+            const res = await fetch(`/api/breathing/reactions?techniqueId=${tech.id}`);
+            if (res.ok) {
+              const data = await res.json();
+              if (data.userReaction) {
+                userReactionsMap.set(tech.id, data.userReaction.toLowerCase() as "like" | "dislike");
+              }
+            }
+          } catch (e) {
+            // ignore
+          }
+        })
+      );
+      setUserReactions(userReactionsMap);
+    };
+
+    fetchReactions();
+  }, []);
+
   // Filter techniques
-  let filteredTechniques = breathingTechniques.filter((tech) => {
+  let filteredTechniques = techniquesData.filter((tech) => {
     const matchesSearch =
       searchQuery === "" ||
       tech.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -1684,7 +1782,7 @@ export function BreathingSession() {
 
   // Get unique categories
   const categories = Array.from(
-    new Set(breathingTechniques.map((t) => t.category).filter((c): c is string => Boolean(c)))
+    new Set(techniquesData.map((t) => t.category).filter((c): c is string => Boolean(c)))
   );
 
   const scrollHorizontally = (dir: "left" | "right") => {
@@ -1696,36 +1794,133 @@ export function BreathingSession() {
     });
   };
 
-  const handleLike = (techniqueId: number) => {
+  const handleLike = async (techniqueId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    // Optimistic update for user reaction
     setUserReactions((prev) => {
       const newReactions = new Map(prev);
       const currentReaction = newReactions.get(techniqueId);
-
       if (currentReaction === "like") {
-        // Toggle off - remove the like
         newReactions.delete(techniqueId);
       } else {
-        // Set to like
         newReactions.set(techniqueId, "like");
       }
       return newReactions;
     });
+
+    // Optimistic update for counts
+    setTechniquesData(prev => prev.map(t => {
+      if (t.id !== techniqueId) return t;
+      const currentReaction = userReactions.get(techniqueId);
+      let newLikes = t.reactions?.likes || 0;
+      let newDislikes = t.reactions?.dislikes || 0;
+
+      if (currentReaction === "like") {
+        // Removing like
+        newLikes--;
+      } else if (currentReaction === "dislike") {
+        // Switching from dislike to like
+        newDislikes--;
+        newLikes++;
+      } else {
+        // Adding like
+        newLikes++;
+      }
+      return { ...t, reactions: { ...t.reactions!, likes: newLikes, dislikes: newDislikes } };
+    }));
+
+    try {
+      await fetch("/api/breathing/reactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ techniqueId, type: "LIKE" }),
+      });
+    } catch (error) {
+      console.error("Failed to like:", error);
+    }
   };
 
-  const handleDislike = (techniqueId: number) => {
+  const handleDislike = async (techniqueId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    // Optimistic update for user reaction
     setUserReactions((prev) => {
       const newReactions = new Map(prev);
       const currentReaction = newReactions.get(techniqueId);
-
       if (currentReaction === "dislike") {
-        // Toggle off - remove the dislike
         newReactions.delete(techniqueId);
       } else {
-        // Set to dislike
         newReactions.set(techniqueId, "dislike");
       }
       return newReactions;
     });
+
+    // Optimistic update for counts
+    setTechniquesData(prev => prev.map(t => {
+      if (t.id !== techniqueId) return t;
+      const currentReaction = userReactions.get(techniqueId);
+      let newLikes = t.reactions?.likes || 0;
+      let newDislikes = t.reactions?.dislikes || 0;
+
+      if (currentReaction === "dislike") {
+        // Removing dislike
+        newDislikes--;
+      } else if (currentReaction === "like") {
+        // Switching from like to dislike
+        newLikes--;
+        newDislikes++;
+      } else {
+        // Adding dislike
+        newDislikes++;
+      }
+      return { ...t, reactions: { ...t.reactions!, likes: newLikes, dislikes: newDislikes } };
+    }));
+
+    try {
+      await fetch("/api/breathing/reactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ techniqueId, type: "DISLIKE" }),
+      });
+    } catch (error) {
+      console.error("Failed to dislike:", error);
+    }
+  };
+
+  const handleDropOpinion = async (techniqueId: number, content: string) => {
+    // Optimistic update
+    setTechniquesData(prev => prev.map(t => {
+      if (t.id !== techniqueId) return t;
+      return {
+        ...t,
+        reactions: {
+          ...t.reactions!,
+          opinions: [content, ...(t.reactions?.opinions || [])]
+        }
+      };
+    }));
+
+    // Update selected technique if open
+    if (selectedOpinionTechnique && selectedOpinionTechnique.id === techniqueId) {
+      setSelectedOpinionTechnique(prev => prev ? ({
+        ...prev,
+        reactions: {
+          ...prev.reactions!,
+          opinions: [content, ...(prev.reactions?.opinions || [])]
+        }
+      }) : null);
+    }
+
+    try {
+      await fetch("/api/breathing/reactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ techniqueId, type: "OPINION", content }),
+      });
+    } catch (error) {
+      console.error("Failed to drop opinion:", error);
+    }
   };
 
   // Show active session if a technique has been selected
@@ -1890,94 +2085,37 @@ export function BreathingSession() {
                 );
               })}
             </div>
-
-            {/* Scroll arrows */}
-            <button
-              onClick={() => scrollHorizontally("left")}
-              className="cursor-target absolute left-0 top-1/2 -translate-y-1/2 -ml-4 z-20 hidden md:flex items-center justify-center w-8 h-8 rounded-full bg-white/70 backdrop-blur border border-white/50 hover:bg-white"
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <path d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <button
-              onClick={() => scrollHorizontally("right")}
-              className="cursor-target absolute right-0 top-1/2 -translate-y-1/2 -mr-4 z-20 hidden md:flex items-center justify-center w-8 h-8 rounded-full bg-white/70 backdrop-blur border border-white/50 hover:bg-white"
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <path d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
           </div>
-        </div>
-
-        {/* Results Count */}
-        <div className="mb-6 text-sm text-gray-600">
-          Showing {filteredTechniques.length} of {breathingTechniques.length}{" "}
-          techniques
         </div>
 
         {/* Techniques Grid */}
-        {filteredTechniques.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-7 mb-12">
-            {filteredTechniques.map((technique) => (
-              <BreathingCard
-                key={technique.id}
-                technique={technique}
-                isExpanded={expandedId === technique.id}
-                onToggle={() =>
-                  setExpandedId(expandedId === technique.id ? null : technique.id)
-                }
-                onStart={() => setSessionTechnique(technique)}
-                userLiked={userReactions.get(technique.id) === "like"}
-                userDisliked={userReactions.get(technique.id) === "dislike"}
-                onLike={() => handleLike(technique.id)}
-                onDislike={() => handleDislike(technique.id)}
-                onOpenOpinions={() => setSelectedOpinionTechnique(technique)}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-16">
-            <svg
-              className="w-16 h-16 mx-auto text-gray-300 mb-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            <p className="text-gray-500 text-lg">
-              No breathing techniques found matching your search.
-            </p>
-          </div>
-        )}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredTechniques.map((tech) => (
+            <BreathingCard
+              key={tech.id}
+              technique={tech}
+              isExpanded={expandedId === tech.id}
+              onToggle={() => setExpandedId(expandedId === tech.id ? null : tech.id)}
+              onStart={() => setSessionTechnique(tech)}
+              userLiked={userReactions.get(tech.id) === "like"}
+              userDisliked={userReactions.get(tech.id) === "dislike"}
+              onLike={(e) => handleLike(tech.id, e)}
+              onDislike={(e) => handleDislike(tech.id, e)}
+              onOpenOpinions={(e) => {
+                e.stopPropagation();
+                setSelectedOpinionTechnique(tech);
+              }}
+            />
+          ))}
+        </div>
 
         {/* Opinion Modal */}
-        {selectedOpinionTechnique && selectedOpinionTechnique.reactions && (
+        {selectedOpinionTechnique && (
           <OpinionModal
             techniqueName={selectedOpinionTechnique.name}
-            opinions={selectedOpinionTechnique.reactions.opinions}
+            opinions={selectedOpinionTechnique.reactions?.opinions || []}
             onClose={() => setSelectedOpinionTechnique(null)}
+            onAddOpinion={(content) => handleDropOpinion(selectedOpinionTechnique.id, content)}
           />
         )}
       </div>

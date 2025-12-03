@@ -137,18 +137,18 @@ export default function ShopPage() {
   return (
     <div className="min-h-screen bg-white text-black font-sans">
       {/* Navigation / Header */}
-      <nav className="flex items-center justify-between px-6 py-4 border-b border-gray-100 sticky top-0 bg-white/80 backdrop-blur-md z-50">
+      <nav className="flex items-center justify-between px-6 py-4 border-b border-white/10 sticky top-0 bg-black/90 backdrop-blur-md z-50 text-white">
         <div className="flex items-center gap-4">
-          <Link href="/" className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+          <Link href="/" className="p-2 hover:bg-white/10 rounded-full transition-colors">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
           </Link>
           <div className="text-2xl font-black tracking-tighter">STORE.</div>
         </div>
 
-        <div className="hidden md:flex gap-6 text-sm font-medium text-gray-500">
-          <Link href="#courses" className="hover:text-black transition-colors">Courses</Link>
-          <Link href="#books" className="hover:text-black transition-colors">Books</Link>
-          <Link href="#templates" className="hover:text-black transition-colors">Templates</Link>
+        <div className="hidden md:flex gap-6 text-sm font-medium text-gray-400">
+          <Link href="#courses" className="hover:text-white transition-colors">Courses</Link>
+          <Link href="#books" className="hover:text-white transition-colors">Books</Link>
+          <Link href="#templates" className="hover:text-white transition-colors">Templates</Link>
         </div>
         <div className="flex items-center gap-4">
           <div className="relative hidden sm:block">
@@ -156,26 +156,26 @@ export default function ShopPage() {
               placeholder="Search..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="bg-gray-100 px-4 py-2 pl-10 rounded-full text-sm outline-none focus:ring-2 focus:ring-black/5 w-48 focus:w-64 transition-all"
+              className="bg-white/10 px-4 py-2 pl-10 rounded-full text-sm outline-none focus:ring-2 focus:ring-white/20 w-48 focus:w-64 transition-all text-white placeholder-gray-500"
             />
             <svg className="absolute left-3 top-2.5 text-gray-400" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
           </div>
 
-          <Link href="/shop/sell" className="px-4 py-2 bg-black text-white rounded-full font-medium hover:text-red-500 transition-colors flex items-center gap-2">
+          <Link href="/shop/sell" className="px-4 py-2 bg-white text-black rounded-full font-medium hover:bg-gray-200 transition-colors flex items-center gap-2">
             <ShoppingBag className="w-4 h-4" />
             Sell on FUY
           </Link>
 
-          <Link href="/dashboard/purchases" className="hidden sm:block px-4 py-2 border border-gray-200 text-black text-sm font-bold rounded-full hover:bg-gray-50 transition-colors">
+          <Link href="/dashboard/purchases" className="hidden sm:block px-4 py-2 border border-white/20 text-white text-sm font-bold rounded-full hover:bg-white/10 transition-colors">
             My Library
           </Link>
 
           {myBrands.length > 0 ? (
-            <Link href={`/shop/brand/${myBrands[0].slug}/dashboard`} className="hidden sm:block px-4 py-2 border border-black text-black text-sm font-bold rounded-full hover:bg-gray-50 transition-colors">
+            <Link href={`/shop/brand/${myBrands[0].slug}/dashboard`} className="hidden sm:block px-4 py-2 border border-white text-white text-sm font-bold rounded-full hover:bg-white/10 transition-colors">
               Brand Dashboard
             </Link>
           ) : (
-            <Link href="/shop/create-brand" className="hidden sm:block px-4 py-2 bg-black text-white text-sm font-bold rounded-full hover:bg-gray-800 transition-colors">
+            <Link href="/shop/create-brand" className="hidden sm:block px-4 py-2 bg-white text-black text-sm font-bold rounded-full hover:bg-gray-200 transition-colors">
               Create Brand
             </Link>
           )}

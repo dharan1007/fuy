@@ -55,7 +55,7 @@ export default function AppHeader({ title, showBackButton = false, showSettingsA
   }
 
   return (
-    <header className="sticky top-0 z-50 bg-white/80 dark:bg-neutral-800/80 backdrop-blur-lg border-b border-gray-200 dark:border-neutral-700">
+    <header className="sticky top-0 z-50 bg-black/90 backdrop-blur-lg border-b border-white/10">
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
         <div className="flex justify-between items-center h-14 sm:h-16">
           {/* Left side - Brand + Back button and Title */}
@@ -72,7 +72,7 @@ export default function AppHeader({ title, showBackButton = false, showSettingsA
             {showBackButton && (
               <button
                 onClick={handleBack}
-                className="p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 transition-colors text-gray-900 dark:text-white"
+                className="p-1.5 sm:p-2 rounded-lg hover:bg-white/10 transition-colors text-white"
                 title="Go back"
               >
                 <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -80,7 +80,7 @@ export default function AppHeader({ title, showBackButton = false, showSettingsA
                 </svg>
               </button>
             )}
-            {title && <h1 className="text-base sm:text-lg md:text-xl font-semibold text-gray-900 dark:text-white truncate">{title}</h1>}
+            {title && <h1 className="text-base sm:text-lg md:text-xl font-semibold text-white truncate">{title}</h1>}
           </div>
 
           {/* Right side - Navigation and Actions */}
@@ -89,7 +89,7 @@ export default function AppHeader({ title, showBackButton = false, showSettingsA
             {pathname !== "/" && (
               <Link
                 href="/"
-                className="p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 transition-colors text-gray-900 dark:text-white"
+                className="p-1.5 sm:p-2 rounded-lg hover:bg-white/10 transition-colors text-white"
                 title="Home"
               >
                 <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -102,7 +102,7 @@ export default function AppHeader({ title, showBackButton = false, showSettingsA
             {session && pathname !== "/profile" && (
               <Link
                 href="/profile"
-                className="p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 transition-colors text-gray-900 dark:text-white"
+                className="p-1.5 sm:p-2 rounded-lg hover:bg-white/10 transition-colors text-white"
                 title="Profile"
               >
                 <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -115,7 +115,7 @@ export default function AppHeader({ title, showBackButton = false, showSettingsA
             {session && pathname !== "/chat" && (
               <Link
                 href="/chat"
-                className="p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 transition-colors text-gray-900 dark:text-white"
+                className="p-1.5 sm:p-2 rounded-lg hover:bg-white/10 transition-colors text-white"
                 title="Messages"
               >
                 <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -128,7 +128,7 @@ export default function AppHeader({ title, showBackButton = false, showSettingsA
             {!hideShopAndCart && pathname !== "/shop" && (
               <Link
                 href="/shop"
-                className="p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 transition-colors text-gray-900 dark:text-white"
+                className="p-1.5 sm:p-2 rounded-lg hover:bg-white/10 transition-colors text-white"
                 title="Shop"
               >
                 <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -141,7 +141,7 @@ export default function AppHeader({ title, showBackButton = false, showSettingsA
             {!hideShopAndCart && pathname !== "/cart" && (
               <Link
                 href="/cart"
-                className="relative p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 transition-colors text-gray-900 dark:text-white"
+                className="relative p-1.5 sm:p-2 rounded-lg hover:bg-white/10 transition-colors text-white"
                 title="Shopping Cart"
               >
                 <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -159,7 +159,7 @@ export default function AppHeader({ title, showBackButton = false, showSettingsA
             {session && (
               <Link
                 href="/notifications"
-                className="relative p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 transition-colors text-gray-900 dark:text-white"
+                className="relative p-1.5 sm:p-2 rounded-lg hover:bg-white/10 transition-colors text-white"
                 title="Notifications"
                 onClick={() => setUnreadCount(0)}
               >
@@ -178,7 +178,7 @@ export default function AppHeader({ title, showBackButton = false, showSettingsA
             {showSettingsAndLogout && (
               <Link
                 href="/settings"
-                className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 transition-colors text-gray-900 dark:text-white"
+                className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg hover:bg-white/10 transition-colors text-white"
                 title="Settings"
               >
                 <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
