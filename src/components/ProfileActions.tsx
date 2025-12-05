@@ -20,7 +20,7 @@ export default function ProfileActions({ targetUserId, initialStatus, isPrivate 
             const res = await fetch("/api/friends/request", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ targetUserId }),
+                body: JSON.stringify({ friendId: targetUserId }),
             });
             if (res.ok) {
                 setStatus("PENDING");
