@@ -1,5 +1,5 @@
 import { logger } from "@/lib/logger";
-import { pusherServer } from "@/lib/pusher";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 // src/app/api/chat/messages/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
@@ -176,10 +176,12 @@ export async function POST(req: Request) {
     }
 
     // Trigger Pusher event
-    await pusherServer.trigger(
-      `conversation-${conversationId}`,
-      "message:new",
-      {
+    // Trigger Supabase Broadcast event
+    const channel = supabaseAdmin.channel(`conversation:${conversationId}`);
+    await channel.send({
+      type: 'broadcast',
+      event: 'message:new',
+      payload: {
         id: message.id,
         conversationId,
         senderId: userId,
@@ -188,8 +190,11 @@ export async function POST(req: Request) {
         content: message.content,
         timestamp: message.createdAt.getTime(),
         read: false,
-      }
-    );
+      },
+    });
+
+    // Clean up channel (optional but good practice if persistent)
+    supabaseAdmin.removeChannel(channel);
 
     return NextResponse.json({ message }, { status: 201 });
   } catch (error: any) {

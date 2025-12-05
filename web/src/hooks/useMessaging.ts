@@ -50,12 +50,38 @@ export function useMessaging() {
   const [error, setError] = useState<string | null>(null);
   const subscribedChannels = useRef<Set<string>>(new Set());
 
-  // Subscribe to conversation channels using Supabase Realtime
+  // Subscribe to conversation channels using Supabase Realtime (Broadcast + Presence)
   useEffect(() => {
     if (!session?.user || conversations.length === 0) return;
 
     const channels: any[] = [];
+    const userId = (session.user as any).id;
 
+    // 1. Global Presence Channel for Online Status
+    const globalChannel = supabase.channel('online-users')
+      .on('presence', { event: 'sync' }, () => {
+        const newState = globalChannel.presenceState();
+        const onlineIds = new Set<string>();
+
+        Object.keys(newState).forEach(key => {
+          // Presence key is usually userId if we set it that way, or we inspect the payload
+          // Assuming we track by userId
+          newState[key].forEach((presence: any) => {
+            if (presence.userId) onlineIds.add(presence.userId);
+          });
+        });
+
+        setOnlineUsers(onlineIds);
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await globalChannel.track({ userId: userId, onlineAt: new Date().toISOString() });
+        }
+      });
+
+    channels.push(globalChannel);
+
+    // 2. Conversation Channels for Messages (Broadcast)
     conversations.forEach((conv) => {
       const channelId = `conversation:${conv.id}`;
 
@@ -65,33 +91,19 @@ export function useMessaging() {
         const channel = supabase
           .channel(channelId)
           .on(
-            'postgres_changes',
-            {
-              event: 'INSERT',
-              schema: 'public',
-              table: 'Message',
-              filter: `conversationId=eq.${conv.id}`,
-            },
+            'broadcast',
+            { event: 'message:new' },
             (payload: any) => {
-              const newMessage = payload.new;
-
-              // We need to fetch sender details or optimistically add them if we know the sender
-              // For now, we'll try to construct it from payload or fetch if needed.
-              // Since payload.new only has raw DB columns, we might miss senderName.
-              // A robust solution fetches the full message or we rely on the fact that 
-              // if I sent it, I know me, if they sent it, I know them (participant).
-
-              const isMe = newMessage.senderId === (session.user as any).id;
-              const senderName = isMe ? 'You' : conv.participantName; // Simplified
+              const newMessage = payload.payload; // Broadcast payload is wrapped
 
               const formattedMessage: Message = {
                 id: newMessage.id,
                 conversationId: newMessage.conversationId,
                 senderId: newMessage.senderId,
-                senderName: senderName,
+                senderName: newMessage.senderName,
                 content: newMessage.content,
-                timestamp: new Date(newMessage.createdAt).getTime(),
-                read: newMessage.readAt !== null,
+                timestamp: newMessage.timestamp,
+                read: newMessage.read,
               };
 
               setMessages((prev) => ({
@@ -103,7 +115,7 @@ export function useMessaging() {
               setConversations((prev) =>
                 prev.map(c =>
                   c.id === newMessage.conversationId
-                    ? { ...c, lastMessage: newMessage.content, lastMessageTime: new Date(newMessage.createdAt).getTime() }
+                    ? { ...c, lastMessage: newMessage.content, lastMessageTime: newMessage.timestamp }
                     : c
                 )
               );
@@ -116,9 +128,9 @@ export function useMessaging() {
     });
 
     return () => {
-      // Cleanup is tricky with React Strict Mode and multiple mounting.
-      // For now, we rely on Supabase client handling multiple subscriptions or explicit cleanup if needed.
-      // channels.forEach(channel => supabase.removeChannel(channel));
+      // Cleanup
+      channels.forEach(channel => supabase.removeChannel(channel));
+      subscribedChannels.current.clear();
     };
   }, [conversations, session?.user]);
 
