@@ -4,11 +4,22 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUserId } from '@/lib/session';
 import { createClient } from '@supabase/supabase-js';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+// Initialize R2 Client
+const r2 = new S3Client({
+  region: 'auto',
+  endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+  credentials: {
+    accessKeyId: process.env.R2_ACCESS_KEY_ID || '',
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || '',
+  },
+});
 
 const FILE_SIZE_LIMITS = {
   image: 10 * 1024 * 1024, // 10MB
@@ -61,11 +72,47 @@ export async function POST(req: NextRequest) {
     const ext = file.name.split('.').pop();
     const filename = `${userId}/${type}s/${timestamp}-${randomStr}.${ext}`;
 
-    // Convert File to ArrayBuffer then to Buffer for Supabase
+    // Convert File to Buffer
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // Upload to Supabase
+    // --- HYBRID UPLOAD STRATEGY ---
+
+    // 1. IF VIDEO OR AUDIO -> Upload to Cloudflare R2
+    // This covers "Fills" (Video), "Chans" (Video), and "Auds" (Audio)
+    if (type === 'video' || type === 'audio') {
+      try {
+        await r2.send(new PutObjectCommand({
+          Bucket: process.env.R2_BUCKET_NAME,
+          Key: filename,
+          Body: buffer,
+          ContentType: file.type,
+        }));
+
+        // Construct Public URL
+        const publicDomain = process.env.R2_PUBLIC_DOMAIN || '';
+        const publicUrl = publicDomain ? `${publicDomain}/${filename}` : '';
+
+        if (!publicUrl) {
+          console.warn('R2_PUBLIC_DOMAIN not set, returning empty URL');
+        }
+
+        return NextResponse.json({
+          success: true,
+          url: publicUrl,
+          path: filename,
+          type,
+          size: file.size,
+          provider: 'r2'
+        });
+
+      } catch (r2Error: any) {
+        console.error('R2 Upload Error:', r2Error);
+        return NextResponse.json({ error: `${type} upload failed` }, { status: 500 });
+      }
+    }
+
+    // 2. IF IMAGE -> Upload to Supabase Storage
     const { data, error } = await supabase.storage
       .from('media')
       .upload(filename, buffer, {
@@ -90,7 +137,9 @@ export async function POST(req: NextRequest) {
       path: filename,
       type,
       size: file.size,
+      provider: 'supabase'
     });
+
   } catch (error: any) {
     console.error('Upload error:', error);
     return NextResponse.json(
