@@ -11,6 +11,7 @@ interface Message {
   content: string;
   timestamp: number;
   read: boolean;
+  status?: 'sending' | 'sent' | 'failed';
 }
 
 interface Conversation {
@@ -49,6 +50,104 @@ export function useMessaging() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const subscribedChannels = useRef<Set<string>>(new Set());
+
+  const addOptimisticMessage = useCallback((message: Message) => {
+    setMessages((prev) => ({
+      ...prev,
+      [message.conversationId]: [...(prev[message.conversationId] || []), message],
+    }));
+
+    // Update conversation last message immediately
+    setConversations((prev) =>
+      prev.map(c =>
+        c.id === message.conversationId
+          ? { ...c, lastMessage: message.content, lastMessageTime: message.timestamp }
+          : c
+      )
+    );
+  }, []);
+
+  const sendMessage = useCallback(async (conversationId: string, content: string) => {
+    if (!session?.user) return;
+
+    // 1. Add Optimistic Message
+    const tempId = Date.now().toString();
+    const optimisticMessage: Message = {
+      id: tempId,
+      conversationId,
+      senderId: (session.user as any).id,
+      senderName: 'You',
+      content,
+      timestamp: Date.now(),
+      read: true,
+      status: 'sending',
+    };
+    addOptimisticMessage(optimisticMessage);
+
+    try {
+      // 2. Send to API
+      const response = await fetch('/api/chat/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversationId, content }),
+      });
+
+      if (!response.ok) throw new Error('Failed to send');
+
+      // Success is handled by subscription, but we can mark as sent if we want immediate feedback before broadcast
+      // For now, let's rely on broadcast to replace it (which removes 'sending' status effectively as new msg won't have it)
+
+    } catch (err) {
+      console.error('Failed to send message:', err);
+      // Mark message as failed
+      setMessages((prev) => ({
+        ...prev,
+        [conversationId]: (prev[conversationId] || []).map(m =>
+          m.id === tempId ? { ...m, status: 'failed' } : m
+        ),
+      }));
+    }
+  }, [session?.user, addOptimisticMessage]);
+
+  const startTyping = useCallback(async (conversationId: string) => {
+    if (!session?.user) return;
+    const channel = supabase.channel(`conversation:${conversationId}`);
+    await channel.send({
+      type: 'broadcast',
+      event: 'typing:start',
+      payload: { userId: (session.user as any).id, name: (session.user as any).name || 'User' },
+    });
+  }, [session?.user]);
+
+  const stopTyping = useCallback(async (conversationId: string) => {
+    if (!session?.user) return;
+    const channel = supabase.channel(`conversation:${conversationId}`);
+    await channel.send({
+      type: 'broadcast',
+      event: 'typing:stop',
+      payload: { userId: (session.user as any).id, name: (session.user as any).name || 'User' },
+    });
+  }, [session?.user]);
+
+  const deleteConversation = useCallback(async (conversationId: string) => {
+    // 1. Optimistic Update
+    const previousConversations = conversations;
+    setConversations((prev) => prev.filter(c => c.id !== conversationId));
+
+    try {
+      // 2. API Call
+      const response = await fetch(`/api/chat/conversations?id=${conversationId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) throw new Error('Failed to delete conversation');
+    } catch (err) {
+      console.error('Failed to delete conversation:', err);
+      // 3. Rollback on error
+      setConversations(previousConversations);
+      // TODO: Show error toast
+    }
+  }, [conversations]);
 
   // Subscribe to conversation channels using Supabase Realtime (Broadcast + Presence)
   useEffect(() => {
@@ -96,20 +195,50 @@ export function useMessaging() {
             (payload: any) => {
               const newMessage = payload.payload; // Broadcast payload is wrapped
 
-              const formattedMessage: Message = {
-                id: newMessage.id,
-                conversationId: newMessage.conversationId,
-                senderId: newMessage.senderId,
-                senderName: newMessage.senderName,
-                content: newMessage.content,
-                timestamp: newMessage.timestamp,
-                read: newMessage.read,
-              };
+              setMessages((prev) => {
+                const currentMessages = prev[newMessage.conversationId] || [];
 
-              setMessages((prev) => ({
-                ...prev,
-                [newMessage.conversationId]: [...(prev[newMessage.conversationId] || []), formattedMessage],
-              }));
+                // Check for duplicate by ID
+                if (currentMessages.some(m => m.id === newMessage.id)) {
+                  return prev;
+                }
+
+                // Check for duplicate by content + timestamp (approximate for optimistic)
+                // If we find a message with same content sent by me within last 2 seconds, assume it's the one we just sent
+                const isMe = newMessage.senderId === userId;
+                if (isMe) {
+                  const recentOptimistic = currentMessages.find(m =>
+                    m.senderId === userId &&
+                    m.content === newMessage.content &&
+                    Math.abs(m.timestamp - newMessage.timestamp) < 2000
+                  );
+
+                  if (recentOptimistic) {
+                    // Replace optimistic with real one (updates ID)
+                    return {
+                      ...prev,
+                      [newMessage.conversationId]: currentMessages.map(m =>
+                        m.id === recentOptimistic.id ? { ...newMessage, read: true } : m
+                      )
+                    };
+                  }
+                }
+
+                const formattedMessage: Message = {
+                  id: newMessage.id,
+                  conversationId: newMessage.conversationId,
+                  senderId: newMessage.senderId,
+                  senderName: newMessage.senderName,
+                  content: newMessage.content,
+                  timestamp: newMessage.timestamp,
+                  read: newMessage.read,
+                };
+
+                return {
+                  ...prev,
+                  [newMessage.conversationId]: [...currentMessages, formattedMessage],
+                };
+              });
 
               // Update conversation last message
               setConversations((prev) =>
@@ -119,6 +248,46 @@ export function useMessaging() {
                     : c
                 )
               );
+            }
+          )
+          .on(
+            'broadcast',
+            { event: 'typing:start' },
+            (payload: any) => {
+              const { userId, name } = payload.payload;
+              if (userId === (session?.user as any)?.id) return; // Ignore self
+
+              setTypingUsers((prev) => {
+                const current = prev[conv.id] || new Set();
+                const next = new Set(current);
+                next.add(name);
+                return { ...prev, [conv.id]: next };
+              });
+
+              // Auto-clear after 3 seconds
+              setTimeout(() => {
+                setTypingUsers((prev) => {
+                  const current = prev[conv.id] || new Set();
+                  const next = new Set(current);
+                  next.delete(name);
+                  return { ...prev, [conv.id]: next };
+                });
+              }, 3000);
+            }
+          )
+          .on(
+            'broadcast',
+            { event: 'typing:stop' },
+            (payload: any) => {
+              const { userId, name } = payload.payload;
+              if (userId === (session?.user as any)?.id) return;
+
+              setTypingUsers((prev) => {
+                const current = prev[conv.id] || new Set();
+                const next = new Set(current);
+                next.delete(name);
+                return { ...prev, [conv.id]: next };
+              });
             }
           )
           .subscribe();
@@ -132,7 +301,7 @@ export function useMessaging() {
       channels.forEach(channel => supabase.removeChannel(channel));
       subscribedChannels.current.clear();
     };
-  }, [conversations, session?.user]);
+  }, [conversations, session?.user, addOptimisticMessage]);
 
   // Fetch initial data
   useEffect(() => {
@@ -228,28 +397,7 @@ export function useMessaging() {
     }
   }, []);
 
-  const sendMessage = useCallback(async (conversationId: string, content: string) => {
-    if (!session?.user) return;
-    try {
-      await fetch('/api/chat/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ conversationId, content }),
-      });
-      // Realtime subscription will handle the UI update
-    } catch (err) {
-      console.error('Failed to send message:', err);
-    }
-  }, [session?.user]);
 
-  const startTyping = useCallback(async (conversationId: string) => {
-    // Typing indicators with Supabase Realtime Presence could be implemented here
-    // For now, we'll skip or implement later as it requires Presence setup
-  }, []);
-
-  const stopTyping = useCallback(async (conversationId: string) => {
-    // Typing indicators cleanup
-  }, []);
 
   const createOrGetConversation = useCallback(async (friendId: string) => {
     try {
@@ -307,7 +455,10 @@ export function useMessaging() {
     sendMessage,
     startTyping,
     stopTyping,
+    deleteConversation,
     createOrGetConversation,
     getAllChatUsers,
+    addOptimisticMessage, // Export this
   };
 }
+

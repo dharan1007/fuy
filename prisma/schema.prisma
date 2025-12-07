@@ -98,6 +98,7 @@ model User {
   payments       Payment[] // Razorpay payments
 
   // --- User Marketplace ---
+  profileCard    ProfileCard?
   productsSold Product[]     @relation("ProductsSold")
   productViews ProductView[] @relation("ProductViews")
 
@@ -1572,4 +1573,22 @@ model AIChatMessage {
 
   @@index([sessionId])
   @@index([createdAt])
+}
+
+// ------------------------
+// Profile Cards
+// ------------------------
+
+model ProfileCard {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  uniqueCode String  @unique // 7-digit alphanumeric code
+  content   String   // JSON: stores sections, questions, and answers
+  theme     String?  // e.g. "dark", "glass", "sunset"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([uniqueCode])
 }

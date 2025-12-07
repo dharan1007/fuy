@@ -9,6 +9,8 @@ import UserListModal from "@/components/UserListModal";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
+import { signOut } from "next-auth/react";
+
 type Media = { type: "IMAGE" | "VIDEO" | "AUDIO"; url: string };
 type Post = { id: string; content: string; visibility: string; feature: string; createdAt: string; media: Media[] };
 

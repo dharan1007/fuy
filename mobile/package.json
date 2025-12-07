@@ -9,14 +9,20 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/netinfo": "^11.4.1",
     "@react-navigation/bottom-tabs": "^7.8.6",
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.4.2",
+    "@supabase/supabase-js": "^2.86.2",
     "clsx": "^2.1.1",
     "crypto-js": "^4.2.0",
     "expo": "~54.0.25",
     "expo-blur": "~15.0.7",
     "expo-constants": "~18.0.10",
     "expo-crypto": "~15.0.7",
+    "expo-gl": "^16.0.8",
+    "expo-image-picker": "~17.0.9",
     "expo-linear-gradient": "~15.0.7",
     "expo-linking": "~8.0.9",
     "expo-router": "~6.0.15",
@@ -24,15 +30,16 @@
     "expo-status-bar": "~3.0.8",
     "lucide-react-native": "^0.554.0",
     "nativewind": "^4.2.1",
-    "pusher-js": "^8.4.0",
     "react": "19.1.0",
     "react-native": "0.81.5",
     "react-native-reanimated": "~3.16.1",
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
     "react-native-svg": "15.12.1",
+    "react-native-url-polyfill": "^3.0.0",
     "tailwind-merge": "^3.4.0",
-    "tailwindcss": "^3.4.14"
+    "tailwindcss": "^3.4.14",
+    "three": "^0.181.2"
   },
   "private": true
 }

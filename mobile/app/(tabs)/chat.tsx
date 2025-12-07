@@ -1,23 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, ScrollView, TouchableOpacity, Image, Modal, Animated, Dimensions, FlatList } from 'react-native';
+import { View, Text, TextInput, ScrollView, TouchableOpacity, Image, Modal, Animated, Dimensions, FlatList, ActivityIndicator, Alert, BackHandler } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Mic, Send, Search, Settings, MoreVertical, Phone, Video, Image as ImageIcon, Smile, X, ChevronLeft, Sparkles, User, Heart, Zap, Moon, Sun } from 'lucide-react-native';
+import { useRouter, useNavigation } from 'expo-router';
+import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
+import { Mic, Send, Search, Settings, MoreVertical, Phone, Video, Image as ImageIcon, Smile, X, ChevronLeft, Sparkles, User as UserIcon, Sun, Moon, Anchor, Heart, Map as MapIcon, Book, Plus } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Pusher from 'pusher-js/react-native';
-
-import Constants from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from '../../lib/supabase';
+import { useNavVisibility } from '../../context/NavContext';
 
 const { width } = Dimensions.get('window');
 
-const getApiUrl = () => {
-    return process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org';
-};
-
-const API_URL = getApiUrl();
-
 type PersonaType = 'friend' | 'therapist' | 'coach' | 'mystic';
-type ThemeMode = 'light' | 'dark' | 'cosmic';
 
 interface Message {
     id: string;
@@ -28,7 +24,7 @@ interface Message {
     readAt?: string;
 }
 
-interface User {
+interface ChatUser {
     id: string;
     name: string;
     avatar: string;
@@ -37,90 +33,268 @@ interface User {
     lastMessageAt?: string;
     unreadCount?: number;
     lastSeen?: string;
+    isPinned?: boolean;
+    followersCount?: number;
 }
 
 export default function ChatScreen() {
-    const [activeTheme, setActiveTheme] = useState<ThemeMode>('cosmic');
-    const [selectedUser, setSelectedUser] = useState<User | null>(null);
+    const router = useRouter();
+    const navigation = useNavigation();
+    const { colors, mode, toggleTheme } = useTheme();
+    const { session } = useAuth();
+    const { setHideNav } = useNavVisibility();
+    const currentUserId = session?.user?.id;
+
+    const [selectedUser, setSelectedUser] = useState<ChatUser | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
     const [inputText, setInputText] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
-    const [searchResults, setSearchResults] = useState<User[]>([]);
-    const [conversations, setConversations] = useState<User[]>([]);
+    const [searchResults, setSearchResults] = useState<ChatUser[]>([]);
+    const [conversations, setConversations] = useState<ChatUser[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [dbUserId, setDbUserId] = useState<string | null>(null);
+    const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
+    const [sortMode, setSortMode] = useState<'recent' | 'pinned' | 'followers'>('pinned');
+
+    const [currentUserAvatar, setCurrentUserAvatar] = useState<string | null>(null);
+
+    // Resolve DB User ID from Email and Fetch Profile Avatar
+    useEffect(() => {
+        const resolveDbUser = async () => {
+            if (session?.user?.email) {
+                const { data } = await supabase
+                    .from('User')
+                    .select(`
+                        id,
+                        profile:Profile(avatarUrl)
+                    `)
+                    .eq('email', session.user.email)
+                    .single();
+
+                if (data) {
+                    setDbUserId(data.id);
+                    // Handle potential array or single object return from Supabase
+                    const profileData = Array.isArray(data.profile) ? data.profile[0] : data.profile;
+                    if (profileData?.avatarUrl) {
+                        setCurrentUserAvatar(profileData.avatarUrl);
+                    }
+                }
+            }
+        };
+        resolveDbUser();
+    }, [session?.user?.email]);
+
+    // Heartbeat for Online Status
+    useEffect(() => {
+        if (!dbUserId) return;
+        const updateStatus = async () => {
+            await supabase.from('User').update({ lastSeen: new Date().toISOString() }).eq('id', dbUserId);
+        };
+        updateStatus(); // Initial
+        const interval = setInterval(updateStatus, 2 * 60 * 1000); // Every 2 mins
+        return () => clearInterval(interval);
+    }, [dbUserId]);
+
+    // Hide Floating Nav when Chat Room is Open
+    useEffect(() => {
+        setHideNav(!!selectedUser);
+    }, [selectedUser, setHideNav]);
+
+    // Dbot State
     const [isVoiceMode, setIsVoiceMode] = useState(false);
     const [persona, setPersona] = useState<PersonaType>('friend');
     const [showPersonaSelector, setShowPersonaSelector] = useState(false);
-    const [currentUser, setCurrentUser] = useState<any>(null); // Should come from auth context
+    const [showApps, setShowApps] = useState(false);
 
-    const pusherRef = useRef<Pusher | null>(null);
+
     const slideAnim = useRef(new Animated.Value(width)).current;
     const activeConversationIdRef = useRef<string | null>(null);
-
-    // --- Pusher & Initial Data ---
+    // Load Pinned IDs
     useEffect(() => {
-        // Initialize Pusher
-        const pusher = new Pusher(process.env.EXPO_PUBLIC_PUSHER_KEY || 'ee5640481e0a26c0a4b8', {
-            cluster: process.env.EXPO_PUBLIC_PUSHER_CLUSTER || 'ap2',
+        AsyncStorage.getItem('pinnedChatIds').then((json) => {
+            if (json) setPinnedIds(new Set(JSON.parse(json)));
         });
+    }, []);
 
-        pusherRef.current = pusher;
-
-        fetchConversations();
-
-        return () => {
-            pusher.disconnect();
-        };
-    }, [currentUser]);
-
-    // Subscribe to conversation channel when entering a chat
-    useEffect(() => {
-        if (!pusherRef.current || !activeConversationIdRef.current) return;
-
-        const channelName = `conversation-${activeConversationIdRef.current}`;
-        const channel = pusherRef.current.subscribe(channelName);
-
-        channel.bind('message:new', (msg: any) => {
-            setMessages(prev => {
-                // Avoid duplicates
-                if (prev.find(m => m.id === msg.id)) return prev;
-                return [...prev, {
-                    id: msg.id,
-                    role: msg.senderId === currentUser?.id ? 'user' : 'assistant',
-                    content: msg.content,
-                    timestamp: msg.timestamp,
-                    senderId: msg.senderId
-                }];
-            });
-            // Update conversation list last message
-            fetchConversations();
-        });
-
-        return () => {
-            pusherRef.current?.unsubscribe(channelName);
-        };
-    }, [selectedUser]); // Re-run when selected user changes (which implies conversation change)
-
-
-    // --- API Calls ---
-    const fetchConversations = async () => {
-        try {
-            const res = await fetch(`${API_URL}/api/chat/conversations`);
-            const data = await res.json();
-            if (data.conversations) {
-                setConversations(data.conversations.map((c: any) => ({
-                    id: c.user.id,
-                    name: c.user.name,
-                    avatar: c.user.avatar || 'https://api.dicebear.com/7.x/avataaars/png?seed=User',
-                    status: isUserOnline(c.user.lastSeen) ? 'online' : 'offline',
-                    lastMessage: c.lastMessage,
-                    lastMessageAt: c.lastMessageAt,
-                    unreadCount: c.unreadCount,
-                    lastSeen: c.user.lastSeen
-                })));
-            }
-        } catch (err) {
-            console.error('Failed to fetch conversations', err);
+    const handlePin = async (userId: string) => {
+        const newSet = new Set(pinnedIds);
+        if (newSet.has(userId)) {
+            newSet.delete(userId);
+        } else {
+            newSet.add(userId);
         }
+        setPinnedIds(newSet);
+        await AsyncStorage.setItem('pinnedChatIds', JSON.stringify(Array.from(newSet)));
+    };
+
+    const usersCache = useRef<Map<string, ChatUser>>(new Map());
+
+    // --- Effects ---
+
+    useEffect(() => {
+        const onBackPress = () => {
+            if (selectedUser) {
+                handleBack();
+                return true;
+            }
+            return false;
+        };
+
+        const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+
+        return () => backHandler.remove();
+    }, [selectedUser]);
+
+    useEffect(() => {
+        if (dbUserId) {
+            fetchConversations();
+
+            // Subscribe to realtime changes for Conversations
+            const channel = supabase.channel('public:Conversation')
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'Conversation' }, () => {
+                    fetchConversations();
+                })
+                .subscribe();
+
+            // Subscribe to User presence/status changes
+            const userChannel = supabase.channel('public:User')
+                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'User' }, (payload) => {
+                    // Update search results or conversation list status if visible
+                    setSearchResults(prev => prev.map(u => {
+                        if (u.id === payload.new.id) {
+                            return { ...u, status: isUserOnline(payload.new.lastSeen) ? 'online' : 'offline', lastSeen: payload.new.lastSeen };
+                        }
+                        return u;
+                    }));
+                    setConversations(prev => prev.map(c => {
+                        if (c.id === payload.new.id) {
+                            return { ...c, status: isUserOnline(payload.new.lastSeen) ? 'online' : 'offline', lastSeen: payload.new.lastSeen };
+                        }
+                        return c;
+                    }));
+                })
+                .subscribe();
+
+            return () => {
+                supabase.removeChannel(channel);
+                supabase.removeChannel(userChannel);
+            }
+        }
+    }, [dbUserId]);
+
+    // Subscribe to messages when a chat is open
+    useEffect(() => {
+        if (!activeConversationIdRef.current || !dbUserId) return;
+
+        const channel = supabase.channel(`chat:${activeConversationIdRef.current}`)
+            .on('postgres_changes',
+                { event: '*', schema: 'public', table: 'Message', filter: `conversationId=eq.${activeConversationIdRef.current}` },
+                (payload) => {
+                    if (payload.eventType === 'INSERT') {
+                        const newMsg = payload.new;
+                        setMessages(prev => {
+                            if (prev.find(m => m.id === newMsg.id)) return prev;
+                            // If received message from partner, mark as read immediately if we are here
+                            if (newMsg.senderId !== dbUserId) {
+                                markAsRead(newMsg.id);
+                            }
+                            return [...prev, {
+                                id: newMsg.id,
+                                role: newMsg.senderId === dbUserId ? 'user' : 'assistant',
+                                content: newMsg.content,
+                                timestamp: new Date(newMsg.createdAt).getTime(),
+                                senderId: newMsg.senderId,
+                                readAt: newMsg.readAt
+                            }];
+                        });
+                    } else if (payload.eventType === 'UPDATE') {
+                        const updated = payload.new;
+                        setMessages(prev => prev.map(m => m.id === updated.id ? { ...m, readAt: updated.readAt } : m));
+                    }
+                }
+            )
+            .subscribe();
+
+        // Mark existing unread messages as read when opening
+        markAllAsRead(activeConversationIdRef.current);
+
+        return () => { supabase.removeChannel(channel); };
+    }, [activeConversationIdRef.current, dbUserId]);
+
+    // --- Data Fetching ---
+
+    const fetchConversations = async () => {
+        if (!dbUserId) return;
+
+        try {
+            // Fetch conversations where user is A or B
+            // Also join User and Profile tables to get names and avatars
+            const { data, error } = await supabase
+                .from('Conversation')
+                .select(`
+                    id,
+                    lastMessage,
+                    lastMessageAt,
+                    participantA,
+                    participantB,
+                    participantB,
+                    userA:participantA ( id, name, lastSeen, followersCount, profile:Profile(avatarUrl, displayName) ),
+                    userB:participantB ( id, name, lastSeen, followersCount, profile:Profile(avatarUrl, displayName) )
+                `)
+                .or(`participantA.eq.${dbUserId},participantB.eq.${dbUserId}`)
+                .order('lastMessageAt', { ascending: false });
+
+            if (error) throw error;
+
+            const formatted: ChatUser[] = data.map((c: any) => {
+                const isA = c.participantA === dbUserId;
+                const partner = isA ? c.userB : c.userA;
+
+                // Safety check if partner user was deleted
+                if (!partner) return null;
+
+                const name = partner.profile?.displayName || partner.name || 'Unknown User';
+                const avatar = partner.profile?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/png?seed=${partner.id}`;
+
+                return {
+                    id: partner.id,
+                    name: name,
+                    avatar: avatar,
+                    status: (isUserOnline(partner.lastSeen) ? 'online' : 'offline') as 'online' | 'offline' | 'away',
+                    lastMessage: c.lastMessage || 'Start a conversation',
+                    lastMessageAt: c.lastMessageAt,
+                    unreadCount: 0,
+                    lastSeen: partner.lastSeen,
+                    followersCount: partner.followersCount || 0,
+                    isPinned: pinnedIds.has(partner.id),
+                    conversationId: c.id
+                };
+            }).filter(Boolean) as ChatUser[];
+
+            setConversations(formatted);
+        } catch (err) {
+            console.error('Error fetching conversations:', err);
+        }
+    };
+
+    const getSortedConversations = () => {
+        let list = searchQuery ? searchResults : conversations;
+
+        // Update isPinned status dynamically
+        list = list.map(c => ({ ...c, isPinned: pinnedIds.has(c.id) }));
+
+        if (sortMode === 'pinned') {
+            return list.sort((a, b) => {
+                if (a.isPinned && !b.isPinned) return -1;
+                if (!a.isPinned && b.isPinned) return 1;
+                return new Date(b.lastMessageAt || 0).getTime() - new Date(a.lastMessageAt || 0).getTime();
+            });
+        }
+        if (sortMode === 'followers') {
+            return list.sort((a, b) => (b.followersCount || 0) - (a.followersCount || 0));
+        }
+        // recent
+        return list.sort((a, b) => new Date(b.lastMessageAt || 0).getTime() - new Date(a.lastMessageAt || 0).getTime());
     };
 
     const searchUsers = async (query: string) => {
@@ -128,119 +302,69 @@ export default function ChatScreen() {
             setSearchResults([]);
             return;
         }
+
         try {
-            // Run all search queries in parallel
-            const [followersRes, followingRes, allUsersRes] = await Promise.all([
-                fetch(`${API_URL}/api/users/followers-following?type=followers&search=${encodeURIComponent(query)}`),
-                fetch(`${API_URL}/api/users/followers-following?type=following&search=${encodeURIComponent(query)}`),
-                fetch(`${API_URL}/api/search/users?search=${encodeURIComponent(query)}`)
-            ]);
+            // Search users by name or email (checking Profile displayName first)
+            const { data, error } = await supabase
+                .from('User')
+                .select(`
+                    id, name, lastSeen,
+                    profile:Profile!inner(displayName, avatarUrl)
+                `)
+                .ilike('profile.displayName', `%${query}%`)
+                .neq('id', dbUserId)
+                .limit(10);
 
-            const followersData = followersRes.ok ? await followersRes.json() : { users: [] };
-            const followingData = followingRes.ok ? await followingRes.json() : { users: [] };
-            const allUsersData = allUsersRes.ok ? await allUsersRes.json() : { users: [] };
+            if (error) throw error;
 
-            // Combine followers and following results
-            const followersFollowingResults = [...(followersData.users || []), ...(followingData.users || [])];
-            const followersFollowingMap = new Map(
-                followersFollowingResults.map((u: any) => [u.id, u])
-            );
-
-            // Combine all results: followers/following prioritized, then new users
-            const combinedResults = Array.from(followersFollowingMap.values());
-
-            // Add all platform users that aren't already in followers/following
-            const newUsersNotInFollowersFollowing = (allUsersData.users || []).filter(
-                (user: any) => !followersFollowingMap.has(user.id)
-            );
-
-            const finalResults = [...combinedResults, ...newUsersNotInFollowersFollowing];
-
-            setSearchResults(finalResults.map((u: any) => ({
+            const formatted = data.map((u: any) => ({
                 id: u.id,
-                name: u.name || u.profile?.displayName || 'Unknown',
-                avatar: u.profile?.avatarUrl || u.avatar || 'https://api.dicebear.com/7.x/avataaars/png?seed=User',
-                status: isUserOnline(u.lastSeen) ? 'online' : 'offline',
+                name: u.profile?.displayName || u.name || 'Unknown',
+                avatar: u.profile?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/png?seed=${u.id}`,
+                status: (isUserOnline(u.lastSeen) ? 'online' : 'offline') as 'online' | 'offline' | 'away',
                 lastSeen: u.lastSeen
+            }));
+
+            setSearchResults(formatted);
+        } catch (err) {
+            console.error('Error searching users:', err);
+        }
+    };
+
+    const fetchMessages = async (conversationId: string) => {
+        if (!dbUserId) return;
+        try {
+            const { data, error } = await supabase
+                .from('Message')
+                .select('*')
+                .eq('conversationId', conversationId)
+                .order('createdAt', { ascending: true });
+
+            if (error) throw error;
+
+            setMessages(data.map((m: any) => ({
+                id: m.id,
+                role: m.senderId === dbUserId ? 'user' : 'assistant',
+                content: m.content,
+                timestamp: new Date(m.createdAt).getTime(),
+                senderId: m.senderId,
+                readAt: m.readAt
             })));
         } catch (err) {
-            console.error('Failed to search users', err);
+            console.error('Error fetching messages:', err);
         }
     };
 
-    const fetchMessages = async (userId: string) => {
-        try {
-            const res = await fetch(`${API_URL}/api/chat/conversations`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ targetUserId: userId })
-            });
-            const { conversationId } = await res.json();
+    // --- Actions ---
 
-            activeConversationIdRef.current = conversationId;
+    const handleUserSelect = async (user: ChatUser) => {
+        if (!dbUserId) return;
 
-            const msgRes = await fetch(`${API_URL}/api/chat/${conversationId}/messages`);
-            const msgData = await msgRes.json();
-            if (msgData.messages) {
-                setMessages(msgData.messages.map((m: any) => ({
-                    id: m.id,
-                    role: m.senderId === currentUser?.id ? 'user' : 'assistant',
-                    content: m.content,
-                    timestamp: new Date(m.createdAt).getTime(),
-                    senderId: m.senderId
-                })));
-            }
-            return conversationId;
-        } catch (err) {
-            console.error('Failed to fetch messages', err);
-            return null;
-        }
-    };
-
-    const sendMessage = async (content: string) => {
-        if (!selectedUser || !content.trim()) return;
-
-        // Optimistic update
-        const tempId = Date.now().toString();
-        setMessages(prev => [...prev, {
-            id: tempId,
-            role: 'user',
-            content,
-            timestamp: Date.now(),
-            senderId: currentUser?.id
-        }]);
-        setInputText('');
-
-        try {
-            const res = await fetch(`${API_URL}/api/chat/conversations`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ targetUserId: selectedUser.id })
-            });
-            const { conversationId } = await res.json();
-
-            await fetch(`${API_URL}/api/chat/${conversationId}/messages`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content })
-            });
-        } catch (err) {
-            console.error('Failed to send message', err);
-        }
-    };
-
-    // --- Helpers ---
-    const isUserOnline = (lastSeen?: string) => {
-        if (!lastSeen) return false;
-        const diff = Date.now() - new Date(lastSeen).getTime();
-        return diff < 5 * 60 * 1000; // Online if active in last 5 mins
-    };
-
-    const handleUserSelect = async (user: User) => {
+        setIsLoading(true);
         setSelectedUser(user);
-        setMessages([]); // Clear prev messages
-        activeConversationIdRef.current = null; // Reset active conv ID
+        setMessages([]);
 
+        // Animation
         Animated.spring(slideAnim, {
             toValue: 0,
             useNativeDriver: true,
@@ -249,12 +373,133 @@ export default function ChatScreen() {
         }).start();
 
         if (user.id === 'dbot') {
-            setMessages([
-                { id: 'init', role: 'assistant', content: `Hello! I'm dbot in ${persona} mode. How can I support you?`, timestamp: Date.now() }
-            ]);
-        } else {
-            await fetchMessages(user.id);
+            setMessages([{
+                id: 'init', role: 'assistant',
+                content: `Hello! I'm dbot in ${persona} mode. How can I support you?`,
+                timestamp: Date.now()
+            }]);
+            activeConversationIdRef.current = null;
+            setIsLoading(false);
+            return;
         }
+
+        try {
+            // Find existing conversation or create new one
+            // First, check if we already fetched it in the list
+            let conversationId = (user as any).conversationId;
+
+            if (!conversationId) {
+                // Check DB specifically
+                const { data: existing, error } = await supabase
+                    .from('Conversation')
+                    .select('id')
+                    .or(`and(participantA.eq.${dbUserId},participantB.eq.${user.id}),and(participantA.eq.${user.id},participantB.eq.${dbUserId})`)
+                    .maybeSingle(); // Use maybeSingle to avoid error if not found
+
+                if (existing) {
+                    conversationId = existing.id;
+                } else {
+                    // Create new conversation
+                    const { data: newConv, error: createError } = await supabase
+                        .from('Conversation')
+                        .insert({
+                            participantA: dbUserId,
+                            participantB: user.id,
+                            updatedAt: new Date().toISOString()
+                        })
+                        .select()
+                        .single();
+
+                    if (createError) throw createError;
+                    conversationId = newConv.id;
+                }
+            }
+
+            activeConversationIdRef.current = conversationId;
+            await fetchMessages(conversationId);
+        } catch (err) {
+            console.error('Error selecting chat:', err);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const markAsRead = async (messageId: string) => {
+        if (!dbUserId) return;
+        await supabase.from('Message').update({ readAt: new Date().toISOString() }).eq('id', messageId);
+    };
+
+    const markAllAsRead = async (conversationId: string) => {
+        if (!dbUserId) return;
+        // Mark all messages from partner where readAt is null
+        await supabase.from('Message')
+            .update({ readAt: new Date().toISOString() })
+            .eq('conversationId', conversationId)
+            .neq('senderId', dbUserId)
+            .is('readAt', null);
+    };
+
+    const sendMessage = async () => {
+        if (!inputText.trim() || !dbUserId) return;
+
+        const content = inputText.trim();
+        setInputText('');
+
+        // Optimistic Update
+        const tempId = Date.now().toString();
+        setMessages(prev => [...prev, {
+            id: tempId,
+            role: 'user',
+            content,
+            timestamp: Date.now(),
+            senderId: dbUserId
+        }]);
+
+        if (selectedUser?.id === 'dbot') {
+            // Mock Dbot response for demo
+            setTimeout(() => {
+                setMessages(prev => [...prev, {
+                    id: Date.now().toString(),
+                    role: 'assistant',
+                    content: "I'm meant to be connected to an AI backend, but for now I'm just a demo bot on mobile! 🤖",
+                    timestamp: Date.now()
+                }]);
+            }, 1000);
+            return;
+        }
+
+        try {
+            if (!activeConversationIdRef.current) return;
+
+            const { error } = await supabase
+                .from('Message')
+                .insert({
+                    conversationId: activeConversationIdRef.current,
+                    senderId: dbUserId,
+                    content
+                });
+
+            if (error) throw error;
+
+            // Update Conversation lastMessage
+            await supabase
+                .from('Conversation')
+                .update({
+                    lastMessage: content,
+                    lastMessageAt: new Date().toISOString()
+                })
+                .eq('id', activeConversationIdRef.current);
+
+        } catch (err) {
+            console.error('Error sending message:', err);
+        }
+    };
+
+    // --- Helpers ---
+    const isUserOnline = (lastSeen?: string) => {
+        if (!lastSeen) return false;
+        const diff = Date.now() - new Date(lastSeen).getTime();
+        return diff < 5 * 60 * 1000;
     };
 
     const handleBack = () => {
@@ -266,122 +511,127 @@ export default function ChatScreen() {
             setSelectedUser(null);
             activeConversationIdRef.current = null;
         });
-        fetchConversations(); // Refresh list on back
+        fetchConversations();
     };
 
-    // --- Render Helpers ---
     const getGradientColors = (): [string, string, string] => {
-        switch (activeTheme) {
-            case 'light': return ['#ffffff', '#f8f9fa', '#e9ecef']; // Pure White/Gray
-            case 'dark': return ['#000000', '#0a0a0a', '#171717']; // Pure Black
-            case 'cosmic': return ['#000000', '#0a0a0a', '#171717']; // Map cosmic to black
-            default: return ['#000000', '#0a0a0a', '#171717'];
-        }
+        return mode === 'light' ? ['#ffffff', '#f8f9fa', '#e9ecef'] :
+            mode === 'eye-care' ? ['#F5E6D3', '#E6D5C0', '#DBC4A0'] :
+                ['#000000', '#0a0a0a', '#171717'];
     };
+
+    // --- Render Components ---
 
     const renderHeader = () => (
-        <View className="px-6 pt-4 pb-2 flex-row justify-between items-center z-10">
-            <Text className={`text-3xl font-bold ${activeTheme === 'light' ? 'text-black' : 'text-white'}`}>
-                Messages
-            </Text>
-            <View className="flex-row gap-4">
-                <TouchableOpacity onPress={() => setActiveTheme(prev => prev === 'light' ? 'dark' : 'light')}>
-                    {activeTheme === 'light' ? <Sun color="black" size={24} /> : <Moon color="white" size={24} />}
-                </TouchableOpacity>
-                <TouchableOpacity>
-                    <Image
-                        source={{ uri: 'https://api.dicebear.com/7.x/avataaars/png?seed=User' }}
-                        className={`w-10 h-10 rounded-full border-2 ${activeTheme === 'light' ? 'border-black/10' : 'border-white/20'}`}
-                    />
-                </TouchableOpacity>
-            </View>
+        <View className="px-6 pt-4 pb-2 flex-row justify-between items-center z-10 pl-16">
+            <Text className="text-3xl font-bold" style={{ color: colors.text }}>Messages</Text>
+            <TouchableOpacity>
+                <Image
+                    source={{ uri: currentUserAvatar || session?.user?.user_metadata?.avatar_url || 'https://api.dicebear.com/7.x/avataaars/png?seed=Me' }}
+                    className="w-10 h-10 rounded-full border-2"
+                    style={{ borderColor: colors.border }}
+                />
+            </TouchableOpacity>
         </View>
     );
 
     const renderSearchBar = () => (
         <View className="px-6 py-4">
-            <BlurView intensity={30} tint={activeTheme === 'light' ? 'light' : 'dark'} className={`flex-row items-center px-4 py-3 rounded-2xl overflow-hidden border ${activeTheme === 'light' ? 'border-black/5' : 'border-white/10'}`}>
-                <Search color={activeTheme === 'light' ? '#000' : '#fff'} size={20} />
+            <BlurView
+                intensity={30}
+                tint={mode === 'light' ? 'light' : 'dark'}
+                className="flex-row items-center px-4 py-3 rounded-2xl overflow-hidden border"
+                style={{ borderColor: colors.border }}
+            >
+                <Search color={colors.text} size={20} />
                 <TextInput
                     placeholder="Search users..."
-                    placeholderTextColor={activeTheme === 'light' ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.4)'}
+                    placeholderTextColor={colors.secondary}
                     value={searchQuery}
-                    onChangeText={(text) => {
-                        setSearchQuery(text);
-                        searchUsers(text);
-                    }}
-                    className={`flex-1 ml-3 text-base ${activeTheme === 'light' ? 'text-black' : 'text-white'}`}
+                    onChangeText={(t) => { setSearchQuery(t); searchUsers(t); }}
+                    className="flex-1 ml-3 text-base"
+                    style={{ color: colors.text }}
                 />
             </BlurView>
+            <TouchableOpacity
+                onPress={() => setSortMode(prev => prev === 'pinned' ? 'recent' : prev === 'recent' ? 'followers' : 'pinned')}
+                className="mt-2 self-end"
+            >
+                <Text style={{ color: colors.primary, fontSize: 12 }}>
+                    Sort: {sortMode.charAt(0).toUpperCase() + sortMode.slice(1)}
+                </Text>
+            </TouchableOpacity>
         </View>
     );
 
     const renderUserList = () => (
         <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false}>
-            {/* Dbot Special Card - Black & White */}
+            {/* Dbot */}
             <TouchableOpacity
                 onPress={() => handleUserSelect({ id: 'dbot', name: 'dbot AI', avatar: 'https://api.dicebear.com/7.x/bottts/png?seed=dbot', status: 'online' })}
                 className="mb-6"
             >
                 <BlurView
                     intensity={40}
-                    tint={activeTheme === 'light' ? 'light' : 'dark'}
-                    className={`p-4 rounded-3xl flex-row items-center overflow-hidden border ${activeTheme === 'light' ? 'border-black/5' : 'border-white/10'}`}
+                    tint={mode === 'light' ? 'light' : 'dark'}
+                    className="p-4 rounded-3xl flex-row items-center overflow-hidden border"
+                    style={{ borderColor: colors.border }}
                 >
-                    <View className={`w-14 h-14 rounded-full items-center justify-center border ${activeTheme === 'light' ? 'bg-black/5 border-black/10' : 'bg-white/10 border-white/20'}`}>
-                        <Sparkles color={activeTheme === 'light' ? 'black' : 'white'} size={28} />
+                    <View className="w-14 h-14 rounded-full items-center justify-center border" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
+                        <Sparkles color={colors.text} size={28} />
                     </View>
                     <View className="flex-1 ml-4">
-                        <Text className={`text-lg font-bold ${activeTheme === 'light' ? 'text-black' : 'text-white'}`}>dbot AI</Text>
-                        <Text className={`text-sm ${activeTheme === 'light' ? 'text-black/60' : 'text-white/60'}`}>Your personal companion</Text>
-                    </View>
-                    <View className={`px-3 py-1 rounded-full ${activeTheme === 'light' ? 'bg-black/5' : 'bg-white/10'}`}>
-                        <Text className={`text-xs font-medium ${activeTheme === 'light' ? 'text-black' : 'text-white'}`}>Active</Text>
+                        <Text className="text-lg font-bold" style={{ color: colors.text }}>dbot AI</Text>
+                        <Text className="text-sm" style={{ color: colors.secondary }}>Your personal companion</Text>
                     </View>
                 </BlurView>
             </TouchableOpacity>
 
-            <Text className={`text-sm font-semibold mb-4 ${activeTheme === 'light' ? 'text-black/40' : 'text-white/40'}`}>
+            <Text className="text-sm font-semibold mb-4" style={{ color: colors.secondary }}>
                 {searchQuery ? 'SEARCH RESULTS' : 'RECENT CONVERSATIONS'}
             </Text>
 
-            {(searchQuery ? searchResults : conversations).map((user) => (
+            {(getSortedConversations()).map((user) => (
                 <TouchableOpacity
                     key={user.id}
                     onPress={() => handleUserSelect(user)}
-                    className={`flex-row items-center mb-5 p-3 rounded-2xl transition-all active:scale-95 ${activeTheme === 'light' ? 'active:bg-black/5' : 'active:bg-white/5'}`}
+                    onLongPress={() => {
+                        Alert.alert(
+                            user.isPinned ? 'Unpin Chat' : 'Pin Chat',
+                            `Do you want to ${user.isPinned ? 'unpin' : 'pin'} specific chat?`,
+                            [
+                                { text: 'Cancel', style: 'cancel' },
+                                { text: user.isPinned ? 'Unpin' : 'Pin', onPress: () => handlePin(user.id) }
+                            ]
+                        );
+                    }}
+                    className="flex-row items-center mb-5 p-3 rounded-2xl"
+                    style={{ backgroundColor: user.isPinned ? (mode === 'light' ? '#f0f9ff' : '#1e3a8a30') : 'transparent' }}
                 >
-                    <View className="relative">
-                        <Image source={{ uri: user.avatar }} className="w-14 h-14 rounded-2xl bg-gray-200" />
-                        {user.status === 'online' && (
-                            <View className={`absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 ${activeTheme === 'light' ? 'border-white' : 'border-black'}`} />
-                        )}
-                    </View>
-                    <View className={`flex-1 ml-4 border-b pb-4 ${activeTheme === 'light' ? 'border-black/5' : 'border-white/5'}`}>
+                    <Image source={{ uri: user.avatar }} className="w-14 h-14 rounded-2xl bg-gray-200" />
+                    <View className="flex-1 ml-4 border-b pb-4" style={{ borderColor: colors.border }}>
                         <View className="flex-row justify-between items-center mb-1">
-                            <Text className={`text-base font-bold ${activeTheme === 'light' ? 'text-black' : 'text-white'}`}>
-                                {user.name}
+                            <Text className="text-base font-bold" style={{ color: colors.text }}>
+                                {user.name} {user.isPinned && '📌'}
                             </Text>
                             {user.lastMessageAt && (
-                                <Text className={`text-xs ${activeTheme === 'light' ? 'text-black/40' : 'text-white/40'}`}>
-                                    {new Date(user.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                <Text className="text-xs" style={{ color: colors.secondary }}>
+                                    {new Date(user.lastMessageAt).toLocaleDateString()}
                                 </Text>
                             )}
                         </View>
-                        <Text
-                            numberOfLines={1}
-                            className={`text-sm ${user.unreadCount ? (activeTheme === 'light' ? 'text-black font-semibold' : 'text-white font-semibold') : (activeTheme === 'light' ? 'text-black/50' : 'text-white/50')}`}
-                        >
-                            {user.lastMessage || (user.status === 'online' ? 'Online' : `Last seen ${user.lastSeen ? new Date(user.lastSeen).toLocaleDateString() : 'recently'}`)}
+                        <Text numberOfLines={1} className="text-sm font-semibold" style={{ color: colors.secondary }}>
+                            {user.lastMessage || 'Open to chat'}
                         </Text>
                     </View>
-                    {user.unreadCount ? (
-                        <View className={`w-6 h-6 rounded-full items-center justify-center ml-2 ${activeTheme === 'light' ? 'bg-black' : 'bg-white'}`}>
-                            <Text className={`text-xs font-bold ${activeTheme === 'light' ? 'text-white' : 'text-black'}`}>{user.unreadCount}</Text>
-                        </View>
-                    ) : null}
                 </TouchableOpacity>
             ))}
+
+            {!searchQuery && conversations.length === 0 && (
+                <View className="items-center mt-10 opacity-50">
+                    <Text style={{ color: colors.secondary }}>No conversations yet.</Text>
+                </View>
+            )}
         </ScrollView>
     );
 
@@ -390,141 +640,132 @@ export default function ChatScreen() {
         const isDbot = selectedUser.id === 'dbot';
 
         return (
-            <Animated.View
-                style={{ transform: [{ translateX: slideAnim }] }}
-                className="absolute inset-0 z-50 bg-black"
-            >
+            <Animated.View style={{ transform: [{ translateX: slideAnim }] }} className="absolute inset-0 z-50">
                 <LinearGradient colors={getGradientColors()} className="flex-1">
                     <SafeAreaView className="flex-1">
-                        {/* Chat Header */}
-                        <BlurView intensity={80} tint={activeTheme === 'light' ? 'light' : 'dark'} className={`flex-row items-center justify-between px-4 py-3 border-b ${activeTheme === 'light' ? 'border-black/5' : 'border-white/10'}`}>
-                            <View className="flex-row items-center">
-                                <TouchableOpacity onPress={handleBack} className="mr-3 p-2 rounded-full hover:bg-white/10">
-                                    <ChevronLeft color={activeTheme === 'light' ? 'black' : 'white'} size={24} />
+                        {/* Header */}
+                        <BlurView intensity={80} tint={mode === 'light' ? 'light' : 'dark'} className="flex-row items-center justify-between px-4 py-3 border-b mt-10" style={{ borderColor: colors.border }}>
+                            <View className="flex-row items-center flex-1">
+                                <TouchableOpacity onPress={handleBack} className="mr-3 p-2 rounded-full">
+                                    <ChevronLeft color={colors.text} size={24} />
                                 </TouchableOpacity>
                                 <Image source={{ uri: selectedUser.avatar }} className="w-10 h-10 rounded-full bg-gray-200" />
-                                <View className="ml-3">
-                                    <Text className={`text-base font-bold ${activeTheme === 'light' ? 'text-black' : 'text-white'}`}>
-                                        {selectedUser.name}
-                                    </Text>
-                                    <Text className={`text-xs ${activeTheme === 'light' ? 'text-black/50' : 'text-white/50'}`}>
-                                        {isDbot ? `${persona} mode` : (selectedUser.status === 'online' ? 'Online' : 'Offline')}
-                                    </Text>
+                                <View className="ml-3 flex-1">
+                                    <View className="flex-row items-center gap-2">
+                                        <Text className="text-base font-bold" numberOfLines={1} style={{ color: colors.text }}>{selectedUser.name}</Text>
+                                    </View>
+                                    <Text className="text-xs" style={{ color: colors.secondary }}>{isDbot ? 'AI Companion' : selectedUser.status}</Text>
                                 </View>
                             </View>
-                            <View className="flex-row gap-4">
-                                {isDbot && (
-                                    <TouchableOpacity onPress={() => setShowPersonaSelector(true)}>
-                                        <User color={activeTheme === 'light' ? 'black' : 'white'} size={22} />
-                                    </TouchableOpacity>
-                                )}
-                                <TouchableOpacity>
-                                    <Phone color={activeTheme === 'light' ? 'black' : 'white'} size={22} />
+                            <View className="flex-row items-center gap-2">
+                                <TouchableOpacity onPress={() => router.push('/bonding')} className="p-2 rounded-full bg-gray-200/20">
+                                    <Heart size={20} color={colors.text} />
                                 </TouchableOpacity>
-                                <TouchableOpacity>
-                                    <Video color={activeTheme === 'light' ? 'black' : 'white'} size={22} />
+                                <TouchableOpacity onPress={() => setShowApps(!showApps)} className={`p-2 rounded-full ${showApps ? 'bg-indigo-500' : 'bg-gray-200/20'}`}>
+                                    <Plus size={20} color={showApps ? 'white' : colors.text} style={{ transform: [{ rotate: showApps ? '45deg' : '0deg' }] }} />
                                 </TouchableOpacity>
                             </View>
                         </BlurView>
 
-                        {/* Messages List */}
-                        <ScrollView
-                            className="flex-1 px-4 py-6"
-                            contentContainerStyle={{ paddingBottom: 20 }}
-                            ref={ref => ref?.scrollToEnd({ animated: true })}
-                        >
-                            {messages.map((msg) => (
-                                <View
-                                    key={msg.id}
-                                    className={`mb-4 max-w-[80%] ${msg.role === 'user' ? 'self-end' : 'self-start'}`}
-                                >
-                                    <BlurView
-                                        intensity={40}
-                                        tint={activeTheme === 'light' ? 'light' : 'dark'}
-                                        className={`px-5 py-3 rounded-2xl ${msg.role === 'user'
-                                            ? (activeTheme === 'light' ? 'bg-black/5 border-black/10' : 'bg-white/10 border-white/10') + ' rounded-br-none'
-                                            : (activeTheme === 'light' ? 'bg-white border-black/5' : 'bg-black/40 border-white/10') + ' rounded-bl-none'
-                                            } border overflow-hidden`}
-                                    >
-                                        <Text className={`text-base ${activeTheme === 'light' ? 'text-black' : 'text-white'}`}>
-                                            {msg.content}
-                                        </Text>
-                                    </BlurView>
-                                    <View className={`flex-row items-center mt-1 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                        <Text className={`text-[10px] ${activeTheme === 'light' ? 'text-black/40' : 'text-white/30'}`}>
-                                            {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                        </Text>
-                                        {msg.role === 'user' && (
-                                            <Text className={`text-[10px] ml-1 ${activeTheme === 'light' ? 'text-black/40' : 'text-white/30'}`}>
-                                                {msg.readAt ? '• Read' : '• Sent'}
-                                            </Text>
-                                        )}
+                        {/* Collaborative Apps Toolbar */}
+                        {showApps && (
+                            <View className="flex-row justify-around py-4 border-b" style={{ borderColor: colors.border, backgroundColor: colors.card }}>
+                                <TouchableOpacity onPress={() => router.push('/grounding')} className="items-center">
+                                    <View className="p-3 rounded-full bg-purple-100 dark:bg-purple-900/30 mb-1">
+                                        <Anchor size={20} color="#a855f7" />
                                     </View>
-                                </View>
-                            ))}
-                        </ScrollView>
-
-                        {/* Input Area */}
-                        <BlurView intensity={90} tint={activeTheme === 'light' ? 'light' : 'dark'} className={`px-4 py-4 border-t ${activeTheme === 'light' ? 'border-black/5' : 'border-white/10'} pb-8`}>
-                            <View className="flex-row items-center gap-3">
-                                <TouchableOpacity className={`p-2 rounded-full ${activeTheme === 'light' ? 'bg-black/5' : 'bg-white/5'}`}>
-                                    <Sparkles color={activeTheme === 'light' ? 'black' : 'white'} size={20} />
+                                    <Text style={{ color: colors.secondary, fontSize: 10 }}>WREX</Text>
                                 </TouchableOpacity>
+
+                                <TouchableOpacity onPress={() => router.push('/(tabs)/journal')} className="items-center">
+                                    <View className="p-3 rounded-full bg-violet-100 dark:bg-violet-900/30 mb-1">
+                                        <Book size={20} color="#8b5cf6" />
+                                    </View>
+                                    <Text style={{ color: colors.secondary, fontSize: 10 }}>Journal</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity onPress={() => router.push('/hopin')} className="items-center">
+                                    <View className="p-3 rounded-full bg-blue-100 dark:bg-blue-900/30 mb-1">
+                                        <MapIcon size={20} color="#3b82f6" />
+                                    </View>
+                                    <Text style={{ color: colors.secondary, fontSize: 10 }}>Hopin</Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
+
+                        {/* Messages */}
+                        {isLoading ? (
+                            <View className="flex-1 items-center justify-center">
+                                <ActivityIndicator size="large" color={colors.primary} />
+                            </View>
+                        ) : (
+                            <ScrollView
+                                className="flex-1 px-4 py-6"
+                                contentContainerStyle={{ paddingBottom: 20 }}
+                                ref={ref => ref?.scrollToEnd({ animated: true })}
+                            >
+                                {messages.map((msg, index) => {
+                                    // Check if this is the last message sent by ME
+                                    const isMe = msg.role === 'user';
+                                    const isLastFromMe = isMe && index === messages.length - 1;
+                                    const isLast = index === messages.length - 1;
+
+                                    // Ghosted Logic: 
+                                    // If last message is from me, NOT read, and > 5 hours have passed
+                                    const isGhosted = isLastFromMe && !msg.readAt && (Date.now() - msg.timestamp > 5 * 60 * 60 * 1000);
+
+                                    return (
+                                        <View key={msg.id} className={`mb-4 max-w-[80%] ${isMe ? 'self-end' : 'self-start'}`}>
+                                            <BlurView intensity={40} tint={mode === 'light' ? 'light' : 'dark'} className="px-5 py-3 rounded-2xl border overflow-hidden" style={{
+                                                backgroundColor: isMe ? colors.card : 'transparent',
+                                                borderColor: colors.border,
+                                                borderBottomRightRadius: isMe ? 0 : 16,
+                                                borderBottomLeftRadius: isMe ? 16 : 0
+                                            }}>
+                                                <Text className="text-base" style={{ color: colors.text }}>{msg.content}</Text>
+                                            </BlurView>
+                                            <View className="flex-row justify-end items-center gap-1 mt-1">
+                                                <Text className="text-[10px]" style={{ color: colors.secondary }}>
+                                                    {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                </Text>
+                                                {isLastFromMe && msg.readAt && (
+                                                    <Text className="text-[10px] font-bold text-blue-500 ml-1">Seen</Text>
+                                                )}
+                                            </View>
+                                            {isGhosted && (
+                                                <Text className="text-[10px] text-red-500 text-right mt-1 font-bold">
+                                                    Ghosted for {Math.floor((Date.now() - msg.timestamp) / (60 * 60 * 1000))} hrs
+                                                </Text>
+                                            )}
+                                        </View>
+                                    );
+                                })}
+                            </ScrollView>
+                        )}
+
+                        {/* Input */}
+                        <BlurView intensity={90} tint={mode === 'light' ? 'light' : 'dark'} className="px-4 py-4 border-t pb-8" style={{ borderColor: colors.border }}>
+                            <View className="flex-row items-center gap-3">
                                 <TextInput
-                                    placeholder={isDbot ? `Message ${persona}...` : "Type a message..."}
-                                    placeholderTextColor={activeTheme === 'light' ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.4)'}
+                                    placeholder="Type a message..."
+                                    placeholderTextColor={colors.secondary}
                                     value={inputText}
                                     onChangeText={setInputText}
-                                    className={`flex-1 h-12 px-4 rounded-full border ${activeTheme === 'light' ? 'bg-white border-black/10 text-black' : 'bg-white/5 border-white/10 text-white'}`}
+                                    className="flex-1 h-12 px-4 rounded-full border"
+                                    style={{ backgroundColor: colors.card, borderColor: colors.border, color: colors.text }}
                                 />
-                                {inputText ? (
-                                    <TouchableOpacity onPress={() => sendMessage(inputText)} className={`w-12 h-12 rounded-full items-center justify-center shadow-lg ${activeTheme === 'light' ? 'bg-black shadow-black/20' : 'bg-white shadow-white/20'}`}>
-                                        <Send color={activeTheme === 'light' ? 'white' : 'black'} size={20} />
-                                    </TouchableOpacity>
-                                ) : (
-                                    <TouchableOpacity
-                                        onPress={() => setIsVoiceMode(!isVoiceMode)}
-                                        className={`w-12 h-12 rounded-full items-center justify-center border ${isVoiceMode ? 'bg-red-500/20 border-red-500' : (activeTheme === 'light' ? 'bg-black/5 border-black/10' : 'bg-white/5 border-white/10')}`}
-                                    >
-                                        <Mic color={isVoiceMode ? '#ef4444' : (activeTheme === 'light' ? 'black' : 'white')} size={20} />
-                                    </TouchableOpacity>
-                                )}
+                                <TouchableOpacity onPress={sendMessage} className="w-12 h-12 rounded-full items-center justify-center shadow-lg" style={{ backgroundColor: colors.primary }}>
+                                    <Send color={mode === 'light' ? '#fff' : '#000'} size={20} />
+                                </TouchableOpacity>
                             </View>
                         </BlurView>
                     </SafeAreaView>
                 </LinearGradient>
-
-                {/* Persona Selector Modal */}
-                <Modal visible={showPersonaSelector} transparent animationType="fade">
-                    <View className="flex-1 bg-black/80 justify-center items-center p-6">
-                        <BlurView intensity={40} tint="dark" className="w-full bg-gray-900/80 rounded-3xl p-6 border border-white/10">
-                            <Text className="text-white text-xl font-bold mb-6 text-center">Select Dbot Persona</Text>
-                            <View className="flex-row flex-wrap justify-center gap-4">
-                                {['friend', 'therapist', 'coach', 'mystic'].map((p) => (
-                                    <TouchableOpacity
-                                        key={p}
-                                        onPress={() => { setPersona(p as PersonaType); setShowPersonaSelector(false); }}
-                                        className={`px-6 py-3 rounded-full border ${persona === p ? 'bg-white text-black border-white' : 'bg-white/5 border-white/10'}`}
-                                    >
-                                        <Text className={`${persona === p ? 'text-black' : 'text-white'} capitalize font-medium`}>{p}</Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
-                            <TouchableOpacity onPress={() => setShowPersonaSelector(false)} className="mt-8 self-center">
-                                <Text className="text-white/50">Cancel</Text>
-                            </TouchableOpacity>
-                        </BlurView>
-                    </View>
-                </Modal>
             </Animated.View>
         );
     };
 
     return (
-        <LinearGradient
-            colors={getGradientColors()}
-            className="flex-1"
-        >
+        <LinearGradient colors={getGradientColors()} className="flex-1">
             <SafeAreaView className="flex-1">
                 {renderHeader()}
                 {renderSearchBar()}

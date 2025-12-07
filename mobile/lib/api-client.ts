@@ -81,6 +81,9 @@ export class ApiClient {
             headers['x-timestamp'] = timestamp;
 
             // Make request
+            console.log('Fetching:', `${API_URL}${endpoint}`);
+            console.log('Headers:', JSON.stringify(headers));
+
             const response = await fetch(`${API_URL}${endpoint}`, {
                 ...options,
                 headers,

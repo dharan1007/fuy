@@ -123,8 +123,12 @@ export async function POST(req: NextRequest) {
   return NextResponse.json(post);
 }
 
+import { getSessionUser } from "@/lib/session";
+
 export async function GET(req: NextRequest) {
-  const userId = await requireUserId();
+  const user = await getSessionUser();
+  const userId = user?.id; // Optional user ID
+
   const { searchParams } = new URL(req.url);
   const scope = (searchParams.get("scope") ?? "public").toLowerCase();
   const groupId = searchParams.get("groupId");
@@ -134,8 +138,14 @@ export async function GET(req: NextRequest) {
   if (groupId) where.groupId = groupId;
 
   if (scope === "me") {
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     where.userId = userId;
   } else if (scope === "friends") {
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     const friends = await prisma.friendship.findMany({
       where: {
         OR: [
@@ -210,11 +220,11 @@ export async function GET(req: NextRequest) {
       chanData: true,
       pullUpDownData: {
         include: {
-          votes: {
+          votes: userId ? {
             where: {
               userId,
             },
-          },
+          } : false,
         },
       },
     },
@@ -225,7 +235,7 @@ export async function GET(req: NextRequest) {
   const transformed = posts.map((post) => ({
     ...post,
     likes: post.likes?.length || 0,
-    likedByMe: post.likes?.some((like) => like.userId === userId) || false,
+    likedByMe: userId ? post.likes?.some((like) => like.userId === userId) : false,
     shares: post.shares?.length || 0,
     // Add user vote status for polls
     userVote: post.pullUpDownData?.votes?.[0]?.vote || null,
