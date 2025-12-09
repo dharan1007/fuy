@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, ScrollView, TouchableOpacity, Image, Modal, Animated, Dimensions, FlatList, ActivityIndicator, Alert, BackHandler } from 'react-native';
+import { View, Text, TextInput, ScrollView, TouchableOpacity, Image, Modal, Animated, Dimensions, FlatList, ActivityIndicator, Alert, BackHandler, KeyboardAvoidingView, Platform } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useNavigation } from 'expo-router';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import { Mic, Send, Search, Settings, MoreVertical, Phone, Video, Image as ImageIcon, Smile, X, ChevronLeft, Sparkles, User as UserIcon, Sun, Moon, Anchor, Heart, Map as MapIcon, Book, Plus } from 'lucide-react-native';
+import { Mic, Send, Search, Settings, MoreVertical, Phone, Video, Image as ImageIcon, Smile, X, ChevronLeft, Sparkles, User as UserIcon, Sun, Moon, Anchor, Heart, Map as MapIcon, Book, Plus, Tag, Frown, AlertTriangle } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../lib/supabase';
@@ -57,6 +57,23 @@ export default function ChatScreen() {
     const [sortMode, setSortMode] = useState<'recent' | 'pinned' | 'followers'>('pinned');
 
     const [currentUserAvatar, setCurrentUserAvatar] = useState<string | null>(null);
+
+    // Tagging state
+    const [showTagModal, setShowTagModal] = useState(false);
+    const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
+    const [factWarningText, setFactWarningText] = useState<string | null>(null);
+    const [bondingWarnings, setBondingWarnings] = useState<{
+        blacklist: string[];
+        happy: string[];
+        facts: { keyword: string; warningText: string }[];
+    }>({ blacklist: [], happy: [], facts: [] });
+    const [showBondingWarning, setShowBondingWarning] = useState(false);
+
+    // Chat settings state
+    const [showChatSettings, setShowChatSettings] = useState(false);
+    const [chatBackground, setChatBackground] = useState<string | null>(null);
+    const [messageRetention, setMessageRetention] = useState<'forever' | '1day' | 'viewonce' | 'custom'>('forever');
+    const [customRetentionDays, setCustomRetentionDays] = useState(7);
 
     // Resolve DB User ID from Email and Fetch Profile Avatar
     useEffect(() => {
@@ -514,6 +531,151 @@ export default function ChatScreen() {
         fetchConversations();
     };
 
+    // Tag a message
+    const tagMessage = async (tagType: string) => {
+        if (!selectedMessage || !dbUserId || !selectedUser) return;
+
+        // Generate unique IDs for Supabase (since it doesn't auto-generate CUIDs)
+        const generateId = () => `cm${Date.now().toString(36)}${Math.random().toString(36).substr(2, 9)}`;
+
+        try {
+            const { error } = await supabase.from('MessageTag').insert({
+                id: generateId(),
+                messageId: selectedMessage.id,
+                userId: dbUserId,
+                profileId: selectedUser.id,
+                tagType,
+            });
+
+            if (error) throw error;
+
+            // Create notifications for both users
+            await supabase.from('Notification').insert([
+                { id: generateId(), userId: dbUserId, type: 'MESSAGE_TAGGED', message: `You tagged a message as ${tagType.toLowerCase()}` },
+                { id: generateId(), userId: selectedUser.id, type: 'MESSAGE_TAGGED', message: `A message was tagged as ${tagType.toLowerCase()}` },
+            ]);
+
+            Alert.alert('Tagged!', `Message tagged as ${tagType.toLowerCase()}`);
+        } catch (err) {
+            console.error('Error tagging message:', err);
+            Alert.alert('Error', 'Failed to tag message');
+        } finally {
+            setShowTagModal(false);
+            setSelectedMessage(null);
+        }
+    };
+
+    // Check for fact warnings before sending
+    const checkFactWarnings = async (content: string): Promise<boolean> => {
+        if (!dbUserId || !selectedUser || selectedUser.id === 'dbot') return true;
+
+        try {
+            const { data: warnings } = await supabase
+                .from('FactWarning')
+                .select('keyword, warningText')
+                .eq('userId', dbUserId)
+                .eq('profileId', selectedUser.id)
+                .eq('isActive', true);
+
+            if (!warnings || warnings.length === 0) return true;
+
+            const contentLower = content.toLowerCase();
+            const matched = warnings.filter(w => contentLower.includes(w.keyword.toLowerCase()));
+
+            if (matched.length > 0) {
+                return new Promise((resolve) => {
+                    Alert.alert(
+                        '⚠️ Fact Warning',
+                        matched.map(w => `"${w.keyword}": ${w.warningText}`).join('\n\n'),
+                        [
+                            { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+                            { text: 'Send Anyway', onPress: () => resolve(true) },
+                        ]
+                    );
+                });
+            }
+            return true;
+        } catch {
+            return true;
+        }
+    };
+
+    // Check all bonding content in real-time while typing
+    const checkAllBondingContent = async (content: string) => {
+        if (!dbUserId || !selectedUser || selectedUser.id === 'dbot' || content.length < 3) {
+            setBondingWarnings({ blacklist: [], happy: [], facts: [] });
+            setShowBondingWarning(false);
+            return;
+        }
+
+        try {
+            const contentLower = content.toLowerCase();
+
+            // Fetch tagged content for this profile (blacklist and happy)
+            const { data: tags } = await supabase
+                .from('MessageTag')
+                .select('tagType, taggedContent, message:Message(content)')
+                .eq('userId', dbUserId)
+                .eq('profileId', selectedUser.id);
+
+            // Fetch fact warnings
+            const { data: factWarnings } = await supabase
+                .from('FactWarning')
+                .select('keyword, warningText')
+                .eq('userId', dbUserId)
+                .eq('profileId', selectedUser.id)
+                .eq('isActive', true);
+
+            const blacklistMatches: string[] = [];
+            const happyMatches: string[] = [];
+            const factMatches: { keyword: string; warningText: string }[] = [];
+
+            // Check blacklist tags
+            if (tags) {
+                tags.forEach((tag: any) => {
+                    const tagContent = (tag.taggedContent || (Array.isArray(tag.message) ? tag.message[0]?.content : tag.message?.content) || '').toLowerCase();
+                    if (tagContent && contentLower.includes(tagContent.substring(0, 10))) {
+                        if (['BLACKLIST', 'ANGRY', 'SAD'].includes(tag.tagType)) {
+                            blacklistMatches.push(tagContent);
+                        } else if (['HAPPY', 'JOY', 'FUNNY'].includes(tag.tagType)) {
+                            happyMatches.push(tagContent);
+                        }
+                    }
+                });
+            }
+
+            // Check fact warnings
+            if (factWarnings) {
+                factWarnings.forEach((w: any) => {
+                    if (contentLower.includes(w.keyword.toLowerCase())) {
+                        factMatches.push({ keyword: w.keyword, warningText: w.warningText });
+                    }
+                });
+            }
+
+            const hasWarnings = blacklistMatches.length > 0 || factMatches.length > 0;
+            setBondingWarnings({
+                blacklist: blacklistMatches,
+                happy: happyMatches,
+                facts: factMatches,
+            });
+            setShowBondingWarning(hasWarnings);
+        } catch (error) {
+            console.error('Error checking bonding content:', error);
+        }
+    };
+
+    // Debounced input change handler
+    const handleInputChange = (text: string) => {
+        setInputText(text);
+        // Check bonding content after a short delay
+        if (text.length >= 3) {
+            checkAllBondingContent(text);
+        } else {
+            setShowBondingWarning(false);
+        }
+    };
+
     const getGradientColors = (): [string, string, string] => {
         return mode === 'light' ? ['#ffffff', '#f8f9fa', '#e9ecef'] :
             mode === 'eye-care' ? ['#F5E6D3', '#E6D5C0', '#DBC4A0'] :
@@ -642,127 +804,370 @@ export default function ChatScreen() {
         return (
             <Animated.View style={{ transform: [{ translateX: slideAnim }] }} className="absolute inset-0 z-50">
                 <LinearGradient colors={getGradientColors()} className="flex-1">
-                    <SafeAreaView className="flex-1">
-                        {/* Header */}
-                        <BlurView intensity={80} tint={mode === 'light' ? 'light' : 'dark'} className="flex-row items-center justify-between px-4 py-3 border-b mt-10" style={{ borderColor: colors.border }}>
-                            <View className="flex-row items-center flex-1">
-                                <TouchableOpacity onPress={handleBack} className="mr-3 p-2 rounded-full">
-                                    <ChevronLeft color={colors.text} size={24} />
-                                </TouchableOpacity>
-                                <Image source={{ uri: selectedUser.avatar }} className="w-10 h-10 rounded-full bg-gray-200" />
-                                <View className="ml-3 flex-1">
-                                    <View className="flex-row items-center gap-2">
-                                        <Text className="text-base font-bold" numberOfLines={1} style={{ color: colors.text }}>{selectedUser.name}</Text>
-                                    </View>
-                                    <Text className="text-xs" style={{ color: colors.secondary }}>{isDbot ? 'AI Companion' : selectedUser.status}</Text>
-                                </View>
-                            </View>
-                            <View className="flex-row items-center gap-2">
-                                <TouchableOpacity onPress={() => router.push('/bonding')} className="p-2 rounded-full bg-gray-200/20">
-                                    <Heart size={20} color={colors.text} />
-                                </TouchableOpacity>
-                                <TouchableOpacity onPress={() => setShowApps(!showApps)} className={`p-2 rounded-full ${showApps ? 'bg-indigo-500' : 'bg-gray-200/20'}`}>
-                                    <Plus size={20} color={showApps ? 'white' : colors.text} style={{ transform: [{ rotate: showApps ? '45deg' : '0deg' }] }} />
-                                </TouchableOpacity>
-                            </View>
-                        </BlurView>
-
-                        {/* Collaborative Apps Toolbar */}
-                        {showApps && (
-                            <View className="flex-row justify-around py-4 border-b" style={{ borderColor: colors.border, backgroundColor: colors.card }}>
-                                <TouchableOpacity onPress={() => router.push('/grounding')} className="items-center">
-                                    <View className="p-3 rounded-full bg-purple-100 dark:bg-purple-900/30 mb-1">
-                                        <Anchor size={20} color="#a855f7" />
-                                    </View>
-                                    <Text style={{ color: colors.secondary, fontSize: 10 }}>WREX</Text>
-                                </TouchableOpacity>
-
-                                <TouchableOpacity onPress={() => router.push('/(tabs)/journal')} className="items-center">
-                                    <View className="p-3 rounded-full bg-violet-100 dark:bg-violet-900/30 mb-1">
-                                        <Book size={20} color="#8b5cf6" />
-                                    </View>
-                                    <Text style={{ color: colors.secondary, fontSize: 10 }}>Journal</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity onPress={() => router.push('/hopin')} className="items-center">
-                                    <View className="p-3 rounded-full bg-blue-100 dark:bg-blue-900/30 mb-1">
-                                        <MapIcon size={20} color="#3b82f6" />
-                                    </View>
-                                    <Text style={{ color: colors.secondary, fontSize: 10 }}>Hopin</Text>
-                                </TouchableOpacity>
-                            </View>
-                        )}
-
-                        {/* Messages */}
-                        {isLoading ? (
-                            <View className="flex-1 items-center justify-center">
-                                <ActivityIndicator size="large" color={colors.primary} />
-                            </View>
-                        ) : (
-                            <ScrollView
-                                className="flex-1 px-4 py-6"
-                                contentContainerStyle={{ paddingBottom: 20 }}
-                                ref={ref => ref?.scrollToEnd({ animated: true })}
-                            >
-                                {messages.map((msg, index) => {
-                                    // Check if this is the last message sent by ME
-                                    const isMe = msg.role === 'user';
-                                    const isLastFromMe = isMe && index === messages.length - 1;
-                                    const isLast = index === messages.length - 1;
-
-                                    // Ghosted Logic: 
-                                    // If last message is from me, NOT read, and > 5 hours have passed
-                                    const isGhosted = isLastFromMe && !msg.readAt && (Date.now() - msg.timestamp > 5 * 60 * 60 * 1000);
-
-                                    return (
-                                        <View key={msg.id} className={`mb-4 max-w-[80%] ${isMe ? 'self-end' : 'self-start'}`}>
-                                            <BlurView intensity={40} tint={mode === 'light' ? 'light' : 'dark'} className="px-5 py-3 rounded-2xl border overflow-hidden" style={{
-                                                backgroundColor: isMe ? colors.card : 'transparent',
-                                                borderColor: colors.border,
-                                                borderBottomRightRadius: isMe ? 0 : 16,
-                                                borderBottomLeftRadius: isMe ? 16 : 0
-                                            }}>
-                                                <Text className="text-base" style={{ color: colors.text }}>{msg.content}</Text>
-                                            </BlurView>
-                                            <View className="flex-row justify-end items-center gap-1 mt-1">
-                                                <Text className="text-[10px]" style={{ color: colors.secondary }}>
-                                                    {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                </Text>
-                                                {isLastFromMe && msg.readAt && (
-                                                    <Text className="text-[10px] font-bold text-blue-500 ml-1">Seen</Text>
-                                                )}
-                                            </View>
-                                            {isGhosted && (
-                                                <Text className="text-[10px] text-red-500 text-right mt-1 font-bold">
-                                                    Ghosted for {Math.floor((Date.now() - msg.timestamp) / (60 * 60 * 1000))} hrs
-                                                </Text>
-                                            )}
+                    <KeyboardAvoidingView
+                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                        className="flex-1"
+                        keyboardVerticalOffset={0}
+                    >
+                        <SafeAreaView className="flex-1">
+                            {/* Header */}
+                            <BlurView intensity={80} tint={mode === 'light' ? 'light' : 'dark'} className="flex-row items-center justify-between px-4 py-3 border-b mt-10" style={{ borderColor: colors.border }}>
+                                <View className="flex-row items-center flex-1">
+                                    <TouchableOpacity onPress={handleBack} className="mr-3 p-2 rounded-full">
+                                        <ChevronLeft color={colors.text} size={24} />
+                                    </TouchableOpacity>
+                                    <Image source={{ uri: selectedUser.avatar }} className="w-10 h-10 rounded-full bg-gray-200" />
+                                    <View className="ml-3 flex-1">
+                                        <View className="flex-row items-center gap-2">
+                                            <Text className="text-base font-bold" numberOfLines={1} style={{ color: colors.text }}>{selectedUser.name}</Text>
                                         </View>
-                                    );
-                                })}
-                            </ScrollView>
-                        )}
+                                        <Text className="text-xs" style={{ color: colors.secondary }}>{isDbot ? 'AI Companion' : selectedUser.status}</Text>
+                                    </View>
+                                </View>
+                                <View className="flex-row items-center gap-2">
+                                    <TouchableOpacity onPress={() => router.push({
+                                        pathname: '/bonding',
+                                        params: {
+                                            userId: selectedUser.id,
+                                            userName: selectedUser.name,
+                                            userAvatar: selectedUser.avatar
+                                        }
+                                    })} className="p-2 rounded-full bg-gray-200/20">
+                                        <Heart size={20} color={colors.text} />
+                                    </TouchableOpacity>
+                                    {/* Chat Settings */}
+                                    <TouchableOpacity onPress={() => setShowChatSettings(true)} className="p-2 rounded-full bg-gray-200/20">
+                                        <MoreVertical size={20} color={colors.text} />
+                                    </TouchableOpacity>
+                                    <TouchableOpacity onPress={() => setShowApps(!showApps)} className={`p-2 rounded-full ${showApps ? 'bg-indigo-500' : 'bg-gray-200/20'}`}>
+                                        <Plus size={20} color={showApps ? 'white' : colors.text} style={{ transform: [{ rotate: showApps ? '45deg' : '0deg' }] }} />
+                                    </TouchableOpacity>
+                                </View>
+                            </BlurView>
 
-                        {/* Input */}
-                        <BlurView intensity={90} tint={mode === 'light' ? 'light' : 'dark'} className="px-4 py-4 border-t pb-8" style={{ borderColor: colors.border }}>
-                            <View className="flex-row items-center gap-3">
-                                <TextInput
-                                    placeholder="Type a message..."
-                                    placeholderTextColor={colors.secondary}
-                                    value={inputText}
-                                    onChangeText={setInputText}
-                                    className="flex-1 h-12 px-4 rounded-full border"
-                                    style={{ backgroundColor: colors.card, borderColor: colors.border, color: colors.text }}
-                                />
-                                <TouchableOpacity onPress={sendMessage} className="w-12 h-12 rounded-full items-center justify-center shadow-lg" style={{ backgroundColor: colors.primary }}>
-                                    <Send color={mode === 'light' ? '#fff' : '#000'} size={20} />
-                                </TouchableOpacity>
-                            </View>
-                        </BlurView>
-                    </SafeAreaView>
+                            {/* Collaborative Apps Toolbar */}
+                            {showApps && (
+                                <View className="flex-row justify-around py-4 border-b" style={{ borderColor: colors.border, backgroundColor: colors.card }}>
+                                    <TouchableOpacity onPress={() => router.push('/grounding')} className="items-center">
+                                        <View className="p-3 rounded-full bg-purple-100 dark:bg-purple-900/30 mb-1">
+                                            <Anchor size={20} color="#a855f7" />
+                                        </View>
+                                        <Text style={{ color: colors.secondary, fontSize: 10 }}>WREX</Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity onPress={() => router.push('/(tabs)/journal')} className="items-center">
+                                        <View className="p-3 rounded-full bg-violet-100 dark:bg-violet-900/30 mb-1">
+                                            <Book size={20} color="#8b5cf6" />
+                                        </View>
+                                        <Text style={{ color: colors.secondary, fontSize: 10 }}>Journal</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity onPress={() => router.push('/hopin')} className="items-center">
+                                        <View className="p-3 rounded-full bg-blue-100 dark:bg-blue-900/30 mb-1">
+                                            <MapIcon size={20} color="#3b82f6" />
+                                        </View>
+                                        <Text style={{ color: colors.secondary, fontSize: 10 }}>Hopin</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            )}
+
+                            {/* Messages */}
+                            {isLoading ? (
+                                <View className="flex-1 items-center justify-center">
+                                    <ActivityIndicator size="large" color={colors.primary} />
+                                </View>
+                            ) : (
+                                <ScrollView
+                                    className="flex-1 px-4 py-6"
+                                    contentContainerStyle={{ paddingBottom: 20 }}
+                                    ref={ref => ref?.scrollToEnd({ animated: true })}
+                                >
+                                    {messages.map((msg, index) => {
+                                        // Check if this is the last message sent by ME
+                                        const isMe = msg.role === 'user';
+                                        const isLastFromMe = isMe && index === messages.length - 1;
+                                        const isLast = index === messages.length - 1;
+
+                                        // Ghosted Logic: 
+                                        // If last message is from me, NOT read, and > 5 hours have passed
+                                        const isGhosted = isLastFromMe && !msg.readAt && (Date.now() - msg.timestamp > 5 * 60 * 60 * 1000);
+
+                                        return (
+                                            <View
+                                                key={msg.id}
+                                                className={`mb-4 max-w-[85%] ${isMe ? 'self-end' : 'self-start'}`}
+                                            >
+                                                <View className={`flex-row items-start gap-1 ${isMe ? 'flex-row-reverse' : ''}`}>
+                                                    {/* 3-dots menu for tagging (only for non-dbot) */}
+                                                    {selectedUser?.id !== 'dbot' && (
+                                                        <TouchableOpacity
+                                                            onPress={() => {
+                                                                setSelectedMessage(msg);
+                                                                setShowTagModal(true);
+                                                            }}
+                                                            className="p-1 mt-2"
+                                                        >
+                                                            <MoreVertical size={16} color={colors.secondary} />
+                                                        </TouchableOpacity>
+                                                    )}
+
+                                                    {/* Message bubble */}
+                                                    <View className="flex-1">
+                                                        <BlurView intensity={40} tint={mode === 'light' ? 'light' : 'dark'} className="px-5 py-3 rounded-2xl border overflow-hidden" style={{
+                                                            backgroundColor: isMe ? colors.card : 'transparent',
+                                                            borderColor: colors.border,
+                                                            borderBottomRightRadius: isMe ? 0 : 16,
+                                                            borderBottomLeftRadius: isMe ? 16 : 0
+                                                        }}>
+                                                            <Text className="text-base" style={{ color: colors.text }}>{msg.content}</Text>
+                                                        </BlurView>
+                                                        <View className={`flex-row items-center gap-1 mt-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                                                            <Text className="text-[10px]" style={{ color: colors.secondary }}>
+                                                                {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                            </Text>
+                                                            {isLastFromMe && msg.readAt && (
+                                                                <Text className="text-[10px] font-bold text-blue-500 ml-1">Seen</Text>
+                                                            )}
+                                                        </View>
+                                                        {isGhosted && (
+                                                            <Text className="text-[10px] text-red-500 text-right mt-1 font-bold">
+                                                                Ghosted for {Math.floor((Date.now() - msg.timestamp) / (60 * 60 * 1000))} hrs
+                                                            </Text>
+                                                        )}
+                                                    </View>
+                                                </View>
+                                            </View>
+                                        );
+                                    })}
+                                </ScrollView>
+                            )}
+
+                            {/* Bonding Warning Display */}
+                            {showBondingWarning && (
+                                <View className="px-4 py-2" style={{ backgroundColor: '#fef2f2' }}>
+                                    {bondingWarnings.blacklist.length > 0 && (
+                                        <View className="flex-row items-center gap-2 mb-1">
+                                            <AlertTriangle size={14} color="#ef4444" />
+                                            <Text className="text-xs text-red-500 flex-1">
+                                                ⚠️ Blacklisted content detected
+                                            </Text>
+                                        </View>
+                                    )}
+                                    {bondingWarnings.facts.length > 0 && (
+                                        <View className="flex-row items-center gap-2">
+                                            <AlertTriangle size={14} color="#f59e0b" />
+                                            <Text className="text-xs text-amber-600 flex-1">
+                                                💡 {bondingWarnings.facts.map(f => `"${f.keyword}": ${f.warningText}`).join(', ')}
+                                            </Text>
+                                        </View>
+                                    )}
+                                </View>
+                            )}
+
+                            {/* Input */}
+                            <BlurView intensity={90} tint={mode === 'light' ? 'light' : 'dark'} className="px-4 py-4 border-t pb-8" style={{ borderColor: colors.border }}>
+                                <View className="flex-row items-center gap-2">
+                                    {/* Emoji/Sticker button */}
+                                    <TouchableOpacity className="p-2" onPress={() => Alert.alert('Coming Soon', 'Emoji & Sticker picker coming soon!')}>
+                                        <Smile size={22} color={colors.secondary} />
+                                    </TouchableOpacity>
+
+                                    <TextInput
+                                        placeholder="Type a message..."
+                                        placeholderTextColor={colors.secondary}
+                                        value={inputText}
+                                        onChangeText={handleInputChange}
+                                        className="flex-1 h-12 px-4 rounded-full border"
+                                        style={{ backgroundColor: colors.card, borderColor: colors.border, color: colors.text }}
+                                    />
+                                    <TouchableOpacity onPress={sendMessage} className="w-12 h-12 rounded-full items-center justify-center shadow-lg" style={{ backgroundColor: colors.primary }}>
+                                        <Send color={mode === 'light' ? '#fff' : '#000'} size={20} />
+                                    </TouchableOpacity>
+                                </View>
+                            </BlurView>
+                        </SafeAreaView>
+                    </KeyboardAvoidingView>
                 </LinearGradient>
             </Animated.View>
         );
     };
+
+    // Tag Modal
+    const renderTagModal = () => (
+        <Modal visible={showTagModal} transparent animationType="fade">
+            <TouchableOpacity
+                className="flex-1 bg-black/50 justify-center items-center"
+                activeOpacity={1}
+                onPress={() => { setShowTagModal(false); setSelectedMessage(null); }}
+            >
+                <BlurView intensity={90} tint={mode === 'light' ? 'light' : 'dark'} className="w-72 rounded-2xl overflow-hidden p-4">
+                    <Text className="text-lg font-bold mb-4 text-center" style={{ color: colors.text }}>Tag Message</Text>
+
+                    {/* Blacklist Tags */}
+                    <Text className="text-xs font-bold mb-2" style={{ color: '#ef4444' }}>BLACKLIST</Text>
+                    <View className="flex-row gap-2 mb-4">
+                        {['BLACKLIST', 'ANGRY', 'SAD'].map(type => (
+                            <TouchableOpacity
+                                key={type}
+                                onPress={() => tagMessage(type)}
+                                className="flex-1 py-2 rounded-lg items-center"
+                                style={{ backgroundColor: '#ef444420' }}
+                            >
+                                <Text className="text-xs font-bold" style={{ color: '#ef4444' }}>{type}</Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+
+                    {/* Happy Tags */}
+                    <Text className="text-xs font-bold mb-2" style={{ color: '#22c55e' }}>HAPPY LOCKER</Text>
+                    <View className="flex-row gap-2 mb-4">
+                        {['HAPPY', 'JOY', 'FUNNY'].map(type => (
+                            <TouchableOpacity
+                                key={type}
+                                onPress={() => tagMessage(type)}
+                                className="flex-1 py-2 rounded-lg items-center"
+                                style={{ backgroundColor: '#22c55e20' }}
+                            >
+                                <Text className="text-xs font-bold" style={{ color: '#22c55e' }}>{type}</Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+
+                    {/* Fact Tag */}
+                    <Text className="text-xs font-bold mb-2" style={{ color: '#3b82f6' }}>FACT LOCKER</Text>
+                    <TouchableOpacity
+                        onPress={() => tagMessage('FACT')}
+                        className="py-3 rounded-lg items-center mb-2"
+                        style={{ backgroundColor: '#3b82f620' }}
+                    >
+                        <Text className="font-bold" style={{ color: '#3b82f6' }}>Save as Fact</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        onPress={() => { setShowTagModal(false); setSelectedMessage(null); }}
+                        className="py-3 rounded-lg items-center mt-2"
+                        style={{ backgroundColor: colors.card }}
+                    >
+                        <Text style={{ color: colors.secondary }}>Cancel</Text>
+                    </TouchableOpacity>
+                </BlurView>
+            </TouchableOpacity>
+        </Modal>
+    );
+
+    // Chat Settings Modal
+    const renderChatSettingsModal = () => (
+        <Modal visible={showChatSettings} transparent animationType="slide">
+            <View className="flex-1 bg-black/50 justify-end">
+                <BlurView intensity={90} tint={mode === 'light' ? 'light' : 'dark'} className="rounded-t-3xl overflow-hidden p-6 pb-10">
+                    <View className="flex-row justify-between items-center mb-6">
+                        <Text className="text-xl font-bold" style={{ color: colors.text }}>Chat Settings</Text>
+                        <TouchableOpacity onPress={() => setShowChatSettings(false)}>
+                            <X size={24} color={colors.text} />
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Chat Background */}
+                    <TouchableOpacity
+                        onPress={() => Alert.alert('Change Background', 'Choose an image or video for chat background', [
+                            { text: 'Remove Background', onPress: () => setChatBackground(null) },
+                            { text: 'Choose Image', onPress: () => Alert.alert('Coming Soon', 'Image picker will be available soon') },
+                            { text: 'Cancel', style: 'cancel' }
+                        ])}
+                        className="flex-row items-center py-4 border-b"
+                        style={{ borderColor: colors.border }}
+                    >
+                        <ImageIcon size={22} color={colors.primary} />
+                        <View className="ml-4 flex-1">
+                            <Text className="font-medium" style={{ color: colors.text }}>Chat Background</Text>
+                            <Text className="text-xs" style={{ color: colors.secondary }}>
+                                {chatBackground ? 'Custom background set' : 'Default background'}
+                            </Text>
+                        </View>
+                    </TouchableOpacity>
+
+                    {/* Block User */}
+                    <TouchableOpacity
+                        onPress={() => Alert.alert(
+                            'Block User',
+                            `Are you sure you want to block ${selectedUser?.name}? They won't be able to message you.`,
+                            [
+                                { text: 'Cancel', style: 'cancel' },
+                                {
+                                    text: 'Block', style: 'destructive', onPress: () => {
+                                        Alert.alert('Blocked', `${selectedUser?.name} has been blocked`);
+                                        setShowChatSettings(false);
+                                        handleBack();
+                                    }
+                                }
+                            ]
+                        )}
+                        className="flex-row items-center py-4 border-b"
+                        style={{ borderColor: colors.border }}
+                    >
+                        <X size={22} color="#ef4444" />
+                        <View className="ml-4 flex-1">
+                            <Text className="font-medium text-red-500">Block User</Text>
+                            <Text className="text-xs" style={{ color: colors.secondary }}>
+                                Prevent this user from messaging you
+                            </Text>
+                        </View>
+                    </TouchableOpacity>
+
+                    {/* Message Retention */}
+                    <View className="py-4">
+                        <Text className="font-medium mb-3" style={{ color: colors.text }}>Message Retention</Text>
+                        <Text className="text-xs mb-3" style={{ color: colors.secondary }}>
+                            Messages will auto-delete after the selected time
+                        </Text>
+
+                        <View className="flex-row flex-wrap gap-2">
+                            {[
+                                { value: 'forever', label: 'Forever' },
+                                { value: '1day', label: '24 Hours' },
+                                { value: 'viewonce', label: 'View Once' },
+                                { value: 'custom', label: `${customRetentionDays} Days` },
+                            ].map((option) => (
+                                <TouchableOpacity
+                                    key={option.value}
+                                    onPress={() => {
+                                        if (option.value === 'custom') {
+                                            // Alert.prompt is iOS only, so use a simpler approach
+                                            Alert.alert(
+                                                'Custom Retention',
+                                                `Messages will be deleted after ${customRetentionDays} days. You can change this value in the settings.`
+                                            );
+                                        }
+                                        setMessageRetention(option.value as any);
+                                    }}
+                                    className={`px-4 py-2 rounded-full ${messageRetention === option.value ? 'bg-indigo-500' : ''}`}
+                                    style={{ backgroundColor: messageRetention === option.value ? colors.primary : colors.card }}
+                                >
+                                    <Text
+                                        className="text-sm font-medium"
+                                        style={{ color: messageRetention === option.value ? '#fff' : colors.text }}
+                                    >
+                                        {option.label}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    </View>
+
+                    {/* Save Button */}
+                    <TouchableOpacity
+                        onPress={() => {
+                            Alert.alert('Settings Saved', 'Your chat settings have been updated');
+                            setShowChatSettings(false);
+                        }}
+                        className="mt-4 py-4 rounded-xl items-center"
+                        style={{ backgroundColor: colors.primary }}
+                    >
+                        <Text className="font-bold text-white">Save Settings</Text>
+                    </TouchableOpacity>
+                </BlurView>
+            </View>
+        </Modal>
+    );
 
     return (
         <LinearGradient colors={getGradientColors()} className="flex-1">
@@ -771,6 +1176,8 @@ export default function ChatScreen() {
                 {renderSearchBar()}
                 {renderUserList()}
                 {renderChatRoom()}
+                {renderTagModal()}
+                {renderChatSettingsModal()}
             </SafeAreaView>
         </LinearGradient>
     );

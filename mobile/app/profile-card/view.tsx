@@ -142,33 +142,36 @@ export default function ProfileCardView() {
     };
 
     return (
-        <View className="flex-1" style={{ backgroundColor: colors.background }}>
+        <View className="flex-1" style={{ backgroundColor: '#000' }}>
+            {/* Starfield Background */}
             <Image
-                source={{ uri: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop' }}
-                className="absolute inset-0 w-full h-full opacity-40"
+                source={{ uri: 'https://images.unsplash.com/photo-1419242902214-272b3f66ee7a?q=80&w=2013&auto=format&fit=crop' }}
+                className="absolute inset-0 w-full h-full"
+                style={{ opacity: 0.7 }}
             />
             <LinearGradient
-                colors={mode === 'light' ? ['rgba(255,255,255,0.8)', 'rgba(255,255,255,1)'] : ['rgba(0,0,0,0.6)', 'rgba(0,0,0,1)']}
+                colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.7)', 'rgba(0,0,0,0.9)']}
                 className="absolute inset-0"
+                locations={[0, 0.5, 1]}
             />
 
             <SafeAreaView className="flex-1">
                 <View className="flex-row items-center justify-between px-4 py-2 z-10">
-                    <TouchableOpacity onPress={() => router.back()} className="p-2 rounded-full bg-gray-200/20">
-                        <ChevronLeft color={colors.text} size={24} />
+                    <TouchableOpacity onPress={() => router.back()} className="p-2 rounded-full bg-white/10">
+                        <ChevronLeft color="#fff" size={24} />
                     </TouchableOpacity>
-                    <View className="flex-row items-center gap-2 bg-gray-200/20 px-3 py-1 rounded-full">
-                        <Text className="font-bold tracking-widest" style={{ color: colors.text }}>{cardData.uniqueCode}</Text>
+                    <View className="flex-row items-center gap-2 bg-white/10 px-3 py-1 rounded-full">
+                        <Text className="font-bold tracking-widest" style={{ color: '#fff' }}>{cardData.uniqueCode}</Text>
                         <TouchableOpacity onPress={copyCode}>
-                            <Copy color={colors.text} size={14} />
+                            <Copy color="#fff" size={14} />
                         </TouchableOpacity>
                     </View>
-                    <TouchableOpacity onPress={handleShare} className="p-2 rounded-full bg-gray-200/20">
-                        <Share2 color={colors.text} size={22} />
+                    <TouchableOpacity onPress={handleShare} className="p-2 rounded-full bg-white/10">
+                        <Share2 color="#fff" size={22} />
                     </TouchableOpacity>
                 </View>
 
-                <View className="flex-1 justify-center">
+                <View className="flex-1 items-center justify-center">
                     <FlatList
                         ref={flatListRef}
                         data={allCards}
@@ -200,7 +203,7 @@ export default function ProfileCardView() {
                 </View>
 
                 <View className="items-center py-4">
-                    <Text style={{ color: colors.secondary, fontSize: 10 }}>F U Y  •  P R O F I L E  C A R D</Text>
+                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10 }}>F U Y  •  P R O F I L E  C A R D</Text>
                 </View>
             </SafeAreaView>
 

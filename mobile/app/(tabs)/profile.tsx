@@ -374,7 +374,7 @@ export default function ProfileScreen() {
                     className="flex-1 py-3 rounded-2xl items-center justify-center flex-row gap-2"
                     style={{ backgroundColor: colors.primary }}
                 >
-                    <Text className="font-bold" style={{ color: '#fff' }}>My Profile Card</Text>
+                    <Text className="font-bold" style={{ color: mode === 'dark' ? '#000' : '#fff' }}>My Profile Card</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                     onPress={() => {

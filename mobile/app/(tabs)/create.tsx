@@ -4,6 +4,13 @@ import { useTheme } from '../../context/ThemeContext';
 import ScreenWrapper from '../../components/ScreenWrapper';
 import { Book, Search, Clapperboard, Smartphone, Monitor, Video, Radio, BarChart2 } from 'lucide-react-native';
 import ChapterForm from '../../components/post-forms/ChapterForm';
+import LillForm from '../../components/post-forms/LillForm';
+import FillForm from '../../components/post-forms/FillForm';
+import XrayForm from '../../components/post-forms/XrayForm';
+import BTSForm from '../../components/post-forms/BTSForm';
+import AudForm from '../../components/post-forms/AudForm';
+import ChanForm from '../../components/post-forms/ChanForm';
+import PollForm from '../../components/post-forms/PollForm';
 
 // Determine screen width for 2-column layout
 const { width } = Dimensions.get('window');
@@ -79,29 +86,26 @@ export default function CreateScreen() {
         setSelectedType(type as PostType);
     };
 
-    // Render specific form based on selection
-    if (selectedType === 'CHAPTER') {
-        return <ScreenWrapper><ChapterForm onBack={() => setSelectedType(null)} /></ScreenWrapper>;
-    }
+    const handleBack = () => setSelectedType(null);
 
-    // Placeholder for other forms (can be replaced by specific components as they are built)
-    if (selectedType) {
-        return (
-            <ScreenWrapper>
-                <View className="flex-1 items-center justify-center p-6">
-                    <Text style={{ color: colors.text, fontSize: 20, marginBottom: 10 }}>{selectedType} Form</Text>
-                    <Text style={{ color: colors.secondary, textAlign: 'center', marginBottom: 20 }}>
-                        This post type is under construction for mobile.
-                    </Text>
-                    <TouchableOpacity
-                        onPress={() => setSelectedType(null)}
-                        style={{ padding: 12, backgroundColor: colors.card, borderRadius: 8 }}
-                    >
-                        <Text style={{ color: colors.text }}>Go Back</Text>
-                    </TouchableOpacity>
-                </View>
-            </ScreenWrapper>
-        );
+    // Render specific form based on selection
+    switch (selectedType) {
+        case 'CHAPTER':
+            return <ScreenWrapper><ChapterForm onBack={handleBack} /></ScreenWrapper>;
+        case 'LILL':
+            return <ScreenWrapper><LillForm onBack={handleBack} /></ScreenWrapper>;
+        case 'FILL':
+            return <ScreenWrapper><FillForm onBack={handleBack} /></ScreenWrapper>;
+        case 'XRAY':
+            return <ScreenWrapper><XrayForm onBack={handleBack} /></ScreenWrapper>;
+        case 'BTS':
+            return <ScreenWrapper><BTSForm onBack={handleBack} /></ScreenWrapper>;
+        case 'AUD':
+            return <ScreenWrapper><AudForm onBack={handleBack} /></ScreenWrapper>;
+        case 'CHAN':
+            return <ScreenWrapper><ChanForm onBack={handleBack} /></ScreenWrapper>;
+        case 'PULLUPDOWN':
+            return <ScreenWrapper><PollForm onBack={handleBack} /></ScreenWrapper>;
     }
 
     // Default: Selection Grid

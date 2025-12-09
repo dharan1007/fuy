@@ -249,32 +249,50 @@ export default function DotsScreen() {
     const [selectedCategory, setSelectedCategory] = useState('mix');
     const [dots, setDots] = useState<DotData[]>(MOCK_DOTS);
     const [loading, setLoading] = useState(false);
-    const [showCategories, setShowCategories] = useState(false);
+    const [showCategories, setShowCategories] = useState(true);
     const flatListRef = useRef<FlatList>(null);
 
-    // Fetch dots from Supabase
+    // Map category to postType
+    const categoryToPostType: Record<string, string> = {
+        lills: 'LILL',
+        fills: 'FILL',
+        auds: 'AUD',
+        channels: 'CHAN',
+        chapters: 'CHAPTER',
+        xrays: 'XRAY',
+        pupds: 'PULLUPDOWN',
+        bts: 'BTS',
+    };
+
+    // Fetch posts from Supabase Post table
     const fetchDots = useCallback(async (category: string) => {
         setLoading(true);
         try {
             let query = supabase
-                .from('Dot')
+                .from('Post')
                 .select(`
                     id,
-                    description,
-                    mediaUrl,
-                    category,
-                    likes,
-                    comments,
+                    content,
+                    postType,
+                    createdAt,
                     user:User (
                         name,
                         profile:Profile (avatarUrl)
-                    )
+                    ),
+                    media:Media (url, type),
+                    lillData:Lill (videoUrl, thumbnailUrl),
+                    fillData:Fill (videoUrl, thumbnailUrl),
+                    audData:Aud (audioUrl, coverImageUrl),
+                    xrayData:Xray (topLayerUrl, bottomLayerUrl),
+                    chanData:Chan (coverImageUrl)
                 `)
+                .eq('visibility', 'PUBLIC')
                 .order('createdAt', { ascending: false })
                 .limit(20);
 
-            if (category !== 'mix') {
-                query = query.eq('category', category);
+            // Filter by postType if not mix
+            if (category !== 'mix' && categoryToPostType[category]) {
+                query = query.eq('postType', categoryToPostType[category]);
             }
 
             const { data, error } = await query;
@@ -286,16 +304,27 @@ export default function DotsScreen() {
                     : MOCK_DOTS.filter(d => d.category === category);
                 setDots(filtered.length > 0 ? filtered : MOCK_DOTS);
             } else if (data && data.length > 0) {
-                const formattedDots = data.map((dot: any) => ({
-                    id: dot.id,
-                    username: dot.user?.name || 'user',
-                    avatar: dot.user?.profile?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/png?seed=${dot.id}`,
-                    description: dot.description || '',
-                    likes: dot.likes || 0,
-                    comments: dot.comments || 0,
-                    mediaUrl: dot.mediaUrl,
-                    category: dot.category,
-                }));
+                const formattedDots = data.map((post: any) => {
+                    // Get media URL based on post type
+                    let mediaUrl = '';
+                    if (post.lillData?.videoUrl) mediaUrl = post.lillData.thumbnailUrl || post.lillData.videoUrl;
+                    else if (post.fillData?.videoUrl) mediaUrl = post.fillData.thumbnailUrl || post.fillData.videoUrl;
+                    else if (post.xrayData?.topLayerUrl) mediaUrl = post.xrayData.topLayerUrl;
+                    else if (post.chanData?.coverImageUrl) mediaUrl = post.chanData.coverImageUrl;
+                    else if (post.audData?.coverImageUrl) mediaUrl = post.audData.coverImageUrl;
+                    else if (post.media?.[0]?.url) mediaUrl = post.media[0].url;
+
+                    return {
+                        id: post.id,
+                        username: post.user?.name || 'user',
+                        avatar: post.user?.profile?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/png?seed=${post.id}`,
+                        description: post.content || '',
+                        likes: 0,
+                        comments: 0,
+                        mediaUrl: mediaUrl || 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600',
+                        category: post.postType?.toLowerCase() || 'mix',
+                    };
+                });
                 setDots(formattedDots);
             } else {
                 const filtered = category === 'mix'

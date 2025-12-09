@@ -42,6 +42,7 @@ const MainLayout = () => {
         segments.includes('bonding') ||
         segments.includes('profile-card') ||
         segments.includes('dots') ||
+        segments.includes('create') ||
         segments.includes('hopin');
 
     return (
