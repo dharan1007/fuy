@@ -2,7 +2,7 @@
 
 import React, { useRef, Suspense } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { Stars, ScrollControls, Scroll, useScroll } from '@react-three/drei';
+import { Stars, ScrollControls, Scroll, useScroll, Sparkles } from '@react-three/drei';
 import * as THREE from 'three';
 
 function StarfieldScene() {

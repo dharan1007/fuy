@@ -2,17 +2,41 @@
 
 import { useRouter } from "next/navigation";
 import { PomodoroPro } from "../../components/pomodoro";
+import { useEffect } from "react";
 
 export default function PomodoroPage() {
   const router = useRouter();
 
+  // Enforce Notification Permissions on Load
+  useEffect(() => {
+    if ("Notification" in window) {
+      if (Notification.permission !== "granted") {
+        Notification.requestPermission().then((permission) => {
+          if (permission === "granted") {
+            console.log("Notification permission granted.");
+          } else {
+            console.log("Notification permission denied/dismissed.");
+          }
+        });
+      }
+    }
+  }, []);
+
   return (
     <>
-      {/* Dark backdrop */}
-      <div className="fixed inset-0 -z-10 bg-gradient-to-b from-neutral-900 via-neutral-950 to-black" />
+      {/* White Dotted Grid Background */}
+      <div className="fixed inset-0 z-0 bg-white">
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage: 'radial-gradient(#e5e7eb 1px, transparent 1px)',
+            backgroundSize: '24px 24px'
+          }}
+        />
+      </div>
 
       <section
-        className="relative min-h-screen-safe text-white"
+        className="relative z-10 min-h-screen-safe text-black"
         aria-label="Pomodoro — Planner View"
         style={{ touchAction: "pan-y" }}
       >
@@ -21,7 +45,7 @@ export default function PomodoroPage() {
             Pomodoro Console
           </h1>
           <button
-            className="btn-ghost text-sm opacity-90 hover:opacity-100"
+            className="text-sm font-medium text-gray-600 hover:text-black transition-colors"
             onClick={() => router.push("/dashboard")}
             aria-label="Back to dashboard"
           >

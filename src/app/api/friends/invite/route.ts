@@ -1,7 +1,7 @@
 import { logger } from "@/lib/logger";
 // src/app/api/friends/invite/route.ts
 import { NextResponse } from "next/server";
-import { prisma } from "../../../../lib/db";
+import { prisma } from "@/lib/prisma";
 import { requireUserId } from "../../../../lib/session";
 import { sendMail } from "../../../../lib/mailer";
 import { absoluteUrl } from "../../../../lib/base-url";

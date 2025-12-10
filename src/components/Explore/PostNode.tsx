@@ -47,6 +47,11 @@ export function PostNode({ post, position, onClick }: PostNodeProps) {
                                     className="w-full h-full object-cover"
                                 />
                             )
+                        ) : post.postType === 'PULLUPDOWN' ? (
+                            <div className="w-full h-full flex flex-col items-center justify-center bg-gray-800 text-yellow-400">
+                                <span className="text-4xl mb-2">📊</span>
+                                <span className="text-[10px] font-bold uppercase tracking-wider">Poll</span>
+                            </div>
                         ) : (
                             <div className="w-full h-full flex items-center justify-center text-2xl">
                                 📄

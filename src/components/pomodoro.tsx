@@ -9,7 +9,7 @@
  * - Full-width friendly layout.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 
 /* --------------- types + local storage keys --------------- */
 
@@ -107,13 +107,13 @@ function useStore() {
         }
         setS(v);
       }
-    } catch {}
+    } catch { }
   }, []);
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
       localStorage.setItem(STORE_KEY, JSON.stringify(s));
-    } catch {}
+    } catch { }
   }, [s]);
   return { s, setS };
 }
@@ -125,13 +125,13 @@ function useHistory() {
     try {
       const raw = localStorage.getItem(HIST_KEY);
       if (raw) setList(JSON.parse(raw));
-    } catch {}
+    } catch { }
   }, []);
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
       localStorage.setItem(HIST_KEY, JSON.stringify(list.slice(-50)));
-    } catch {}
+    } catch { }
   }, [list]);
   return { list, setList };
 }
@@ -143,13 +143,13 @@ function useTasks() {
     try {
       const raw = localStorage.getItem(TASK_KEY);
       if (raw) setTasks(JSON.parse(raw));
-    } catch {}
+    } catch { }
   }, []);
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
       localStorage.setItem(TASK_KEY, JSON.stringify(tasks));
-    } catch {}
+    } catch { }
   }, [tasks]);
 
   const addTask = (text: string) => {
@@ -192,31 +192,78 @@ function useVideoRecorder() {
   const chunksRef = useRef<BlobPart[]>([]);
   const videoEl = useRef<HTMLVideoElement | null>(null);
 
-  const ensureStream = async () => {
+  const ensureStream = useCallback(async () => {
     if (mediaStreamRef.current) return mediaStreamRef.current;
+
+    // 1. Check support
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      const msg = "Camera API not supported in this context (HTTP? Browser?).";
+      setError(msg);
+      setState("error");
+      return;
+    }
+
     try {
+      // 2. Try video + audio
       const stream = await navigator.mediaDevices.getUserMedia({
         video: true,
         audio: true,
       });
-      mediaStreamRef.current = stream;
-      setStreamReady(true);
-      if (videoEl.current) videoEl.current.srcObject = stream;
-      setState("ready");
+      handleStreamSuccess(stream);
       return stream;
-    } catch (e) {
-      setError("Camera/mic permission denied or unavailable.");
-      setState("error");
-      throw e;
-    }
-  };
+    } catch (err1: any) {
+      console.warn("Audio+Video failed, trying Video only...", err1);
 
-  const attachVideo = (el: HTMLVideoElement | null) => {
+      // 3. Fallback: Try video only (maybe mic is blocked/missing)
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false,
+        });
+        handleStreamSuccess(stream);
+        return stream;
+      } catch (err2: any) {
+        console.error("Video-only also failed", err2);
+
+        // 4. Handle specific errors
+        mediaStreamRef.current = null;
+        setStreamReady(false);
+        setState("error");
+
+        let msg = "Camera access failed.";
+        const name = err2.name || "";
+        const message = err2.message || "";
+
+        if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+          msg = "Permission blocked! Click the 🔒 lock icon in your address bar to reset camera permissions.";
+        } else if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+          msg = "No camera device found.";
+        } else if (name === "NotReadableError" || name === "TrackStartError") {
+          msg = "Camera is in use by another app (Zoom/Meet?). Close it and retry.";
+        } else if (message.includes("policy")) {
+          msg = "Browser Security Policy is blocking camera. Check device/parent settings.";
+        } else {
+          msg = `Error: ${name} - ${message}`;
+        }
+        setError(msg);
+      }
+    }
+  }, []);
+
+  const handleStreamSuccess = useCallback((stream: MediaStream) => {
+    mediaStreamRef.current = stream;
+    setStreamReady(true);
+    if (videoEl.current) videoEl.current.srcObject = stream;
+    setError(null);
+    setState("ready");
+  }, []);
+
+  const attachVideo = useCallback((el: HTMLVideoElement | null) => {
     videoEl.current = el;
     if (el && mediaStreamRef.current) el.srcObject = mediaStreamRef.current;
-  };
+  }, []);
 
-  const start = async () => {
+  const start = useCallback(async () => {
     const stream = await ensureStream();
     if (!stream) return;
     setBlob(null);
@@ -232,38 +279,49 @@ function useVideoRecorder() {
     recorderRef.current = rec;
     rec.start();
     setState("recording");
-  };
-  const pause = () => {
+  }, [ensureStream]);
+
+  const pause = useCallback(() => {
     const r = recorderRef.current;
     if (r && r.state === "recording") {
       r.pause();
       setState("paused");
     }
-  };
-  const resume = () => {
+  }, []);
+
+  const resume = useCallback(() => {
     const r = recorderRef.current;
     if (r && r.state === "paused") {
       r.resume();
       setState("recording");
     }
-  };
-  const stop = () => {
+  }, []);
+
+  const stop = useCallback(() => {
     const r = recorderRef.current;
     if (r && (r.state === "recording" || r.state === "paused")) {
       r.stop();
       setState("ready");
     }
-  };
-  const cleanup = () => {
+  }, []);
+
+  const cleanup = useCallback(() => {
     recorderRef.current?.stop?.();
     mediaStreamRef.current?.getTracks?.().forEach((t) => t.stop());
     mediaStreamRef.current = null;
     recorderRef.current = null;
     setState("idle");
     setStreamReady(false);
-  };
+  }, []);
 
-  return {
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      cleanup();
+    };
+  }, [cleanup]);
+
+  return useMemo(() => ({
     state,
     error,
     blob,
@@ -275,7 +333,120 @@ function useVideoRecorder() {
     resume,
     stop,
     cleanup,
-  };
+    stream: mediaStreamRef.current, // Expose stream for analysis
+  }), [state, error, blob, streamReady, attachVideo, ensureStream, start, pause, resume, stop, cleanup]);
+}
+
+/* ---------------- motion analysis hook ---------------- */
+
+function useMotionAnalysis(stream: MediaStream | null, active: boolean) {
+  const [energy, setEnergy] = useState(5); // 0-10 scale
+  const [isAway, setIsAway] = useState(false);
+
+  const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
+  const prevFrameRef = useRef<Uint8ClampedArray | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  useEffect(() => {
+    if (!stream || !active) {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      return;
+    }
+
+    // Create hidden video element to read stream
+    const vid = document.createElement('video');
+    vid.srcObject = stream;
+    vid.muted = true;
+    vid.play().catch(() => { });
+    videoRef.current = vid;
+
+    // Create offscreen canvas for analysis (low res for performance)
+    const cvs = document.createElement('canvas');
+    cvs.width = 64;
+    cvs.height = 48;
+    ctxRef.current = cvs.getContext('2d', { willReadFrequently: true });
+
+    let staticFrames = 0;
+    let motionAccumulator = 0;
+    let frames = 0;
+
+    const analyze = () => {
+      if (!ctxRef.current || !videoRef.current) return;
+
+      const ctx = ctxRef.current;
+      const width = 64;
+      const height = 48;
+
+      ctx.drawImage(videoRef.current, 0, 0, width, height);
+      const start = Date.now();
+      const imageData = ctx.getImageData(0, 0, width, height);
+      const data = imageData.data;
+
+      let score = 0; // Total pixel change
+      let pixels = 0;
+
+      if (prevFrameRef.current) {
+        const prev = prevFrameRef.current;
+        // Sample every 4th pixel for speed
+        for (let i = 0; i < data.length; i += 16) {
+          const r = Math.abs(data[i] - prev[i]);
+          const g = Math.abs(data[i + 1] - prev[i + 1]);
+          const b = Math.abs(data[i + 2] - prev[i + 2]);
+          // Sensitivity threshold
+          if (r + g + b > 30) score++;
+          pixels++;
+        }
+      }
+
+      prevFrameRef.current = data;
+
+      // Normalize score (0.0 to 1.0)
+      const motion = Math.min(1, score / (pixels * 0.1)); // 10% change = max motion
+
+      // Energy: Map motion to 0-10 (smoothing)
+      // High motion -> High energy
+      motionAccumulator += motion;
+      frames++;
+
+      if (frames % 10 === 0) { // Update every ~150-200ms
+        const avgMotion = motionAccumulator / 10;
+        setEnergy(prev => {
+          const target = Math.round(avgMotion * 20); // Scale up
+          // Smooth transition
+          return Math.max(0, Math.min(10, Math.round(prev * 0.8 + target * 0.2)));
+        });
+        motionAccumulator = 0;
+      }
+
+      // Away Logic: Constant near-zero motion
+      if (motion < 0.005) { // Very still
+        staticFrames++;
+      } else {
+        staticFrames = 0;
+        setIsAway(false);
+      }
+
+      // If static for ~3 seconds (assuming 30-60fps, say 100 frames)
+      if (staticFrames > 100) {
+        setIsAway(true);
+      }
+
+      rafRef.current = requestAnimationFrame(analyze);
+    };
+
+    rafRef.current = requestAnimationFrame(analyze);
+
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      if (videoRef.current) {
+        videoRef.current.pause();
+        videoRef.current.srcObject = null;
+      }
+    };
+  }, [stream, active]);
+
+  return { energy, isAway };
 }
 
 /* ----------------------------- UI ----------------------------- */
@@ -283,7 +454,7 @@ function useVideoRecorder() {
 export function PomodoroPro() {
   const { s, setS } = useStore();
   const { list, setList } = useHistory();
-  const { tasks, addTask, toggleTask, removeTask, clearDone } = useTasks();
+  const { tasks, addTask, removeTask, toggleTask, clearDone } = useTasks();
 
   const [phase, setPhase] = useState<Phase>("work");
   const [running, setRunning] = useState(false);
@@ -305,11 +476,30 @@ export function PomodoroPro() {
   const lastActivity = useRef<number>(Date.now());
   const [interruptNote, setInterruptNote] = useState("");
   const [interruptions, setInterruptions] = useState<string[]>([]);
+  const [newTaskText, setNewTaskText] = useState(""); // For timeline tasks
+  const [userStoppedCamera, setUserStoppedCamera] = useState(false);
 
   const [cycleCount, setCycleCount] = useState(0);
   const timer = useRef<IntervalRef>(null);
 
   const rec = useVideoRecorder();
+  const videoSrc = useMemo(() => (rec.blob ? URL.createObjectURL(rec.blob) : undefined), [rec.blob]);
+
+  // Video Analysis
+  // Only analyze when working and camera is on
+  const { energy: videoEnergy, isAway: videoAway } = useMotionAnalysis(
+    // @ts-ignore - explicitly accessing the exposed stream even if TS generic slightly off
+    rec.stream,
+    phase === "work" && running && rec.streamReady && !userStoppedCamera
+  );
+
+  // Sync Video Energy to State
+  useEffect(() => {
+    if (phase === "work" && running) {
+      // Slowly blend video energy into visual energy state (optional visual feedback)
+      // setEnergyBefore(videoEnergy); // Or maybe allow it to drift?
+    }
+  }, [videoEnergy, phase, running]);
 
   // Mini widget
   const [mini, setMini] = useState(false);
@@ -352,6 +542,17 @@ export function PomodoroPro() {
   useEffect(() => {
     if (!running) awayStartRef.current = null;
   }, [running]);
+
+  // Combined Away Logic (Tab Hidden OR Video Away)
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (running && phase === "work" && videoAway) {
+      interval = setInterval(() => {
+        setAwaySeconds(v => v + 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [running, phase, videoAway]);
 
   // idle drift
   useEffect(() => {
@@ -415,18 +616,18 @@ export function PomodoroPro() {
   // recorder sync
   useEffect(() => {
     const sync = async () => {
-      if (phase === "work" && running) {
+      if (phase === "work" && running && !userStoppedCamera) {
         if (rec.state === "idle" || rec.state === "ready") {
           try {
             await rec.start();
-          } catch {}
+          } catch { }
         } else if (rec.state === "paused") rec.resume();
       } else {
         if (rec.state === "recording" || rec.state === "paused") rec.stop();
       }
     };
     sync();
-  }, [phase, running, rec]);
+  }, [phase, running, rec, userStoppedCamera]);
 
   const onPhaseEnd = () => {
     if (phase === "work") {
@@ -538,7 +739,7 @@ export function PomodoroPro() {
     setRunning(true);
     lastActivity.current = Date.now();
     awayStartRef.current = null;
-    if (rec.state === "idle") rec.ensureStream().catch(() => {});
+    if (rec.state === "idle") rec.ensureStream().catch(() => { });
   };
   const pause = () => {
     setRunning(false);
@@ -568,11 +769,16 @@ export function PomodoroPro() {
     setInterruptNote("");
   };
 
-  const end = new Date(Date.now() + seconds * 1000);
-  const endLabel = end.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  // HYDRATION FIX: Calculate end time derived state
+  const [endLabel, setEndLabel] = useState("");
+  useEffect(() => {
+    // Updat end label whenever seconds or running status changes
+    const end = new Date(Date.now() + seconds * 1000);
+    setEndLabel(end.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    }));
+  }, [seconds, running]);
 
   const nextTask = tasks.find((t) => !t.done);
 
@@ -601,8 +807,8 @@ export function PomodoroPro() {
         phase === "work"
           ? { ...p, work: total }
           : phase === "short"
-          ? { ...p, short: total }
-          : { ...p, long: total };
+            ? { ...p, short: total }
+            : { ...p, long: total };
       return next;
     });
     if (!running) setSeconds(total);
@@ -611,17 +817,16 @@ export function PomodoroPro() {
   return (
     <>
       {/* Top row */}
-      <div className="flex items-center justify-between text-sm text-neutral-300">
+      <div className="flex items-center justify-between text-sm text-neutral-600">
         <div className="flex items-center gap-3">
           <span className="inline-flex items-center gap-2">
             <span
-              className={`h-2 w-2 rounded-full ${
-                phase === "work"
-                  ? "bg-emerald-400"
-                  : phase === "short"
+              className={`h-2 w-2 rounded-full ${phase === "work"
+                ? "bg-emerald-400"
+                : phase === "short"
                   ? "bg-sky-400"
                   : "bg-violet-400"
-              }`}
+                }`}
             />
             <span className="font-medium">
               {phase === "work" ? "Work" : phase === "short" ? "Short break" : "Long break"}
@@ -764,27 +969,27 @@ export function PomodoroPro() {
           </div>
 
           {/* Upcoming (glass) */}
-          <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md p-4 text-white">
-            <div className="text-xs opacity-70">UPCOMING</div>
-            <div className="mt-1 text-lg font-semibold">
+          <div className="rounded-3xl border border-black/10 bg-white shadow-sm p-4 text-neutral-900">
+            <div className="text-xs font-bold opacity-60 uppercase tracking-widest text-neutral-500">UPCOMING</div>
+            <div className="mt-2 text-xl font-bold text-neutral-900">
               {nextTask ? nextTask.text : intention || "No upcoming task"}
             </div>
-            <div className="mt-1 text-sm opacity-80">
+            <div className="mt-1 text-sm font-medium text-neutral-600">
               {endLabel} · {category}
             </div>
           </div>
 
           {/* Planner controls (glass) */}
-          <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md p-4 grid gap-3">
+          <div className="rounded-3xl border border-black/10 bg-white shadow-sm p-4 grid gap-4">
             {/* Intention input — high contrast */}
             <input
-              className="input h-11 bg-white/90 text-black border-black/10 placeholder:text-black/50"
+              className="input h-12 bg-white border border-neutral-300 focus:border-neutral-500 text-black placeholder:text-neutral-400 font-medium text-base rounded-xl"
               placeholder='Intention (e.g., "Design review")'
               value={intention}
               onChange={(e) => setIntention(e.target.value)}
             />
 
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 text-sm">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
               <Field label="Tag">
                 <Select
                   value={tag}
@@ -803,15 +1008,20 @@ export function PomodoroPro() {
               </Field>
               <Field label="Energy">
                 <div className="flex items-center gap-2">
+                  {/* Visual bar for calculated energy */}
+                  <div className="flex-1 h-2 bg-neutral-100 rounded-full overflow-hidden relative" title={`Live Video Energy: ${videoEnergy}`}>
+                    <div className="absolute inset-y-0 left-0 bg-rose-500 transition-all duration-500" style={{ width: `${videoEnergy * 10}%`, opacity: 0.5 }} />
+                    <div className="absolute inset-y-0 left-0 bg-neutral-900 w-1 h-full" style={{ left: `${energyBefore * 10}%` }} />
+                  </div>
                   <input
                     type="range"
                     min={0}
                     max={10}
                     value={energyBefore}
                     onChange={(e) => setEnergyBefore(Number(e.target.value))}
-                    className="w-full"
+                    className="w-16 accent-neutral-900"
                   />
-                  <span className="w-6 text-right">{energyBefore}</span>
+                  <span className="w-6 text-right font-bold tabular-nums">{energyBefore}</span>
                 </div>
               </Field>
               <Field label="Post to">
@@ -879,14 +1089,15 @@ export function PomodoroPro() {
             toggleTask={toggleTask}
             removeTask={removeTask}
             clearDone={clearDone}
+            lightMode={true}
           />
 
           {/* Interruption ledger — glass */}
-          <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md p-4">
-            <div className="font-medium mb-2">Interruption ledger</div>
+          <div className="rounded-3xl border border-black/10 bg-white shadow-sm p-4">
+            <div className="font-bold text-neutral-900 mb-3">Interruption ledger</div>
             <div className="flex gap-2">
               <input
-                className="input w-full bg-white/90 text-black border-black/10 placeholder:text-black/50"
+                className="input w-full bg-white text-black border border-neutral-300 focus:border-neutral-500 placeholder:text-neutral-400 rounded-xl"
                 placeholder='Jot the urge (e.g., "check email")'
                 value={interruptNote}
                 onChange={(e) => setInterruptNote(e.target.value)}
@@ -894,21 +1105,21 @@ export function PomodoroPro() {
                   if (e.key === "Enter") addInterrupt();
                 }}
               />
-              <button className="btn-ghost" onClick={addInterrupt}>
+              <button className="btn-ghost font-bold text-neutral-700 hover:bg-neutral-100 rounded-xl px-4" onClick={addInterrupt}>
                 Add
               </button>
             </div>
-            <ul className="mt-2 grid gap-1 text-sm">
+            <ul className="mt-3 grid gap-2 text-sm">
               {interruptions.map((txt, i) => (
                 <li
                   key={i}
-                  className="rounded border border-white/10 px-2 py-1 bg-white/10 text-white/90"
+                  className="rounded-lg border border-neutral-300 px-3 py-2 bg-neutral-50 text-neutral-900 font-medium"
                 >
                   {txt}
                 </li>
               ))}
               {interruptions.length === 0 && (
-                <li className="text-neutral-400">Nothing yet — good sign.</li>
+                <li className="text-neutral-500 italic px-1">Nothing yet — good sign.</li>
               )}
             </ul>
           </div>
@@ -917,37 +1128,75 @@ export function PomodoroPro() {
         {/* RIGHT — timeline, camera, review, stats */}
         <div className="grid gap-4">
           {/* Timeline */}
-          <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-lg font-bold">Today</div>
-              <div className="text-xs text-neutral-300">{list.length} recent</div>
+          <div className="rounded-3xl border border-black/10 bg-white shadow-sm p-4">
+            <div className="flex items-center justify-between mb-4">
+              <div className="text-lg font-bold text-neutral-900">Today</div>
+              <div className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">{list.length} recent</div>
             </div>
-            <div className="relative">
-              <div className="pointer-events-none absolute left-10 top-0 bottom-0 w-px bg-white/10" />
-              <div className="grid gap-3">
+            <div className="relative pl-2">
+              <div className="pointer-events-none absolute left-[2.9rem] top-0 bottom-0 w-px bg-neutral-200" />
+              <div className="grid gap-4">
                 <TimelineCard
-                  color="bg-white/10"
-                  title={intention || (nextTask ? nextTask.text : "Focus block")}
+                  color="bg-neutral-50 border-neutral-200"
+                  title={intention || (tasks[0] ? tasks[0].text : "Focus block")}
                   time={`${new Date()
                     .toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
                     .replace(" ", "")}–${endLabel}`}
                   subtitle="Current"
                   icon="🧠"
                 />
-                <TimelineCard
-                  color="bg-white/10"
-                  title="Design meeting — check product"
-                  time="in 1h"
-                  subtitle="Collaboration"
-                  icon="👥"
-                />
+
+                {/* Task Input */}
+                <div className="flex gap-2">
+                  <input
+                    className="flex-1 bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-black/5"
+                    placeholder="Add upcoming task..."
+                    value={newTaskText}
+                    onChange={(e) => setNewTaskText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        addTask(newTaskText);
+                        setNewTaskText("");
+                      }
+                    }}
+                  />
+                  <button
+                    className="btn-ghost font-bold text-neutral-700 hover:bg-neutral-100 rounded-xl px-4 text-sm"
+                    onClick={() => {
+                      addTask(newTaskText);
+                      setNewTaskText("");
+                    }}
+                  >
+                    Add
+                  </button>
+                </div>
+
+                {/* Upcoming Tasks */}
+                {tasks.map((t) => (
+                  <div key={t.id} className="group relative">
+                    <TimelineCard
+                      color={t.done ? "bg-neutral-100 opacity-60" : "bg-white/10"}
+                      title={t.text}
+                      time={t.done ? "Done" : "Upcoming"}
+                      subtitle="Planned"
+                      icon={t.done ? "✅" : "📅"}
+                    />
+                    <button
+                      onClick={() => removeTask(t.id)}
+                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 text-red-500 rounded-md transition-opacity"
+                      title="Remove task"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
+                    </button>
+                  </div>
+                ))}
                 {list
                   .slice(-3)
                   .reverse()
                   .map((x, i) => (
                     <TimelineCard
                       key={i}
-                      color="bg-white/10"
+                      color="bg-neutral-100"
                       title={x.intention || "Completed block"}
                       time={new Date(x.ts).toLocaleTimeString([], {
                         hour: "2-digit",
@@ -962,37 +1211,73 @@ export function PomodoroPro() {
           </div>
 
           {/* Camera panel */}
-          <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md p-4 grid md:grid-cols-2 gap-3">
-            <div className="rounded-xl overflow-hidden border border-white/10 bg-black/40 grid place-items-center">
+          <div className="rounded-3xl border border-black/10 bg-white shadow-sm p-4 grid md:grid-cols-2 gap-4">
+            <div className="rounded-xl overflow-hidden border border-neutral-200 bg-black/5 grid place-items-center aspect-video relative group">
               <video
                 ref={rec.attachVideo}
+                autoPlay
                 muted
                 playsInline
-                className="w-full aspect-video object-cover"
+                className="w-full h-full object-cover"
                 aria-label="Live camera preview"
               />
+              {!rec.streamReady ? (
+                <div className="absolute inset-0 grid place-items-center">
+                  <button
+                    onClick={() => {
+                      rec.ensureStream().catch(console.error);
+                      setUserStoppedCamera(false);
+                    }}
+                    className="bg-white text-black font-bold px-4 py-2 rounded-lg shadow-sm border border-neutral-300 hover:bg-neutral-50"
+                  >
+                    Enable Camera
+                  </button>
+                </div>
+              ) : (
+                <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    onClick={() => {
+                      rec.cleanup();
+                      setUserStoppedCamera(true);
+                    }}
+                    className="bg-red-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm hover:bg-red-500"
+                  >
+                    Stop Camera
+                  </button>
+                </div>
+              )}
             </div>
-            <div className="grid content-start gap-2 text-sm text-neutral-200">
-              <div className="">
-                {rec.error ? (
-                  <span className="text-red-400">{rec.error}</span>
-                ) : rec.streamReady ? (
-                  <>Camera ready.</>
-                ) : (
-                  <>Camera will ask permission on first start.</>
-                )}
+            <div className="grid content-start gap-3 text-sm text-neutral-700">
+              <div className="flex items-center justify-between">
+                <div>
+                  {rec.error ? (
+                    <span className="text-red-500">{rec.error}</span>
+                  ) : rec.streamReady ? (
+                    <span className="text-green-600 font-medium flex items-center gap-1.5">
+                      <span className="relative flex h-2.5 w-2.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+                      </span>
+                      Camera active
+                    </span>
+                  ) : (
+                    <span>Camera off</span>
+                  )}
+                </div>
               </div>
               {rec.blob && (
                 <div className="grid gap-2">
-                  <div className="text-neutral-100">Last clip from finished block:</div>
+                  <div className="text-neutral-800">Last clip from finished block:</div>
                   <video
-                    src={URL.createObjectURL(rec.blob)}
+                    src={videoSrc}
                     controls
+                    playsInline
+                    preload="metadata"
                     className="w-full aspect-video bg-black/50"
                   />
                   <a
                     className="btn-ghost w-max"
-                    href={URL.createObjectURL(rec.blob)}
+                    href={videoSrc}
                     download={`pomodoro-${Date.now()}.webm`}
                   >
                     Download video
@@ -1004,28 +1289,28 @@ export function PomodoroPro() {
 
           {/* Review */}
           {showReview && (
-            <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md p-4 grid gap-3">
+            <div className="rounded-3xl border border-black/10 bg-white shadow-sm p-4 grid gap-3">
               <div className="flex items-center justify-between">
-                <h3 className="font-bold">Session review</h3>
-                <span className="text-xs text-neutral-300">
+                <h3 className="font-bold text-neutral-900">Session review</h3>
+                <span className="text-xs font-medium text-neutral-500">
                   {intention || "(no title)"}
                 </span>
               </div>
               <div className="grid md:grid-cols-3 gap-3 text-sm">
                 <div className="flex items-center gap-2">
-                  <span className="w-24">Energy after</span>
+                  <span className="w-24 font-medium text-neutral-700">Energy after</span>
                   <input
                     type="range"
                     min={0}
                     max={10}
                     value={energyAfter}
                     onChange={(e) => setEnergyAfter(Number(e.target.value))}
-                    className="w-full"
+                    className="w-full accent-rose-600"
                   />
-                  <span className="w-8">{energyAfter}</span>
+                  <span className="w-8 font-bold text-neutral-900">{energyAfter}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="w-24">Quality</span>
+                  <span className="w-24 font-medium text-neutral-700">Quality</span>
                   <Select
                     value={String(quality)}
                     onChange={(v) => setQuality(Number(v) as Session["quality"])}
@@ -1033,39 +1318,41 @@ export function PomodoroPro() {
                     light
                   />
                 </div>
-                <div className="text-neutral-200 grid content-center">
-                  Drift: away <b>{awaySeconds}s</b> · idle <b>{idleSeconds}s</b>
+                <div className="text-neutral-700 grid content-center">
+                  Drift: away <b className="text-neutral-900">{awaySeconds}s</b> · idle <b className="text-neutral-900">{idleSeconds}s</b>
                 </div>
               </div>
               <div className="grid md:grid-cols-2 gap-3">
                 <div className="grid gap-2">
-                  <span className="text-sm font-medium">Post visibility</span>
+                  <span className="text-sm font-bold text-neutral-900">Post visibility</span>
                   <Select
                     value={visibility ?? "PRIVATE"}
                     onChange={(v) => setVisibility(v as Session["visibility"])}
                     items={["PRIVATE", "FRIENDS", "PUBLIC"]}
                     light
                   />
-                  <p className="text-xs text-neutral-300">
+                  <p className="text-xs text-neutral-500">
                     If not private and a video exists, it will be attached.
                   </p>
                 </div>
                 {rec.blob && (
                   <div className="grid gap-2">
-                    <span className="text-sm font-medium">Recording</span>
+                    <span className="text-sm font-bold text-neutral-900">Recording</span>
                     <video
-                      src={URL.createObjectURL(rec.blob)}
+                      src={videoSrc}
                       controls
-                      className="w-full aspect-video bg-black/50"
+                      playsInline
+                      preload="metadata"
+                      className="w-full aspect-video bg-black/5 rounded-lg border border-neutral-200"
                     />
                   </div>
                 )}
               </div>
               <div className="grid gap-2">
-                <button className="btn-gold" onClick={saveReview}>
+                <button className="btn-gold bg-rose-600 hover:bg-rose-500 text-white border-none py-3 font-bold rounded-xl shadow-md" onClick={saveReview}>
                   Save review & continue
                 </button>
-                <p className="text-xs text-neutral-300">
+                <p className="text-xs text-neutral-500 italic">
                   Heavy drift shortens the next block; excellent focus lengthens it.
                 </p>
               </div>
@@ -1073,8 +1360,8 @@ export function PomodoroPro() {
           )}
 
           {/* Stats */}
-          <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md p-4">
-            <div className="grid md:grid-cols-3 gap-3">
+          <div className="rounded-3xl border border-black/10 bg-white shadow-sm p-4">
+            <div className="grid md:grid-cols-3 gap-4">
               <SparkPanel
                 title="Away % (lower is better)"
                 data={list
@@ -1083,21 +1370,33 @@ export function PomodoroPro() {
                     Math.round(
                       ((x.awaySeconds + x.idleSeconds) /
                         Math.max(1, x.plannedSeconds)) *
-                        100
+                      100
                     )
+                  ).concat(
+                    phase === "work" && running
+                      ? [Math.round(((awaySeconds + idleSeconds) / Math.max(1, s.work)) * 100)]
+                      : []
                   )}
                 format={(v) => `${v}%`}
               />
               <SparkPanel
                 title="Quality"
-                data={list.slice(-7).map((x) => x.quality)}
+                data={list
+                  .slice(-7)
+                  .map((x) => x.quality)
+                  .concat(phase === "work" && running ? [4] : [])}
                 format={(v) => `${v}/5`}
               />
               <SparkPanel
                 title="Energy Δ"
                 data={list
                   .slice(-7)
-                  .map((x) => x.energyAfter - x.energyBefore)}
+                  .map((x) => x.energyAfter - x.energyBefore)
+                  .concat(
+                    phase === "work" && running && typeof videoEnergy === "number"
+                      ? [Math.max(-5, Math.min(5, Math.ceil(videoEnergy - energyBefore)))]
+                      : []
+                  )}
                 format={(v) => (v >= 0 ? `+${v}` : `${v}`)}
               />
             </div>
@@ -1112,6 +1411,7 @@ export function PomodoroPro() {
         onPause={pause}
         running={running}
         onReset={reset}
+        lightMode={true}
       />
 
       {/* Mini Widget */}
@@ -1198,9 +1498,8 @@ function Num({
     <label className="flex items-center gap-2">
       <span className="w-32 text-neutral-200">{label}</span>
       <input
-        className={`input w-24 h-9 ${
-          light ? "bg-white/90 text-black border-black/10" : "bg-white/10 text-white border-white/10"
-        }`}
+        className={`input w-24 h-9 ${light ? "bg-white/90 text-black border-black/10" : "bg-white/10 text-white border-white/10"
+          }`}
         type="number"
         min={min}
         max={max}
@@ -1227,9 +1526,9 @@ function Select({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className={`input h-9 pr-8 ${
-          light ? "bg-white/90 text-black border-black/10" : "bg-white/10 text-white border-white/10"
-        }`}
+        style={{ WebkitAppearance: "none", MozAppearance: "none", appearance: "none" }}
+        className={`input h-10 pr-9 pl-3 appearance-none w-full ${light ? "bg-white text-neutral-900 border-neutral-300 font-medium" : "bg-white/10 text-white border-white/10"
+          }`}
       >
         {items.map((it) => (
           <option key={it} value={it}>
@@ -1238,9 +1537,8 @@ function Select({
         ))}
       </select>
       <svg
-        className={`pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 ${
-          light ? "text-black/80" : "text-neutral-200"
-        }`}
+        className={`pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 ${light ? "text-neutral-600" : "text-neutral-200"
+          }`}
         viewBox="0 0 20 20"
         fill="currentColor"
       >
@@ -1265,25 +1563,26 @@ function SparkPanel({
 }) {
   const max = Math.max(1, ...data.map((n) => Math.abs(n)));
   return (
-    <div className="rounded-2xl p-3 border border-white/10 bg-white/5">
-      <div className="text-sm font-medium mb-2">{title}</div>
+    <div className="rounded-2xl p-4 border border-neutral-200 bg-neutral-50">
+      <div className="text-sm font-bold mb-3 text-neutral-900">{title}</div>
       <div className="flex items-end gap-1 h-16">
         {data.map((v, i) => (
           <div
             key={i}
             title={format(v)}
-            className="bg-white/30 w-6 rounded-sm"
-            style={{ height: `${(Math.abs(v) / max) * 100}%` }}
+            className="bg-rose-500 rounded-sm opacity-80 hover:opacity-100 transition-opacity"
+            style={{ height: `${Math.max(10, (Math.abs(v) / max) * 100)}%` }}
           />
         ))}
       </div>
-      <div className="text-xs text-neutral-300 mt-1">
+      <div className="text-xs font-semibold text-neutral-600 mt-2">
         {data.map(format).join(" · ") || "—"}
       </div>
     </div>
   );
 }
 
+// Safe time formatter hook or component isn't strictly necessary if we just wait for mount.
 function TimelineCard({
   color,
   title,
@@ -1297,13 +1596,22 @@ function TimelineCard({
   subtitle: string;
   icon: string;
 }) {
+  // HYDRATION FIX: Use a client-side only display for the time to prevent server mismatch
+  const [displayTime, setDisplayTime] = useState("");
+
+  useEffect(() => {
+    setDisplayTime(time);
+  }, [time]);
+
   return (
-    <div className={`${color} rounded-2xl p-4 border border-white/10 relative ml-6`}>
-      <div className="absolute -left-6 top-1/2 -translate-y-1/2 h-3 w-3 rounded-full bg-white/20 border border-white/20" />
-      <div className="text-[28px] leading-none mb-1">{icon}</div>
-      <div className="text-[15px] font-semibold">{title}</div>
-      <div className="text-[13px] text-neutral-300 mt-1">{time}</div>
-      <div className="text-[12px] text-neutral-400">{subtitle}</div>
+    <div className={`${color} rounded-2xl p-4 border border-black/5 shadow-sm relative ml-6 bg-white`}>
+      <div className="absolute -left-[2.1rem] top-1/2 -translate-y-1/2 h-3.5 w-3.5 rounded-full bg-white border-2 border-neutral-300 shadow-sm z-10" />
+      <div className="text-[28px] leading-none mb-2">{icon}</div>
+      <div className="text-[15px] font-bold text-neutral-900">{title}</div>
+      <div className="text-[13px] font-medium text-neutral-600 mt-1 min-h-[1.25em]">
+        {displayTime || <span className="opacity-0">--:--</span>}
+      </div>
+      <div className="text-[12px] font-medium text-neutral-500">{subtitle}</div>
     </div>
   );
 }
@@ -1314,25 +1622,27 @@ function TaskPanel({
   toggleTask,
   removeTask,
   clearDone,
+  lightMode,
 }: {
   tasks: Task[];
   addTask: (t: string) => void;
   toggleTask: (id: string) => void;
   removeTask: (id: string) => void;
   clearDone: () => void;
+  lightMode?: boolean;
 }) {
   const [text, setText] = useState("");
   return (
-    <div className="rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md p-4">
-      <div className="flex items-center justify-between mb-2">
-        <div className="font-medium">Tasks</div>
-        <button className="btn-ghost btn-xs" onClick={clearDone}>
+    <div className={`rounded-3xl border p-4 shadow-sm ${lightMode ? "border-black/10 bg-white" : "border-white/10 bg-white/5"}`}>
+      <div className="flex items-center justify-between mb-3">
+        <div className="font-bold text-neutral-900">Tasks</div>
+        <button className="btn-ghost btn-xs text-neutral-500 hover:text-neutral-900" onClick={clearDone}>
           Clear done
         </button>
       </div>
-      <div className="flex gap-2">
+      <div className="flex gap-2 mb-4">
         <input
-          className="input w-full bg-white/90 text-black border-black/10 placeholder:text-black/50"
+          className="input w-full bg-white text-black border border-neutral-300 focus:border-neutral-500 placeholder:text-neutral-400 rounded-xl h-10"
           placeholder='Add a task (e.g., "Outline section 2")'
           value={text}
           onChange={(e) => setText(e.target.value)}
@@ -1344,7 +1654,7 @@ function TaskPanel({
           }}
         />
         <button
-          className="btn-ghost"
+          className="btn-ghost font-bold text-neutral-700 hover:bg-neutral-100 rounded-xl px-4"
           onClick={() => {
             addTask(text);
             setText("");
@@ -1353,23 +1663,23 @@ function TaskPanel({
           Add
         </button>
       </div>
-      <ul className="mt-3 grid gap-1 text-sm">
+      <ul className="grid gap-2 text-sm">
         {tasks.map((t) => (
           <li
             key={t.id}
-            className="rounded-xl border border-white/10 px-3 py-2 bg-white/10 flex items-center gap-3"
+            className="rounded-xl border border-neutral-200 px-3 py-3 bg-neutral-50 flex items-center gap-3 transition-colors hover:border-neutral-300"
           >
             <input
               checked={t.done}
               onChange={() => toggleTask(t.id)}
               type="checkbox"
-              className="checkbox checkbox-sm"
+              className="checkbox checkbox-sm checkbox-primary border-neutral-400"
             />
-            <span className={t.done ? "line-through text-neutral-400" : ""}>
+            <span className={`font-medium ${t.done ? "line-through text-neutral-400" : "text-neutral-900"}`}>
               {t.text}
             </span>
             <button
-              className="btn-ghost btn-xs ml-auto"
+              className="btn-ghost btn-xs ml-auto text-neutral-400 hover:text-red-500"
               onClick={() => removeTask(t.id)}
               aria-label="Delete"
             >
@@ -1378,7 +1688,7 @@ function TaskPanel({
           </li>
         ))}
         {tasks.length === 0 && (
-          <li className="text-neutral-400">No tasks yet — add one above.</li>
+          <li className="text-neutral-500 italic px-1">No tasks yet — add one above.</li>
         )}
       </ul>
     </div>
@@ -1391,24 +1701,26 @@ function BottomBar({
   onPause,
   running,
   onReset,
+  lightMode,
 }: {
   canStart: boolean;
   onStart: () => void;
   onPause: () => void;
   running: boolean;
   onReset: () => void;
+  lightMode?: boolean;
 }) {
   return (
     <div className="fixed bottom-0 inset-x-0 z-50 pointer-events-none">
       <div className="w-full px-6 pb-5">
-        <div className="pointer-events-auto rounded-[22px] px-4 py-3 flex items-center justify-between border border-white/10 bg-white/5 backdrop-blur-md shadow-lg">
-          <button className="btn-ghost text-white/90" aria-label="Open tasks">
+        <div className={`pointer-events-auto rounded-[22px] px-6 py-4 flex items-center justify-between border shadow-lg transition-all ${lightMode ? "border-black/10 bg-white text-black" : "border-white/10 bg-white/5 text-white"}`}>
+          <button className={`btn-ghost font-bold ${lightMode ? "text-neutral-900 hover:bg-neutral-100" : "text-white/90"}`} aria-label="Open tasks">
             Tasks
           </button>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
             {!running ? (
               <button
-                className="rounded-full w-12 h-12 p-0 bg-red-600 hover:bg-red-500 text-white font-bold shadow"
+                className="rounded-full w-14 h-14 p-0 bg-rose-600 hover:bg-rose-500 text-white text-xl font-bold shadow-md hover:scale-105 transition-all flex items-center justify-center pl-1"
                 onClick={onStart}
                 disabled={!canStart}
                 aria-label="Start"
@@ -1417,16 +1729,17 @@ function BottomBar({
               </button>
             ) : (
               <button
-                className="rounded-full w-12 h-12 p-0 bg-red-600 hover:bg-red-500 text-white font-bold shadow"
+                className="rounded-full w-14 h-14 p-0 bg-rose-600 hover:bg-rose-500 text-white text-xl font-bold shadow-md hover:scale-105 transition-all flex items-center justify-center gap-1"
                 onClick={onPause}
                 aria-label="Pause"
               >
-                ❚❚
+                <span className="w-1.5 h-5 bg-white rounded-full" />
+                <span className="w-1.5 h-5 bg-white rounded-full" />
               </button>
             )}
           </div>
-          <button className="btn-ghost text-white/90" onClick={onReset} aria-label="Reset">
-            ▢
+          <button className={`btn-ghost font-bold ${lightMode ? "text-neutral-900 hover:bg-neutral-100" : "text-white/90"}`} onClick={onReset} aria-label="Reset">
+            Reset
           </button>
         </div>
       </div>
@@ -1453,37 +1766,35 @@ function MiniWidget({
 }) {
   return (
     <div
-      className="fixed bottom-4 right-4 z-[60] rounded-xl shadow-lg w-[260px] p-3 border border-white/10 bg-white/5 backdrop-blur-md text-white"
+      className="fixed bottom-4 right-4 z-[60] rounded-2xl shadow-xl w-[280px] p-5 border border-black/10 bg-white text-neutral-900"
       role="dialog"
       aria-label="Pomodoro mini widget"
     >
-      <div className="flex items-center justify-between mb-2">
-        <div className="text-xs text-neutral-200">
-          <b>
-            {phase === "work"
-              ? "Work"
-              : phase === "short"
-              ? "Short break"
-              : "Long break"}
-          </b>
+      <div className="flex items-center justify-between mb-4">
+        <div className="text-xs font-bold uppercase tracking-wider text-neutral-500">
+          {phase === "work"
+            ? "Work Phase"
+            : phase === "short"
+              ? "Short Break"
+              : "Long Break"}
         </div>
-        <button className="btn-ghost btn-xs" onClick={onClose} aria-label="Close mini widget">
+        <button className="btn-ghost btn-xs text-neutral-400 hover:text-black" onClick={onClose} aria-label="Close mini widget">
           ✕
         </button>
       </div>
-      <div className="grid place-items-center gap-2">
-        <div className="text-3xl font-bold tabular-nums">{time}</div>
-        <div className="flex items-center gap-2">
+      <div className="grid place-items-center gap-4">
+        <div className="text-5xl font-bold tabular-nums tracking-tight text-neutral-900">{time}</div>
+        <div className="flex items-center gap-3 w-full">
           {!running ? (
-            <button className="btn-gold btn-sm" onClick={onStart}>
+            <button className="flex-1 btn-gold btn-sm bg-rose-600 hover:bg-rose-500 text-white border-none py-2 h-auto text-base" onClick={onStart}>
               Start
             </button>
           ) : (
-            <button className="btn-ghost btn-sm" onClick={onPause}>
+            <button className="flex-1 btn-ghost btn-sm bg-neutral-100 hover:bg-neutral-200 text-neutral-900 py-2 h-auto text-base" onClick={onPause}>
               Pause
             </button>
           )}
-          <button className="btn-ghost btn-sm" onClick={onReset}>
+          <button className="flex-1 btn-ghost btn-sm text-neutral-500 hover:text-neutral-900 py-2 h-auto text-base" onClick={onReset}>
             Reset
           </button>
         </div>

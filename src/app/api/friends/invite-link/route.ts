@@ -1,6 +1,6 @@
 // src/app/api/friends/invite-link/route.ts
 import { NextResponse } from "next/server";
-import { prisma } from "../../../../lib/db";
+import { prisma } from "@/lib/prisma";
 import { requireUserId } from "../../../../lib/session";
 import { absoluteUrl } from "../../../../lib/base-url";
 

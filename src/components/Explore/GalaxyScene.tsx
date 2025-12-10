@@ -11,6 +11,7 @@ interface GalaxySceneProps {
     auds: any[];
     chaptes: any[];
     xrays: any[];
+    puds: any[];
     onPostClick: (post: any) => void;
     showLines: boolean;
 }
@@ -23,6 +24,7 @@ export default function GalaxyScene({
     auds,
     chaptes,
     xrays,
+    puds,
     onPostClick,
     showLines
 }: GalaxySceneProps) {
@@ -37,6 +39,7 @@ export default function GalaxyScene({
         { data: auds, label: "Auds", color: "#F333FF" },     // Magenta
         { data: chaptes, label: "Chaptes", color: "#FF33A8" }, // Pink
         { data: xrays, label: "X Rays", color: "#33FFF5" },  // Cyan
+        { data: puds, label: "Puds", color: "#FFFF00" },     // Yellow
     ];
 
     const handleGlobeClick = (label: string) => {

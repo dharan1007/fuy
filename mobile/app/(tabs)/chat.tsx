@@ -514,7 +514,7 @@ export default function ChatScreen() {
             await supabase
                 .from('Conversation')
                 .update({
-                    lastMessage: type === 'image' ? '📷 Image' : type === 'video' ? '📹 Video' : content,
+                    lastMessage: content,
                     lastMessageAt: new Date().toISOString()
                 })
                 .eq('id', activeConversationIdRef.current);

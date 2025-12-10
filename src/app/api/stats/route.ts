@@ -1,6 +1,6 @@
 // src/app/api/stats/route.ts
 import { NextResponse } from "next/server";
-import { prisma } from "../../../lib/db";
+import { prisma } from "@/lib/prisma";
 import { requireUserId } from "../../../lib/session";
 
 type DayItem = { day: string; journal: number; joy: number; awe: number; bonds: number };

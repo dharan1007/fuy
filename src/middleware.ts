@@ -12,7 +12,7 @@ export default withAuth(
     // Allows: Leaflet maps, Stadia Maps, OpenStreetMap tiles, Overpass API
     response.headers.set(
       'Content-Security-Policy',
-      "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com; img-src 'self' data: https: blob:; font-src 'self' data: https:; connect-src 'self' https: wss:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; worker-src 'self' blob:;"
+      "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com; img-src 'self' data: https: blob:; font-src 'self' data: https:; connect-src 'self' https: wss:; media-src 'self' blob: data: mediastream:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; worker-src 'self' blob:;"
     );
 
     // X-Content-Type-Options - Prevent MIME sniffing
@@ -38,7 +38,7 @@ export default withAuth(
     // Permissions-Policy - Disable dangerous browser features
     response.headers.set(
       'Permissions-Policy',
-      'geolocation=(), microphone=(self), camera=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=(), payment=()'
+      'geolocation=(), microphone=*, camera=*, usb=(), magnetometer=(), gyroscope=(), accelerometer=(), payment=()'
     );
 
     // Remove X-Powered-By header to hide server technology

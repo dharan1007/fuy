@@ -43,6 +43,7 @@ export default function ExplorePage() {
   const [auds, setAuds] = useState<Post[]>([]);
   const [chaptes, setChaptes] = useState<Post[]>([]);
   const [xrays, setXrays] = useState<Post[]>([]);
+  const [puds, setPuds] = useState<Post[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
@@ -80,9 +81,10 @@ export default function ExplorePage() {
           fetchType('AUD'),
           fetchType('CHAPTER'),
           fetchType('XRAY'),
+          fetchType('PULLUPDOWN'),
         ]);
 
-        const [mainData, chanData, lillData, fillData, audData, chapterData, xrayData] = results;
+        const [mainData, chanData, lillData, fillData, audData, chapterData, xrayData, pudData] = results;
 
         setPosts(mainData);
         setChans(chanData);
@@ -91,6 +93,7 @@ export default function ExplorePage() {
         setAuds(audData);
         setChaptes(chapterData);
         setXrays(xrayData);
+        setPuds(pudData);
 
       } catch (err) {
         console.error('Error fetching explore content:', err);
@@ -128,7 +131,7 @@ export default function ExplorePage() {
       {/* Search Overlay */}
       <SearchOverlay />
 
-      {/* Galaxy Scene (7 Globes) */}
+      {/* Galaxy Scene (7 Globes + PUDs) */}
       <GalaxyScene
         posts={posts}
         chans={chans}
@@ -137,6 +140,7 @@ export default function ExplorePage() {
         auds={auds}
         chaptes={chaptes}
         xrays={xrays}
+        puds={puds}
         onPostClick={setSelectedPost}
         showLines={showLines}
       />

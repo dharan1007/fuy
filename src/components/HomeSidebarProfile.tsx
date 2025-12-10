@@ -207,22 +207,22 @@ export default function HomeSidebarProfile({
               <span className="text-xs font-bold text-white">TODO</span>
               <h4 className="font-semibold text-white text-sm">Tasks</h4>
             </div>
-            <div className="flex gap-1">
+            <div className="flex gap-1 flex-wrap justify-end max-w-[50%]">
               <button
                 onClick={() => setTimePeriod('day')}
-                className={`px-2 py-1 text-xs rounded border ${timePeriod === 'day' ? 'bg-white/10 border-white text-white' : 'bg-transparent border-white/20 text-white/70 hover:bg-white/5'}`}
+                className={`px-1.5 py-0.5 text-[10px] rounded border ${timePeriod === 'day' ? 'bg-white/10 border-white text-white' : 'bg-transparent border-white/20 text-white/70 hover:bg-white/5'}`}
               >
                 Day
               </button>
               <button
                 onClick={() => setTimePeriod('week')}
-                className={`px-2 py-1 text-xs rounded border ${timePeriod === 'week' ? 'bg-white/10 border-white text-white' : 'bg-transparent border-white/20 text-white/70 hover:bg-white/5'}`}
+                className={`px-1.5 py-0.5 text-[10px] rounded border ${timePeriod === 'week' ? 'bg-white/10 border-white text-white' : 'bg-transparent border-white/20 text-white/70 hover:bg-white/5'}`}
               >
                 Week
               </button>
               <button
                 onClick={() => setTimePeriod('month')}
-                className={`px-2 py-1 text-xs rounded border ${timePeriod === 'month' ? 'bg-white/10 border-white text-white' : 'bg-transparent border-white/20 text-white/70 hover:bg-white/5'}`}
+                className={`px-1.5 py-0.5 text-[10px] rounded border ${timePeriod === 'month' ? 'bg-white/10 border-white text-white' : 'bg-transparent border-white/20 text-white/70 hover:bg-white/5'}`}
               >
                 Month
               </button>

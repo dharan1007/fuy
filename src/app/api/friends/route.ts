@@ -1,6 +1,6 @@
 // src/app/api/friends/route.ts
 import { NextResponse } from "next/server";
-import { prisma } from "../../../lib/db";
+import { prisma } from "@/lib/prisma";
 import { requireUserId } from "../../../lib/session";
 
 export const runtime = "nodejs"; // Prisma works on the Node.js runtime

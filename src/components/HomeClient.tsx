@@ -72,6 +72,7 @@ export default function HomeClient() {
     const [isSearchOpen, setIsSearchOpen] = useState(false);
 
     const [unreadCount, setUnreadCount] = useState(0);
+    const [unreadMessageCount, setUnreadMessageCount] = useState(0); // New state for messages
     const [showNavMenu, setShowNavMenu] = useState(false);
 
     // Create post state
@@ -132,6 +133,19 @@ export default function HomeClient() {
             }
         } catch (err) {
             console.error('Error fetching unread count:', err);
+        }
+    };
+
+    // Fetch unread messages
+    const fetchUnreadMessages = async () => {
+        try {
+            const response = await fetch('/api/chat/unread');
+            if (response.ok) {
+                const data = await response.json();
+                setUnreadMessageCount(data.count || 0);
+            }
+        } catch (err) {
+            console.error('Error fetching unread messages:', err);
         }
     };
 
@@ -271,10 +285,19 @@ export default function HomeClient() {
                 fetchUserProfile(),
                 fetchPosts(),
                 fetchUnreadCount(),
+                fetchUnreadMessages(),
             ]).finally(() => {
                 setLoading(false);
             });
         }
+
+        // Force body background to black for this page only for the starfield
+        const originalBg = document.body.style.background;
+        document.body.style.background = '#000000';
+
+        return () => {
+            document.body.style.background = originalBg;
+        };
     }, [status]);
 
     // Show loading spinner while session is loading
@@ -562,9 +585,11 @@ export default function HomeClient() {
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                         </svg>
-                        <span className="absolute -top-2 -right-2 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-medium">
-                            3
-                        </span>
+                        {unreadMessageCount > 0 && (
+                            <span className="absolute -top-2 -right-2 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-medium">
+                                {unreadMessageCount > 9 ? '9+' : unreadMessageCount}
+                            </span>
+                        )}
                     </Link>
                     <SearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
 

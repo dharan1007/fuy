@@ -24,7 +24,19 @@ const nextConfig = {
   },
 
   // Add permissions policy headers for microphone access
-
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=*, microphone=*, browsing-topics=()'
+          }
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

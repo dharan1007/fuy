@@ -373,6 +373,23 @@ export function useMessaging() {
     }
   }, []);
 
+  const markAsRead = useCallback(async (conversationId: string) => {
+    try {
+      await fetch('/api/chat/read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversationId }),
+      });
+      // Update local state to reflect read status
+      setMessages((prev) => ({
+        ...prev,
+        [conversationId]: (prev[conversationId] || []).map(m => ({ ...m, read: true }))
+      }));
+    } catch (err) {
+      console.error('Failed to mark messages as read:', err);
+    }
+  }, []);
+
   const fetchMessages = useCallback(async (conversationId: string, cursor?: string) => {
     try {
       const url = cursor
@@ -417,13 +434,18 @@ export function useMessaging() {
           [conversationId]: data.nextCursor || null
         }));
 
+        // Mark as read when fetching latest messages (no cursor)
+        if (!cursor) {
+          markAsRead(conversationId);
+        }
+
         return data.nextCursor;
       }
     } catch (err) {
       console.error('Failed to fetch messages:', err);
     }
     return undefined;
-  }, []);
+  }, [markAsRead]);
 
 
 
@@ -487,7 +509,8 @@ export function useMessaging() {
     deleteConversation,
     createOrGetConversation,
     getAllChatUsers,
-    addOptimisticMessage, // Export this
+    addOptimisticMessage,
+    markAsRead, // Export this
   };
 }
 
