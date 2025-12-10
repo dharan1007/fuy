@@ -59,7 +59,8 @@ export default function LillForm({ onBack }: LillFormProps) {
             });
 
             if (!uploadRes.ok) {
-                throw new Error('Video upload failed');
+                const errorData = await uploadRes.json();
+                throw new Error(errorData.error || 'Video upload failed');
             }
 
             const uploadData = await uploadRes.json();

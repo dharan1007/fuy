@@ -946,6 +946,8 @@ model Message {
   conversationId String
   senderId       String
   content        String
+  type           String    @default("text") // text, image, video, audio
+  mediaUrl       String?
   readAt         DateTime?
   createdAt      DateTime  @default(now())
 

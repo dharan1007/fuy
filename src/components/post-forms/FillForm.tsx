@@ -46,7 +46,10 @@ export default function FillForm({ onBack }: FillFormProps) {
             formData.append('type', 'video');
 
             const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData });
-            if (!uploadRes.ok) throw new Error('Video upload failed');
+            if (!uploadRes.ok) {
+                const errorData = await uploadRes.json();
+                throw new Error(errorData.error || 'Video upload failed');
+            }
 
             const uploadData = await uploadRes.json();
 

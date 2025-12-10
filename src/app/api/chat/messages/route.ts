@@ -11,6 +11,8 @@ export async function GET(req: Request) {
     const userId = await requireUserId();
     const { searchParams } = new URL(req.url);
     const conversationId = searchParams.get("conversationId");
+    const cursor = searchParams.get("cursor");
+    const take = parseInt(searchParams.get("take") || "50");
 
     if (!conversationId) {
       return NextResponse.json(
@@ -41,8 +43,7 @@ export async function GET(req: Request) {
       );
     }
 
-    // Get messages with pagination (default: last 50 messages)
-    const limit = 50;
+    // Get messages with pagination
     const messages = await prisma.message.findMany({
       where: { conversationId },
       include: {
@@ -60,23 +61,31 @@ export async function GET(req: Request) {
         },
       },
       orderBy: { createdAt: "desc" },
-      take: limit,
+      take: take,
+      skip: cursor ? 1 : 0,
+      cursor: cursor ? { id: cursor } : undefined,
     });
 
-    // Reverse to get chronological order
+    const nextCursor = messages.length === take ? messages[messages.length - 1].id : undefined;
+
+    // Reverse to get chronological order (oldest to newest)
     messages.reverse();
 
-    // Mark messages as read
+    // Mark messages as read (only if looking at latest messages - arbitrary check, but safe to always do or limit to initial load)
+    // We'll proceed with existing logic to mark as read, as fetching them implies viewing.
+    // Optimization: Only mark as read if not pagineating deep history? 
+    // For now, keep simple: mark as read.
     await prisma.message.updateMany({
       where: {
         conversationId,
         senderId: { not: userId },
         readAt: null,
+        id: { in: messages.map(m => m.id) } // Only mark fetched messages as read
       },
       data: { readAt: new Date() },
     });
 
-    return NextResponse.json({ messages });
+    return NextResponse.json({ messages, nextCursor });
   } catch (error: any) {
     logger.error("Get messages error:", error);
     if (error?.message === "UNAUTHENTICATED") {

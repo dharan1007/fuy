@@ -48,7 +48,8 @@ export default function ChapterForm({ onBack }: ChapterFormProps) {
                 });
 
                 if (!uploadRes.ok) {
-                    throw new Error('File upload failed');
+                    const errorData = await uploadRes.json();
+                    throw new Error(errorData.error || 'File upload failed');
                 }
 
                 const uploadData = await uploadRes.json();

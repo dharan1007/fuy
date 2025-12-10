@@ -11,6 +11,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../lib/supabase';
 import { useNavVisibility } from '../../context/NavContext';
 
+import { MediaUploadService } from '../../services/MediaUploadService';
+import * as ImagePicker from 'expo-image-picker';
+import { Video as AVVideo, ResizeMode } from 'expo-av';
+import { Paperclip } from 'lucide-react-native';
+
 const { width } = Dimensions.get('window');
 
 type PersonaType = 'friend' | 'therapist' | 'coach' | 'mystic';
@@ -19,6 +24,8 @@ interface Message {
     id: string;
     role: 'user' | 'assistant' | 'system';
     content: string;
+    type?: 'text' | 'image' | 'video' | 'audio';
+    mediaUrl?: string;
     timestamp: number;
     senderId?: string;
     readAt?: string;
@@ -74,6 +81,7 @@ export default function ChatScreen() {
     const [chatBackground, setChatBackground] = useState<string | null>(null);
     const [messageRetention, setMessageRetention] = useState<'forever' | '1day' | 'viewonce' | 'custom'>('forever');
     const [customRetentionDays, setCustomRetentionDays] = useState(7);
+    const [isUploading, setIsUploading] = useState(false);
 
     // Resolve DB User ID from Email and Fetch Profile Avatar
     useEffect(() => {
@@ -219,6 +227,8 @@ export default function ChatScreen() {
                                 id: newMsg.id,
                                 role: newMsg.senderId === dbUserId ? 'user' : 'assistant',
                                 content: newMsg.content,
+                                type: newMsg.type,
+                                mediaUrl: newMsg.mediaUrl,
                                 timestamp: new Date(newMsg.createdAt).getTime(),
                                 senderId: newMsg.senderId,
                                 readAt: newMsg.readAt
@@ -363,6 +373,8 @@ export default function ChatScreen() {
                 id: m.id,
                 role: m.senderId === dbUserId ? 'user' : 'assistant',
                 content: m.content,
+                type: m.type,
+                mediaUrl: m.mediaUrl,
                 timestamp: new Date(m.createdAt).getTime(),
                 senderId: m.senderId,
                 readAt: m.readAt
@@ -502,7 +514,7 @@ export default function ChatScreen() {
             await supabase
                 .from('Conversation')
                 .update({
-                    lastMessage: content,
+                    lastMessage: type === 'image' ? '📷 Image' : type === 'video' ? '📹 Video' : content,
                     lastMessageAt: new Date().toISOString()
                 })
                 .eq('id', activeConversationIdRef.current);
@@ -805,13 +817,13 @@ export default function ChatScreen() {
             <Animated.View style={{ transform: [{ translateX: slideAnim }] }} className="absolute inset-0 z-50">
                 <LinearGradient colors={getGradientColors()} className="flex-1">
                     <KeyboardAvoidingView
-                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                         className="flex-1"
-                        keyboardVerticalOffset={0}
+                        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
                     >
                         <SafeAreaView className="flex-1">
                             {/* Header */}
-                            <BlurView intensity={80} tint={mode === 'light' ? 'light' : 'dark'} className="flex-row items-center justify-between px-4 py-3 border-b mt-10" style={{ borderColor: colors.border }}>
+                            <BlurView intensity={80} tint={mode === 'light' ? 'light' : 'dark'} className="flex-row items-center justify-between px-4 py-3 border-b" style={{ borderColor: colors.border }}>
                                 <View className="flex-row items-center flex-1">
                                     <TouchableOpacity onPress={handleBack} className="mr-3 p-2 rounded-full">
                                         <ChevronLeft color={colors.text} size={24} />
@@ -912,14 +924,48 @@ export default function ChatScreen() {
 
                                                     {/* Message bubble */}
                                                     <View className="flex-1">
-                                                        <BlurView intensity={40} tint={mode === 'light' ? 'light' : 'dark'} className="px-5 py-3 rounded-2xl border overflow-hidden" style={{
-                                                            backgroundColor: isMe ? colors.card : 'transparent',
-                                                            borderColor: colors.border,
-                                                            borderBottomRightRadius: isMe ? 0 : 16,
-                                                            borderBottomLeftRadius: isMe ? 16 : 0
-                                                        }}>
-                                                            <Text className="text-base" style={{ color: colors.text }}>{msg.content}</Text>
-                                                        </BlurView>
+                                                        {/* Message bubble - Android Fallback for BlurView visibility issues */}
+                                                        {Platform.OS === 'android' ? (
+                                                            <View className="px-5 py-3 rounded-2xl border overflow-hidden" style={{
+                                                                backgroundColor: colors.card,
+                                                                borderColor: colors.border,
+                                                                borderBottomRightRadius: isMe ? 0 : 16,
+                                                                borderBottomLeftRadius: isMe ? 16 : 0
+                                                            }}>
+                                                                {msg.type === 'image' && msg.mediaUrl ? (
+                                                                    <Image source={{ uri: msg.mediaUrl }} style={{ width: 240, height: 320, borderRadius: 8 }} resizeMode="cover" />
+                                                                ) : msg.type === 'video' && msg.mediaUrl ? (
+                                                                    <AVVideo
+                                                                        source={{ uri: msg.mediaUrl }}
+                                                                        style={{ width: 240, height: 320, borderRadius: 8 }}
+                                                                        useNativeControls
+                                                                        resizeMode={ResizeMode.COVER}
+                                                                    />
+                                                                ) : (
+                                                                    <Text className="text-base" style={{ color: colors.text }}>{msg.content}</Text>
+                                                                )}
+                                                            </View>
+                                                        ) : (
+                                                            <BlurView intensity={40} tint={mode === 'light' ? 'light' : 'dark'} className="px-5 py-3 rounded-2xl border overflow-hidden" style={{
+                                                                backgroundColor: isMe ? colors.card : 'transparent',
+                                                                borderColor: colors.border,
+                                                                borderBottomRightRadius: isMe ? 0 : 16,
+                                                                borderBottomLeftRadius: isMe ? 16 : 0
+                                                            }}>
+                                                                {msg.type === 'image' && msg.mediaUrl ? (
+                                                                    <Image source={{ uri: msg.mediaUrl }} style={{ width: 240, height: 320, borderRadius: 8 }} resizeMode="cover" />
+                                                                ) : msg.type === 'video' && msg.mediaUrl ? (
+                                                                    <AVVideo
+                                                                        source={{ uri: msg.mediaUrl }}
+                                                                        style={{ width: 240, height: 320, borderRadius: 8 }}
+                                                                        useNativeControls
+                                                                        resizeMode={ResizeMode.COVER}
+                                                                    />
+                                                                ) : (
+                                                                    <Text className="text-base" style={{ color: colors.text }}>{msg.content}</Text>
+                                                                )}
+                                                            </BlurView>
+                                                        )}
                                                         <View className={`flex-row items-center gap-1 mt-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
                                                             <Text className="text-[10px]" style={{ color: colors.secondary }}>
                                                                 {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -966,8 +1012,19 @@ export default function ChatScreen() {
                             {/* Input */}
                             <BlurView intensity={90} tint={mode === 'light' ? 'light' : 'dark'} className="px-4 py-4 border-t pb-8" style={{ borderColor: colors.border }}>
                                 <View className="flex-row items-center gap-2">
+                                    {/* Media button */}
+                                    <TouchableOpacity className="p-2" onPress={() => {
+                                        Alert.alert('Send Media', 'Choose media type', [
+                                            { text: 'Photo', onPress: () => handlePickMedia('image') },
+                                            { text: 'Video', onPress: () => handlePickMedia('video') },
+                                            { text: 'Cancel', style: 'cancel' }
+                                        ]);
+                                    }}>
+                                        <Paperclip size={22} color={colors.secondary} />
+                                    </TouchableOpacity>
+
                                     {/* Emoji/Sticker button */}
-                                    <TouchableOpacity className="p-2" onPress={() => Alert.alert('Coming Soon', 'Emoji & Sticker picker coming soon!')}>
+                                    <TouchableOpacity className="p-2" onPress={() => Alert.alert('Coming Soon', 'Sticker picker coming soon!')}>
                                         <Smile size={22} color={colors.secondary} />
                                     </TouchableOpacity>
 
@@ -989,6 +1046,57 @@ export default function ChatScreen() {
                 </LinearGradient>
             </Animated.View>
         );
+    };
+
+    const handlePickMedia = async (type: 'image' | 'video') => {
+        try {
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: type === 'image' ? ImagePicker.MediaTypeOptions.Images : ImagePicker.MediaTypeOptions.Videos,
+                allowsEditing: true,
+                quality: 0.8,
+                videoMaxDuration: 60,
+            });
+
+            if (!result.canceled && result.assets[0] && dbUserId) {
+                setIsUploading(true);
+                try {
+                    const file = result.assets[0];
+                    let uploadResult;
+
+                    if (type === 'image') {
+                        uploadResult = await MediaUploadService.uploadImage(file.uri);
+                    } else {
+                        uploadResult = await MediaUploadService.uploadVideo(file.uri);
+                    }
+
+                    // Send the message with media
+                    if (activeConversationIdRef.current) {
+                        const { error } = await supabase.from('Message').insert({
+                            conversationId: activeConversationIdRef.current,
+                            senderId: dbUserId,
+                            content: type === 'image' ? '📷 Image' : '📹 Video',
+                            type: type,
+                            mediaUrl: uploadResult.url
+                        });
+
+                        if (error) throw error;
+
+                        // Update conversation last message
+                        await supabase.from('Conversation').update({
+                            lastMessage: type === 'image' ? '📷 Image' : '📹 Video',
+                            lastMessageAt: new Date().toISOString()
+                        }).eq('id', activeConversationIdRef.current);
+                    }
+                } catch (err) {
+                    Alert.alert('Upload Failed', 'Could not upload media');
+                    console.error(err);
+                } finally {
+                    setIsUploading(false);
+                }
+            }
+        } catch (err) {
+            console.error('Media picker error:', err);
+        }
     };
 
     // Tag Modal

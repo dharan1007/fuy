@@ -47,6 +47,7 @@ export function useMessaging() {
   const [following, setFollowing] = useState<Friend[]>([]);
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
   const [typingUsers, setTypingUsers] = useState<{ [key: string]: Set<string> }>({});
+  const [cursors, setCursors] = useState<{ [key: string]: string | null }>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const subscribedChannels = useRef<Set<string>>(new Set());
@@ -372,9 +373,13 @@ export function useMessaging() {
     }
   }, []);
 
-  const fetchMessages = useCallback(async (conversationId: string) => {
+  const fetchMessages = useCallback(async (conversationId: string, cursor?: string) => {
     try {
-      const response = await fetch(`/api/chat/messages?conversationId=${conversationId}`);
+      const url = cursor
+        ? `/api/chat/messages?conversationId=${conversationId}&cursor=${cursor}`
+        : `/api/chat/messages?conversationId=${conversationId}`;
+
+      const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
         const formattedMessages = data.messages.map((msg: any) => ({
@@ -387,14 +392,37 @@ export function useMessaging() {
           read: msg.readAt !== null,
         }));
 
-        setMessages((prev) => ({
+        setMessages((prev) => {
+          const currentMessages = prev[conversationId] || [];
+
+          if (cursor) {
+            // Prepend older messages (filtering duplicates)
+            const existingIds = new Set(currentMessages.map(m => m.id));
+            const uniqueNew = formattedMessages.filter((m: any) => !existingIds.has(m.id));
+            return {
+              ...prev,
+              [conversationId]: [...uniqueNew, ...currentMessages]
+            };
+          } else {
+            // Initial load - replace
+            return {
+              ...prev,
+              [conversationId]: formattedMessages
+            };
+          }
+        });
+
+        setCursors((prev) => ({
           ...prev,
-          [conversationId]: formattedMessages,
+          [conversationId]: data.nextCursor || null
         }));
+
+        return data.nextCursor;
       }
     } catch (err) {
       console.error('Failed to fetch messages:', err);
     }
+    return undefined;
   }, []);
 
 
@@ -444,6 +472,7 @@ export function useMessaging() {
   return {
     conversations,
     messages,
+    cursors,
     followers,
     following,
     onlineUsers,

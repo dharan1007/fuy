@@ -35,7 +35,10 @@ export default function XrayForm({ onBack }: XrayFormProps) {
                 formData.append('type', file.type.startsWith('video') ? 'video' : 'image');
 
                 const res = await fetch('/api/upload', { method: 'POST', body: formData });
-                if (!res.ok) throw new Error('Upload failed');
+                if (!res.ok) {
+                    const errorData = await res.json();
+                    throw new Error(errorData.error || 'Upload failed');
+                }
                 return await res.json();
             };
 

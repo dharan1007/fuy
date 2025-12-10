@@ -4,7 +4,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../../context/ThemeContext';
 import { X, Upload, ArrowLeft, Globe, Users, Lock } from 'lucide-react-native';
 
-const API_URL = 'http://10.0.2.2:3000'; // Android Emulator Loopback
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3000';
 
 interface ChapterFormProps {
     onBack: () => void;
@@ -22,6 +22,7 @@ export default function ChapterForm({ onBack }: ChapterFormProps) {
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.All,
             allowsMultipleSelection: true,
+            selectionLimit: 50,
             quality: 0.8,
         });
 
@@ -41,7 +42,7 @@ export default function ChapterForm({ onBack }: ChapterFormProps) {
             name: asset.fileName || 'upload.jpg',
             type: asset.mimeType || 'image/jpeg',
         } as any);
-        
+
         const type = asset.type === 'video' ? 'video' : 'image';
         formData.append('type', type);
 
@@ -112,8 +113,8 @@ export default function ChapterForm({ onBack }: ChapterFormProps) {
         <ScrollView className="flex-1" contentContainerStyle={{ padding: 16 }}>
             {/* Header with explicit zIndex to prevent overlap issues */}
             <View className="flex-row items-center mb-6 z-50 relative">
-                <TouchableOpacity 
-                    onPress={onBack} 
+                <TouchableOpacity
+                    onPress={onBack}
                     className={`p-3 rounded-full mr-4 ${isDark ? 'bg-white/10' : 'bg-gray-100'}`}
                     style={{ width: 48, height: 48, alignItems: 'center', justifyContent: 'center' }}
                 >

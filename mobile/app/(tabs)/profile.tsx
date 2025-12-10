@@ -143,7 +143,13 @@ export default function ProfileScreen() {
                 .from('Post')
                 .select(`
                     id,
-                    media:Media(url, type)
+                    postType,
+                    media:Media(url, type),
+                    lillData:Lill(thumbnailUrl, videoUrl),
+                    fillData:Fill(thumbnailUrl, videoUrl),
+                    xrayData:Xray(topLayerUrl),
+                    audData:Aud(coverImageUrl),
+                    chanData:Chan(coverImageUrl)
                 `)
                 .eq('userId', targetId)
                 .order('createdAt', { ascending: false });
@@ -154,7 +160,13 @@ export default function ProfileScreen() {
                     .from('post')
                     .select(`
                         id,
-                        media:media(url, type)
+                        postType,
+                        media:media(url, type),
+                        lillData:lill(thumbnailUrl, videoUrl),
+                        fillData:fill(thumbnailUrl, videoUrl),
+                        xrayData:xray(topLayerUrl),
+                        audData:aud(coverImageUrl),
+                        chanData:chan(coverImageUrl)
                     `)
                     .eq('userId', targetId)
                     .order('createdAt', { ascending: false });
@@ -176,11 +188,28 @@ export default function ProfileScreen() {
                     posts: postsData.length,
                     friends: 0
                 },
-                posts: postsData.map((p: any) => ({
-                    id: p.id,
-                    media: p.media || [],
-                    likes: 0
-                }))
+                posts: postsData.map((p: any) => {
+                    // Resolve Thumbnail based on Post Type
+                    let thumb = '';
+                    if (p.media && p.media.length > 0) thumb = p.media[0].url;
+
+                    if (!thumb) {
+                        if (p.postType === 'LILL' && p.lillData) thumb = p.lillData.thumbnailUrl || p.lillData.videoUrl;
+                        else if (p.postType === 'FILL' && p.fillData) thumb = p.fillData.thumbnailUrl || p.fillData.videoUrl;
+                        else if (p.postType === 'XRAY' && p.xrayData) thumb = p.xrayData.topLayerUrl;
+                        else if (p.postType === 'AUD' && p.audData) thumb = p.audData.coverImageUrl;
+                        else if (p.postType === 'CHAN' && p.chanData) thumb = p.chanData.coverImageUrl;
+                    }
+
+                    // Fallback
+                    if (!thumb) thumb = `https://source.unsplash.com/random/400x400?sig=${p.id}`;
+
+                    return {
+                        id: p.id,
+                        media: [{ url: thumb, type: 'image' }], // Normalize for UI
+                        likes: 0
+                    };
+                })
             });
 
         } catch (e) {
