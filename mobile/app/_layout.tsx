@@ -9,17 +9,19 @@ import ThemeToggle from '../components/ThemeToggle';
 
 // Fix font scaling issues
 interface TextWithDefaultProps extends Text {
-    defaultProps?: { allowFontScaling?: boolean };
+    defaultProps?: { allowFontScaling?: boolean; style?: any };
 }
 interface TextInputWithDefaultProps extends TextInput {
-    defaultProps?: { allowFontScaling?: boolean };
+    defaultProps?: { allowFontScaling?: boolean; style?: any };
 }
 
 if ((Text as unknown as TextWithDefaultProps).defaultProps == null) (Text as unknown as TextWithDefaultProps).defaultProps = {};
 (Text as unknown as TextWithDefaultProps).defaultProps!.allowFontScaling = false;
+(Text as unknown as TextWithDefaultProps).defaultProps!.style = { fontFamily: 'System' };
 
 if ((TextInput as unknown as TextInputWithDefaultProps).defaultProps == null) (TextInput as unknown as TextInputWithDefaultProps).defaultProps = {};
 (TextInput as unknown as TextInputWithDefaultProps).defaultProps!.allowFontScaling = false;
+(TextInput as unknown as TextInputWithDefaultProps).defaultProps!.style = { fontFamily: 'System' };
 
 const MainLayout = () => {
     const { session, loading } = useAuth();
