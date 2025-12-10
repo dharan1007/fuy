@@ -4,9 +4,21 @@ let config;
 try {
     config = getDefaultConfig(__dirname);
 
-    // Custom extensions
-    config.resolver.sourceExts = ['js', 'jsx', 'json', 'ts', 'tsx', 'cjs', 'mjs'];
-    config.resolver.assetExts = [...config.resolver.assetExts, 'glb', 'gltf', 'png', 'jpg', 'obj', 'mtl'];
+    // Custom extensions - Safely append
+    const extraSourceExts = ['cjs', 'mjs'];
+    const extraAssetExts = ['glb', 'gltf', 'png', 'jpg', 'obj', 'mtl'];
+
+    extraSourceExts.forEach(ext => {
+        if (config.resolver.sourceExts && !config.resolver.sourceExts.includes(ext)) {
+            config.resolver.sourceExts.push(ext);
+        }
+    });
+
+    extraAssetExts.forEach(ext => {
+        if (config.resolver.assetExts && !config.resolver.assetExts.includes(ext)) {
+            config.resolver.assetExts.push(ext);
+        }
+    });
 
     try {
         const { withNativeWind } = require("nativewind/metro");
@@ -19,7 +31,7 @@ try {
 
 } catch (e) {
     console.error("🔥 Critical Error loading Metro config:", e);
-    // Fallback minimal config if everything explodes
+    // Fallback minimal config
     config = getDefaultConfig(__dirname);
 }
 
