@@ -33,8 +33,8 @@ function BodyPart({ position, args, color, opacity = 1, name, onPartClick, selec
 
     return (
         <group position={position}>
-            {/* 1. VISUAL MESH (Non-Interactive "Ghost") */}
-            <mesh pointerEvents="none">
+            {/* 1. VISUAL MESH (Non-Interactive) */}
+            <mesh raycast={() => null}>
                 <boxGeometry args={args} />
                 <meshStandardMaterial
                     color={isHighlighted ? '#ff8800' : color}
