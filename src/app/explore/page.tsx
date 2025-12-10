@@ -48,59 +48,52 @@ export default function ExplorePage() {
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [showLines, setShowLines] = useState(true);
 
-  // Helper to generate dummy posts
-  const generateDummyPosts = (count: number, type: string, baseId: string): Post[] => {
-    return Array.from({ length: count }).map((_, i) => ({
-      id: `${baseId}-${i}`,
-      userId: `user-${baseId}-${i}`,
-      content: `${type} content #${i + 1}. This is a sample description for ${type}.`,
-      feature: type,
-      visibility: 'PUBLIC',
-      joyScore: Math.floor(Math.random() * 100),
-      connectionScore: Math.floor(Math.random() * 100),
-      createdAt: new Date().toISOString(),
-      user: {
-        name: `${type} Creator ${i}`,
-        profile: {
-          displayName: `${type}User${i}`,
-          avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${baseId}${i}`,
-        },
-      },
-      media: [{
-        id: `m-${baseId}-${i}`,
-        type: 'IMAGE',
-        url: `https://picsum.photos/seed/${baseId}${i}/400/300`,
-      }],
-      likes: [],
-      comments: [],
-    }));
-  };
-
   useEffect(() => {
     const fetchPosts = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/api/posts?limit=50');
-        let fetchedPosts = [];
-        if (response.ok) {
-          const data = await response.json();
-          fetchedPosts = data.posts || [];
-        }
 
-        // Combine with demo posts for main "Posts" globe
-        setPosts([...fetchedPosts, ...DEMO_POSTS]);
+        const fetchType = async (type?: string, limit = 20) => {
+          try {
+            const url = type
+              ? `/api/posts?type=${type}&limit=${limit}`
+              : `/api/posts?limit=50`;
+            const res = await fetch(url);
+            if (res.ok) {
+              const data = await res.json();
+              if (Array.isArray(data)) return data;
+              // Fallback for { posts: [] } structure if changed, though currently API returns array
+              return data.posts || [];
+            }
+          } catch (e) {
+            console.error(`Error fetching ${type || 'main'}:`, e);
+          }
+          return [];
+        };
 
-        // Generate data for other globes
-        setChans(generateDummyPosts(15, 'Chan', 'chan'));
-        setLils(generateDummyPosts(20, 'Lil', 'lil'));
-        setFills(generateDummyPosts(10, 'Fill', 'fill'));
-        setAuds(generateDummyPosts(18, 'Aud', 'aud'));
-        setChaptes(generateDummyPosts(12, 'Chapte', 'chapte'));
-        setXrays(generateDummyPosts(8, 'XRay', 'xray'));
+        // Parallel fetch for all globes
+        const results = await Promise.all([
+          fetchType(),           // Main mixed
+          fetchType('CHAN'),
+          fetchType('LILL'),
+          fetchType('FILL'),
+          fetchType('AUD'),
+          fetchType('CHAPTER'),
+          fetchType('XRAY'),
+        ]);
+
+        const [mainData, chanData, lillData, fillData, audData, chapterData, xrayData] = results;
+
+        setPosts(mainData);
+        setChans(chanData);
+        setLils(lillData);
+        setFills(fillData);
+        setAuds(audData);
+        setChaptes(chapterData);
+        setXrays(xrayData);
 
       } catch (err) {
-        console.error('Error fetching posts:', err);
-        setPosts(DEMO_POSTS);
+        console.error('Error fetching explore content:', err);
       } finally {
         setLoading(false);
       }
@@ -108,38 +101,6 @@ export default function ExplorePage() {
 
     fetchPosts();
   }, []);
-
-  const DEMO_POSTS: Post[] = [
-    {
-      id: 'demo-1',
-      userId: 'demo-user-1',
-      content: 'Exploring the neon streets of Tokyo at night. The cyber vibes are unreal! 🌃✨ #Cyberpunk #Tokyo #NightLife',
-      feature: 'Photography',
-      visibility: 'PUBLIC',
-      joyScore: 95,
-      connectionScore: 88,
-      createdAt: new Date().toISOString(),
-      user: {
-        name: 'Alex Chen',
-        profile: {
-          displayName: 'Alex Chen',
-          avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop',
-        },
-      },
-      media: [{
-        id: 'm1',
-        type: 'IMAGE',
-        url: 'https://images.unsplash.com/photo-1503899036084-c55cdd92da26?w=800&h=600&fit=crop',
-      }],
-      likes: Array(120).fill({ id: 'l' }),
-      comments: [
-        { id: 'c1', content: 'This looks amazing! 🔥' },
-        { id: 'c2', content: 'Cyberpunk vibes are strong here.' },
-        { id: 'c3', content: 'Wish I was there right now!' }
-      ],
-    },
-    // ... (Keep existing demo posts if needed, or rely on generated ones. For brevity, I'll keep just one here but in real code I'd keep them all or move to a separate file)
-  ];
 
   if (loading) {
     return (

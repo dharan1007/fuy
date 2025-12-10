@@ -132,10 +132,16 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const scope = (searchParams.get("scope") ?? "public").toLowerCase();
   const groupId = searchParams.get("groupId");
+  const type = searchParams.get("type"); // New: Filter by post type
 
   // use a safe, non-any accumulator for where conditions
   const where: Record<string, unknown> = {};
   if (groupId) where.groupId = groupId;
+
+  // Filter by post type if provided
+  if (type) {
+    where.postType = type.toUpperCase();
+  }
 
   if (scope === "me") {
     if (!userId) {
@@ -232,14 +238,85 @@ export async function GET(req: NextRequest) {
   });
 
   // Transform to include likes count, likedByMe, comments count, shares count
-  const transformed = posts.map((post) => ({
-    ...post,
-    likes: post.likes?.length || 0,
-    likedByMe: userId ? post.likes?.some((like) => like.userId === userId) : false,
-    shares: post.shares?.length || 0,
-    // Add user vote status for polls
-    userVote: post.pullUpDownData?.votes?.[0]?.vote || null,
-  }));
+  // AND normalize media for specialized post types
+  const transformed = posts.map((post) => {
+    const normalizedMedia = [...post.media];
+
+    // LILL: standard video
+    if (post.lillData && post.lillData.videoUrl) {
+      normalizedMedia.push({
+        id: `lill-${post.id}`,
+        type: 'VIDEO',
+        url: post.lillData.videoUrl,
+        postId: post.id,
+        userId: post.userId,
+        feature: 'LILL',
+        createdAt: post.createdAt
+      });
+    }
+
+    // FILL: standard video
+    if (post.fillData && post.fillData.videoUrl) {
+      normalizedMedia.push({
+        id: `fill-${post.id}`,
+        type: 'VIDEO',
+        url: post.fillData.videoUrl,
+        postId: post.id,
+        userId: post.userId,
+        feature: 'FILL',
+        createdAt: post.createdAt
+      });
+    }
+
+    // AUD: audio
+    if (post.audData && post.audData.audioUrl) {
+      normalizedMedia.push({
+        id: `aud-${post.id}`,
+        type: 'AUDIO',
+        url: post.audData.audioUrl,
+        postId: post.id,
+        userId: post.userId,
+        feature: 'AUD',
+        createdAt: post.createdAt
+      });
+    }
+
+    // CHAN: cover image
+    if (post.chanData && post.chanData.coverImageUrl) {
+      normalizedMedia.push({
+        id: `chan-${post.id}`,
+        type: 'IMAGE',
+        url: post.chanData.coverImageUrl,
+        postId: post.id,
+        userId: post.userId,
+        feature: 'CHAN',
+        createdAt: post.createdAt
+      });
+    }
+
+    // XRAY: top layer as preview image
+    if (post.xrayData && post.xrayData.topLayerUrl) {
+      normalizedMedia.push({
+        id: `xray-${post.id}`,
+        type: 'IMAGE',
+        url: post.xrayData.topLayerUrl,
+        postId: post.id,
+        userId: post.userId,
+        feature: 'XRAY',
+        createdAt: post.createdAt
+      });
+    }
+
+    return {
+      ...post,
+      media: normalizedMedia, // Use the enriched media array
+      likes: post.likes?.length || 0,
+      likedByMe: userId ? post.likes?.some((like) => like.userId === userId) : false,
+      shares: post.shares?.length || 0,
+      // Add user vote status for polls
+      userVote: post.pullUpDownData?.votes?.[0]?.vote || null,
+    };
+  });
 
   return NextResponse.json(transformed);
 }
