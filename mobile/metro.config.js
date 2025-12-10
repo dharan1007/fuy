@@ -1,10 +1,26 @@
 const { getDefaultConfig } = require("expo/metro-config");
-const { withNativeWind } = require("nativewind/metro");
 
-const config = getDefaultConfig(__dirname);
+let config;
+try {
+    config = getDefaultConfig(__dirname);
 
-// Fix for Three.js and other web libraries
-config.resolver.sourceExts = ['js', 'jsx', 'json', 'ts', 'tsx', 'cjs', 'mjs'];
-config.resolver.assetExts = [...config.resolver.assetExts, 'glb', 'gltf', 'png', 'jpg', 'obj', 'mtl'];
+    // Custom extensions
+    config.resolver.sourceExts = ['js', 'jsx', 'json', 'ts', 'tsx', 'cjs', 'mjs'];
+    config.resolver.assetExts = [...config.resolver.assetExts, 'glb', 'gltf', 'png', 'jpg', 'obj', 'mtl'];
 
-module.exports = withNativeWind(config, { input: "./global.css" });
+    try {
+        const { withNativeWind } = require("nativewind/metro");
+        config = withNativeWind(config, { input: "./global.css" });
+        console.log("✅ Successfully applied NativeWind config");
+    } catch (nwError) {
+        console.warn("⚠️ Failed to apply NativeWind config:", nwError);
+        // Continue with default config to allow build debugging
+    }
+
+} catch (e) {
+    console.error("🔥 Critical Error loading Metro config:", e);
+    // Fallback minimal config if everything explodes
+    config = getDefaultConfig(__dirname);
+}
+
+module.exports = config;
