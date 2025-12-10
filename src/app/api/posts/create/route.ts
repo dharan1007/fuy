@@ -150,6 +150,12 @@ export async function POST(request: NextRequest) {
                         data: {
                             postId: post.id,
                             title: chapterData.title || 'Untitled',
+                            description: chapterData.description || '',
+                            mediaUrls: JSON.stringify(mediaUrls || []),
+                            mediaTypes: JSON.stringify(mediaTypes || []),
+                            linkedChapterId: chapterData.linkedChapterId,
+                            linkedPostId: chapterData.linkedPostId,
+                            orderIndex: chapterData.orderIndex || 0,
                         },
                     });
                 }
