@@ -785,7 +785,7 @@
 
 .searchIcon {
   position: absolute;
-  left: 12px;
+  left: 32px;
   top: 50%;
   transform: translateY(-50%);
   color: var(--text-tertiary);

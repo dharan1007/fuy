@@ -86,6 +86,7 @@ function MessagesPageContent() {
   const [isSearching, setIsSearching] = useState(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [showFeatureModal, setShowFeatureModal] = useState<string | null>(null);
+  const [activeContextMenuId, setActiveContextMenuId] = useState<string | null>(null);
 
   const [respondedInvites, setRespondedInvites] = useState<Set<string>>(new Set());
 
@@ -298,7 +299,7 @@ function MessagesPageContent() {
         // Toggle mute state locally if we had it in the type
       }
 
-      setShowFeatureModal(null);
+      setActiveContextMenuId(null);
 
       const conv = conversations.find(c => c.id === conversationId);
       // @ts-ignore
@@ -334,11 +335,7 @@ function MessagesPageContent() {
             </button>
             <h1 style={{ margin: 0 }}>Messages</h1>
           </div>
-          <button className={styles.composeButton} title="New message">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-            </svg>
-          </button>
+
         </div>
 
         {/* Search Input */}
@@ -565,7 +562,7 @@ function MessagesPageContent() {
                 className="context-menu-trigger"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setShowFeatureModal(showFeatureModal === conv.id ? null : conv.id);
+                  setActiveContextMenuId(activeContextMenuId === conv.id ? null : conv.id);
                 }}
                 style={{
                   position: 'absolute',
@@ -584,7 +581,7 @@ function MessagesPageContent() {
               </button>
 
               {/* Context Menu */}
-              {showFeatureModal === conv.id && (
+              {activeContextMenuId === conv.id && (
                 <div
                   style={{
                     position: 'absolute',
