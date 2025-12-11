@@ -15,23 +15,8 @@ export const authOptions: NextAuthOptions = {
     signIn: "/join",
   },
   providers: [
-    // EmailProvider({
-    //   from: process.env.EMAIL_FROM,
-    //   async sendVerificationRequest({ identifier, url, expires }) {
-    //     const host = new URL(baseUrl()).host;
-    //     const subject = `Sign in to ${host}`;
-    //     const text = `Hi!
+    // EmailProvider removed in favor of Supabase Magic Link
 
-    // Click the link below to sign in:
-
-    // ${url}
-
-    // This link expires at ${expires.toLocaleString()}.
-
-    // If you didn't request this, you can ignore this email.`;
-    //     await sendMail({ to: identifier, subject, text });
-    //   },
-    // }),
 
     // Email/Password credentials
     Credentials({

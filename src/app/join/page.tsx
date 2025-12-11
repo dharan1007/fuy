@@ -1,7 +1,7 @@
 "use client";
 
-import { signIn } from "next-auth/react";
 import { useState } from "react";
+import { supabase } from "@/lib/supabase-client";
 
 export default function JoinPage() {
   const [email, setEmail] = useState("");
@@ -13,14 +13,20 @@ export default function JoinPage() {
     e.preventDefault();
     setErr("");
     setLoading(true);
-    const res = await signIn("email", {
+
+    const { error } = await supabase.auth.signInWithOtp({
       email,
-      redirect: false,
-      callbackUrl: "/",
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
     });
+
     setLoading(false);
-    if (res?.ok) setSent(true);
-    else setErr(res?.error || "Failed to send sign-in link");
+    if (!error) {
+      setSent(true);
+    } else {
+      setErr(error.message || "Failed to send sign-in link");
+    }
   }
 
   return (
