@@ -14,11 +14,11 @@ const { width } = Dimensions.get('window');
 const features = [
     { id: 'overview', title: 'Overview', icon: LayoutDashboard, color: '#64748b', route: null },
     { id: 'journal', title: 'Journal', icon: Book, color: '#8b5cf6', route: '/(tabs)/journal' },
-    { id: 'breathing', title: 'Breathing', icon: Wind, color: '#3b82f6', route: '/breathing' },
-    { id: 'dbot', title: 'dbot', icon: MessageSquare, color: '#10b981', route: '/chatbot' },
+
+
     { id: 'store', title: 'Store', icon: ShoppingBag, color: '#f59e0b', route: '/store' },
     { id: 'wrex', title: 'WREX', icon: Anchor, color: '#a855f7', route: '/grounding' },
-    { id: 'compassion', title: 'Self-Love', icon: Heart, color: '#f43f5e', route: '/compassion' },
+
     { id: 'pomodoro', title: 'Pomodoro', icon: Timer, color: '#d97706', route: '/pomodoro' }
 ];
 
@@ -125,10 +125,7 @@ export default function DashboardScreen() {
                         <View className="w-3 h-3 rounded-full bg-violet-500" />
                         <Text style={{ color: colors.secondary }}>Journaling (45%)</Text>
                     </View>
-                    <View className="flex-row items-center gap-2">
-                        <View className="w-3 h-3 rounded-full bg-blue-500" />
-                        <Text style={{ color: colors.secondary }}>Breathing (31%)</Text>
-                    </View>
+
                 </View>
             </View>
         </BlurView>

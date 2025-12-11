@@ -159,26 +159,7 @@ export default function HomeSidebarProfile({
           </Link>
         </div>
 
-        {/* Rankings Card - Liquid Glass */}
-        {userRanks.length > 0 && (
-          <div className="rounded-2xl p-4 bg-transparent backdrop-blur-md border border-white/20 hover:border-white/40 transition-all">
-            <div className="flex items-center gap-2 mb-4">
-              <span className="text-xs font-bold text-white">RANK</span>
-              <h4 className="font-semibold text-white text-sm">Your Rankings</h4>
-              <Link href="/rankings" className="ml-auto text-blue-300 hover:text-blue-200 text-xs font-medium">
-                All
-              </Link>
-            </div>
-            <div className="space-y-2">
-              {userRanks.slice(0, 3).map((rank, i) => (
-                <div key={`${rank.categoryId}-${i}`} className="flex justify-between items-center text-xs">
-                  <span className="text-white/80">Rank {rank.rank}</span>
-                  <span className="font-semibold text-blue-300">#{rank.rank}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+
 
         {/* Hopin Plans Card - Liquid Glass */}
         {hopinPlans.length > 0 && (

@@ -186,259 +186,174 @@ export default function HopinPage() {
   }, [cues, pts]);
 
   return (
-    <div className="relative min-h-screen w-full bg-black text-white flex flex-col overflow-hidden font-sans">
+    <div className="fixed inset-0 w-full h-full bg-black text-white flex flex-col font-sans overflow-hidden">
       <StarfieldBackground />
 
-      {/* Header */}
-      <div className="relative z-20">
+      {/* Header - Fixed Height */}
+      <div className="relative z-20 flex-shrink-0">
         <AppHeader title="Hopin" showBackButton />
       </div>
 
-      {/* Main scrollable content */}
-      <div className="relative z-10 flex-1 overflow-y-auto">
-        {/* Map section - sticky at top */}
-        <div
-          className="w-full border-b border-white/10"
-          style={{
-            height: '60vh',
-            minHeight: '400px',
-            position: 'sticky',
-            top: 0,
-            zIndex: 40,
-            flexShrink: 0,
-            display: 'block',
-          }}
-        >
-          <div style={{ width: '100%', height: '100%' }}>
-            <LeafletMap
-              basemapStyle="dark"
-              activeCategory={activeCategory}
-              height="100%"
-            />
-          </div>
-        </div>
+      {/* Main Layout: Side-by-Side - Fills remaining height */}
+      <div className="relative z-10 flex flex-1 w-full overflow-hidden">
 
-        {/* Content area */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-            {/* Left sidebar - Controls */}
-            <div className="lg:col-span-1 space-y-6">
-              {/* Route Stats */}
-              <div className="rounded-2xl bg-black/40 backdrop-blur-md border border-white/10 p-5">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-4">Route Stats</h3>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-neutral-400">Distance</span>
-                    <span className="font-light text-xl text-white">{formatDistance(distanceKm)}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-neutral-400">Points</span>
-                    <span className="font-light text-xl text-white">{points}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-neutral-400">Type</span>
-                    <span className="font-light text-xl text-white">{isLoop ? "Loop" : "A→B"}</span>
-                  </div>
-                </div>
-              </div>
+        {/* Left Sidebar (25% or fixed width) */}
+        <div className="w-[320px] lg:w-[25%] flex-shrink-0 h-full border-r border-white/10 bg-black/40 backdrop-blur-md overflow-y-auto custom-scrollbar">
+          <div className="p-4 space-y-6 pb-20">
+            {/* ... Content remains the same ... */}
 
-              {/* ETA */}
-              <div className="rounded-2xl bg-black/40 backdrop-blur-md border border-white/10 p-5">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-4">Estimated Time</h3>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-neutral-400">🚶 Walking</span>
-                    <span className="font-light text-white">{ETA.walk}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-neutral-400">🚴 Cycling</span>
-                    <span className="font-light text-white">{ETA.bike}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-neutral-400">🏃 Running</span>
-                    <span className="font-light text-white">{ETA.run}</span>
-                  </div>
+            {/* 1. Route Stats */}
+            <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-3">Route Stats</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <span className="text-xs text-neutral-400 block">Distance</span>
+                  <span className="font-light text-lg text-white">{formatDistance(distanceKm)}</span>
                 </div>
-              </div>
-
-              {/* Tips */}
-              <div className="rounded-2xl bg-black/40 backdrop-blur-md border border-white/10 p-5">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-3">Tips</h3>
-                <ul className="space-y-2">
-                  {suggestions.map((s: string, i: number) => (
-                    <li key={i} className="text-sm text-neutral-300 leading-relaxed">• {s}</li>
-                  ))}
-                </ul>
-              </div>
-
-              {/* Browse POIs */}
-              <div>
-                <div className="text-[11px] uppercase tracking-widest text-neutral-500 font-semibold mb-3">
-                  Browse POIs
+                <div>
+                  <span className="text-xs text-neutral-400 block">Points</span>
+                  <span className="font-light text-lg text-white">{points}</span>
                 </div>
-                <div className="space-y-2">
-                  {(
-                    [
-                      "ATMs",
-                      "Bus Stops",
-                      "Cafés",
-                      "Emergencies",
-                      "Museums",
-                      "Parkings",
-                      "Restaurants",
-                      "Sport Centers",
-                    ] as POICategory[]
-                  ).map((label: POICategory) => (
-                    <button
-                      key={label}
-                      onClick={() =>
-                        setActiveCategory((c: POICategory | null) => (c === label ? null : label))
-                      }
-                      className={`w-full rounded-xl px-4 py-2.5 text-left text-sm transition-all border ${activeCategory === label
-                        ? "bg-white text-black border-white font-medium"
-                        : "bg-transparent text-neutral-400 border-white/10 hover:border-white/30 hover:text-white"
-                        }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
+                <div className="col-span-2">
+                  <span className="text-xs text-neutral-400 block">Type</span>
+                  <span className="font-light text-white">{isLoop ? "Loop" : "A→B"}</span>
                 </div>
-              </div>
-
-              {/* Time Card */}
-              <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm p-4 text-sm">
-                <div className="flex items-center justify-between text-white">
-                  <span className="font-medium text-neutral-400">Now</span>
-                  <span className="font-light text-lg" suppressHydrationWarning>
-                    {typeof window !== 'undefined' && new Date().toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </span>
-                </div>
-                <div className="mt-1 text-xs text-neutral-500">Good conditions for an adventure.</div>
               </div>
             </div>
 
-            {/* Right columns - Main content */}
-            <div className="lg:col-span-3 space-y-6">
-              {/* Route Shape & Export */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-md p-6">
-                  <div className="mb-2 font-light text-white text-lg">Route Shape</div>
-                  <div className="text-neutral-400">
-                    {isLoop
-                      ? "🔄 Looks like a loop (start ≈ end)"
-                      : "📍 Out & back / point-to-point"}
-                  </div>
+            {/* 2. ETA */}
+            <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-3">Est. Time</h3>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-neutral-400">🚶 Walk</span>
+                  <span className="text-white">{ETA.walk}</span>
                 </div>
-
-                <div className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-md p-6">
-                  <div className="mb-4 font-light text-white text-lg">Export Data</div>
-                  <div className="flex flex-wrap gap-3">
-                    <button
-                      onClick={() =>
-                        download(
-                          "route.gpx",
-                          makeGpxFromPts(pts),
-                          "application/gpx+xml"
-                        )
-                      }
-                      className="rounded-xl bg-white text-black hover:bg-neutral-200 px-4 py-2 text-sm font-medium transition-colors"
-                    >
-                      ⤓ GPX
-                    </button>
-                    <button
-                      onClick={() =>
-                        download(
-                          "route.json",
-                          JSON.stringify(makeGeoJSONFromPts(pts), null, 2),
-                          "application/json"
-                        )
-                      }
-                      className="rounded-xl bg-transparent border border-white/20 text-white hover:bg-white/10 px-4 py-2 text-sm font-medium transition-colors"
-                    >
-                      {"{ }"} JSON
-                    </button>
-                  </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-neutral-400">🚴 Cycle</span>
+                  <span className="text-white">{ETA.bike}</span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-neutral-400">🏃 Run</span>
+                  <span className="text-white">{ETA.run}</span>
                 </div>
               </div>
+            </div>
 
-              {/* Cue Sheet */}
-              <div className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-md p-6">
-                <div className="mb-4 flex items-center justify-between">
-                  <h2 className="text-lg font-light text-white">
-                    Attention Cue Sheet
-                  </h2>
+            {/* 3. Export Data */}
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-3">Export</h3>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => download("route.gpx", makeGpxFromPts(pts), "application/gpx+xml")}
+                  className="flex-1 rounded-lg bg-white text-black hover:bg-neutral-200 py-2 text-xs font-bold transition-colors"
+                >
+                  GPX
+                </button>
+                <button
+                  onClick={() => download("route.json", JSON.stringify(makeGeoJSONFromPts(pts), null, 2), "application/json")}
+                  className="flex-1 rounded-lg bg-transparent border border-white/20 text-white hover:bg-white/10 py-2 text-xs font-bold transition-colors"
+                >
+                  JSON
+                </button>
+              </div>
+            </div>
+
+            {/* 4. POIs */}
+            <div>
+              <div className="text-[10px] uppercase tracking-widest text-neutral-500 font-semibold mb-2">
+                Browse POIs
+              </div>
+              <div className="space-y-1.5">
+                {(["ATMs", "Bus Stops", "Cafés", "Emergencies", "Museums", "Parkings", "Restaurants", "Sport Centers"] as POICategory[]).map((label) => (
                   <button
-                    onClick={async () => {
-                      const lines = (cueSheet || [])
-                        .map(
-                          (c: any, i: number) => `${i + 1}. ${c.text} — ${c.km.toFixed(2)} km`
-                        )
-                        .join("\n");
-                      try {
-                        await navigator.clipboard.writeText(lines);
-                        alert("Cue sheet copied!");
-                      } catch {
-                        alert("Copy failed");
-                      }
-                    }}
-                    className="rounded-lg bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled={!cueSheet.length}
+                    key={label}
+                    onClick={() => setActiveCategory((c) => (c === label ? null : label))}
+                    className={`w-full rounded-lg px-3 py-2 text-left text-xs transition-all border ${activeCategory === label
+                      ? "bg-white text-black border-white font-medium"
+                      : "bg-transparent text-neutral-400 border-white/10 hover:border-white/30 hover:text-white"
+                      }`}
                   >
-                    📋 Copy
+                    {label}
                   </button>
-                </div>
-                <p className="mb-4 text-sm text-neutral-400">
-                  Rotate gentle cues along the route. Edit (comma separated), then copy to share.
-                </p>
-                <input
-                  value={cueSeed}
-                  onChange={(e) => setCueSeed(e.target.value)}
-                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-white/30 placeholder:text-neutral-600 transition-colors"
-                  placeholder="sky,texture,quiet,edges,colors"
-                />
-                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {cueSheet.map((c: any, i: number) => (
-                    <div
-                      key={i}
-                      className="rounded-xl border border-white/5 bg-white/5 p-3 text-sm"
-                    >
-                      <div className="font-medium text-white">
-                        {i + 1}. {c.text}
-                      </div>
-                      <div className="text-neutral-500 text-xs mt-1">
-                        {c.km.toFixed(2)} km from start
-                      </div>
-                    </div>
-                  ))}
-                  {!cueSheet.length && (
-                    <div className="text-sm text-neutral-500 col-span-2 text-center py-6">
-                      Add points on the map to generate a cue sheet.
-                    </div>
-                  )}
-                </div>
+                ))}
               </div>
+            </div>
 
-              {/* PLAN BOARD - Full Width */}
-              <div className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-md shadow-2xl overflow-hidden">
-                <div className="border-b border-white/10 px-6 py-5 bg-white/5">
-                  <h2 className="text-xl font-light text-white mb-1">
-                    Plans
-                  </h2>
-                  <p className="text-neutral-400 text-sm">
-                    Organize your adventure! Create cards and track progress.
-                  </p>
-                </div>
+            {/* 5. Tips */}
+            <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-2">Tips</h3>
+              <ul className="space-y-1">
+                {suggestions.map((s, i) => (
+                  <li key={i} className="text-xs text-neutral-300 leading-relaxed">• {s}</li>
+                ))}
+              </ul>
+            </div>
 
-                <div className="planboard-skin px-6 pb-6 max-h-[60vh] overflow-auto">
+            {/* 6. Plan Board */}
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 overflow-hidden">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-white mb-2">Plans</h3>
+              <div className="planboard-skin text-xs overflow-x-auto pb-2">
+                <div className="min-w-[280px]">
                   <PlanBoard currentWaypointCount={points} />
                 </div>
               </div>
+            </div>
 
-              {/* Style overrides for PlanBoard to match monochrome theme */}
-              <style jsx global>{`
+            {/* 7. Cue Sheet */}
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-white">Cues</h3>
+                <button
+                  onClick={async () => {
+                    const lines = (cueSheet || []).map((c: any, i: number) => `${i + 1}. ${c.text} — ${c.km.toFixed(2)} km`).join("\n");
+                    try { await navigator.clipboard.writeText(lines); alert("Copied!"); } catch { }
+                  }}
+                  className="text-[10px] bg-white/10 hover:bg-white/20 px-2 py-1 rounded text-white"
+                  disabled={!cueSheet.length}
+                >
+                  Copy
+                </button>
+              </div>
+              <input
+                value={cueSeed}
+                onChange={(e) => setCueSeed(e.target.value)}
+                className="w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white outline-none focus:border-white/30 mb-3"
+                placeholder="sky,texture..."
+              />
+              <div className="space-y-2">
+                {cueSheet.slice(0, 5).map((c: any, i: number) => (
+                  <div key={i} className="rounded border border-white/5 bg-white/5 p-2 text-xs">
+                    <span className="font-medium text-white">{i + 1}. {c.text}</span>
+                    <span className="block text-neutral-500 text-[10px]">{c.km.toFixed(2)} km</span>
+                  </div>
+                ))}
+                {cueSheet.length > 5 && <div className="text-[10px] text-center text-white/40">+{cueSheet.length - 5} more</div>}
+              </div>
+            </div>
+
+            {/* Time */}
+            <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-xs flex justify-between items-center">
+              <span className="text-neutral-400">Local Time</span>
+              <span className="text-white font-mono" suppressHydrationWarning>
+                {typeof window !== 'undefined' && new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+            </div>
+
+          </div>
+        </div>
+
+        {/* Right Map (Flex Grow) */}
+        <div className="flex-1 h-full relative z-0 bg-neutral-900 border-l border-white/10">
+          {/* Debug background color removed, assuming it works now */}
+          {/* Using key to force re-render if needed, but flex layout should handle it */}
+          <LeafletMap basemapStyle="dark" activeCategory={activeCategory} height="100%" />
+        </div>
+
+      </div>
+
+      {/* Styles for PlanBoard (Compact) */}
+      <style jsx global>{`
                 .planboard-skin {
                   --pb-bg: transparent;
                   --pb-muted: #a3a3a3;
@@ -458,9 +373,10 @@ export default function HopinPage() {
                   background: rgba(255,255,255,0.05) !important;
                   color: #fff !important;
                   border: 1px solid rgba(255,255,255,0.1) !important;
-                  border-radius: 12px !important;
-                  padding: 10px 12px !important;
-                  font-size: 14px !important;
+                  border-radius: 8px !important;
+                  padding: 8px 10px !important;
+                  font-size: 12px !important;
+                  width: 100% !important;
                 }
                 .planboard-skin input:focus,
                 .planboard-skin textarea:focus,
@@ -469,8 +385,10 @@ export default function HopinPage() {
                   outline: none !important;
                 }
                 .planboard-skin button {
-                  border-radius: 12px !important;
+                  border-radius: 8px !important;
                   font-weight: 500 !important;
+                  font-size: 11px !important;
+                  padding: 4px 8px !important;
                 }
                 .planboard-skin .btn,
                 .planboard-skin button:not(.ghost) {
@@ -496,22 +414,20 @@ export default function HopinPage() {
                 .planboard-skin .panel,
                 .planboard-skin .group,
                 .planboard-skin .box {
-                  background: rgba(255,255,255,0.03) !important;
-                  border: 1px solid rgba(255,255,255,0.1) !important;
-                  border-radius: 16px !important;
+                  background: #000000 !important;
+                  border: 1px solid rgba(255,255,255,0.15) !important;
+                  border-radius: 8px !important;
                   box-shadow: none !important;
                   backdrop-filter: blur(10px);
+                  padding: 8px !important;
+                  margin-bottom: 6px !important;
                 }
                 .planboard-skin .card:hover,
                 .planboard-skin .panel:hover {
-                  border-color: rgba(255,255,255,0.2) !important;
-                  background: rgba(255,255,255,0.05) !important;
+                  border-color: rgba(255,255,255,0.4) !important;
+                  background: #000000 !important;
                 }
               `}</style>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

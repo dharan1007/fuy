@@ -111,7 +111,7 @@ model User {
   placePhotoShares PlacePhotoShare[] @relation("PlacePhotoShareRecipient")
 
   // --- Breathing App ---
-  breathingReactions BreathingReaction[]
+
 
   // --- Wrex (Gym Partners & Workout Plans) ---
   gymPartnersSent     GymPartner[]  @relation("GymPartnerSender")
@@ -153,20 +153,7 @@ model PlanMember {
   @@index([userId])
 }
 
-model BreathingReaction {
-  id          String   @id @default(cuid())
-  userId      String
-  techniqueId Int // Matches the ID in your static list
-  // Allowed: LIKE | DISLIKE | OPINION
-  type        String
-  content     String? // For opinions
-  createdAt   DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, techniqueId, type]) // One like/dislike per user per technique (opinions can be multiple if you remove type from unique, but usually one opinion is enough or handle differently)
-  @@index([techniqueId])
-}
 
 model GymPartner {
   id        String   @id @default(cuid())

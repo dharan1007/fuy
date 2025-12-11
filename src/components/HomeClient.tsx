@@ -11,7 +11,8 @@ import UserListModal from '@/components/UserListModal';
 import HomeSidebarProfile from '@/components/HomeSidebarProfile';
 import HomeSidebarSuggestions from '@/components/HomeSidebarSuggestions';
 import HopinProgramsCard from '@/components/HopinProgramsCard';
-import RankingCard from '@/components/RankingCard';
+import ProductsSidebarCard from '@/components/ProductsSidebarCard';
+
 import LoadingSpinner from '@/components/LoadingSpinner';
 import ScrollStarfield from '@/components/ScrollStarfield';
 import LandingPage from '@/components/LandingPage/LandingPage';
@@ -348,9 +349,12 @@ export default function HomeClient() {
                         </Link>
 
                         {/* Dashboard */}
+                        {/* Dashboard */}
                         <Link href="/dashboard" className="text-sm font-semibold text-white hover:text-white/80 transition-colors">
                             <LayoutDashboard className="w-5 h-5" />
                         </Link>
+
+
                     </div>
 
                     {/* Navigation Menu - Mobile Only */}
@@ -375,6 +379,7 @@ export default function HomeClient() {
                                 <Link href="/dashboard" className="flex items-center gap-2 px-4 py-2 text-sm text-white hover:bg-white/10 rounded transition-colors">
                                     <LayoutDashboard className="w-4 h-4" /> Dashboard
                                 </Link>
+
                             </div>
                         )}
                     </div>
@@ -482,7 +487,7 @@ export default function HomeClient() {
                     {/* Right Sidebar - Features Cards */}
                     <aside className="p-4 bg-transparent backdrop-blur-md border border-white/20 rounded-2xl hover:border-white/40 space-y-4">
                         <HopinProgramsCard />
-                        <RankingCard />
+                        <ProductsSidebarCard />
                     </aside>
                 </div>
             </main>

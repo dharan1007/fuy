@@ -29,7 +29,7 @@ interface SuggestedPlan {
 
 export default function HomeSidebarSuggestions() {
   const [suggestedUsers, setSuggestedUsers] = useState<SuggestedUser[]>([]);
-  const [suggestedProducts, setSuggestedProducts] = useState<SuggestedProduct[]>([]);
+
   const [suggestedPlans, setSuggestedPlans] = useState<SuggestedPlan[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -40,9 +40,8 @@ export default function HomeSidebarSuggestions() {
   const fetchSuggestions = async () => {
     setLoading(true);
     try {
-      const [usersRes, productsRes, plansRes] = await Promise.all([
+      const [usersRes, plansRes] = await Promise.all([
         fetch('/api/suggestions/users'),
-        fetch('/api/suggestions/products'),
         fetch('/api/suggestions/plans')
       ]);
 
@@ -50,10 +49,7 @@ export default function HomeSidebarSuggestions() {
         const data = await usersRes.json();
         setSuggestedUsers(data.users || []);
       }
-      if (productsRes.ok) {
-        const data = await productsRes.json();
-        setSuggestedProducts(data.products || []);
-      }
+
       if (plansRes.ok) {
         const data = await plansRes.json();
         setSuggestedPlans(data.plans || []);
@@ -125,31 +121,7 @@ export default function HomeSidebarSuggestions() {
         </div>
       </div>
 
-      {/* Suggested Products - Liquid Glass */}
-      {suggestedProducts.length > 0 && (
-        <div className="rounded-2xl p-4 bg-transparent backdrop-blur-md border border-white/20 hover:border-white/40 transition-all">
-          <h4 className="font-semibold text-white mb-4 flex items-center gap-2">
-            <span className="text-xs font-bold text-white">PRODUCTS</span>
-          </h4>
-          <div className="space-y-3">
-            {suggestedProducts.slice(0, 3).map((product) => (
-              <Link
-                key={product.id}
-                href={`/shop/product/${product.id}`}
-                className="flex items-center gap-3 hover:opacity-75 transition-opacity"
-              >
-                {product.image && (
-                  <img src={product.image} alt={product.name} className="w-10 h-10 rounded object-cover border border-white/60" />
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-sm text-white truncate">{product.name}</div>
-                  <div className="text-xs text-blue-300 font-semibold">₹{product.price}</div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
+
 
       {/* Suggested Plans/Features - Liquid Glass */}
       {suggestedPlans.length > 0 && (

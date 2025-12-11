@@ -40,3 +40,6 @@ const nextConfig = {
 };
 
 export default nextConfig;
+
+// Trigger rebuild to clear webpack cache
+

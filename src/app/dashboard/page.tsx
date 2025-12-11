@@ -11,10 +11,10 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 ======================================================================================== */
 
 const POMO_LS_KEY = "fuy.pomo.v1";
-const BREATH_LS_LAST = "fuy.breath.last.v1";
+
 
 const GROUND_LS_LAST = "fuy.grounding.last.v1";
-const SC_LS_LAST = "fuy.sc.last.v1";
+
 
 /* ========================================================================================
    HOOKS
@@ -166,14 +166,10 @@ export default function DashboardPage() {
 
             {/* WELLNESS CARDS - Responsive grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-5 lg:gap-6 w-full">
-              <BreathingPreview />
-              <ChatbotPreview
-                title="dbot"
-                description="Your AI best friend & podcast host."
-              />
+
+
               <StorePreview />
               <GroundingPreview />
-              <SelfCompassionPreview />
               <PomodoroPreview />
             </div>
           </div>
@@ -187,62 +183,7 @@ export default function DashboardPage() {
    BREATHING PREVIEW
 ======================================================================================== */
 
-function BreathingPreview() {
-  const router = useRouter();
-  const [info, setInfo] = useState<{ preset?: string; cycles?: number } | null>(null);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const raw = localStorage.getItem(BREATH_LS_LAST);
-      if (raw) setInfo(JSON.parse(raw));
-    } catch { }
-  }, []);
-
-  useLSWatch(
-    BREATH_LS_LAST,
-    () => {
-      const raw = localStorage.getItem(BREATH_LS_LAST);
-      return raw ? JSON.parse(raw) : null;
-    },
-    (v) => setInfo(v)
-  );
-
-  const cycles = info?.cycles ?? 0;
-  const pct = Math.min(100, Math.round((Math.min(12, cycles) / 12) * 100));
-
-  return (
-    <div
-      className="rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 border hover:shadow-lg transition-all backdrop-blur-md group active:scale-98 sm:active:scale-100"
-      style={{
-        backgroundColor: "rgba(59, 130, 246, 0.08)",
-        borderColor: "rgba(59, 130, 246, 0.2)",
-      }}
-      onClick={() => router.push("/breathing")}
-    >
-      <h3 className="text-base sm:text-lg md:text-lg font-bold text-gray-900 mb-3 sm:mb-4 group-hover:text-blue-600 transition-colors line-clamp-2">Breathing Exercises</h3>
-      <div className="space-y-2.5 sm:space-y-3">
-        <div className="flex justify-between items-center gap-2">
-          <span className="text-xs sm:text-sm text-gray-700">Preset</span>
-          <span className="text-xs sm:text-sm font-semibold text-blue-600 truncate">{info?.preset || "—"}</span>
-        </div>
-        <div className="flex justify-between items-center gap-2">
-          <span className="text-xs sm:text-sm text-gray-700">Cycles</span>
-          <span className="text-xs sm:text-sm font-semibold text-gray-900">{cycles}/12</span>
-        </div>
-        <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: "rgba(59, 130, 246, 0.1)" }}>
-          <div
-            className="h-full transition-all duration-500"
-            style={{ width: `${pct}%`, backgroundColor: "#3b82f6" }}
-          />
-        </div>
-        <p className="text-xs mt-2.5 sm:mt-3 text-gray-600">
-          Click to start exercise
-        </p>
-      </div>
-    </div>
-  );
-}
 
 
 
@@ -306,48 +247,7 @@ function GroundingPreview() {
    SELF-COMPASSION PREVIEW
 ======================================================================================== */
 
-function SelfCompassionPreview() {
-  const router = useRouter();
-  const [info, setInfo] = useState<any>(null);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const raw = localStorage.getItem(SC_LS_LAST);
-      if (raw) setInfo(JSON.parse(raw));
-    } catch { }
-  }, []);
-
-  useLSWatch(
-    SC_LS_LAST,
-    () => {
-      const raw = localStorage.getItem(SC_LS_LAST);
-      return raw ? JSON.parse(raw) : null;
-    },
-    (v) => setInfo(v)
-  );
-
-  return (
-    <div
-      className="rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 border hover:shadow-lg transition-all backdrop-blur-md group active:scale-98 sm:active:scale-100"
-      style={{
-        backgroundColor: "rgba(244, 63, 94, 0.08)",
-        borderColor: "rgba(244, 63, 94, 0.2)",
-      }}
-      onClick={() => router.push("/self-compassion")}
-    >
-      <h3 className="text-base sm:text-lg md:text-lg font-bold text-gray-900 mb-3 sm:mb-4 group-hover:text-red-600 transition-colors line-clamp-2">Compassion Self-Talk</h3>
-      <div className="space-y-2.5 sm:space-y-3">
-        <p className="text-xs sm:text-sm text-gray-700">
-          {info ? "Completed" : "No Data"}
-        </p>
-        <p className="text-xs sm:text-sm mt-2.5 sm:mt-3 text-gray-600">
-          Click to practice
-        </p>
-      </div>
-    </div>
-  );
-}
 
 /* ========================================================================================
    POMODORO PREVIEW

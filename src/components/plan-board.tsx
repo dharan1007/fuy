@@ -244,100 +244,90 @@ export default function PlanBoard({
 
   /* ---------- Render ---------- */
   return (
-    <div className="grid gap-4 md:grid-cols-[320px_1fr]">
-      {/* Sidebar: Plans */}
-      <aside className="grid gap-3">
-        <div className="rounded-2xl p-4 ring-1 ring-black/5 bg-white/80 grid gap-3">
-          <div className="flex items-center justify-between">
-            <div className="font-medium">Plans</div>
-            <button className="pill-blue" onClick={createPlan}>
-              New
-            </button>
-          </div>
-
-          <div className="grid gap-1 max-h-[200px] overflow-y-auto">
-            {loading && <div className="text-xs text-stone-500">Loading...</div>}
-            {!loading && plans.length === 0 && <div className="text-sm text-stone-600">No plans yet.</div>}
-            {plans.map((p) => (
-              <div
-                key={p.id}
-                className={`flex items-center justify-between rounded-lg border px-2 py-1.5 cursor-pointer ${activePlanId === p.id
-                    ? "bg-stone-900 text-white border-stone-900"
-                    : "bg-white text-stone-900 border-stone-200 hover:bg-stone-50"
-                  }`}
-                onClick={() => selectPlan(p.id)}
-              >
-                <div className="truncate font-medium text-sm">{p.title}</div>
-                <div className="text-[10px] opacity-70 ml-2">{p.members.length} 👤</div>
-              </div>
-            ))}
-          </div>
+    <div className="flex flex-col gap-4">
+      {/* Plans List */}
+      <div className="rounded-2xl p-4 border border-white/10 bg-black grid gap-3">
+        <div className="flex items-center justify-between">
+          <div className="font-medium text-white">Plans</div>
+          <button className="px-3 py-1 bg-white text-black rounded-lg text-xs font-bold hover:bg-neutral-200" onClick={createPlan}>
+            New
+          </button>
         </div>
 
-        {/* Members */}
-        <div className="rounded-2xl p-4 ring-1 ring-black/5 bg-white/80 grid gap-3">
-          <div className="flex items-center justify-between">
-            <div className="font-medium">Members</div>
-            <button
-              disabled={!active}
-              onClick={() => setShowSearch(true)}
-              className="px-2 py-1 rounded-lg text-[12px] border border-stone-200 bg-white hover:bg-stone-50 disabled:opacity-50"
+        <div className="grid gap-1 max-h-[200px] overflow-y-auto custom-scrollbar">
+          {loading && <div className="text-xs text-neutral-500">Loading...</div>}
+          {!loading && plans.length === 0 && <div className="text-sm text-neutral-500">No plans yet.</div>}
+          {plans.map((p) => (
+            <div
+              key={p.id}
+              className={`flex items-center justify-between rounded-lg border px-2 py-2 cursor-pointer transition-colors ${activePlanId === p.id
+                ? "bg-white/10 text-white border-white/20"
+                : "bg-transparent text-neutral-400 border-transparent hover:bg-white/5 hover:text-white"
+                }`}
+              onClick={() => selectPlan(p.id)}
             >
-              + Add
-            </button>
-          </div>
-          <div className="grid gap-2 max-h-[200px] overflow-y-auto">
-            {active?.members.map((m) => (
-              <div
-                key={m.id}
-                className="flex items-center justify-between rounded-lg border px-2 py-1.5 bg-white border-stone-200"
-              >
-                <div className="flex items-center gap-2 overflow-hidden">
-                  <img
-                    src={m.user.profile?.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${m.user.name}`}
-                    className="w-5 h-5 rounded-full bg-stone-200"
-                  />
-                  <div className="flex flex-col truncate">
-                    <span className="text-xs font-medium truncate">{m.user.name || "User"}</span>
-                    <span className="text-[10px] text-stone-500">{m.status}</span>
-                  </div>
+              <div className="truncate font-medium text-sm">{p.title}</div>
+              <div className="text-[10px] opacity-70 ml-2">{p.members.length} 👤</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Members */}
+      <div className="rounded-2xl p-4 border border-white/10 bg-black grid gap-3">
+        <div className="flex items-center justify-between">
+          <div className="font-medium text-white">Members</div>
+          <button
+            disabled={!active}
+            onClick={() => setShowSearch(true)}
+            className="px-2 py-1 rounded-lg text-[12px] border border-white/20 bg-transparent text-white hover:bg-white/10 disabled:opacity-50"
+          >
+            + Add
+          </button>
+        </div>
+        <div className="grid gap-2 max-h-[200px] overflow-y-auto custom-scrollbar">
+          {active?.members.map((m) => (
+            <div
+              key={m.id}
+              className="flex items-center justify-between rounded-lg border px-2 py-1.5 bg-neutral-900 border-white/10"
+            >
+              <div className="flex items-center gap-2 overflow-hidden">
+                <img
+                  src={m.user.profile?.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${m.user.name}`}
+                  className="w-5 h-5 rounded-full bg-neutral-800"
+                />
+                <div className="flex flex-col truncate">
+                  <span className="text-xs font-medium text-white truncate">{m.user.name || "User"}</span>
+                  <span className="text-[10px] text-neutral-500">{m.status}</span>
                 </div>
               </div>
-            ))}
-            {!active && <div className="text-sm text-stone-600">Select a plan.</div>}
-          </div>
+            </div>
+          ))}
+          {!active && <div className="text-sm text-neutral-500">Select a plan.</div>}
         </div>
-      </aside>
+      </div>
 
       {/* Main: Cards */}
-      <section className="rounded-2xl p-4 ring-1 ring-black/5 bg-white/80 grid gap-3">
+      <section className="rounded-2xl p-4 border border-white/10 bg-black grid gap-3">
         <div className="flex items-center justify-between gap-3">
-          <div className="font-medium">{active?.title ?? "No plan selected"}</div>
-          <div className="flex flex-wrap gap-2">
-            <button disabled={!active} onClick={() => addCard("note")} className="pill-blue disabled:opacity-50">
-              + Note
-            </button>
-            <button disabled={!active} onClick={() => addCard("link")} className="pill-blue disabled:opacity-50">
-              + Link
-            </button>
-            <button disabled={!active} onClick={() => addCard("image")} className="pill-blue disabled:opacity-50">
-              + Image
-            </button>
-            <button disabled={!active} onClick={() => addCard("video")} className="pill-blue disabled:opacity-50">
-              + Video
-            </button>
-            <button disabled={!active} onClick={() => addCard("todo")} className="pill-blue disabled:opacity-50">
-              + Todo
-            </button>
-          </div>
+          <div className="font-medium text-white">{active?.title ?? "No plan selected"}</div>
+        </div>
+
+        {/* Actions Row */}
+        <div className="flex flex-wrap gap-2">
+          <button disabled={!active} onClick={() => addCard("note")} className="px-2 py-1 bg-white/10 border border-white/10 rounded text-xs text-white hover:bg-white/20 disabled:opacity-50">+ Note</button>
+          <button disabled={!active} onClick={() => addCard("link")} className="px-2 py-1 bg-white/10 border border-white/10 rounded text-xs text-white hover:bg-white/20 disabled:opacity-50">+ Link</button>
+          <button disabled={!active} onClick={() => addCard("image")} className="px-2 py-1 bg-white/10 border border-white/10 rounded text-xs text-white hover:bg-white/20 disabled:opacity-50">+ Img</button>
+          <button disabled={!active} onClick={() => addCard("video")} className="px-2 py-1 bg-white/10 border border-white/10 rounded text-xs text-white hover:bg-white/20 disabled:opacity-50">+ Vid</button>
+          <button disabled={!active} onClick={() => addCard("todo")} className="px-2 py-1 bg-white/10 border border-white/10 rounded text-xs text-white hover:bg-white/20 disabled:opacity-50">+ Todo</button>
         </div>
 
         <div className="flex items-center gap-2">
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search cards or #tag"
-            className="w-full px-3 py-2 rounded-lg border border-stone-200"
+            placeholder="Search cards..."
+            className="w-full px-3 py-2 rounded-lg border border-white/10 bg-neutral-900 text-white placeholder:text-neutral-600 text-xs focus:border-white/30 outline-none"
           />
         </div>
 
@@ -351,40 +341,40 @@ export default function PlanBoard({
 
       {/* Add Member Modal */}
       {showSearch && (
-        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4" onClick={() => setShowSearch(false)}>
-          <div className="bg-white rounded-2xl w-full max-w-md p-4 space-y-4" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-center">
-              <h3 className="font-bold">Add Friend to Plan</h3>
-              <button onClick={() => setShowSearch(false)}>✕</button>
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={() => setShowSearch(false)}>
+          <div className="bg-neutral-900 border border-white/10 rounded-2xl w-full max-w-md p-4 space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center text-white">
+              <h3 className="font-bold">Add Friend</h3>
+              <button onClick={() => setShowSearch(false)} className="text-neutral-400 hover:text-white">✕</button>
             </div>
             <input
               autoFocus
-              className="w-full border p-2 rounded-lg"
-              placeholder="Search by name or email..."
+              className="w-full bg-black border border-white/10 p-2 rounded-lg text-white placeholder:text-neutral-600 text-sm focus:border-white/30 outline-none"
+              placeholder="Search..."
               value={searchQuery}
               onChange={e => searchUsers(e.target.value)}
             />
-            <div className="max-h-60 overflow-y-auto space-y-2">
+            <div className="max-h-60 overflow-y-auto space-y-2 custom-scrollbar">
               {searchResults.map(u => (
-                <div key={u.id} className="flex items-center justify-between p-2 hover:bg-stone-50 rounded-lg border">
+                <div key={u.id} className="flex items-center justify-between p-2 hover:bg-white/5 rounded-lg border border-transparent hover:border-white/10">
                   <div className="flex items-center gap-2">
-                    <img src={u.profile?.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${u.name}`} className="w-8 h-8 rounded-full" />
+                    <img src={u.profile?.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${u.name}`} className="w-8 h-8 rounded-full bg-neutral-800" />
                     <div>
-                      <div className="font-medium text-sm">{u.name}</div>
-                      <div className="text-xs text-stone-500">{u.email}</div>
+                      <div className="font-medium text-sm text-white">{u.name}</div>
+                      <div className="text-xs text-neutral-500">{u.email}</div>
                     </div>
                   </div>
                   <button
                     disabled={inviting}
                     onClick={() => inviteUser(u.id)}
-                    className="bg-black text-white px-3 py-1 rounded-lg text-xs hover:opacity-80 disabled:opacity-50"
+                    className="bg-white text-black px-3 py-1 rounded-lg text-xs font-bold hover:bg-neutral-200 disabled:opacity-50"
                   >
                     Invite
                   </button>
                 </div>
               ))}
               {searchQuery.length > 1 && searchResults.length === 0 && (
-                <div className="text-center text-stone-500 py-4">No users found</div>
+                <div className="text-center text-neutral-500 py-4 text-xs">No users found</div>
               )}
             </div>
           </div>
@@ -424,11 +414,11 @@ function CardsList({
       {active ? (
         visibleCards.length ? (
           visibleCards.map((c) => (
-            <div key={c.id} className="rounded-xl border border-stone-200 bg-white p-3 flex items-start gap-3">
-              <span className="text-xs uppercase px-2 py-1 rounded bg-stone-100">{c.type}</span>
+            <div key={c.id} className="rounded-xl border border-white/10 bg-neutral-900 p-3 flex items-start gap-3">
+              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-1 rounded bg-white/5 text-neutral-400">{c.type}</span>
               <div className="flex-1 min-w-0">
-                <div className="font-medium">{c.title}</div>
-                <div className="text-sm text-stone-700 truncate">
+                <div className="font-medium text-white text-sm">{c.title}</div>
+                <div className="text-xs text-neutral-400 truncate mt-0.5">
                   {c.type === "note"
                     ? c.content || "—"
                     : c.type === "link"
@@ -439,15 +429,15 @@ function CardsList({
                           ? c.content || "—"
                           : `${c.checklist?.filter((i) => i.done).length ?? 0}/${c.checklist?.length ?? 0} done`}
                 </div>
-                <div className="mt-1 flex flex-wrap gap-1">
+                <div className="mt-2 flex flex-wrap gap-1">
                   {c.tags.map((t: string) => (
-                    <span key={t} className="px-2 py-0.5 rounded-full text-[11px] bg-stone-100">
+                    <span key={t} className="px-2 py-0.5 rounded text-[10px] bg-white/10 text-neutral-300">
                       #{t}
                     </span>
                   ))}
                   {c.waypoint && (
-                    <span className="px-2 py-0.5 rounded-full text-[11px] bg-sky-100 text-sky-800">
-                      waypoint {c.waypoint.index + 1}
+                    <span className="px-2 py-0.5 rounded text-[10px] bg-sky-900/40 text-sky-200 border border-sky-700/50">
+                      WP {c.waypoint.index + 1}
                     </span>
                   )}
                 </div>
@@ -455,24 +445,24 @@ function CardsList({
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => onEdit(c)}
-                  className="px-2 py-1 rounded border border-stone-200 bg-white hover:bg-stone-50 text-[12px]"
+                  className="px-2 py-1 rounded border border-white/10 bg-black text-white hover:bg-white/10 text-[10px]"
                 >
                   Edit
                 </button>
                 <button
                   onClick={() => onDelete(c.id)}
-                  className="px-2 py-1 rounded border border-red-200 bg-red-600 text-white hover:bg-red-500 text-[12px]"
+                  className="px-2 py-1 rounded border border-red-900/30 bg-red-900/20 text-red-400 hover:bg-red-900/40 text-[10px]"
                 >
-                  Delete
+                  Del
                 </button>
               </div>
             </div>
           ))
         ) : (
-          <div className="text-sm text-stone-600">No cards match your search.</div>
+          <div className="text-xs text-neutral-500">No cards match search.</div>
         )
       ) : (
-        <div className="text-sm text-stone-600">Create or select a plan.</div>
+        <div className="text-xs text-neutral-500">Create or select a plan.</div>
       )}
     </div>
   );
@@ -523,16 +513,16 @@ function EditorModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 grid place-items-center z-[60]" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm grid place-items-center z-[200]" onClick={onClose}>
       <div
-        className="w-[min(720px,92vw)] max-h-[86vh] overflow-auto rounded-2xl bg-white shadow-xl ring-1 ring-black/10 p-4 grid gap-3"
+        className="w-[min(720px,92vw)] max-h-[86vh] overflow-auto rounded-2xl bg-neutral-900 border border-white/10 shadow-2xl p-4 grid gap-3"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
-          <div className="font-medium">Edit Card</div>
+          <div className="font-medium text-white">Edit Card</div>
           <button
             onClick={onClose}
-            className="px-2 py-1 rounded border border-stone-200 bg-white hover:bg-stone-50 text-[12px]"
+            className="px-2 py-1 rounded border border-white/10 bg-black text-white hover:bg-white/10 text-[12px]"
           >
             Close
           </button>
@@ -540,20 +530,20 @@ function EditorModal({
 
         <div className="grid md:grid-cols-2 gap-3">
           <div className="grid gap-2">
-            <label className="text-[12px] text-stone-600">Title</label>
+            <label className="text-[12px] text-neutral-400">Title</label>
             <input
               value={local.title}
               onChange={(e) => set("title", e.target.value)}
-              className="px-3 py-2 rounded-lg border border-stone-200"
+              className="px-3 py-2 rounded-lg border border-white/10 bg-black text-white text-sm focus:border-white/30 outline-none"
             />
           </div>
 
           <div className="grid gap-2">
-            <label className="text-[12px] text-stone-600">Type</label>
+            <label className="text-[12px] text-neutral-400">Type</label>
             <select
               value={local.type}
               onChange={(e) => set("type", e.target.value as CardType)}
-              className="px-3 py-2 rounded-lg border border-stone-200"
+              className="px-3 py-2 rounded-lg border border-white/10 bg-black text-white text-sm focus:border-white/30 outline-none"
             >
               <option value="note">Note</option>
               <option value="link">Link</option>
@@ -568,7 +558,7 @@ function EditorModal({
             local.type === "image" ||
             local.type === "video") && (
               <div className="grid gap-2 md:col-span-2">
-                <label className="text-[12px] text-stone-600">
+                <label className="text-[12px] text-neutral-400">
                   {local.type === "note"
                     ? "Note Content"
                     : local.type === "link"
@@ -581,14 +571,14 @@ function EditorModal({
                   <textarea
                     value={local.content ?? ""}
                     onChange={(e) => set("content", e.target.value)}
-                    className="px-3 py-2 rounded-lg border border-stone-200 min-h-[120px]"
+                    className="px-3 py-2 rounded-lg border border-white/10 bg-black text-white text-sm focus:border-white/30 outline-none min-h-[120px]"
                   />
                 ) : (
                   <input
                     value={local.content ?? ""}
                     onChange={(e) => set("content", e.target.value)}
                     placeholder="https://…"
-                    className="px-3 py-2 rounded-lg border border-stone-200"
+                    className="px-3 py-2 rounded-lg border border-white/10 bg-black text-white text-sm focus:border-white/30 outline-none"
                   />
                 )}
               </div>
@@ -597,10 +587,10 @@ function EditorModal({
           {local.type === "todo" && (
             <div className="grid gap-2 md:col-span-2">
               <div className="flex items-center justify-between">
-                <label className="text-[12px] text-stone-600">Checklist</label>
+                <label className="text-[12px] text-neutral-400">Checklist</label>
                 <button
                   onClick={upsertChecklistItem}
-                  className="px-2 py-1 rounded border border-stone-200 bg-white hover:bg-stone-50 text-[12px]"
+                  className="px-2 py-1 rounded border border-white/10 bg-black text-white hover:bg-white/10 text-[12px]"
                 >
                   Add item
                 </button>
@@ -610,7 +600,7 @@ function EditorModal({
                   <div key={i.id} className="flex items-center gap-2">
                     <input type="checkbox" checked={i.done} onChange={() => toggleItem(i.id)} />
                     <input
-                      className="flex-1 px-2 py-1 rounded border border-stone-200"
+                      className="flex-1 px-2 py-1 rounded border border-white/10 bg-black text-white text-xs outline-none focus:border-white/30"
                       value={i.text}
                       onChange={(e) =>
                         setLocal((prev) => ({
@@ -623,35 +613,35 @@ function EditorModal({
                     />
                     <button
                       onClick={() => removeItem(i.id)}
-                      className="text-[12px] px-2 py-1 rounded border border-stone-200 bg-white hover:bg-stone-50"
+                      className="text-[10px] px-2 py-1 rounded border border-red-900/30 bg-red-900/20 text-red-300 hover:bg-red-900/40"
                     >
                       Delete
                     </button>
                   </div>
                 ))}
-                {!local.checklist?.length && <div className="text-sm text-stone-500">No items yet.</div>}
+                {!local.checklist?.length && <div className="text-sm text-neutral-500">No items yet.</div>}
               </div>
             </div>
           )}
 
           <div className="grid gap-2 md:col-span-2">
-            <label className="text-[12px] text-stone-600">Tags (comma or space separated)</label>
+            <label className="text-[12px] text-neutral-400">Tags (comma or space separated)</label>
             <div className="flex gap-2">
               <input
                 value={tagsInput}
                 onChange={(e) => setTagsInput(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-stone-200"
+                className="w-full px-3 py-2 rounded-lg border border-white/10 bg-black text-white text-sm focus:border-white/30 outline-none"
               />
               <button
                 onClick={applyTags}
-                className="px-3 py-2 rounded-lg border border-stone-200 bg-white hover:bg-stone-50"
+                className="px-3 py-2 rounded-lg border border-white/10 bg-black text-white hover:bg-white/10 text-xs"
               >
                 Apply
               </button>
             </div>
             <div className="flex flex-wrap gap-1">
               {local.tags.map((t: string) => (
-                <span key={t} className="px-2 py-0.5 rounded-full text-[11px] bg-stone-100">
+                <span key={t} className="px-2 py-0.5 rounded text-[10px] bg-white/10 text-neutral-300">
                   #{t}
                 </span>
               ))}
@@ -659,7 +649,7 @@ function EditorModal({
           </div>
 
           <div className="grid gap-2 md:col-span-2">
-            <label className="text-[12px] text-stone-600">Attach to Waypoint (optional)</label>
+            <label className="text-[12px] text-neutral-400">Attach to Waypoint (optional)</label>
             <div className="flex gap-2">
               <button
                 onClick={() => {
@@ -676,20 +666,20 @@ function EditorModal({
                   }
                   setLocal((p) => ({ ...p, waypoint: { index: idx } }));
                 }}
-                className="px-3 py-2 rounded-lg border border-stone-200 bg-white hover:bg-stone-50"
+                className="px-3 py-2 rounded-lg border border-white/10 bg-black text-white hover:bg-white/10 text-xs"
               >
                 Attach
               </button>
               <button
                 onClick={() => setLocal((p) => ({ ...p, waypoint: null }))}
-                className="px-3 py-2 rounded-lg border border-stone-200 bg-white hover:bg-stone-50"
+                className="px-3 py-2 rounded-lg border border-white/10 bg-black text-white hover:bg-white/10 text-xs"
               >
                 Detach
               </button>
               {local.waypoint ? (
-                <span className="self-center text-sm">Attached to waypoint #{local.waypoint.index + 1}</span>
+                <span className="self-center text-xs text-sky-400">Attached to waypoint #{local.waypoint.index + 1}</span>
               ) : (
-                <span className="self-center text-sm text-stone-500">None</span>
+                <span className="self-center text-xs text-neutral-500">None</span>
               )}
             </div>
           </div>
@@ -698,29 +688,29 @@ function EditorModal({
         {local.type === "image" && local.content && (
           <div className="mt-2">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={local.content} alt="" className="max-h-60 rounded-lg border border-stone-200" />
+            <img src={local.content} alt="" className="max-h-60 rounded-lg border border-white/10" />
           </div>
         )}
         {local.type === "video" && local.content && (
           <div className="mt-2">
-            <video src={local.content} className="max-h-60 rounded-lg border border-stone-200" controls />
+            <video src={local.content} className="max-h-60 rounded-lg border border-white/10" controls />
           </div>
         )}
         {local.type === "link" && local.content && (
           <div className="mt-2">
-            <a href={local.content} target="_blank" className="text-sky-700 hover:underline">
+            <a href={local.content} target="_blank" className="text-sky-400 hover:underline text-sm">
               {local.content}
             </a>
           </div>
         )}
 
         <div className="flex items-center justify-end gap-2">
-          <button onClick={onClose} className="px-3 py-2 rounded-lg border border-stone-200 bg-white hover:bg-stone-50">
+          <button onClick={onClose} className="px-3 py-2 rounded-lg border border-white/10 bg-black text-white hover:bg-white/10 text-xs">
             Cancel
           </button>
           <button
             onClick={() => onSave(local)}
-            className="px-3 py-2 rounded-lg border border-stone-200 bg-stone-900 text-white hover:opacity-90"
+            className="px-3 py-2 rounded-lg border border-white/10 bg-white text-black font-medium hover:bg-neutral-200 text-xs"
           >
             Save
           </button>
