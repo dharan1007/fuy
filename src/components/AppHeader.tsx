@@ -62,11 +62,13 @@ export default function AppHeader({ title, showBackButton = false, showSettingsA
           <div className="flex items-center gap-2 sm:gap-4">
             {/* Fuy Brand */}
             <div className="flex flex-col items-start gap-0">
-              <span className="text-lg sm:text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                fuy
+              <span className="text-lg sm:text-xl font-bold">
+                <span className="text-white">f</span>
+                <span className="text-red-500">u</span>
+                <span className="text-white">y</span>
               </span>
               <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 font-medium leading-none">
-                Find your joy
+                Find yourself
               </span>
             </div>
             {showBackButton && (

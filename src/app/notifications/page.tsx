@@ -1,10 +1,249 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import AppHeader from "@/components/AppHeader";
 import LoadingSpinner from "@/components/LoadingSpinner";
+
+// ============================================================================
+//   SOPHISTICATED SPACE ENGINE (CANVAS BASED)
+//   "Framer-Style" Motion, Physics, and Aesthetic
+// ============================================================================
+
+/**
+ * Configuration for the Space Engine
+ * Tweaked for "Pitch Black" premium aesthetic
+ */
+const CONFIG = {
+  starCount: 600,
+  nebulaCount: 8,
+  cometChance: 0.005, // Chance per frame
+  baseSpeed: 0.1,
+  starColors: ["#ffffff", "#e0f2fe", "#f0f9ff", "#bfdbfe"], // Cool whites/blues
+  nebulaColors: [
+    "rgba(29, 78, 216, 0.03)",  // Faint Deep Blue
+    "rgba(124, 58, 237, 0.02)", // Faint Deep Purple
+    "rgba(59, 130, 246, 0.02)", // Blue
+  ],
+};
+
+class Star {
+  x: number;
+  y: number;
+  z: number;
+  size: number;
+  opacity: number;
+  twinkleSpeed: number;
+  color: string;
+
+  constructor(width: number, height: number) {
+    this.x = Math.random() * width;
+    this.y = Math.random() * height;
+    this.z = Math.random() * 2 + 0.5; // Depth factor
+    this.size = Math.random() * 1.5;
+    this.opacity = Math.random();
+    this.twinkleSpeed = Math.random() * 0.02 + 0.005;
+    this.color = CONFIG.starColors[Math.floor(Math.random() * CONFIG.starColors.length)];
+  }
+
+  update(width: number, height: number, speed: number) {
+    // Parallax movement based on depth (z)
+    this.y -= speed * this.z;
+
+    // Twinkle opacity
+    this.opacity += this.twinkleSpeed;
+    if (this.opacity > 1 || this.opacity < 0.3) {
+      this.twinkleSpeed = -this.twinkleSpeed;
+    }
+
+    // Reset if off screen
+    if (this.y < 0) {
+      this.y = height;
+      this.x = Math.random() * width;
+    }
+  }
+
+  draw(ctx: CanvasRenderingContext2D) {
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size * this.z * 0.8, 0, Math.PI * 2);
+    ctx.fillStyle = this.color;
+    ctx.globalAlpha = Math.max(0, Math.min(1, this.opacity)); // Clamp opacity
+    ctx.fill();
+    ctx.globalAlpha = 1.0;
+  }
+}
+
+class Nebula {
+  x: number;
+  y: number;
+  radius: number;
+  color: string;
+  vx: number;
+  vy: number;
+
+  constructor(width: number, height: number) {
+    this.x = Math.random() * width;
+    this.y = Math.random() * height;
+    this.radius = Math.random() * 400 + 200;
+    this.color = CONFIG.nebulaColors[Math.floor(Math.random() * CONFIG.nebulaColors.length)];
+    this.vx = (Math.random() - 0.5) * 0.2;
+    this.vy = (Math.random() - 0.5) * 0.2;
+  }
+
+  update(width: number, height: number) {
+    this.x += this.vx;
+    this.y += this.vy;
+
+    // Bounce gently off edges (infinite flow)
+    if (this.x < -this.radius) this.x = width + this.radius;
+    if (this.x > width + this.radius) this.x = -this.radius;
+    if (this.y < -this.radius) this.y = height + this.radius;
+    if (this.y > height + this.radius) this.y = -this.radius;
+  }
+
+  draw(ctx: CanvasRenderingContext2D) {
+    const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.radius);
+    gradient.addColorStop(0, this.color);
+    gradient.addColorStop(1, "rgba(0,0,0,0)");
+
+    ctx.fillStyle = gradient;
+    ctx.fillRect(this.x - this.radius, this.y - this.radius, this.radius * 2, this.radius * 2);
+  }
+}
+
+class Comet {
+  x: number;
+  y: number;
+  length: number;
+  speed: number;
+  angle: number;
+  opacity: number;
+  dead: boolean = false;
+
+  constructor(width: number, height: number) {
+    this.x = Math.random() * width;
+    this.y = Math.random() * height * 0.5; // Start in top half mostly
+    this.length = Math.random() * 100 + 50;
+    this.speed = Math.random() * 5 + 8;
+    this.angle = Math.PI / 4 + (Math.random() - 0.5) * 0.2; // roughly diagonal down-right
+    this.opacity = 0;
+  }
+
+  update(width: number, height: number) {
+    // Fade in
+    if (this.opacity < 1 && !this.dead) this.opacity += 0.05;
+
+    this.x += Math.cos(this.angle) * this.speed;
+    this.y += Math.sin(this.angle) * this.speed;
+
+    // Kill if off screen
+    if (this.x > width + 100 || this.y > height + 100) {
+      this.dead = true;
+    }
+  }
+
+  draw(ctx: CanvasRenderingContext2D) {
+    if (this.dead) return;
+
+    const tailX = this.x - Math.cos(this.angle) * this.length;
+    const tailY = this.y - Math.sin(this.angle) * this.length;
+
+    const gradient = ctx.createLinearGradient(this.x, this.y, tailX, tailY);
+    gradient.addColorStop(0, "rgba(255, 255, 255, 1)");
+    gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
+
+    ctx.globalAlpha = this.opacity;
+    ctx.lineWidth = 2;
+    ctx.lineCap = "round";
+    ctx.strokeStyle = gradient;
+    ctx.beginPath();
+    ctx.moveTo(this.x, this.y);
+    ctx.lineTo(tailX, tailY);
+    ctx.stroke();
+    ctx.globalAlpha = 1.0;
+  }
+}
+
+const SpaceBackground = () => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let width = window.innerWidth;
+    let height = window.innerHeight;
+    canvas.width = width;
+    canvas.height = height;
+
+    const stars: Star[] = Array.from({ length: CONFIG.starCount }).map(() => new Star(width, height));
+    const nebulas: Nebula[] = Array.from({ length: CONFIG.nebulaCount }).map(() => new Nebula(width, height));
+    let comets: Comet[] = [];
+
+    const onResize = () => {
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = width;
+      canvas.height = height;
+    };
+    window.addEventListener("resize", onResize);
+
+    let animationFrameId: number;
+
+    const render = () => {
+      // Clear with pitch black
+      ctx.fillStyle = "#000000";
+      ctx.fillRect(0, 0, width, height);
+
+      // Draw Nebulas (Base Layer)
+      nebulas.forEach(n => {
+        n.update(width, height);
+        n.draw(ctx);
+      });
+
+      // Draw Stars (Mid Layer)
+      stars.forEach(s => {
+        s.update(width, height, CONFIG.baseSpeed);
+        s.draw(ctx);
+      });
+
+      // Manage Comets
+      if (Math.random() < CONFIG.cometChance) {
+        comets.push(new Comet(width, height));
+      }
+
+      comets.forEach(c => {
+        c.update(width, height);
+        c.draw(ctx);
+      });
+      comets = comets.filter(c => !c.dead);
+
+      animationFrameId = requestAnimationFrame(render);
+    };
+
+    render();
+
+    return () => {
+      window.removeEventListener("resize", onResize);
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, []);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="fixed inset-0 z-0 w-full h-full pointer-events-none"
+    />
+  );
+};
+
+// ============================================================================
+//   MAIN PAGE & DATA TYPES
+// ============================================================================
 
 type Notification = {
   id: string;
@@ -45,16 +284,17 @@ export default function NotificationsPage() {
     }
   }, [filter, status]);
 
-  // Show loading spinner while session is authenticating
   if (status === 'loading') {
-    return <LoadingSpinner message="Loading your notifications..." />;
+    return <LoadingSpinner message="Syncing with the cosmos..." />;
   }
+
+  // --- Data Fetching & Actions ---
 
   async function loadNotifications() {
     setLoading(true);
     try {
       const url = filter === "unread" ? "/api/notifications?unreadOnly=true" : "/api/notifications";
-      const res = await fetch(url);
+      const res = await fetch(url, { cache: "no-store" });
       const data = await res.json();
       setNotifications(data.notifications || []);
     } catch (error) {
@@ -66,7 +306,6 @@ export default function NotificationsPage() {
 
   async function markAsRead(notificationId: string) {
     try {
-      // Optimistic update
       setNotifications(prev => prev.map(n =>
         n.id === notificationId ? { ...n, read: true } : n
       ));
@@ -76,17 +315,14 @@ export default function NotificationsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ notificationId }),
       });
-      // No need to reload, we already updated
     } catch (error) {
       console.error("Mark as read error:", error);
-      // Revert on error if needed, or just reload
       loadNotifications();
     }
   }
 
   async function markAllAsRead() {
     try {
-      // Optimistic update
       setNotifications(prev => prev.map(n => ({ ...n, read: true })));
 
       await fetch("/api/notifications", {
@@ -102,9 +338,7 @@ export default function NotificationsPage() {
 
   async function deleteNotification(notificationId: string) {
     try {
-      // Optimistic update
       setNotifications(prev => prev.filter(n => n.id !== notificationId));
-
       await fetch(`/api/notifications?id=${notificationId}`, {
         method: "DELETE",
       });
@@ -115,28 +349,8 @@ export default function NotificationsPage() {
   }
 
   async function handleFriendAction(friendshipId: string, action: "ACCEPT" | "REJECT" | "GHOST") {
-    // Optimistic update: Remove the notification or update its state immediately
-    // For friend requests, usually we want to remove the buttons or the whole notification if it's dealt with
-    // Let's assume we want to show a success state or just remove the buttons. 
-    // Since the user said "change the state of the button instantly", let's update the local state to reflect "Processing" or "Done"
-    // But simpler is to remove the notification from the list or mark it as handled if we had a status field.
-    // Given the current structure, let's remove the notification from the view as if it's done, 
-    // OR better, update a local "actionTaken" state for that notification if we want to show "Accepted".
-    // However, the simplest robust optimistic UI for this list is to remove it or show it as "Accepted".
-
-    // Let's try to update the UI to show the result immediately.
-    // We don't have a specific field for "friendRequestStatus" in the notification object in the frontend type.
-    // We can add a local state to track processed friendship IDs.
-
-    // Actually, let's just optimistically remove the notification or update it. 
-    // If we accept, it's no longer a pending request.
-
     setNotifications(prev => prev.map(n => {
       if (n.friendshipId === friendshipId) {
-        // Add a temporary flag to the notification object to show it's being processed or done
-        // We'll need to extend the type or just use a local set of IDs.
-        // For now, let's just remove it from the list to show "instant" action, 
-        // or better, replace the buttons with the action result text.
         return { ...n, _actionTaken: action };
       }
       return n;
@@ -151,60 +365,47 @@ export default function NotificationsPage() {
 
       if (!res.ok) {
         const error = await res.json();
-        console.error("Friend action failed:", error.error);
-        alert(`Failed to ${action.toLowerCase()} friend request: ${error.error}`);
-        // Revert changes
+        console.error("Action failed:", error.error);
         loadNotifications();
-      } else {
-        // Success - we could reload to get the final state, but we already updated optimistically.
-        // Maybe reload in background to be sure.
-        // loadNotifications(); 
       }
     } catch (error) {
       console.error("Friend action error:", error);
-      alert("An error occurred while processing the friend request");
       loadNotifications();
     }
   }
+
+  // --- UI Helpers ---
 
   function getNotificationIcon(type: string) {
     switch (type) {
       case "FRIEND_REQUEST":
         return (
-          <div className="bg-blue-100 p-2 rounded-full">
-            <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="bg-blue-500/10 p-2.5 rounded-full border border-blue-500/30 shadow-[0_0_15px_rgba(59,130,246,0.2)]">
+            <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
             </svg>
           </div>
         );
       case "FRIEND_ACCEPT":
         return (
-          <div className="bg-green-100 p-2 rounded-full">
-            <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="bg-green-500/10 p-2.5 rounded-full border border-green-500/30 shadow-[0_0_15px_rgba(34,197,94,0.2)]">
+            <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
         );
       case "POST_LIKE":
         return (
-          <div className="bg-red-100 p-2 rounded-full">
-            <svg className="w-6 h-6 text-red-600" fill="currentColor" viewBox="0 0 24 24">
+          <div className="bg-rose-500/10 p-2.5 rounded-full border border-rose-500/30 shadow-[0_0_15px_rgba(244,63,94,0.2)]">
+            <svg className="w-5 h-5 text-rose-400" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-            </svg>
-          </div>
-        );
-      case "POST_COMMENT":
-        return (
-          <div className="bg-purple-100 p-2 rounded-full">
-            <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
             </svg>
           </div>
         );
       default:
         return (
-          <div className="bg-gray-100 p-2 rounded-full">
-            <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="bg-white/5 p-2.5 rounded-full border border-white/20 shadow-[0_0_15px_rgba(255,255,255,0.05)]">
+            <svg className="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
             </svg>
           </div>
@@ -213,164 +414,164 @@ export default function NotificationsPage() {
   }
 
   function getDisplayName(user: any) {
-    return user?.profile?.displayName || user?.name || "Someone";
+    return user?.profile?.displayName || user?.name || "Unknown User";
   }
 
-  function getAvatarUrl(user: any) {
-    if (user?.profile?.avatarUrl) return user.profile.avatarUrl;
-    const name = getDisplayName(user);
-    return `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}`;
-  }
+  // ==========================================================================
+  //   RENDER
+  // ==========================================================================
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <AppHeader title="Notifications" showBackButton />
+    <div className="min-h-screen bg-black text-white selection:bg-blue-500/30 font-sans">
 
-      <div className="max-w-3xl mx-auto px-4 py-8">
-        {/* Header Actions */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex gap-2">
-            <button
-              onClick={() => setFilter("all")}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === "all"
-                ? "bg-blue-600 text-white"
-                : "bg-white text-gray-700 hover:bg-gray-50"
-                }`}
-            >
-              All
-            </button>
-            <button
-              onClick={() => setFilter("unread")}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${filter === "unread"
-                ? "bg-blue-600 text-white"
-                : "bg-white text-gray-700 hover:bg-gray-50"
-                }`}
-            >
-              Unread
-            </button>
-          </div>
+      {/* 1. Space Engine Background */}
+      <SpaceBackground />
 
-          <button
-            onClick={markAllAsRead}
-            className="px-4 py-2 text-sm text-blue-600 hover:text-blue-700 font-medium"
-          >
-            Mark all as read
-          </button>
+      {/* 2. Content Layer (z-index 10) */}
+      <div className="relative z-10 flex flex-col min-h-screen">
+
+        {/* Navigation Wrapper */}
+        <div className="bg-gradient-to-b from-black/80 to-transparent pb-4">
+          <AppHeader title="NOTIFICATIONS" showBackButton />
         </div>
 
-        {/* Notifications List */}
-        <div className="space-y-2">
-          {loading && (
-            <div className="text-center py-12 text-gray-500">Loading...</div>
-          )}
+        <div className="max-w-2xl mx-auto w-full px-4 flex-1 pb-20">
 
-          {!loading && notifications.length === 0 && (
-            <div className="text-center py-12 bg-white rounded-lg">
-              <svg
-                className="mx-auto h-12 w-12 text-gray-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+          {/* Controls Bar - Suspended Glass */}
+          <div className="sticky top-20 z-20 mb-6 mx-2">
+            <div className="flex items-center justify-between backdrop-blur-2xl bg-white/[0.03] p-1.5 rounded-full border border-white/[0.1] shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
+              <div className="flex gap-1 p-0.5">
+                <button
+                  onClick={() => setFilter("all")}
+                  className={`px-5 py-2 rounded-full text-xs font-bold tracking-wide transition-all duration-300 ${filter === "all"
+                    ? "bg-white text-black shadow-lg scale-100"
+                    : "text-gray-400 hover:text-white hover:bg-white/5 active:scale-95"
+                    }`}
+                >
+                  ALL
+                </button>
+                <button
+                  onClick={() => setFilter("unread")}
+                  className={`px-5 py-2 rounded-full text-xs font-bold tracking-wide transition-all duration-300 ${filter === "unread"
+                    ? "bg-white text-black shadow-lg scale-100"
+                    : "text-gray-400 hover:text-white hover:bg-white/5 active:scale-95"
+                    }`}
+                >
+                  UNREAD
+                </button>
+              </div>
+
+              <button
+                onClick={markAllAsRead}
+                className="px-5 py-2 text-xs font-bold text-gray-400 hover:text-white transition-colors"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-                />
-              </svg>
-              <p className="mt-4 text-gray-500">No notifications</p>
+                MARK ALL READ
+              </button>
             </div>
-          )}
+          </div>
 
-          {notifications.map((notif) => (
-            <div
-              key={notif.id}
-              className={`p-4 rounded-lg transition-colors ${notif.read
-                ? "bg-white hover:bg-gray-50"
-                : "bg-blue-50 hover:bg-blue-100 border-l-4 border-blue-600"
-                }`}
-              onClick={() => !notif.read && markAsRead(notif.id)}
-            >
-              <div className="flex items-start gap-4">
-                {getNotificationIcon(notif.type)}
+          {/* List Container */}
+          <div className="space-y-3 relative">
 
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-900">
-                        <span className="font-semibold">
-                          {getDisplayName(notif.sender)}
-                        </span>{" "}
-                        {notif.message}
-                      </p>
-                      {notif.post && (
-                        <p className="text-xs text-gray-500 mt-1 line-clamp-2">
-                          "{notif.post.content}"
+            {loading && (
+              <div className="flex flex-col items-center justify-center py-20 animate-pulse">
+                <div className="w-8 h-8 rounded-full border-2 border-white/20 border-t-blue-500 animate-spin mb-4 shadow-[0_0_20px_rgba(59,130,246,0.5)]" />
+                <span className="text-[10px] font-bold tracking-[0.2em] text-blue-400/80 uppercase">INITIALIZING FEED</span>
+              </div>
+            )}
+
+            {!loading && notifications.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-32 opacity-60">
+                <div className="w-20 h-20 bg-white/[0.02] rounded-full flex items-center justify-center mb-6 border border-white/[0.05] shadow-inner">
+                  <svg className="w-8 h-8 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 12H4M4 12L12 4M4 12L12 20" />
+                  </svg>
+                </div>
+                <p className="text-sm font-medium text-gray-500 tracking-wide">NO RECENT ACTIVITY</p>
+              </div>
+            )}
+
+            {notifications.map((notif, index) => {
+              let cleanMessage = notif.message || '';
+              cleanMessage = cleanMessage.replace(/^Someone\s+/, '');
+              cleanMessage = cleanMessage.charAt(0).toUpperCase() + cleanMessage.slice(1);
+
+              return (
+                <div
+                  key={notif.id}
+                  // Staggered fade-in animation could be added here
+                  className={`group relative overflow-hidden rounded-2xl border transition-all duration-500 ease-out ${notif.read
+                    ? "bg-transparent border-white/[0.03] opacity-70 hover:opacity-100"
+                    : "bg-white/[0.04] border-white/[0.1] shadow-[0_0_30px_rgba(0,0,0,0.5)]"
+                    }`}
+                  onClick={() => !notif.read && markAsRead(notif.id)}
+                >
+                  {/* Glass Reflection Effect */}
+                  <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-50" />
+                  <div className="absolute bottom-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-black/50 to-transparent" />
+
+                  <div className="p-5 flex items-start gap-4 z-10 relative">
+                    <div className="flex-shrink-0 mt-1">
+                      {getNotificationIcon(notif.type)}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-col gap-1.5">
+                        <p className="text-[15px] text-gray-200 leading-snug font-light tracking-wide">
+                          <span className="font-bold text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">
+                            {getDisplayName(notif.sender)}
+                          </span>
+                          {" "}{cleanMessage}
                         </p>
-                      )}
-                      <p className="text-xs text-gray-400 mt-1">
-                        {new Date(notif.createdAt).toLocaleString()}
-                      </p>
 
-                      {/* Friend Request Actions */}
-                      {notif.type === "FRIEND_REQUEST" && notif.sender && notif.friendshipId && (
-                        <div className="flex gap-2 mt-3">
-                          {notif._actionTaken ? (
-                            <span className={`text-xs font-medium px-3 py-1.5 rounded-md ${notif._actionTaken === 'ACCEPT' ? 'bg-green-100 text-green-700' :
-                                notif._actionTaken === 'REJECT' ? 'bg-red-100 text-red-700' :
-                                  'bg-gray-200 text-gray-700'
-                              }`}>
-                              {notif._actionTaken === 'ACCEPT' ? 'Accepted' :
-                                notif._actionTaken === 'REJECT' ? 'Rejected' : 'Ghosted'}
-                            </span>
-                          ) : (
-                            <>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleFriendAction(notif.friendshipId!, "ACCEPT");
-                                }}
-                                className="flex items-center gap-1 px-3 py-1.5 bg-green-100 hover:bg-green-200 text-green-700 rounded-md text-xs font-medium transition-colors"
-                                title="Accept request"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                </svg>
-                                Accept
-                              </button>
+                        {notif.post && (
+                          <div className="mt-1 p-3 bg-black/40 rounded-lg border border-white/5 text-[13px] text-gray-400 font-serif italic border-l-2 border-l-blue-500/50">
+                            "{notif.post.content}"
+                          </div>
+                        )}
 
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleFriendAction(notif.friendshipId!, "REJECT");
-                                }}
-                                className="flex items-center gap-1 px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 rounded-md text-xs font-medium transition-colors"
-                                title="Reject request"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                                Reject
-                              </button>
+                        <div className="flex items-center justify-between mt-2">
+                          <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">
+                            {new Date(notif.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          </p>
 
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleFriendAction(notif.friendshipId!, "GHOST");
-                                }}
-                                className="flex items-center gap-1 px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md text-xs font-medium transition-colors"
-                                title="Ghost request (hide)"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-4.803M9 12a3 3 0 110-6 3 3 0 010 6zm9 0a9 9 0 11-18 0 9 9 0 0118 0zm-4 12a1 1 0 1 1-2 0 1 1 0 012 0z" />
-                                </svg>
-                                Ghost
-                              </button>
-                            </>
+                          {/* Actions */}
+                          {notif.type === "FRIEND_REQUEST" && notif.sender && (
+                            <div className="flex gap-2">
+                              {notif._actionTaken ? (
+                                <span className={`text-[9px] font-black px-3 py-1 rounded border tracking-widest uppercase ${notif._actionTaken === 'ACCEPT' ? 'border-green-500/30 text-green-400 bg-green-900/10' :
+                                  notif._actionTaken === 'REJECT' ? 'border-red-500/30 text-red-400 bg-red-900/10' :
+                                    'border-gray-500/30 text-gray-400 bg-gray-900/10'
+                                  }`}>
+                                  {notif._actionTaken}
+                                </span>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (notif.friendshipId) handleFriendAction(notif.friendshipId, "ACCEPT");
+                                    }}
+                                    className="px-4 py-1.5 bg-white text-black hover:bg-gray-200 rounded text-[10px] font-black uppercase tracking-wider transition-all shadow-[0_0_15px_rgba(255,255,255,0.1)] active:scale-95"
+                                  >
+                                    Confirm
+                                  </button>
+
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (notif.friendshipId) handleFriendAction(notif.friendshipId, "REJECT");
+                                    }}
+                                    className="px-4 py-1.5 bg-transparent text-white border border-white/20 hover:bg-white/5 rounded text-[10px] font-black uppercase tracking-wider transition-all active:scale-95"
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                           )}
                         </div>
-                      )}
+                      </div>
                     </div>
 
                     <button
@@ -378,17 +579,17 @@ export default function NotificationsPage() {
                         e.stopPropagation();
                         deleteNotification(notif.id);
                       }}
-                      className="text-gray-400 hover:text-red-600 flex-shrink-0"
+                      className="opacity-0 group-hover:opacity-100 transition-all duration-300 text-gray-600 hover:text-red-500 p-2 transform hover:rotate-90"
                     >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                       </svg>
                     </button>
                   </div>
                 </div>
-              </div>
-            </div>
-          ))}
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>

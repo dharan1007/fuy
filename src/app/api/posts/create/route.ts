@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
             lillData,
             fillData,
             xrayData,
-            btsData,
+
             audData,
             chanData,
             chapterData,
@@ -27,15 +27,44 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'User ID required' }, { status: 400 });
         }
 
+        // Content Moderation check
+        let moderationStatus = "CLEAN";
+        let moderationReason = null;
+        let finalVisibility = visibility;
+
+        if (content) {
+            const { analyzeContent } = await import("@/lib/moderation");
+            const analysis = analyzeContent(content);
+            if (analysis.flagged) {
+                moderationStatus = "REMOVED";
+                moderationReason = analysis.reason;
+                finalVisibility = "PRIVATE"; // Hide from public
+            }
+        }
+
         // Create the post
         const post = await prisma.post.create({
             data: {
                 userId,
                 postType: postType || 'STANDARD',
                 content: content || '',
-                visibility,
+                visibility: finalVisibility,
+                moderationStatus,
+                moderationReason,
             },
         });
+
+        // If moderated, notify the user
+        if (moderationStatus === "REMOVED") {
+            await prisma.notification.create({
+                data: {
+                    userId,
+                    type: "SYSTEM",
+                    message: `Your post was removed because it violated our community guidelines: ${moderationReason || "Inappropriate content"}`,
+                    postId: post.id,
+                },
+            });
+        }
 
         // Create type-specific data based on postType
         switch (postType) {
@@ -89,20 +118,7 @@ export async function POST(request: NextRequest) {
                 }
                 break;
 
-            case 'BTS':
-                if (btsData) {
-                    await prisma.bTS.create({
-                        data: {
-                            postId: post.id,
-                            credits: btsData.credits || JSON.stringify([{ name: 'Creator', role: 'Main' }]),
-                            tools: btsData.tools,
-                            mindmapData: btsData.mindmapData,
-                            links: btsData.links,
-                            resources: btsData.resources,
-                        },
-                    });
-                }
-                break;
+
 
             case 'AUD':
                 if (audData) {
@@ -216,7 +232,7 @@ export async function POST(request: NextRequest) {
                 lillData: true,
                 fillData: true,
                 xrayData: true,
-                btsData: true,
+
                 audData: true,
                 chanData: true,
                 chapterData: true,
@@ -250,7 +266,7 @@ export async function GET(request: NextRequest) {
                 chapters: 'CHAPTER',
                 xrays: 'XRAY',
                 pupds: 'PULLUPDOWN',
-                bts: 'BTS',
+
             };
             if (typeMap[postType]) {
                 where.postType = typeMap[postType];
@@ -274,7 +290,7 @@ export async function GET(request: NextRequest) {
                 lillData: true,
                 fillData: true,
                 xrayData: true,
-                btsData: true,
+
                 audData: true,
                 chanData: true,
                 chapterData: true,

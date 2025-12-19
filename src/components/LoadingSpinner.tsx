@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import ScrollStarfield from './ScrollStarfield';
 
 interface LoadingSpinnerProps {
   message?: string;
@@ -39,41 +40,43 @@ export default function LoadingSpinner({
 
   if (variant === 'auth') {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div className="text-center space-y-6 max-w-md">
-          <div className="flex justify-center">
-            <div className="relative w-20 h-20">
-              {/* Outer rotating circle */}
-              <div className="absolute inset-0 rounded-full border-4 border-blue-200 border-t-blue-600 animate-spin"></div>
-              {/* Inner pulsing circle */}
-              <div className="absolute inset-3 rounded-full bg-blue-100 opacity-50 animate-pulse"></div>
+      <ScrollStarfield variant="default">
+        <div className="min-h-screen flex items-center justify-center px-4">
+          <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl p-8 text-center space-y-6 max-w-md w-full shadow-2xl">
+            <div className="flex justify-center">
+              <div className="relative w-20 h-20">
+                {/* Outer rotating circle */}
+                <div className="absolute inset-0 rounded-full border-4 border-blue-500/30 border-t-blue-500 animate-spin"></div>
+                {/* Inner pulsing circle */}
+                <div className="absolute inset-3 rounded-full bg-blue-500/20 animate-pulse shadow-[0_0_20px_rgba(59,130,246,0.3)]"></div>
+              </div>
             </div>
-          </div>
 
-          <div className="space-y-3">
-            <h2 className="text-2xl font-bold text-gray-900">{message}</h2>
-            <p className="text-sm text-gray-600">Securing your session...</p>
-          </div>
-
-          {/* Progress Bar */}
-          <div className="space-y-2">
-            <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full transition-all duration-200"
-                style={{ width: `${progress}%` }}
-              ></div>
+            <div className="space-y-3">
+              <h2 className="text-2xl font-bold text-white tracking-wide">{message}</h2>
+              <p className="text-sm text-gray-400">Securing your session...</p>
             </div>
-            <div className="flex justify-between items-center text-xs text-gray-600">
-              <span>{Math.round(progress)}%</span>
-              <span>{elapsedTime}s</span>
-            </div>
-          </div>
 
-          <p className="text-xs text-gray-500 mt-4">
-            Est. {estimatedTime}s • Don't refresh
-          </p>
+            {/* Progress Bar */}
+            <div className="space-y-2">
+              <div className="w-full bg-white/10 rounded-full h-1 overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-200 shadow-[0_0_10px_rgba(59,130,246,0.5)]"
+                  style={{ width: `${progress}%` }}
+                ></div>
+              </div>
+              <div className="flex justify-between items-center text-xs text-gray-500 font-medium">
+                <span>{Math.round(progress)}%</span>
+                <span>{elapsedTime}s</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-600 mt-4">
+              Est. {estimatedTime}s • Don't refresh
+            </p>
+          </div>
         </div>
-      </div>
+      </ScrollStarfield>
     );
   }
 

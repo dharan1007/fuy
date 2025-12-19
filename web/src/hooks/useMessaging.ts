@@ -50,6 +50,11 @@ export function useMessaging() {
   const [cursors, setCursors] = useState<{ [key: string]: string | null }>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeCollaboration, setActiveCollaboration] = useState<{
+    sessionId: string;
+    featureType: string;
+    conversationId: string;
+  } | null>(null);
   const subscribedChannels = useRef<Set<string>>(new Set());
 
   const addOptimisticMessage = useCallback((message: Message) => {
@@ -249,6 +254,14 @@ export function useMessaging() {
                     : c
                 )
               );
+            }
+          )
+          .on(
+            'broadcast',
+            { event: 'collaboration:started' },
+            (payload: any) => {
+              const { sessionId, featureType, conversationId } = payload.payload;
+              setActiveCollaboration({ sessionId, featureType, conversationId });
             }
           )
           .on(
@@ -499,6 +512,7 @@ export function useMessaging() {
     following,
     onlineUsers,
     typingUsers,
+    activeCollaboration,
     loading,
     error,
     fetchConversations,

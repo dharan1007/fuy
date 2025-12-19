@@ -1,0 +1,196 @@
+export const DUMMY_PUDS = [
+    {
+        id: 'dummy-1',
+        userId: 'user-1',
+        content: 'Which color is better?', // Used as question sometimes or fallback
+        question: 'Which color is better?',
+        feature: 'PULLUPDOWN',
+        visibility: 'PUBLIC',
+        joyScore: 10,
+        connectionScore: 5,
+        createdAt: new Date().toISOString(),
+        user: {
+            name: 'Alice',
+            profile: {
+                displayName: 'Alice Wonder',
+                avatarUrl: '',
+            },
+        },
+        options: [
+            {
+                id: 'opt-1-a',
+                text: 'Red',
+                voteCount: 15,
+                specialDetails: 'Passionate',
+                uniqueDetails: null,
+                taggedUser: null,
+            },
+            {
+                id: 'opt-1-b',
+                text: 'Blue',
+                voteCount: 22,
+                specialDetails: 'Calm',
+                uniqueDetails: null,
+                taggedUser: null,
+            },
+        ],
+    },
+    {
+        id: 'dummy-2',
+        userId: 'user-2',
+        question: 'Best weekend activity?',
+        content: 'Best weekend activity?',
+        feature: 'PULLUPDOWN',
+        visibility: 'PUBLIC',
+        joyScore: 45,
+        connectionScore: 12,
+        createdAt: new Date().toISOString(),
+        user: {
+            name: 'Bob',
+            profile: {
+                displayName: 'Bob Builder',
+                avatarUrl: '',
+            },
+        },
+        options: [
+            {
+                id: 'opt-2-a',
+                text: 'Hiking',
+                voteCount: 8,
+                specialDetails: null,
+                uniqueDetails: 'Nature',
+                taggedUser: null,
+            },
+            {
+                id: 'opt-2-b',
+                text: 'Gaming',
+                voteCount: 30,
+                specialDetails: null,
+                uniqueDetails: 'Fun',
+                taggedUser: null,
+            },
+            {
+                id: 'opt-2-c',
+                text: 'Reading',
+                voteCount: 12,
+                specialDetails: null,
+                uniqueDetails: 'Chill',
+                taggedUser: null,
+            },
+        ],
+    },
+    {
+        id: 'dummy-3',
+        userId: 'user-3',
+        question: 'Who is the imposter?',
+        content: 'Who is the imposter?',
+        feature: 'PULLUPDOWN',
+        visibility: 'PUBLIC',
+        joyScore: 100,
+        connectionScore: 88,
+        createdAt: new Date().toISOString(),
+        user: {
+            name: 'Charlie',
+            profile: {
+                displayName: 'Charlie Chap',
+                avatarUrl: '',
+            },
+        },
+        options: [
+            {
+                id: 'opt-3-a',
+                text: 'Red',
+                voteCount: 5,
+                specialDetails: null,
+                uniqueDetails: null,
+                taggedUser: {
+                    id: 'user-red',
+                    profile: { displayName: 'RedPlayer' }
+                },
+            },
+            {
+                id: 'opt-3-b',
+                text: 'Blue',
+                voteCount: 2,
+                specialDetails: null,
+                uniqueDetails: null,
+                taggedUser: {
+                    id: 'user-blue',
+                    profile: { displayName: 'BluePlayer' }
+                },
+            },
+        ],
+    },
+    {
+        id: 'dummy-4',
+        userId: 'user-4',
+        question: 'Pizza Toppings',
+        content: 'Pizza Toppings',
+        feature: 'PULLUPDOWN',
+        visibility: 'PUBLIC',
+        joyScore: 55,
+        connectionScore: 20,
+        createdAt: new Date().toISOString(),
+        user: {
+            name: 'David',
+            profile: {
+                displayName: 'Dave',
+                avatarUrl: '',
+            },
+        },
+        options: [
+            {
+                id: 'opt-4-a',
+                text: 'Pepperoni',
+                voteCount: 50,
+                specialDetails: 'Classic',
+                uniqueDetails: null,
+                taggedUser: null,
+            },
+            {
+                id: 'opt-4-b',
+                text: 'Pineapple',
+                voteCount: 15,
+                specialDetails: 'Controversial',
+                uniqueDetails: null,
+                taggedUser: null,
+            },
+        ],
+    },
+    {
+        id: 'dummy-5',
+        userId: 'user-5',
+        question: 'Study Spot',
+        content: 'Study Spot',
+        feature: 'PULLUPDOWN',
+        visibility: 'PUBLIC',
+        joyScore: 12,
+        connectionScore: 8,
+        createdAt: new Date().toISOString(),
+        user: {
+            name: 'Eve',
+            profile: {
+                displayName: 'Eve Study',
+                avatarUrl: '',
+            },
+        },
+        options: [
+            {
+                id: 'opt-5-a',
+                text: 'Library',
+                voteCount: 10,
+                specialDetails: 'Quiet',
+                uniqueDetails: null,
+                taggedUser: null,
+            },
+            {
+                id: 'opt-5-b',
+                text: 'Cafe',
+                voteCount: 25,
+                specialDetails: 'Coffee',
+                uniqueDetails: null,
+                taggedUser: null,
+            },
+        ],
+    },
+];

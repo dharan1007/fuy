@@ -121,21 +121,7 @@ export function GlobeContent({
                 <PostsSphere posts={posts} onPostClick={onPostClick} radius={radius} isFocused={isFocused} />
             </group>
 
-            {/* Circular Disk (Ring) */}
-            {hasRing && showLines && (
-                <>
-                    <mesh ref={ringRef} rotation={[Math.PI / 2, 0, 0]}>
-                        <ringGeometry args={[radius * 1.2, radius * 1.6, 64]} />
-                        <meshBasicMaterial color={color} transparent opacity={0.15} side={THREE.DoubleSide} />
-                    </mesh>
-
-                    {/* Inner glowing ring */}
-                    <mesh rotation={[Math.PI / 2, 0, 0]}>
-                        <ringGeometry args={[radius * 1.15, radius * 1.18, 64]} />
-                        <meshBasicMaterial color={color} transparent opacity={0.4} side={THREE.DoubleSide} />
-                    </mesh>
-                </>
-            )}
+            {/* Ring Removed as per request */}
         </group>
     );
 }

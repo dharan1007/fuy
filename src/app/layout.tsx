@@ -9,6 +9,7 @@ import { Providers } from "@/components/Providers";
 
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://fuy.app"),
   title: "FUY - Find Your Joy",
   description: "Find your joy, share it. The next generation social platform.",
   icons: {

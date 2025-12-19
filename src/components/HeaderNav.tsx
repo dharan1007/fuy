@@ -10,8 +10,6 @@ const NAV_LINKS = [
   { href: '/journal', label: 'Canvas', icon: '🎨' },
   { href: '/awe-routes', label: 'Hopln', icon: '🚀' },
   { href: '/bonds', label: 'Knot', icon: '🔗' },
-  { href: '/algorithmic-archaeology', label: 'Axiz', icon: '🧬' },
-  { href: '/alter-egos', label: 'Parall', icon: '🪞' },
   // Main navigation
   { href: '/dashboard', label: 'Dashboard', icon: '📊' },
   { href: '/friends', label: 'Friends', icon: '👥' },

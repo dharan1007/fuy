@@ -78,7 +78,7 @@ export class MediaUploadService {
             } as any);
             formData.append('type', 'video');
 
-            const response = await fetch(`${API_URL}/api/upload/r2`, {
+            const response = await fetch(`${API_URL}/api/upload`, {
                 method: 'POST',
                 body: formData,
                 headers: {
@@ -122,7 +122,7 @@ export class MediaUploadService {
             } as any);
             formData.append('type', 'audio');
 
-            const response = await fetch(`${API_URL}/api/upload/r2`, {
+            const response = await fetch(`${API_URL}/api/upload`, {
                 method: 'POST',
                 body: formData,
                 headers: {

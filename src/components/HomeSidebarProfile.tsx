@@ -152,7 +152,7 @@ export default function HomeSidebarProfile({
           </div>
 
           <Link
-            href={userId ? `/profile/${userId}` : "/profile"}
+            href="/profile"
             className="mt-4 w-full block text-center py-2.5 bg-transparent border border-white/20 text-white rounded-lg font-medium text-sm hover:bg-white/10 transition-colors"
           >
             View Profile

@@ -9,9 +9,9 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 
 const BUCKET = process.env.SUPABASE_PROFILE_BUCKET || "profiles";
 
-async function uploadToStorage(userId: string, kind: "avatar" | "cover", file: File) {
+async function uploadToStorage(userId: string, kind: "avatar" | "cover" | "stalk", file: File) {
   const bytes = Buffer.from(await file.arrayBuffer());
-  const ext = (file.name.split(".").pop() || (kind === "avatar" ? "jpg" : "mp4")).toLowerCase();
+  const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
   const path = `${userId}/${kind}-${Date.now()}.${ext}`;
 
   const { error } = await supabaseAdmin.storage.from(BUCKET).upload(path, bytes, {
@@ -35,16 +35,7 @@ export async function GET() {
         name: true,
         followersCount: true,
         followingCount: true,
-        profile: {
-          select: {
-            displayName: true,
-            avatarUrl: true,
-            bio: true,
-            location: true,
-            tags: true,
-            coverVideoUrl: true,
-          },
-        },
+        profile: true, // Fetch all profile fields including new ones
       },
     });
 
@@ -108,85 +99,176 @@ export async function PUT(req: Request) {
     }
 
     const form = await req.formData();
-    const name = (form.get("name") as string) || undefined;
-    const displayName = (form.get("displayName") as string) || undefined;
-    const bio = (form.get("bio") as string) || undefined;
-    const location = (form.get("location") as string) || undefined;
-    const tags = (form.get("tags") as string) || undefined;
+
+    // Core helpers
+    const getStr = (key: string) => (form.get(key) as string) || undefined;
+    const getArr = (key: string) => {
+      const val = form.get(key);
+      if (typeof val === 'string') {
+        try { return JSON.parse(val); } catch { return []; }
+      }
+      return undefined;
+    };
+
+    // Basics
+    const name = getStr("name");
+    const displayName = getStr("displayName");
+    const bio = getStr("bio");
+    const location = getStr("location");
+    const dobStr = getStr("dob"); // Expecting ISO string or YYYY-MM-DD
+    const dob = dobStr ? new Date(dobStr) : undefined;
+    const height = getStr("height");
+    const weight = getStr("weight");
+    const conversationStarter = getStr("conversationStarter");
+
+    // Professional
+    const achievements = getStr("achievements");
+    const workHistory = getStr("workHistory");
+    const education = getStr("education");
+    const skills = getArr("skills");
+
+    // Vibe
+    const city = getStr("city");
+    const interactionMode = getStr("interactionMode");
+    const bestVibeTime = getStr("bestVibeTime");
+    const vibeWithPeople = getStr("vibeWithPeople");
+    const lifeIsLike = getStr("lifeIsLike");
+
+    // Deep Dive
+    const emotionalFit = getStr("emotionalFit");
+    const pleaseDont = getStr("pleaseDont");
+    const careAbout = getStr("careAbout");
+    const protectiveAbout = getStr("protectiveAbout");
+    const distanceMakers = getStr("distanceMakers");
+    const goals = getStr("goals");
+    const lifestyle = getStr("lifestyle");
+
+    // Arrays
+    const values = getArr("values");
+    const hardNos = getArr("hardNos");
+    const topMovies = getArr("topMovies");
+    const topGenres = getArr("topGenres");
+    const topSongs = getArr("topSongs");
+    const topFoods = getArr("topFoods");
+    const topPlaces = getArr("topPlaces");
+    const topGames = getArr("topGames");
+    const currentlyInto = getArr("currentlyInto");
+    const dislikes = getArr("dislikes");
+    const icks = getArr("icks");
+    const interactionTopics = getArr("interactionTopics");
+    const stalkMeInput = getStr("stalkMe");
+
+    // Settings
+    const cardSettings = getStr("cardSettings");
+
+    // Files
     const avatar = form.get("avatar") as File | null;
     const cover = form.get("cover") as File | null;
 
     let avatarUrl: string | undefined;
     let coverVideoUrl: string | undefined;
+    let coverImageUrl: string | undefined;
+    let cardBackgroundUrl: string | undefined; // Added declaration
 
     if (avatar && typeof avatar !== "string") {
       avatarUrl = await uploadToStorage(userId, "avatar", avatar);
     }
+
     if (cover && typeof cover !== "string") {
-      coverVideoUrl = await uploadToStorage(userId, "cover", cover);
+      const isVideo = cover.type.startsWith("video/");
+      const isImage = cover.type.startsWith("image/");
+      const url = await uploadToStorage(userId, "cover", cover);
+
+      if (isVideo) {
+        coverVideoUrl = url;
+        coverImageUrl = "";
+      } else if (isImage) {
+        coverImageUrl = url;
+        coverVideoUrl = "";
+      }
     }
 
-    if (typeof name === "string") {
+    // Update User Model (Name)
+    if (name) {
       await prisma.user.update({ where: { id: userId }, data: { name } });
     }
 
+    // Update Profile Model
     await prisma.profile.upsert({
       where: { userId },
       create: {
         userId,
-        displayName: displayName ?? null,
-        bio: bio ?? null,
-        location: location ?? null,
-        tags: tags ?? null,
-        ...(avatarUrl ? { avatarUrl } : {}),
-        ...(coverVideoUrl ? { coverVideoUrl } : {}),
+        displayName,
+        bio,
+        location,
+        dob,
+        height,
+        weight,
+        achievements,
+        workHistory,
+        education,
+        skills: skills || [],
+        city,
+        interactionMode,
+        conversationStarter,
+        bestVibeTime,
+        vibeWithPeople,
+        lifeIsLike,
+        emotionalFit,
+        pleaseDont,
+        careAbout,
+        protectiveAbout,
+        distanceMakers,
+        goals,
+        lifestyle,
+        values: values || [],
+        hardNos: hardNos || [],
+        topMovies: topMovies || [],
+        topGenres: topGenres || [],
+        topSongs: topSongs || [],
+        topFoods: topFoods || [],
+        topPlaces: topPlaces || [],
+        topGames: topGames || [],
+        currentlyInto: currentlyInto || [],
+        dislikes: dislikes || [],
+        icks: icks || [],
+        interactionTopics: interactionTopics || [],
+        stalkMe: stalkMeInput,
+        avatarUrl,
+        coverVideoUrl,
+        coverImageUrl,
+        cardBackgroundUrl,
+        cardSettings,
       },
       update: {
-        displayName: displayName ?? null,
-        bio: bio ?? null,
-        location: location ?? null,
-        tags: tags ?? null,
+        displayName, bio, location, dob, height, weight, city, interactionMode, conversationStarter,
+        achievements, workHistory, education,
+        bestVibeTime, vibeWithPeople, lifeIsLike, emotionalFit, pleaseDont, careAbout, protectiveAbout, distanceMakers, goals, lifestyle,
+        ...(skills ? { skills } : {}),
+        ...(values ? { values } : {}),
+        ...(hardNos ? { hardNos } : {}),
+        ...(topMovies ? { topMovies } : {}),
+        ...(topGenres ? { topGenres } : {}),
+        ...(topSongs ? { topSongs } : {}),
+        ...(topFoods ? { topFoods } : {}),
+        ...(topPlaces ? { topPlaces } : {}),
+        ...(topGames ? { topGames } : {}),
+        ...(currentlyInto ? { currentlyInto } : {}),
+        ...(dislikes ? { dislikes } : {}),
+        ...(icks ? { icks } : {}),
+        ...(interactionTopics ? { interactionTopics } : {}),
+        ...(stalkMeInput !== undefined ? { stalkMe: stalkMeInput } : {}),
         ...(avatarUrl ? { avatarUrl } : {}),
-        ...(coverVideoUrl ? { coverVideoUrl } : {}),
+        ...(coverVideoUrl !== undefined ? { coverVideoUrl } : {}),
+        ...(coverImageUrl !== undefined ? { coverImageUrl } : {}),
+        ...(cardBackgroundUrl ? { cardBackgroundUrl } : {}),
+        ...(cardSettings ? { cardSettings } : {}),
       },
     });
 
-    return NextResponse.json({ ok: true, avatarUrl, coverVideoUrl });
+    return NextResponse.json({ ok: true, avatarUrl, coverVideoUrl, coverImageUrl });
   } catch (e: any) {
-    if (e?.message === "UNAUTHENTICATED") {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-    }
+    console.error("Profile save error:", e);
     return NextResponse.json({ error: e?.message ?? "Failed to save profile" }, { status: 500 });
-  }
-}
-
-// PATCH /api/profile (JSON: simple text updates only)
-export async function PATCH(req: Request) {
-  try {
-    const userId = await requireUserId();
-    const body = await req.json();
-    const { displayName, bio, location } = body;
-
-    await prisma.profile.upsert({
-      where: { userId },
-      create: {
-        userId,
-        displayName: displayName ?? null,
-        bio: bio ?? null,
-        location: location ?? null,
-      },
-      update: {
-        ...(displayName !== undefined ? { displayName } : {}),
-        ...(bio !== undefined ? { bio } : {}),
-        ...(location !== undefined ? { location } : {}),
-      },
-    });
-
-    return NextResponse.json({ ok: true });
-  } catch (e: any) {
-    if (e?.message === "UNAUTHENTICATED") {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-    }
-    return NextResponse.json({ error: e?.message ?? "Failed to update profile" }, { status: 500 });
   }
 }

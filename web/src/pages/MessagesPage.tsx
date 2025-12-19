@@ -8,7 +8,6 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import AIChatbot from '@/components/AIChatbot';
 import { useMessaging } from '../hooks/useMessaging';
-import { ThemeProvider, useTheme } from '@/context/ThemeContext';
 import styles from './MessagesPage.module.css';
 
 interface Conversation {
@@ -52,7 +51,8 @@ function MessagesPageContent() {
   const router = useRouter();
   const { data: session } = useSession();
   const userId = (session?.user as any)?.id;
-  const { theme, setTheme, themes } = useTheme();
+  // const { theme, setTheme, themes } = useTheme(); // Removed for now to disable toggle
+  const theme = 'light'; // Default to light or whatever the global default is
 
   const {
     conversations,
@@ -72,10 +72,34 @@ function MessagesPageContent() {
     addOptimisticMessage,
     deleteConversation,
     cursors,
+    activeCollaboration,
   } = useMessaging();
 
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [showAIChat, setShowAIChat] = useState(false);
+  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+  const initialUserId = searchParams?.get('userId');
+
+  // Deep Link Handling for userId
+  useEffect(() => {
+    if (initialUserId && userId && conversations.length > 0) {
+      // 1. Check if conversation exists
+      const existing = conversations.find(c => c.participantId === initialUserId);
+      if (existing) {
+        setSelectedConversationId(existing.id);
+        // Clear param to avoid re-triggering? Maybe not necessary but cleaner URL
+        // window.history.replaceState({}, '', '/chat'); 
+      } else {
+        // 2. If not, create it
+        createOrGetConversation(initialUserId).then(id => {
+          if (id) {
+            setSelectedConversationId(id);
+            fetchMessages(id);
+          }
+        });
+      }
+    }
+  }, [initialUserId, userId, conversations, createOrGetConversation, fetchMessages]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showFriendsDropdown, setShowFriendsDropdown] = useState(false);
   const [showRetentionSettings, setShowRetentionSettings] = useState(false);
@@ -86,9 +110,17 @@ function MessagesPageContent() {
   const [isSearching, setIsSearching] = useState(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [showFeatureModal, setShowFeatureModal] = useState<string | null>(null);
+
   const [activeContextMenuId, setActiveContextMenuId] = useState<string | null>(null);
 
-  const [respondedInvites, setRespondedInvites] = useState<Set<string>>(new Set());
+  // Bonding / Locker State
+  const [activeMessageMenuId, setActiveMessageMenuId] = useState<string | null>(null);
+  const [chatFacts, setChatFacts] = useState<{ id: string; keyword: string; warningText: string }[]>([]);
+  const [activeFactWarning, setActiveFactWarning] = useState<string | null>(null);
+  const [showTagModal, setShowTagModal] = useState(false);
+  const [taggingMessageId, setTaggingMessageId] = useState<string | null>(null);
+
+  const [respondedInvites, setRespondedInvites] = useState<Map<string, { status: 'ACCEPTED' | 'REJECTED'; sessionId?: string; featureType?: string }>>(new Map());
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -202,10 +234,18 @@ function MessagesPageContent() {
     }
   }, [conversations, createOrGetConversation, fetchMessages]);
 
-  // Handle message input changes with typing indicator
+  // Handle message input changes with typing indicator & Fact Checking
   const handleMessageInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setMessageInput(value);
+
+    // Check for facts
+    const matchedFact = chatFacts.find(f => value.toLowerCase().includes(f.keyword.toLowerCase()));
+    if (matchedFact) {
+      setActiveFactWarning(matchedFact.warningText);
+    } else {
+      setActiveFactWarning(null);
+    }
 
     if (value.trim().length > 0 && selectedConversationId) {
       startTyping(selectedConversationId);
@@ -225,7 +265,7 @@ function MessagesPageContent() {
         stopTyping(selectedConversationId);
       }
     }
-  }, [selectedConversationId, startTyping, stopTyping, typingTimeout]);
+  }, [selectedConversationId, startTyping, stopTyping, typingTimeout, chatFacts]);
 
   // Derive selected conversation from conversations list
   const selectedConversation = conversations.find((c) => c.id === selectedConversationId);
@@ -238,8 +278,39 @@ function MessagesPageContent() {
       if (!messages[selectedConversationId]) {
         fetchMessages(selectedConversationId);
       }
+
+      // Fetch bonding facts for this user
+      fetch(`/api/bonding?profileId=${selectedConversation.participantId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.facts) setChatFacts(data.facts);
+        })
+        .catch(err => console.error('Error fetching bonding facts:', err));
     }
   }, [selectedConversationId, messages, fetchMessages, selectedConversation]);
+
+  // Handle Real-time Collaboration Redirect
+  useEffect(() => {
+    if (activeCollaboration) {
+      const { sessionId, featureType, conversationId } = activeCollaboration;
+      // Only redirect if we are in the relevant conversation or if we want to force redirect even if elsewhere?
+      // "Both users should be redirected". Assuming regardless of where they are in the app, or at least if in chat.
+      // Usually better to check if it's the right conversation, but for "instant" collab, maybe just go.
+      // Let's go.
+      const featureRoutes: { [key: string]: string } = {
+        CANVAS: '/journal',
+        HOPIN: '/hopin',
+        BREATHING: '/breathing',
+        BONDING: '/bonds',
+        JOURNAL: '/journal',
+        PLANS: '/pomodoro',
+        RANKING: '/rankings',
+        GROUNDING: '/grounding'
+      };
+      const route = featureRoutes[featureType] || '/journal';
+      router.push(`${route}?sessionId=${sessionId}`);
+    }
+  }, [activeCollaboration, router]);
 
   // Cleanup search timeout on unmount
   useEffect(() => {
@@ -314,9 +385,31 @@ function MessagesPageContent() {
 
       // Refresh conversations to get updated state
       fetchConversations();
-
     } catch (err) {
       console.error('Failed to update conversation state:', err);
+    }
+  };
+
+  const handleTagMessage = async (type: string) => {
+    if (!taggingMessageId || !selectedConversation) return;
+
+    try {
+      const res = await fetch('/api/bonding/tags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messageId: taggingMessageId,
+          profileId: selectedConversation.participantId,
+          tagType: type,
+        }),
+      });
+
+      if (res.ok) {
+        setShowTagModal(false);
+        setTaggingMessageId(null);
+      }
+    } catch (error) {
+      console.error('Error tagging message:', error);
     }
   };
 
@@ -649,7 +742,7 @@ function MessagesPageContent() {
       </div >
 
       {/* Main Content Area */}
-      < div className={styles.mainContent} >
+      <div className={styles.mainContent}>
         {
           showAIChat ? (
             <AIChatbot className="h-full w-full border-none shadow-none rounded-none bg-transparent" />
@@ -717,41 +810,23 @@ function MessagesPageContent() {
                     </p>
                   </div>
 
-                  {/* Theme Toggle */}
+                  {/* Bonding Dashboard Link */}
                   <button
                     className={styles.iconButton}
-                    title="Toggle theme"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const nextThemeIndex = (themes.indexOf(theme) + 1) % themes.length;
-                      setTheme(themes[nextThemeIndex]);
-                    }}
-                    style={{ position: 'relative', fontSize: '16px' }}
+                    title="View Bonding Dashboard"
+                    onClick={() => router.push(`/bonds?profileId=${selectedConversation.participantId}`)}
                   >
-                    {theme === 'light' ? (
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <circle cx="12" cy="12" r="5" />
-                        <line x1="12" y1="1" x2="12" y2="3" />
-                        <line x1="12" y1="21" x2="12" y2="23" />
-                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-                        <line x1="1" y1="12" x2="3" y2="12" />
-                        <line x1="21" y1="12" x2="23" y2="12" />
-                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-                      </svg>
-                    ) : theme === 'dark' ? (
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-                      </svg>
-                    ) : (
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <circle cx="12" cy="12" r="10" />
-                        <line x1="12" y1="6" x2="12" y2="12" />
-                        <line x1="12" y1="12" x2="16" y2="14" />
-                      </svg>
-                    )}
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                      <circle cx="9" cy="7" r="4"></circle>
+                      <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                      <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                    </svg>
                   </button>
+
+
+
+
                 </div>
 
                 <div className={styles.chatHeaderActions}>
@@ -987,27 +1062,161 @@ function MessagesPageContent() {
                               {msg.status === 'failed' && <span style={{ marginLeft: '4px', color: '#ef4444' }} title="Failed to send">⚠️</span>}
                             </p>
                           </div>
+
+                          {/* Message Context Menu Trigger - ALWAYS VISIBLE */}
+                          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                            <button
+                              className="msg-menu-trigger"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveMessageMenuId(activeMessageMenuId === msg.id ? null : msg.id);
+                              }}
+                              style={{
+                                opacity: 1,
+                                background: 'transparent',
+                                border: 'none',
+                                color: '#9ca3af',
+                                cursor: 'pointer',
+                                padding: '4px 8px',
+                                fontSize: '18px',
+                                lineHeight: '1',
+                                marginLeft: '4px',
+                                marginRight: '4px',
+                              }}
+                              title="Tag Message"
+                            >
+                              ⋮
+                            </button>
+                            {activeMessageMenuId === msg.id && (
+                              <div style={{
+                                position: 'absolute',
+                                top: '100%',
+                                right: 0,
+                                backgroundColor: 'white',
+                                border: '1px solid #e5e7eb',
+                                borderRadius: '8px',
+                                boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+                                zIndex: 50,
+                                minWidth: '150px',
+                                overflow: 'hidden'
+                              }}>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setTaggingMessageId(msg.id);
+                                    setShowTagModal(true);
+                                    setActiveMessageMenuId(null);
+                                  }}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    width: '100%',
+                                    padding: '8px 12px',
+                                    textAlign: 'left',
+                                    border: 'none',
+                                    background: 'transparent',
+                                    cursor: 'pointer',
+                                    fontSize: '13px',
+                                    color: '#374151'
+                                  }}
+                                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f3f4f6'; }}
+                                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                                >
+                                  <span>🏷️</span> Tag Message
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </div>
 
-                        {/* Collaboration Action Buttons */}
-                        {isCollaborationMessage && !isOwnMessage && (() => {
-                          // Extract inviteId from message content
+                        {/* Collaboration Action Buttons and Status */}
+                        {(() => {
+                          const isCollaborationMessage = msg.content.includes('[INVITE_ID:');
+                          if (!isCollaborationMessage) return null;
+
+                          // Extract inviteId
                           const inviteIdMatch = msg.content.match(/\[INVITE_ID:([^\]]+)\]/);
                           const inviteId = inviteIdMatch ? inviteIdMatch[1] : null;
 
-                          // Check if this invite has already been responded to
-                          if (!inviteId || respondedInvites.has(inviteId)) {
-                            return null;
+                          if (!inviteId) return null;
+
+                          // If SENDER: Show Pending Status
+                          if (isOwnMessage) {
+                            return (
+                              <div style={{
+                                marginTop: '8px',
+                                fontSize: '12px',
+                                color: '#6b7280',
+                                fontStyle: 'italic',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                justifyContent: 'flex-end'
+                              }}>
+                                <span>⏳ Waiting for response...</span>
+                              </div>
+                            );
+                          }
+
+                          // If RECIPIENT: Show Action Buttons
+                          // Check if already responded
+                          const responseState = respondedInvites.get(inviteId);
+
+                          if (responseState) {
+                            if (responseState.status === 'ACCEPTED') {
+                              return (
+                                <button
+                                  onClick={() => {
+                                    const featureRoutes: { [key: string]: string } = {
+                                      CANVAS: '/journal',
+                                      HOPIN: '/hopin',
+                                      BREATHING: '/breathing',
+                                      BONDING: '/bonds',
+                                      JOURNAL: '/journal',
+                                      PLANS: '/pomodoro',
+                                      RANKING: '/rankings',
+                                      GROUNDING: '/grounding'
+                                    };
+                                    const route = featureRoutes[responseState.featureType || ''] || '/journal';
+                                    if (responseState.sessionId) {
+                                      router.push(`${route}?sessionId=${responseState.sessionId}`);
+                                    }
+                                  }}
+                                  style={{
+                                    marginTop: '8px',
+                                    fontSize: '12px',
+                                    color: '#ffffff',
+                                    backgroundColor: '#10b981',
+                                    padding: '6px 12px',
+                                    borderRadius: '6px',
+                                    border: 'none',
+                                    marginLeft: '40px',
+                                    cursor: 'pointer',
+                                    fontWeight: '600'
+                                  }}
+                                >
+                                  ✓ Responded (Click to Rejoin)
+                                </button>
+                              );
+                            } else {
+                              return (
+                                <div style={{
+                                  marginTop: '8px',
+                                  fontSize: '12px',
+                                  color: '#ef4444',
+                                  fontStyle: 'italic',
+                                  marginLeft: '40px'
+                                }}>
+                                  <span>✕ Rejected</span>
+                                </div>
+                              );
+                            }
                           }
 
                           const handleAction = async (action: 'ACCEPT' | 'REJECT') => {
-                            if (!inviteId) {
-                              console.error('No invite ID found');
-                              return;
-                            }
-
                             try {
-                              const response = await fetch('/api/collaboration/canvas-invite', {
+                              const response = await fetch('/api/collaboration/invite', {
                                 method: 'PATCH',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
@@ -1023,17 +1232,24 @@ function MessagesPageContent() {
                               }
 
                               const result = await response.json();
-                              console.log(`Collaboration invite ${action.toLowerCase()}ed:`, result);
 
-                              // Mark this invite as responded to hide buttons
-                              setRespondedInvites((prev) => new Set([...prev, inviteId]));
+                              setRespondedInvites((prev) => new Map(prev).set(inviteId, {
+                                status: action === 'ACCEPT' ? 'ACCEPTED' : 'REJECTED',
+                                sessionId: result.sessionId,
+                                featureType: result.featureType
+                              }));
 
-                              // Navigate to feature page if accepting
-                              if (action === 'ACCEPT' && result.sessionId && result.featureType) {
+                              // Check for immediate redirection (Rejoin or First Accept)
+                              if (result.sessionId) {
                                 const featureRoutes: { [key: string]: string } = {
                                   CANVAS: '/journal',
                                   HOPIN: '/hopin',
                                   BREATHING: '/breathing',
+                                  BONDING: '/bonds',
+                                  JOURNAL: '/journal',
+                                  PLANS: '/pomodoro',
+                                  RANKING: '/rankings',
+                                  GROUNDING: '/grounding'
                                 };
 
                                 const route = featureRoutes[result.featureType] || '/journal';
@@ -1063,13 +1279,10 @@ function MessagesPageContent() {
                                   fontSize: '12px',
                                   fontWeight: '600',
                                   transition: 'all 0.2s ease',
+                                  cursor: 'pointer'
                                 }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.backgroundColor = '#059669';
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.backgroundColor = '#10b981';
-                                }}
+                                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#059669'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#10b981'; }}
                               >
                                 ✓ Accept
                               </button>
@@ -1084,13 +1297,10 @@ function MessagesPageContent() {
                                   fontSize: '12px',
                                   fontWeight: '600',
                                   transition: 'all 0.2s ease',
+                                  cursor: 'pointer'
                                 }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.backgroundColor = '#dc2626';
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.backgroundColor = '#ef4444';
-                                }}
+                                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#dc2626'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#ef4444'; }}
                               >
                                 ✕ Reject
                               </button>
@@ -1103,6 +1313,93 @@ function MessagesPageContent() {
                 ) : (
                   <div className={styles.placeholderMessage}>
                     <p>Start chatting with {selectedConversation.participantName}</p>
+                    <p style={{ fontSize: '12px', marginTop: '8px', color: '#9ca3af' }}>
+                      Messages are secure and private
+                    </p>
+                  </div>
+                )}
+
+                {/* Tagging Modal */}
+                {showTagModal && (
+                  <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0,0,0,0.5)',
+                    zIndex: 1000,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                    onClick={() => setShowTagModal(false)}
+                  >
+                    <div style={{
+                      backgroundColor: 'white',
+                      padding: '24px',
+                      borderRadius: '16px',
+                      width: '300px',
+                      boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+                    }}
+                      onClick={e => e.stopPropagation()}
+                    >
+                      <h3 style={{ marginTop: 0, marginBottom: '16px', color: '#111827' }}>Tag Message</h3>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div style={{ fontSize: '12px', fontWeight: '600', color: '#6b7280', marginTop: '4px' }}>Blacklist Locker</div>
+                        {['BLACKLIST', 'ANGRY', 'SAD'].map(type => (
+                          <button
+                            key={type}
+                            onClick={() => handleTagMessage(type)}
+                            style={{
+                              padding: '10px',
+                              borderRadius: '8px',
+                              border: '1px solid #fee2e2',
+                              backgroundColor: '#fef2f2',
+                              color: '#ef4444',
+                              cursor: 'pointer',
+                              fontWeight: '500',
+                              textAlign: 'left'
+                            }}
+                          >
+                            {type}
+                          </button>
+                        ))}
+                        <div style={{ fontSize: '12px', fontWeight: '600', color: '#6b7280', marginTop: '8px' }}>Happy Locker</div>
+                        {['HAPPY', 'JOY', 'FUNNY'].map(type => (
+                          <button
+                            key={type}
+                            onClick={() => handleTagMessage(type)}
+                            style={{
+                              padding: '10px',
+                              borderRadius: '8px',
+                              border: '1px solid #dcfce7',
+                              backgroundColor: '#f0fdf4',
+                              color: '#22c55e',
+                              cursor: 'pointer',
+                              fontWeight: '500',
+                              textAlign: 'left'
+                            }}
+                          >
+                            {type}
+                          </button>
+                        ))}
+                      </div>
+                      <button
+                        onClick={() => setShowTagModal(false)}
+                        style={{
+                          marginTop: '16px',
+                          width: '100%',
+                          padding: '10px',
+                          border: 'none',
+                          background: 'transparent',
+                          color: '#6b7280',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   </div>
                 )}
 
@@ -1249,34 +1546,38 @@ function MessagesPageContent() {
                             if (!selectedConversationId || !userId) return;
 
                             const featureName = featureNames[showFeatureModal as string];
+
                             if (featureName) {
-                              // Fallback emoji if map check fails slightly but logic holds
-                              const featureEmoji = featureEmojis[showFeatureModal as string] || '✨';
+                              try {
+                                const featureType = showFeatureModal?.toUpperCase();
+                                const response = await fetch('/api/collaboration/invite', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({
+                                    conversationId: selectedConversationId,
+                                    recipientId: selectedConversation?.participantId,
+                                    featureType,
+                                    title: `${featureName} Session`
+                                  })
+                                });
 
-                              const collaborationMessage = `${featureEmoji} Started ${featureName} collaboration. Let's do this together!`;
+                                if (!response.ok) throw new Error('Failed to send invite');
 
-                              const optimisticMessage: Message = {
-                                id: Date.now().toString(),
-                                conversationId: selectedConversationId,
-                                senderId: userId,
-                                senderName: 'You',
-                                content: collaborationMessage,
-                                timestamp: Date.now(),
-                                read: true,
-                              };
+                                if (featureRoutes[showFeatureModal as keyof typeof featureRoutes]) {
+                                  // Optional: navigate immediately? Or wait for accept.
+                                  // Logic suggests we stay in chat until accepted, or maybe we just sent invite.
+                                  // The original code had navigation here, but improved flow is wait for accept.
+                                  // Preserving original 'navigation if route exists' logic for now as a fallback or immediate jump?
+                                  // Actually, standard flow now is: Send Invite -> Wait for Partner to Accept -> Both Navigate.
+                                  // So we just close modal.
+                                }
 
-                              addOptimisticMessage(optimisticMessage);
-                              await sendMessage(selectedConversationId, collaborationMessage);
-
-                              // Asynchronous navigation
-                              const navRoutes: any = {
-                                canvas: '/journal', hopin: '/hopin', ranking: '/rankings',
-                              };
-                              if (navRoutes[showFeatureModal]) {
-                                router.push(navRoutes[showFeatureModal]);
+                                setShowFeatureModal(null);
+                              } catch (err) {
+                                console.error("Failed to start collaboration:", err);
+                                alert("Failed to send invite. Please try again.");
                               }
                             }
-                            setShowFeatureModal(null);
                           }}
                         >
                           Start Activity
@@ -1288,23 +1589,49 @@ function MessagesPageContent() {
               </>
 
               {/* Input Area */}
-              <div className={styles.inputArea}>
-                <input
-                  type="text"
-                  placeholder="Type a message..."
-                  value={messageInput}
-                  onChange={handleMessageInputChange}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                  className={styles.messageInput}
-                />
-                <button
-                  className={styles.sendButton}
-                  onClick={handleSendMessage}
-                >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M16.6915026,12.4744748 L3.50612381,13.2599618 C3.19218622,13.2599618 3.03521743,13.4170592 3.03521743,13.5741566 L1.15159189,20.0151496 C0.8376543,20.8006365 0.99,21.89 1.77946707,22.52 C2.41,22.99 3.50612381,23.1 4.13399899,22.8429026 L21.714504,14.0454487 C22.6563168,13.5741566 23.1272231,12.6315722 22.9702544,11.6889879 L4.13399899,1.16296077 C3.34915502,0.9 2.40734225,1.00636533 1.77946707,1.4776575 C0.994623095,2.10604706 0.837654326,3.0486314 1.15159189,3.97788973 L3.03521743,10.4188827 C3.03521743,10.5759801 3.03521743,10.7330775 3.50612381,10.7330775 L16.6915026,11.5185644 C16.6915026,11.5185644 17.1624089,11.5185644 17.1624089,12.0374122 C17.1624089,12.4744748 16.6915026,12.4744748 16.6915026,12.4744748 Z" />
-                  </svg>
-                </button>
+              <div className={styles.inputArea} style={{ position: 'relative' }}>
+                {activeFactWarning && (
+                  <div style={{
+                    position: 'absolute',
+                    bottom: '100%',
+                    left: '20px',
+                    right: '20px',
+                    marginBottom: '10px',
+                    backgroundColor: '#fffbeb',
+                    border: '1px solid #fcd34d',
+                    borderRadius: '8px',
+                    padding: '10px 14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                    zIndex: 10
+                  }}>
+                    <span style={{ fontSize: '16px' }}>⚠️</span>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#b45309', fontWeight: '700' }}>FACT WARNING</div>
+                      <div style={{ fontSize: '13px', color: '#92400e' }}>{activeFactWarning}</div>
+                    </div>
+                  </div>
+                )}
+                <div className={styles.inputArea}>
+                  <input
+                    type="text"
+                    placeholder="Type a message..."
+                    value={messageInput}
+                    onChange={handleMessageInputChange}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                    className={styles.messageInput}
+                  />
+                  <button
+                    className={styles.sendButton}
+                    onClick={handleSendMessage}
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M16.6915026,12.4744748 L3.50612381,13.2599618 C3.19218622,13.2599618 3.03521743,13.4170592 3.03521743,13.5741566 L1.15159189,20.0151496 C0.8376543,20.8006365 0.99,21.89 1.77946707,22.52 C2.41,22.99 3.50612381,23.1 4.13399899,22.8429026 L21.714504,14.0454487 C22.6563168,13.5741566 23.1272231,12.6315722 22.9702544,11.6889879 L4.13399899,1.16296077 C3.34915502,0.9 2.40734225,1.00636533 1.77946707,1.4776575 C0.994623095,2.10604706 0.837654326,3.0486314 1.15159189,3.97788973 L3.03521743,10.4188827 C3.03521743,10.5759801 3.03521743,10.7330775 3.50612381,10.7330775 L16.6915026,11.5185644 C16.6915026,11.5185644 17.1624089,11.5185644 17.1624089,12.0374122 C17.1624089,12.4744748 16.6915026,12.4744748 16.6915026,12.4744748 Z" />
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
           ) : (
@@ -1317,19 +1644,15 @@ function MessagesPageContent() {
               <h2>Select a conversation</h2>
               <p>Choose someone to message or start with AI</p>
             </div>
-          )
-        }
-      </div >
-
-    </div >
+          )}
+      </div>
+    </div>
   );
 }
 
-// Wrapper component that provides theme
+// Wrapper component
 export default function MessagesPage() {
   return (
-    <ThemeProvider>
-      <MessagesPageContent />
-    </ThemeProvider>
+    <MessagesPageContent />
   );
 }

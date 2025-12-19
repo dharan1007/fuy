@@ -56,7 +56,7 @@ export async function POST(req: Request) {
     }
 }
 
-// GET: Fetch analytics for a brand (Owner only)
+// GET: Fetch analytics for a brand OR for a user's personal store
 export async function GET(req: Request) {
     try {
         const session = await auth();
@@ -66,41 +66,65 @@ export async function GET(req: Request) {
 
         const { searchParams } = new URL(req.url);
         const brandId = searchParams.get('brandId');
+        const userStore = searchParams.get('userStore'); // flag to fetch user's own products
 
-        if (!brandId) {
-            return NextResponse.json({ error: 'Brand ID required' }, { status: 400 });
-        }
-
-        const brand = await prisma.brand.findUnique({
-            where: { id: brandId },
-            include: {
-                analyticsLog: true,
-                products: {
-                    include: {
-                        analyticsLog: true
+        if (brandId) {
+            const brand = await prisma.brand.findUnique({
+                where: { id: brandId },
+                include: {
+                    analyticsLog: true,
+                    products: {
+                        include: {
+                            analyticsLog: true
+                        }
                     }
                 }
-            }
-        });
+            });
 
-        if (!brand) {
-            return NextResponse.json({ error: 'Brand not found' }, { status: 404 });
+            if (!brand) return NextResponse.json({ error: 'Brand not found' }, { status: 404 });
+            if (brand.ownerId !== session.user.id) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+            return NextResponse.json({
+                brandAnalytics: brand.analyticsLog,
+                productAnalytics: brand.products.map(p => ({
+                    id: p.id,
+                    name: p.name,
+                    views: p.analyticsLog?.views || 0,
+                    impressions: p.analyticsLog?.impressions || 0,
+                    redirects: p.analyticsLog?.purchases || 0
+                }))
+            });
         }
 
-        if (brand.ownerId !== session.user.id) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        // Fetch User Personal Store Analytics (Direct listings)
+        if (userStore === 'true') {
+            const userProducts = await prisma.product.findMany({
+                where: { sellerId: session.user.id },
+                include: { analyticsLog: true }
+            });
+
+            // Aggregate stats for the user
+            const aggregated = userProducts.reduce((acc, p) => ({
+                totalViews: acc.totalViews + (p.analyticsLog?.views || 0),
+                totalImpressions: acc.totalImpressions + (p.analyticsLog?.impressions || 0),
+                totalOrders: acc.totalOrders + (p.analyticsLog?.purchases || 0),
+                totalRevenue: 0 // Calculated elsewhere or stubbed
+            }), { totalViews: 0, totalImpressions: 0, totalOrders: 0, totalRevenue: 0 });
+
+            return NextResponse.json({
+                brandAnalytics: aggregated, // formatted same as brand analytics for frontend reuse
+                productAnalytics: userProducts.map(p => ({
+                    id: p.id,
+                    name: p.name,
+                    views: p.analyticsLog?.views || 0,
+                    impressions: p.analyticsLog?.impressions || 0,
+                    redirects: p.analyticsLog?.purchases || 0
+                }))
+            });
         }
 
-        return NextResponse.json({
-            brandAnalytics: brand.analyticsLog,
-            productAnalytics: brand.products.map(p => ({
-                id: p.id,
-                name: p.name,
-                views: p.analyticsLog?.views || 0,
-                impressions: p.analyticsLog?.impressions || 0,
-                redirects: p.analyticsLog?.purchases || 0
-            }))
-        });
+        return NextResponse.json({ error: 'Brand ID or userStore flag required' }, { status: 400 });
+
     } catch (error) {
         console.error('Error fetching analytics:', error);
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

@@ -6,6 +6,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import GalaxyScene from '@/components/Explore/GalaxyScene';
 import { SearchOverlay } from '@/components/Explore/SearchOverlay';
 import { PostDetailModal } from '@/components/Explore/PostDetailModal';
+import { DUMMY_PUDS } from './dummyData';
 
 interface Post {
   id: string;
@@ -35,6 +36,7 @@ interface Post {
 export default function ExplorePage() {
   const router = useRouter();
   const [posts, setPosts] = useState<Post[]>([]);
+  const [activeGlobe, setActiveGlobe] = useState('Posts');
 
   // New Categories Data
   const [chans, setChans] = useState<Post[]>([]);
@@ -93,7 +95,7 @@ export default function ExplorePage() {
         setAuds(audData);
         setChaptes(chapterData);
         setXrays(xrayData);
-        setPuds(pudData);
+        setPuds(pudData && pudData.length > 0 ? pudData : DUMMY_PUDS as unknown as Post[]);
 
       } catch (err) {
         console.error('Error fetching explore content:', err);
@@ -131,8 +133,25 @@ export default function ExplorePage() {
       {/* Search Overlay */}
       <SearchOverlay />
 
-      {/* Galaxy Scene (7 Globes + PUDs) */}
+      {/* Globe Selector Tabs */}
+      <div className="absolute top-24 left-1/2 transform -translate-x-1/2 z-20 flex gap-2 overflow-x-auto max-w-full px-4 pb-2 no-scrollbar">
+        {['Posts', 'Chans', 'Lils', 'Fills', 'Auds', 'Chaptes', 'X Rays', 'Puds'].map((tab) => (
+          <button
+            key={tab}
+            onClick={() => { setActiveGlobe(tab); setSelectedPost(null); }}
+            className={`px-4 py-2 rounded-full backdrop-blur-md border transition-all duration-300 text-sm font-bold uppercase tracking-wider whitespace-nowrap ${activeGlobe === tab
+              ? 'bg-white text-black border-white shadow-[0_0_15px_rgba(255,255,255,0.5)] scale-105'
+              : 'bg-black/50 border-white/20 text-white/60 hover:bg-white/10 hover:text-white'
+              }`}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+
+      {/* Galaxy Scene (Single Globe View) */}
       <GalaxyScene
+        activeGlobe={activeGlobe}
         posts={posts}
         chans={chans}
         lils={lils}

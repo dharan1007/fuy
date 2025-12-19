@@ -2,6 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
+import { supabase } from "@/lib/supabase-client"; // Import existing client
+import { useCollaboration } from "@/hooks/useCollaboration";
 
 /* ---------------- Types ---------------- */
 type UUID = string;
@@ -20,6 +23,7 @@ export type Card = {
   checklist?: ChecklistItem[];  // only for "todo"
   waypoint?: WaypointRef;       // optional waypoint link
   createdAt: number;
+  userId?: string;              // Creator of the card
 };
 
 export type PlanMember = {
@@ -99,6 +103,28 @@ export default function PlanBoard({
     }
   }
 
+  // Handle URL Params (sessionId or plan)
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    if (plans.length > 0) {
+      const qSessionId = searchParams?.get("sessionId");
+      const qPlan = searchParams?.get("plan");
+      const targetId = qSessionId || qPlan;
+
+      if (targetId) {
+        const found = plans.find((p) => p.id === targetId);
+        if (found) {
+          setActivePlanId(found.id);
+          setActive(found);
+        }
+      } else if (!activePlanId && plans.length > 0) {
+        // Default to first
+        setActivePlanId(plans[0].id);
+        setActive(plans[0]);
+      }
+    }
+  }, [plans, searchParams, activePlanId]);
+
   async function createPlan() {
     const title = prompt("Plan title")?.trim();
     if (!title) return;
@@ -170,34 +196,82 @@ export default function PlanBoard({
       setActivePlanId(id);
       setActive(found);
       const u = new URL(window.location.href);
-      u.searchParams.set("plan", id);
+      u.searchParams.set("sessionId", id); // Unify param name
+      u.searchParams.set("plan", id);      // Keep legacy for now
       history.replaceState(null, "", u.toString());
     }
   }
 
-  /* ---------- Cards (Local only for now, as per schema limitation) ---------- */
-  const [cards, setCards] = useState<Card[]>([]);
 
+  /* ---------- Realtime Collaboration (Cards) ---------- */
+  const {
+    canvasData,
+    saveCanvasData,
+    fetchCanvasData,
+    updates
+  } = useCollaboration(activePlanId);
+
+  const [cards, setCards] = useState<Card[]>([]);
+  const [isRemoteUpdate, setIsRemoteUpdate] = useState(false);
+
+  // Sync Cards from Remote
   useEffect(() => {
-    if (activePlanId) {
-      const saved = localStorage.getItem(`awe-routes:plans:${activePlanId}:cards`);
-      if (saved) {
-        try {
-          setCards(JSON.parse(saved));
-        } catch { setCards([]); }
-      } else {
-        setCards([]);
-      }
-    } else {
-      setCards([]);
+    if (canvasData && canvasData.blocks) {
+      setIsRemoteUpdate(true);
+      const loadedCards = Object.values(canvasData.blocks) as Card[];
+      // Sort by createdAt desc
+      loadedCards.sort((a, b) => b.createdAt - a.createdAt);
+      setCards(loadedCards);
+      setIsRemoteUpdate(false);
+    }
+  }, [canvasData]);
+
+  // Sync Cards to Remote (Auto-save on change)
+  useEffect(() => {
+    if (activePlanId && cards.length > 0 && !isRemoteUpdate) {
+      const blocks = cards.reduce((acc, card) => ({ ...acc, [card.id]: card }), {});
+      // Debounce or save immediately? useCollaboration has its own interval but we want fast updates
+      // We'll rely on useCollaboration's auto-save (30s) for background, but trigger save on explicit actions if needed.
+      // Actually, let's just update the local session state in shared hook if we could, but here we just call save.
+      // For "Realtime" feel, we should save often.
+      const timer = setTimeout(() => {
+        saveCanvasData({ blocks });
+      }, 1000); // 1s debounce
+      return () => clearTimeout(timer);
+    }
+  }, [cards, activePlanId, isRemoteUpdate, saveCanvasData]);
+
+  // Listen for 'SAVE' updates from others to refresh
+  useEffect(() => {
+    const lastUpdate = updates[updates.length - 1];
+    if (lastUpdate && lastUpdate.operation === 'SAVE' && lastUpdate.userId !== session?.user?.email) { // userId in update is usually ID, session.user has email/id?
+      fetchCanvasData();
+    }
+  }, [updates, fetchCanvasData, session]);
+
+  /* ---------- Realtime Members (PlanMember) ---------- */
+  useEffect(() => {
+    if (!activePlanId) return;
+
+    const channel = supabase.channel(`plan:${activePlanId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'PlanMember',
+        filter: `planId=eq.${activePlanId}`
+      }, () => {
+        console.log("Plan members updated, refreshing...");
+        fetchPlans();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
     }
   }, [activePlanId]);
 
-  useEffect(() => {
-    if (activePlanId) {
-      localStorage.setItem(`awe-routes:plans:${activePlanId}:cards`, JSON.stringify(cards));
-    }
-  }, [cards, activePlanId]);
+  /* ---------- Legacy LocalStorage (Backup/Removed) ---------- */
+  // Removed localStorage logic in favor of Realtime
 
   function addCard(type: CardType) {
     if (!activePlanId) return;

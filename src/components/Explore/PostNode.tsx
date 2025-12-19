@@ -19,7 +19,7 @@ export function PostNode({ post, position, onClick }: PostNodeProps) {
             </mesh>
             <Html
                 transform
-                scale={0.5}
+                scale={1.0}
                 style={{
                     transition: 'all 0.2s',
                     opacity: 1,
@@ -34,7 +34,21 @@ export function PostNode({ post, position, onClick }: PostNodeProps) {
                 >
                     {/* Media Preview */}
                     <div className="h-32 w-full bg-gray-900 relative overflow-hidden rounded-t-xl">
-                        {post.media && post.media.length > 0 ? (
+                        {post.postType === 'SIMPLE' && post.simpleData?.mediaUrls ? (
+                            (() => {
+                                try {
+                                    const urls = JSON.parse(post.simpleData.mediaUrls);
+                                    const types = JSON.parse(post.simpleData.mediaTypes);
+                                    return types[0] === 'IMAGE' ? (
+                                        <img src={urls[0]} alt="Post" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <video src={urls[0]} className="w-full h-full object-cover" />
+                                    );
+                                } catch (e) {
+                                    return <div className="w-full h-full bg-gray-800" />;
+                                }
+                            })()
+                        ) : post.media && post.media.length > 0 ? (
                             post.media[0].type === 'IMAGE' ? (
                                 <img
                                     src={post.media[0].url}

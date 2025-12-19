@@ -20,12 +20,16 @@ import LandingPage from '@/components/LandingPage/LandingPage';
 // Post type card components
 import ChapterCard from '@/components/post-cards/ChapterCard';
 import XrayCard from '@/components/post-cards/XrayCard';
-import BTSCard from '@/components/post-cards/BTSCard';
+
 import LillCard from '@/components/post-cards/LillCard';
 import FillCard from '@/components/post-cards/FillCard';
 import AudCard from '@/components/post-cards/AudCard';
 import ChanCard from '@/components/post-cards/ChanCard';
 import PullUpDownCard from '@/components/post-cards/PullUpDownCard';
+import ReportModal from '@/components/ReportModal';
+import ReactionControl from '@/components/ReactionControl';
+import ReactionBubbleList from '@/components/ReactionBubbleList';
+import { MoreVertical, Flag } from 'lucide-react';
 
 interface UserProfile {
     name: string | null;
@@ -64,7 +68,7 @@ interface PostData {
 
 type CreatePostTab = 'text' | 'media' | 'link';
 
-export default function HomeClient() {
+export default function HomeClient({ isAdmin = false }: { isAdmin?: boolean }) {
     const { data: session, status } = useSession();
     const [isMounted, setIsMounted] = useState(false);
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -88,6 +92,9 @@ export default function HomeClient() {
     // Followers/Following modal state
     const [showFollowersModal, setShowFollowersModal] = useState(false);
     const [showFollowingModal, setShowFollowingModal] = useState(false);
+    const [reportModalOpen, setReportModalOpen] = useState(false);
+    const [reportPostId, setReportPostId] = useState<string | null>(null);
+    const [activeMenuPostId, setActiveMenuPostId] = useState<string | null>(null);
     const [followersList, setFollowersList] = useState<any[]>([]);
     const [followingList, setFollowingList] = useState<any[]>([]);
     const [loadingFollowers, setLoadingFollowers] = useState(false);
@@ -326,8 +333,11 @@ export default function HomeClient() {
                     {/* Logo/Explore Module */}
                     <div className="bg-transparent backdrop-blur-md border border-white/40 rounded-lg sm:rounded-xl px-4 sm:px-6 py-2.5 sm:py-3 shadow-sm pointer-events-auto hover:bg-white/10 transition-all">
                         <Link href="/" className="flex items-center gap-2">
-                            <span className="text-lg sm:text-2xl font-bold text-white">FUY</span>
-                            <span className="hidden sm:inline text-sm font-semibold text-white/70">Media</span>
+                            <span className="text-lg sm:text-2xl font-bold">
+                                <span className="text-white">f</span>
+                                <span className="text-red-500">u</span>
+                                <span className="text-white">y</span>
+                            </span>
                         </Link>
                     </div>
 
@@ -354,6 +364,14 @@ export default function HomeClient() {
                             <LayoutDashboard className="w-5 h-5" />
                         </Link>
 
+                        {/* Admin Moderation - Only for Admins */}
+                        {isAdmin && (
+                            <Link href="/admin/moderation" className="text-sm font-semibold text-red-400 hover:text-red-300 transition-colors flex items-center gap-1">
+                                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                                <span>Mod</span>
+                            </Link>
+                        )}
+
 
                     </div>
 
@@ -379,6 +397,14 @@ export default function HomeClient() {
                                 <Link href="/dashboard" className="flex items-center gap-2 px-4 py-2 text-sm text-white hover:bg-white/10 rounded transition-colors">
                                     <LayoutDashboard className="w-4 h-4" /> Dashboard
                                 </Link>
+                                {isAdmin && (
+                                    <Link href="/admin/moderation" className="flex items-center gap-2 px-4 py-2 text-sm text-red-300 hover:bg-white/10 rounded transition-colors">
+                                        <div className="w-4 h-4 flex items-center justify-center">
+                                            <span className="w-2 h-2 rounded-full bg-red-500" />
+                                        </div>
+                                        Moderation
+                                    </Link>
+                                )}
 
                             </div>
                         )}
@@ -417,14 +443,42 @@ export default function HomeClient() {
                                 posts.map((post: any) => (
                                     <div key={post.id} className="border border-white/20 rounded-lg p-6 bg-transparent backdrop-blur-md hover:border-white/40 transition-colors">
                                         <div className="flex items-start gap-4 mb-4">
-                                            <img
-                                                src={post.user.profile?.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${post.user.profile?.displayName || post.user.email}`}
-                                                alt={post.user.profile?.displayName || post.user.email}
-                                                className="w-10 h-10 rounded-full border border-white/20"
-                                            />
+                                            <Link href={`/profile/${post.user.id}`} className="shrink-0">
+                                                <img
+                                                    src={post.user.profile?.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${post.user.profile?.displayName || post.user.email}`}
+                                                    alt={post.user.profile?.displayName || post.user.email}
+                                                    className="w-10 h-10 rounded-full border border-white/20 hover:opacity-80 transition-opacity"
+                                                />
+                                            </Link>
                                             <div className="flex-1 min-w-0">
-                                                <div className="font-bold text-sm text-white">{post.user.profile?.displayName || post.user.email}</div>
+                                                <Link href={`/profile/${post.user.id}`} className="hover:underline decoration-white/50">
+                                                    <div className="font-bold text-sm text-white">{post.user.profile?.displayName || post.user.email}</div>
+                                                </Link>
                                                 <div className="text-xs text-white/50">{new Date(post.createdAt).toLocaleDateString()}</div>
+                                            </div>
+                                            {/* Post Options Menu */}
+                                            <div className="relative">
+                                                <button
+                                                    onClick={() => setActiveMenuPostId(activeMenuPostId === post.id ? null : post.id)}
+                                                    className="p-1 text-white/40 hover:text-white transition-colors rounded-full hover:bg-white/10"
+                                                >
+                                                    <MoreVertical size={16} />
+                                                </button>
+                                                {activeMenuPostId === post.id && (
+                                                    <div className="absolute right-0 mt-2 w-32 bg-black/90 border border-white/20 rounded-lg shadow-xl overflow-hidden z-10 backdrop-blur-md">
+                                                        <button
+                                                            onClick={() => {
+                                                                setReportPostId(post.id);
+                                                                setReportModalOpen(true);
+                                                                setActiveMenuPostId(null);
+                                                            }}
+                                                            className="w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-white/10 flex items-center gap-2 transition-colors"
+                                                        >
+                                                            <Flag size={14} />
+                                                            Report
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
 
@@ -433,8 +487,7 @@ export default function HomeClient() {
                                             <ChapterCard chapter={post.chapterData} />
                                         ) : post.postType === 'XRAY' && post.xrayData ? (
                                             <XrayCard xray={post.xrayData} />
-                                        ) : post.postType === 'BTS' && post.btsData ? (
-                                            <BTSCard bts={post.btsData} />
+
                                         ) : post.postType === 'LILL' && post.lillData ? (
                                             <LillCard lill={post.lillData} />
                                         ) : post.postType === 'FILL' && post.fillData ? (
@@ -444,7 +497,7 @@ export default function HomeClient() {
                                         ) : post.postType === 'CHAN' && post.chanData ? (
                                             <ChanCard chan={post.chanData} />
                                         ) : post.postType === 'PULLUPDOWN' && post.pullUpDownData ? (
-                                            <PullUpDownCard pullUpDown={post.pullUpDownData} userVote={post.userVote} />
+                                            <PullUpDownCard pullUpDown={post.pullUpDownData} userVote={post.userVote} isAuthenticated={!!session} />
                                         ) : (
                                             <>
                                                 <p className="text-sm text-white/80 mb-4 leading-relaxed">{post.content}</p>
@@ -458,25 +511,39 @@ export default function HomeClient() {
                                             </>
                                         )}
 
-                                        <div className="flex items-center gap-6 text-xs text-white/60 border-t border-white/10 pt-4 mt-4">
-                                            <button className="flex items-center gap-2 hover:text-white/80 transition-colors">
-                                                <svg className="w-4 h-4" fill={post.likedByMe ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                                                </svg>
-                                                <span>{post.likes}</span>
-                                            </button>
-                                            <button className="flex items-center gap-2 hover:text-white/80 transition-colors">
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                                                </svg>
-                                                <span>{post.comments}</span>
-                                            </button>
-                                            <button className="flex items-center gap-2 hover:text-white/80 transition-colors">
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                                </svg>
-                                                <span>{post.shares}</span>
-                                            </button>
+                                        <div className="mt-4">
+                                            {/* Reaction Bubbles */}
+                                            <div className="mb-3">
+                                                <ReactionBubbleList
+                                                    postId={post.id}
+                                                    bubbles={post.topBubbles || []}
+                                                    totalBubbles={post.totalBubbles || 0}
+                                                    onAddBubble={(newBubble) => {
+                                                        // Refresh posts to show new bubble (simple approach)
+                                                        fetchPosts();
+                                                    }}
+                                                />
+                                            </div>
+
+                                            {/* Action Bar */}
+                                            <div className="flex items-center gap-6 text-xs text-white/60 border-t border-white/10 pt-4">
+                                                <ReactionControl
+                                                    postId={post.id}
+                                                    initialReaction={post.userReaction}
+                                                    counts={post.reactionCounts || { W: 0, L: 0, CAP: 0, FIRE: 0 }}
+                                                    onReact={(type) => {
+                                                        // Optional: Global refresh or analytics
+                                                    }}
+                                                />
+
+                                                <button className="flex items-center gap-2 hover:text-white/80 transition-colors">
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                                    </svg>
+                                                    <span>{post.comments?.length || post.comments || 0}</span>
+                                                </button>
+
+                                            </div>
                                         </div>
                                     </div>
                                 ))
@@ -565,6 +632,17 @@ export default function HomeClient() {
                         </svg>
                     </Link>
 
+                    {/* Dots Feed */}
+                    <Link
+                        href="/dots"
+                        className="p-1.5 text-white/80 hover:text-white transition-colors hover:scale-110 transform duration-200"
+                        title="Dots"
+                    >
+                        <div className="w-5 h-5 flex items-center justify-center">
+                            <span className="w-2.5 h-2.5 bg-white rounded-full shadow-[0_0_10px_rgba(255,255,255,0.8)]" />
+                        </div>
+                    </Link>
+
                     {/* Notifications */}
                     <Link
                         href="/notifications"
@@ -618,6 +696,16 @@ export default function HomeClient() {
                     />
                 </nav>
             </div>
+            {reportPostId && (
+                <ReportModal
+                    isOpen={reportModalOpen}
+                    onClose={() => {
+                        setReportModalOpen(false);
+                        setReportPostId(null);
+                    }}
+                    postId={reportPostId}
+                />
+            )}
         </div>
     );
 }

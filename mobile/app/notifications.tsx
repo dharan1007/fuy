@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image, Dimensions, RefreshControl, ActivityIndicator, Alert } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, Image, Dimensions, RefreshControl, ActivityIndicator, Alert, Animated, Easing } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronLeft, Check, X, Ghost, ThumbsUp, Bell, Settings } from 'lucide-react-native';
@@ -8,7 +8,81 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '../context/ThemeContext';
 import { supabase } from '../lib/supabase';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
+
+// Starfield Component
+const StarField = () => {
+    // Generate static stars
+    const stars = Array.from({ length: 50 }).map((_, i) => ({
+        id: i,
+        top: Math.random() * height,
+        left: Math.random() * width,
+        size: Math.random() * 3 + 1,
+        opacity: Math.random() * 0.7 + 0.3,
+    }));
+
+    return (
+        <View className="absolute inset-0 z-0">
+            {stars.map(star => (
+                <View
+                    key={star.id}
+                    className="absolute bg-white rounded-full"
+                    style={{
+                        top: star.top,
+                        left: star.left,
+                        width: star.size,
+                        height: star.size,
+                        opacity: star.opacity
+                    }}
+                />
+            ))}
+        </View>
+    );
+};
+
+// Asteroid Component
+const Asteroid = () => {
+    const anim = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+        const runAnimation = () => {
+            anim.setValue(0);
+            Animated.timing(anim, {
+                toValue: 1,
+                duration: 8000,
+                useNativeDriver: true,
+                easing: Easing.linear
+            }).start(() => runAnimation());
+        };
+        runAnimation();
+    }, []);
+
+    const translateX = anim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [-100, width + 100]
+    });
+
+    const translateY = anim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [50, height / 2]
+    });
+
+    return (
+        <Animated.View
+            className="absolute z-0 w-2 h-2 bg-white rounded-full shadow-lg shadow-white"
+            style={{
+                transform: [{ translateX }, { translateY }],
+                opacity: 0.8,
+                shadowOpacity: 0.8,
+                shadowRadius: 10,
+                elevation: 5
+            }}
+        >
+            {/* Trail */}
+            <View className="absolute right-0 top-0 w-20 h-2 bg-gradient-to-l from-transparent to-white opacity-20 transform -rotate-12 origin-right" />
+        </Animated.View>
+    );
+};
 
 // Combined type for UI
 interface NotificationItem {
@@ -27,7 +101,8 @@ interface NotificationItem {
 
 export default function NotificationsScreen() {
     const router = useRouter();
-    const { colors, mode } = useTheme();
+    // Force dark space theme regardless of system mode for this screen
+    const colors = { text: '#ffffff', secondary: '#9ca3af', card: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.1)' };
     const [notifications, setNotifications] = useState<NotificationItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -42,7 +117,6 @@ export default function NotificationsScreen() {
             if (!user) return;
 
             // 1. Fetch Friend Requests (Pending Friendships where friendId == currentUser)
-            // Filter out if isGhosted is true (receiver ghosted it)
             const { data: requests, error: reqError } = await supabase
                 .from('Friendship')
                 .select(`
@@ -53,13 +127,7 @@ export default function NotificationsScreen() {
                     isGhosted
                 `)
                 .eq('friendId', user.id)
-                .eq('status', 'PENDING')
-                //.eq('isGhosted', false) - Filter client side or here. 
-                // If ghosted, receiver should NOT see it? "recived will see as ghosted" - user said.
-                // "recived will see as ghosted" might mean they see it in a special "Ghosted" list, or just marked.
-                // Typically ghosting means hiding. Assuming we still fetch them but mark them or hide them if filtering active.
-                // Let's fetch all and filter client side if needed, or show differently.
-                ;
+                .eq('status', 'PENDING');
 
             if (reqError) console.error('Error fetching requests:', reqError);
 
@@ -75,17 +143,7 @@ export default function NotificationsScreen() {
 
             // Transform Requests to UI model
             const mappedRequests: NotificationItem[] = (requests || [])
-                .filter((req: any) => !req.isGhosted) // Hide ghosted requests from the main list?
-                // User said: "recived will see as ghosted". 
-                // Maybe better to SHOW them but visually distinct or just allow un-ghosting?
-                // Re-reading: "ghosted... recived will see as ghosted"
-                // I will show them but maybe with a 'Ghosted' tag or just let them disappear from 'Pending' view?
-                // For now, I'll filter them OUT of the standard pending list so they are "gone" effectively, 
-                // unless I make a 'Ghosted' tab. Given simplicity, I'll filter them out for now to unclutter.
-                // Wait, if "receiver will see as ghosted", they need so see it. 
-                // I will include them but maybe we need a param to handle logic. 
-                // Let's filter OUT for now as "Ghosting" usually implies "Ignore".
-                // If the user meant "See a Ghost Icon", I'll stick to standard behavior: Remove from view.
+                .filter((req: any) => !req.isGhosted)
                 .map((req: any) => ({
                     id: req.id,
                     type: 'request',
@@ -100,19 +158,28 @@ export default function NotificationsScreen() {
                 }));
 
             // Transform Notifs to UI model
-            const mappedNotifs: NotificationItem[] = (notifs || []).map((n: any) => ({
-                id: n.id,
-                type: 'alert',
-                user: {
-                    id: 'system',
-                    name: 'System',
-                    avatar: 'https://api.dicebear.com/7.x/initials/png?seed=Sys'
-                },
-                content: n.message,
-                time: new Date(n.createdAt).toLocaleDateString(),
-                read: n.read,
-                data: n
-            }));
+            const mappedNotifs: NotificationItem[] = (notifs || []).map((n: any) => {
+                // Fix "Someone" text issue here
+                let cleanContent = n.message || '';
+                // If it starts with "Someone ", strip it.
+                cleanContent = cleanContent.replace(/^Someone\s+/, '');
+                // Also capitalize first letter if needed
+                cleanContent = cleanContent.charAt(0).toUpperCase() + cleanContent.slice(1);
+
+                return {
+                    id: n.id,
+                    type: 'alert',
+                    user: {
+                        id: 'system',
+                        name: 'System',
+                        avatar: 'https://api.dicebear.com/7.x/initials/png?seed=Sys'
+                    },
+                    content: cleanContent,
+                    time: new Date(n.createdAt).toLocaleDateString(),
+                    read: n.read,
+                    data: n
+                };
+            });
 
             setNotifications([...mappedRequests, ...mappedNotifs]);
 
@@ -125,12 +192,6 @@ export default function NotificationsScreen() {
     };
 
     const updateCounts = async (senderId: string, receiverId: string) => {
-        // Increment followingCount for Sender (userId of Friendship)
-        // Increment followersCount for Receiver (friendId of Friendship)
-
-        // Note: This is racy without atomic increments. Supabase RPC is best.
-        // Assuming no RPC 'increment_social_counts' exists, we do read-modify-write.
-
         try {
             // 1. Sender (Following + 1)
             const { data: sender } = await supabase.from('User').select('followingCount').eq('id', senderId).single();
@@ -161,12 +222,7 @@ export default function NotificationsScreen() {
                         .eq('id', id);
 
                     if (error) throw error;
-
-                    // Update counts
-                    // Friendship: userId (Sender) -> friendId (Receiver/Me)
-                    // item.data.userId is Sender. user.id is Receiver.
                     await updateCounts(item.data.userId, user.id);
-
                     Alert.alert("Success", "You are now connected!");
                 }
                 else if (action === 'reject') {
@@ -183,7 +239,6 @@ export default function NotificationsScreen() {
                         .update({
                             isGhosted: true,
                             ghostedBy: user.id
-                            // Status remains PENDING so sender sees "Pending" (Requested)
                         })
                         .eq('id', id);
                     if (error) throw error;
@@ -199,37 +254,48 @@ export default function NotificationsScreen() {
     };
 
     const renderHeader = () => (
-        <View className="px-6 pt-4 pb-6 flex-row justify-between items-center pl-16">
+        <View className="px-6 pt-4 pb-6 flex-row justify-between items-center pl-16 rounded-b-[30px] z-10">
             <View className="flex-row items-center gap-4">
-                <TouchableOpacity onPress={() => router.back()} className="p-2 rounded-full" style={{ backgroundColor: colors.card }}>
-                    <ChevronLeft color={colors.text} size={24} />
+                <TouchableOpacity onPress={() => router.back()} className="p-2 rounded-full bg-white/10 backdrop-blur-md">
+                    <ChevronLeft color="white" size={24} />
                 </TouchableOpacity>
-                <Text className="text-3xl font-bold" style={{ color: colors.text }}>Notifications</Text>
+                <Text className="text-3xl font-bold text-white tracking-widest" style={{ textShadowColor: '#000', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 }}>
+                    NOTIFICATIONS
+                </Text>
             </View>
-            <TouchableOpacity className="p-2 rounded-full" style={{ backgroundColor: colors.card }}>
-                <Settings color={colors.text} size={24} />
+            <TouchableOpacity className="p-2 rounded-full bg-white/10 backdrop-blur-md">
+                <Settings color="white" size={24} />
             </TouchableOpacity>
         </View>
     );
 
     const renderNotificationItem = (item: NotificationItem) => (
         <View key={item.id} className="mb-4">
-            <BlurView
-                intensity={mode === 'light' ? 30 : 20}
-                tint={mode === 'light' ? 'light' : 'dark'}
-                className="rounded-3xl overflow-hidden border"
-                style={{ borderColor: colors.border, backgroundColor: colors.card }}
+            {/* Transparent Card with white border/glow */}
+            <View
+                className="rounded-3xl overflow-hidden border backdrop-blur-md"
+                style={{
+                    borderColor: 'rgba(255,255,255,0.1)',
+                    backgroundColor: 'rgba(0,0,0,0.4)', // Slightly darker transparency for contrast
+                    shadowColor: 'white',
+                    shadowOffset: { width: 0, height: 0 },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 10
+                }}
             >
                 <View className="p-5">
                     <View className="flex-row gap-4">
-                        <Image source={{ uri: item.user.avatar }} className="w-12 h-12 rounded-full border" style={{ borderColor: colors.border }} />
+                        <Image
+                            source={{ uri: item.user.avatar }}
+                            className="w-12 h-12 rounded-full border-2 border-white/20"
+                        />
                         <View className="flex-1">
                             <View className="flex-row justify-between items-start">
-                                <Text className="font-bold text-base flex-1 mr-2" style={{ color: colors.text }}>{item.user.name}</Text>
-                                <Text className="text-xs" style={{ color: colors.secondary }}>{item.time}</Text>
+                                <Text className="font-bold text-base flex-1 mr-2 text-white">{item.user.name}</Text>
+                                <Text className="text-xs text-blue-200">{item.time}</Text>
                             </View>
 
-                            <Text className="mt-1 leading-5" style={{ color: colors.secondary }}>
+                            <Text className="mt-1 leading-5 text-gray-300">
                                 {item.content}
                             </Text>
 
@@ -237,60 +303,58 @@ export default function NotificationsScreen() {
                                 <View className="flex-row gap-3 mt-4">
                                     <TouchableOpacity
                                         onPress={() => handleAction(item.id, 'accept', item)}
-                                        className="flex-1 bg-blue-600 py-3 rounded-xl items-center flex-row justify-center gap-2"
+                                        className="flex-1 bg-white py-3 rounded-xl items-center flex-row justify-center gap-2"
                                     >
-                                        <Check color="white" size={16} />
-                                        <Text className="text-white font-bold">Accept</Text>
+                                        <Check color="black" size={16} />
+                                        <Text className="text-black font-bold">Accept</Text>
                                     </TouchableOpacity>
 
                                     <TouchableOpacity
                                         onPress={() => handleAction(item.id, 'reject', item)}
-                                        className="flex-1 py-3 rounded-xl items-center flex-row justify-center gap-2"
-                                        style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
+                                        className="flex-1 py-3 rounded-xl items-center flex-row justify-center gap-2 border border-white/20"
+                                        style={{ backgroundColor: 'rgba(0,0,0,0.3)' }}
                                     >
-                                        <X color={colors.text} size={16} />
-                                        <Text className="font-bold" style={{ color: colors.text }}>Reject</Text>
-                                    </TouchableOpacity>
-
-                                    <TouchableOpacity
-                                        onPress={() => handleAction(item.id, 'ghost', item)}
-                                        className="w-12 py-3 rounded-xl items-center justify-center" // w-12 for square button
-                                        style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}
-                                    >
-                                        <Ghost color={colors.secondary} size={18} />
+                                        <X color="white" size={16} />
+                                        <Text className="font-bold text-white">Reject</Text>
                                     </TouchableOpacity>
                                 </View>
                             )}
                         </View>
                     </View>
                 </View>
-            </BlurView>
+            </View>
         </View>
     );
 
     return (
-        <View className="flex-1" style={{ backgroundColor: colors.background }}>
+        <View className="flex-1 bg-black">
+            {/* Space Background */}
             <LinearGradient
-                colors={mode === 'light' ? ['#ffffff', '#f0f0f0'] : mode === 'eye-care' ? ['#F5E6D3', '#E6D5C0'] : ['#000000', '#111827']}
-                className="absolute inset-0"
+                colors={['#000000', '#111827', '#1e1b4b']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                className="absolute inset-0 z-0"
             />
-            <SafeAreaView className="flex-1">
+            <StarField />
+            <Asteroid />
+
+            <SafeAreaView className="flex-1 z-10">
                 {renderHeader()}
 
                 {loading ? (
                     <View className="flex-1 items-center justify-center">
-                        <ActivityIndicator size="large" color={colors.primary} />
+                        <ActivityIndicator size="large" color="white" />
                     </View>
                 ) : (
                     <ScrollView
                         showsVerticalScrollIndicator={false}
-                        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} tintColor={colors.primary} />}
+                        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} tintColor="white" />}
                         contentContainerStyle={{ paddingBottom: 50, paddingHorizontal: 16 }}
                     >
                         {notifications.length === 0 ? (
-                            <View className="items-center py-10">
-                                <Bell color={colors.secondary} size={48} />
-                                <Text className="mt-4 text-lg" style={{ color: colors.secondary }}>No notifications yet</Text>
+                            <View className="items-center py-20 opacity-50">
+                                <Bell color="white" size={48} />
+                                <Text className="mt-4 text-lg text-white">No signals from space...</Text>
                             </View>
                         ) : (
                             notifications.map(renderNotificationItem)

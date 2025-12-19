@@ -145,7 +145,55 @@ export default function ShopPage() {
           <div className="text-2xl font-black tracking-tighter">STORE.</div>
         </div>
 
-        <div className="hidden md:flex gap-6 text-sm font-medium text-gray-400">
+        <div className="hidden md:flex gap-6 text-sm font-medium text-gray-400 items-center">
+          {/* Dynamic Categories with Dropdowns */}
+          {[
+            {
+              label: 'Home',
+              items: ['Furniture', 'Decor', 'Kitchen', 'Living', 'Bedroom']
+            },
+            {
+              label: 'Fashion',
+              items: ['Men', 'Women', 'Kids', 'Accessories', 'Shoes']
+            },
+            {
+              label: 'Electronics',
+              items: ['Phones', 'Laptops', 'Audio', 'Cameras', 'Gaming']
+            }
+          ].map((category) => (
+            <div key={category.label} className="relative group">
+              <button
+                className="hover:text-white transition-colors flex items-center gap-1 py-2"
+                onClick={(e) => {
+                  const menu = e.currentTarget.nextElementSibling;
+                  menu?.classList.toggle('hidden');
+                }}
+              >
+                {category.label}
+                <svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-70"><path d="M1 1L5 5L9 1" /></svg>
+              </button>
+
+              {/* Dropdown Menu */}
+              <div className="hidden absolute top-full left-0 mt-2 w-48 bg-black/90 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden shadow-2xl z-50 flex flex-col p-2 animate-in fade-in zoom-in-95 duration-200"
+                onMouseLeave={(e) => e.currentTarget.classList.add('hidden')}>
+                <div className="text-[10px] uppercase font-bold text-gray-500 px-3 py-2 border-b border-white/10 mb-1">
+                  Shop {category.label}
+                </div>
+                {category.items.map(item => (
+                  <Link
+                    key={item}
+                    href={`/shop/category/${category.label.toLowerCase()}-${item.toLowerCase()}`}
+                    className="px-3 py-2 text-sm text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors text-left"
+                  >
+                    {item}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ))}
+
+          {/* Existing Links */}
+          <div className="w-px h-4 bg-white/20 mx-2" />
           <Link href="#courses" className="hover:text-white transition-colors">Courses</Link>
           <Link href="#books" className="hover:text-white transition-colors">Books</Link>
           <Link href="#templates" className="hover:text-white transition-colors">Templates</Link>
@@ -161,9 +209,10 @@ export default function ShopPage() {
             <svg className="absolute left-3 top-2.5 text-gray-400" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
           </div>
 
-          <Link href="/shop/sell" className="px-4 py-2 bg-white text-black rounded-full font-medium hover:bg-gray-200 transition-colors flex items-center gap-2">
+          <Link href="/shop/sell" className="group px-4 py-2 bg-white text-black rounded-full font-medium hover:bg-gray-200 transition-colors flex items-center gap-2 overflow-hidden relative">
             <ShoppingBag className="w-4 h-4" />
-            Sell on FUY
+            <span className="group-hover:hidden transition-all duration-300">so.fuy</span>
+            <span className="hidden group-hover:block transition-all duration-300">Sell on FUY</span>
           </Link>
 
           <Link href="/dashboard/purchases" className="hidden sm:block px-4 py-2 border border-white/20 text-white text-sm font-bold rounded-full hover:bg-white/10 transition-colors">

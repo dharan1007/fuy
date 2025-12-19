@@ -12,9 +12,11 @@ export default function HeroSection() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.2 }}
-          className="text-6xl md:text-8xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white via-red-500 to-red-600"
+          className="text-6xl md:text-8xl font-bold"
         >
-          FUY Media
+          <span className="text-white">f</span>
+          <span className="text-red-500">u</span>
+          <span className="text-white">y</span>
         </motion.h1>
 
         <motion.p
@@ -23,7 +25,7 @@ export default function HeroSection() {
           transition={{ duration: 0.8, delay: 0.4 }}
           className="text-xl md:text-2xl text-gray-300 max-w-2xl mx-auto px-4"
         >
-          Connect, Share, and Grow in a new dimension.
+          Find yourself
         </motion.p>
 
         <motion.div

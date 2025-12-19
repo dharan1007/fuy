@@ -4,6 +4,8 @@ import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
 
+export const dynamic = 'force-dynamic';
+
 // Get all notifications for current user
 export async function GET(req: Request) {
   try {
@@ -17,7 +19,7 @@ export async function GET(req: Request) {
         ...(unreadOnly ? { read: false } : {}),
       },
       orderBy: { createdAt: "desc" },
-      take: 50,
+      take: 100,
     });
 
     // Fetch sender info for friend request notifications

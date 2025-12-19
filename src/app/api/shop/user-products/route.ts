@@ -101,3 +101,112 @@ export async function GET(req: NextRequest) {
         );
     }
 }
+
+export async function DELETE(req: NextRequest) {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user?.email) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        const { searchParams } = new URL(req.url);
+        const id = searchParams.get("id");
+
+        if (!id) {
+            return NextResponse.json({ error: "Product ID required" }, { status: 400 });
+        }
+
+        const user = await prisma.user.findUnique({
+            where: { email: session.user.email },
+        });
+
+        if (!user) {
+            return NextResponse.json({ error: "User not found" }, { status: 404 });
+        }
+
+        // Verify ownership
+        const product = await prisma.product.findUnique({
+            where: { id },
+        });
+
+        if (!product) {
+            return NextResponse.json({ error: "Product not found" }, { status: 404 });
+        }
+
+        if (product.sellerId !== user.id) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+        }
+
+        await prisma.product.delete({
+            where: { id },
+        });
+
+        return NextResponse.json({ success: true });
+    } catch (error) {
+        console.error("Error deleting product:", error);
+        return NextResponse.json(
+            { error: "Failed to delete product" },
+            { status: 500 }
+        );
+    }
+}
+
+export async function PUT(req: NextRequest) {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user?.email) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        const user = await prisma.user.findUnique({
+            where: { email: session.user.email },
+        });
+
+        if (!user) {
+            return NextResponse.json({ error: "User not found" }, { status: 404 });
+        }
+
+        const body = await req.json();
+        const { id, ...data } = body;
+
+        if (!id) {
+            return NextResponse.json({ error: "Product ID required" }, { status: 400 });
+        }
+
+        // Verify ownership
+        const product = await prisma.product.findUnique({
+            where: { id },
+        });
+
+        if (!product) {
+            return NextResponse.json({ error: "Product not found" }, { status: 404 });
+        }
+
+        if (product.sellerId !== user.id) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+        }
+
+        // Validate update data (partial)
+        // We can reuse schema or just allow partial updates. For now, we'll allow fields that match the create schema keys.
+        const updateData: any = {};
+        if (data.name) updateData.name = data.name;
+        if (data.description) updateData.description = data.description;
+        if (data.price) updateData.price = parseFloat(data.price);
+        if (data.images) updateData.images = data.images;
+        if (data.category) updateData.category = data.category;
+        if (data.stock) updateData.stock = parseInt(data.stock);
+
+        const updatedProduct = await prisma.product.update({
+            where: { id },
+            data: updateData,
+        });
+
+        return NextResponse.json(updatedProduct);
+    } catch (error) {
+        console.error("Error updating product:", error);
+        return NextResponse.json(
+            { error: "Failed to update product" },
+            { status: 500 }
+        );
+    }
+}

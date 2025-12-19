@@ -1,5 +1,5 @@
-import React, { useRef } from 'react';
-import { toPng } from 'html-to-image';
+import React from 'react';
+// toPng removed
 
 interface CharmCardProps {
     title: string;
@@ -9,21 +9,8 @@ interface CharmCardProps {
 }
 
 export default function CharmCard({ title, quote, onClose }: CharmCardProps) {
-    const cardRef = useRef<HTMLDivElement>(null);
 
-    const handleDownload = async () => {
-        if (cardRef.current) {
-            try {
-                const dataUrl = await toPng(cardRef.current, { cacheBust: true });
-                const link = document.createElement('a');
-                link.download = `charm-card-${Date.now()}.png`;
-                link.href = dataUrl;
-                link.click();
-            } catch (err) {
-                console.error('Failed to download charm card', err);
-            }
-        }
-    };
+
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
@@ -31,7 +18,6 @@ export default function CharmCard({ title, quote, onClose }: CharmCardProps) {
 
                 {/* The Card Itself */}
                 <div
-                    ref={cardRef}
                     className="relative w-[300px] h-[450px] rounded-3xl overflow-hidden flex flex-col items-center justify-center p-8 text-center border border-white/20 shadow-2xl"
                     style={{
                         background: 'linear-gradient(145deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%)',
@@ -69,14 +55,8 @@ export default function CharmCard({ title, quote, onClose }: CharmCardProps) {
                     </div>
                     <div className="flex gap-2 w-full">
                         <button
-                            onClick={handleDownload}
-                            className="flex-1 py-2 rounded-full bg-white text-black text-xs font-medium uppercase tracking-widest hover:bg-neutral-200 transition-colors shadow-lg"
-                        >
-                            Save
-                        </button>
-                        <button
                             onClick={onClose}
-                            className="px-4 py-2 rounded-full border border-white/20 text-white text-xs font-medium hover:bg-white/10 transition-colors"
+                            className="w-full py-2 rounded-full border border-white/20 text-white text-xs font-medium hover:bg-white/10 transition-colors"
                         >
                             Close
                         </button>

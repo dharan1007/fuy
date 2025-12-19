@@ -31,19 +31,20 @@ model User {
   followingCount Int       @default(0)
 
   // Relations
-  profile         Profile?
-  posts           Post[]
-  media           Media[]
-  groupsOwned     Group[]             @relation("GroupsOwned")
-  groupMembers    GroupMember[]
-  friendshipsA    Friendship[]        @relation("A")
-  friendshipsB    Friendship[]        @relation("B")
-  happiness       HappinessScore[]
-  userValues      UserValue[]
-  bonds           BondBlueprint[]
-  drills          ConflictDrill[]
-  passkeys        PasskeyCredential[]
-  serendipityLogs SerendipityLog[]
+  profile           Profile?
+  posts             Post[]
+  media             Media[]
+  groupsOwned       Group[]             @relation("GroupsOwned")
+  groupMembers      GroupMember[]
+  friendshipsA      Friendship[]        @relation("A")
+  friendshipsB      Friendship[]        @relation("B")
+  happiness         HappinessScore[]
+  userValues        UserValue[]
+  bonds             BondBlueprint[]
+  drills            ConflictDrill[]
+  passkeys          PasskeyCredential[]
+  serendipityLogs   SerendipityLog[]
+  bondingActivities BondingActivity[]   @relation("BondingActivities")
 
   // New: metrics back-relation
   metrics Metric[]
@@ -75,10 +76,10 @@ model User {
   conversationsA     Conversation[]              @relation("ConversationA")
   conversationsB     Conversation[]              @relation("ConversationB")
   messagesSent       Message[]                   @relation("MessagesSent")
-  chatSessions       ChatSessionLog[]            @relation("ChatSessions")
-  chatAnalytics      ChatAnalytics?              @relation("Analytics")
   featureSessions    FeatureSession[]            @relation("FeatureSessions")
   featureParticipant FeatureSessionParticipant[] @relation("FeatureParticipants")
+  chatSessions       ChatSessionLog[]            @relation("ChatSessions")
+  chatAnalytics      ChatAnalytics?              @relation("Analytics")
   conversationStates ConversationState[]
 
   // --- Collaboration Features ---
@@ -98,7 +99,7 @@ model User {
   payments       Payment[] // Razorpay payments
 
   // --- User Marketplace ---
-  profileCard    ProfileCard?
+  profileCard  ProfileCard?
   productsSold Product[]     @relation("ProductsSold")
   productViews ProductView[] @relation("ProductViews")
 
@@ -112,15 +113,47 @@ model User {
 
   // --- Breathing App ---
 
-
   // --- Wrex (Gym Partners & Workout Plans) ---
   gymPartnersSent     GymPartner[]  @relation("GymPartnerSender")
   gymPartnersReceived GymPartner[]  @relation("GymPartnerReceiver")
   workoutPlans        WorkoutPlan[]
 
   // --- Hopin Plans ---
-  plansCreated    Plan[]       @relation("PlanCreator")
+  plansCreated    Plan[]           @relation("PlanCreator")
   planMemberships PlanMember[]
+  moderationLogs  ModerationLog[]
+  reportsMade     Report[]         @relation("Reporter")
+  reactions       Reaction[]
+  reactionBubbles ReactionBubble[]
+
+  // Moderation
+  isBanned  Boolean @default(false)
+  banReason String?
+
+  // Subscriptions (Bloom Mode)
+  subscriptions Subscription[] @relation("Subscriber")
+  subscribers   Subscription[] @relation("SubscribedTo")
+
+  // Chapter Access Requests
+  chapterAccessRequestsSent ChapterAccessRequest[]
+
+  // PullUpDown Relations
+  pullUpDownTags   PullUpDownOption[]
+  pullUpDownVotes  PullUpDownVote[]
+}
+
+model Subscription {
+  id             String   @id @default(cuid())
+  subscriberId   String
+  subscribedToId String
+  createdAt      DateTime @default(now())
+
+  subscriber   User @relation("Subscriber", fields: [subscriberId], references: [id], onDelete: Cascade)
+  subscribedTo User @relation("SubscribedTo", fields: [subscribedToId], references: [id], onDelete: Cascade)
+
+  @@unique([subscriberId, subscribedToId])
+  @@index([subscriberId])
+  @@index([subscribedToId])
 }
 
 model Plan {
@@ -152,8 +185,6 @@ model PlanMember {
   @@index([planId])
   @@index([userId])
 }
-
-
 
 model GymPartner {
   id        String   @id @default(cuid())
@@ -195,8 +226,58 @@ model Profile {
   bio           String?
   location      String?
   tags          String?
-  coverVideoUrl String? // <— NEW
+  coverVideoUrl String?
+  coverImageUrl String?
   isPrivate     Boolean @default(false)
+
+  // -- Basics --
+  dob                 DateTime? // <--- Replaced 'age'
+  height              String?   // e.g. "5'10" or "178cm"
+  weight              String?   // e.g. "70kg"
+  city                String?
+  interactionMode     String?
+  conversationStarter String?
+
+  // -- Professional & Skills --
+  achievements String?
+  skills       String[] // JSON array of strings
+  workHistory  String?
+  education    String?
+
+  // -- Vibe --
+  bestVibeTime   String?
+  vibeWithPeople String?
+  lifeIsLike     String? // "With me life is like..."
+
+  // -- Deep Dive --
+  values          String[] // e.g., Growth, Money, Spiritual
+  hardNos         String[] // e.g., Smoking, Political talks
+  emotionalFit    String?  // "Only people who can emotionally fit..."
+  pleaseDont      String?  // "Please don't with me..."
+  careAbout       String?  // "What I care about..."
+  protectiveAbout String?  // "One thing I'm protective about..."
+  distanceMakers  String?  // "The distance makers..."
+
+  // -- Favorites & Interests --
+  topMovies         String[]
+  topGenres         String[]
+  topSongs          String[]
+  topFoods          String[]
+  topPlaces         String[]
+  topGames          String[]
+  currentlyInto     String[]
+  dislikes          String[]
+  icks              String[]
+  goals             String?
+  lifestyle         String?
+  interactionTopics String[]
+
+  // -- Media --
+  stalkMe String? // JSON string: [{url, type}, ...] (11 items)
+
+  // -- Profile Card Customization --
+  cardBackgroundUrl String?
+  cardSettings      String? // JSON string for visibility: { showDob: true, showSkills: false ... }
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -247,32 +328,49 @@ model Friendship {
 }
 
 model Post {
-  id              String   @id @default(cuid())
-  userId          String
-  groupId         String?
+  id                  String   @id @default(cuid())
+  userId              String
+  groupId             String?
   // Allowed: JOURNAL | JOY | AWE | BONDS | SERENDIPITY | CHECKIN | PROGRESS | OTHER
-  feature         String   @default("OTHER")
-  // NEW: Post type - STANDARD | CHAPTER | XRAY | BTS | LILL | FILL | AUD | CHAN | PULLUPDOWN
-  postType        String   @default("STANDARD")
-  content         String
+  feature             String   @default("OTHER")
+  // NEW: Post type - STANDARD | CHAPTER | XRAY | LILL | FILL | AUD | CHAN | PULLUPDOWN
+  postType            String   @default("STANDARD")
+  content             String
   // Allowed: PUBLIC | FRIENDS | PRIVATE
-  visibility      String   @default("PUBLIC")
-  joyScore        Int      @default(0)
-  connectionScore Int      @default(0)
-  creativityScore Int      @default(0)
-  createdAt       DateTime @default(now())
+  visibility          String   @default("PUBLIC")
+  joyScore            Int      @default(0)
+  connectionScore     Int      @default(0)
+  creativityScore     Int      @default(0)
+  // Chapter Access Policy
+  chapterAccessPolicy String   @default("PUBLIC") // PUBLIC | PRIVATE | OWNER_ONLY
+  // Moderation
+  moderationStatus    String   @default("CLEAN") // CLEAN, FLAGGED, REMOVED
+  moderationReason    String?
+  status              String   @default("PUBLISHED") // PUBLISHED, DRAFT, ARCHIVED
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
   user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   group    Group?        @relation(fields: [groupId], references: [id], onDelete: SetNull)
   media    Media[]
   likes    PostLike[]
   comments PostComment[]
-  shares   PostShare[]
+
+  shares PostShare[]
+
+  reports Report[]
+
+  reactions       Reaction[]
+  reactionBubbles ReactionBubble[]
+
+  // Collaboration
+  chapterAccessRequests ChapterAccessRequest[]
 
   // Relations to new post types
-  chapterData    Chapter?
-  xrayData       Xray?
-  btsData        BTS?
+  chapterData Chapter?
+  xrayData    Xray?
+
+  simpleData     SimplePost?
   lillData       Lill?
   fillData       Fill?
   audData        Aud?
@@ -341,6 +439,69 @@ model Notification {
   @@index([createdAt])
 }
 
+model Report {
+  id         String   @id @default(cuid())
+  postId     String?
+  reporterId String
+  reason     String
+  // PENDING | RESOLVED | DISMISSED
+  status     String   @default("PENDING")
+  details    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  post     Post? @relation(fields: [postId], references: [id], onDelete: Cascade)
+  reporter User  @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+
+  // New Fields
+  target         String  @default("FUY") // FUY | SELLER
+  productId      String?
+  orderId        String?
+  conversationId String?
+  adminNotes     String?
+
+  product      Product?      @relation(fields: [productId], references: [id], onDelete: SetNull)
+  order        Order?        @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+
+  @@index([postId])
+  @@index([reporterId])
+  @@index([status])
+  @@index([target])
+  @@index([productId])
+}
+
+model Reaction {
+  id        String   @id @default(cuid())
+  userId    String
+  postId    String
+  // W | L | CAP | FIRE
+  type      String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+  @@index([postId])
+}
+
+model ReactionBubble {
+  id        String   @id @default(cuid())
+  userId    String
+  postId    String
+  mediaUrl  String
+  // IMAGE | VIDEO
+  mediaType String   @default("VIDEO")
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+  @@index([createdAt])
+}
+
 model Media {
   id        String   @id @default(cuid())
   postId    String
@@ -383,6 +544,21 @@ model Chapter {
   @@index([createdAt])
 }
 
+model ChapterAccessRequest {
+  id           String   @id @default(cuid())
+  requesterId  String
+  targetPostId String
+  status       String   @default("PENDING") // PENDING, ACCEPTED, REJECTED
+  createdAt    DateTime @default(now())
+
+  requester  User @relation(fields: [requesterId], references: [id], onDelete: Cascade)
+  targetPost Post @relation(fields: [targetPostId], references: [id], onDelete: Cascade)
+
+  @@unique([requesterId, targetPostId])
+  @@index([requesterId])
+  @@index([targetPostId])
+}
+
 // Xrays - 2-layer interactive scratch posts
 model Xray {
   id              String   @id @default(cuid())
@@ -400,17 +576,14 @@ model Xray {
   @@index([postId])
 }
 
-// BTS - Behind the scenes (credits, tools, mindmaps)
-model BTS {
-  id          String   @id @default(cuid())
-  postId      String   @unique
-  credits     String? // JSON array of {name, role, link}
-  tools       String? // JSON array of {name, category, link}
-  mindmapData String? // JSON mindmap structure
-  links       String? // JSON array of {title, url, description}
-  resources   String? // JSON array of additional resources
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+// Simple Post - Instagram style (up to 8 media items)
+model SimplePost {
+  id         String   @id @default(cuid())
+  postId     String   @unique
+  mediaUrls  String // JSON array of strings
+  mediaTypes String // JSON array of 'IMAGE' | 'VIDEO'
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
 
@@ -501,10 +674,10 @@ model PullUpDown {
   id            String    @id @default(cuid())
   postId        String    @unique
   question      String
-  optionA       String // First option
-  optionB       String // Second option
-  optionACount  Int       @default(0)
-  optionBCount  Int       @default(0)
+  
+  // Options are now a separate relation
+  options       PullUpDownOption[]
+  
   allowMultiple Boolean   @default(false)
   expiresAt     DateTime?
   createdAt     DateTime  @default(now())
@@ -517,19 +690,43 @@ model PullUpDown {
   @@index([expiresAt])
 }
 
+model PullUpDownOption {
+  id             String  @id @default(cuid())
+  pullUpDownId   String
+  text           String
+  specialDetails String?
+  uniqueDetails  String?
+  
+  // User tagging for this option
+  taggedUserId   String?
+  tagStatus      String  @default("PENDING") // PENDING, ACCEPTED, REJECTED
+  
+  voteCount      Int     @default(0)
+  
+  pullUpDown PullUpDown       @relation(fields: [pullUpDownId], references: [id], onDelete: Cascade)
+  taggedUser User?            @relation(fields: [taggedUserId], references: [id], onDelete: SetNull)
+  votes      PullUpDownVote[]
+
+  @@index([pullUpDownId])
+  @@index([taggedUserId])
+}
+
 // Track individual votes for PullUpDown
 model PullUpDownVote {
   id           String   @id @default(cuid())
   pullUpDownId String
   userId       String
-  vote         String // A | B
+  optionId     String   // Link to specific option
   createdAt    DateTime @default(now())
 
-  pullUpDown PullUpDown @relation(fields: [pullUpDownId], references: [id], onDelete: Cascade)
+  pullUpDown PullUpDown       @relation(fields: [pullUpDownId], references: [id], onDelete: Cascade)
+  option     PullUpDownOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([pullUpDownId, userId])
   @@index([pullUpDownId])
   @@index([userId])
+  @@index([optionId])
 }
 
 model HappinessScore {
@@ -901,6 +1098,7 @@ model Conversation {
   messages             Message[]
   sessionLogs          ChatSessionLog[]
   collaborationInvites CollaborationInvite[]
+  reports              Report[]
 
   states ConversationState[]
 
@@ -1045,10 +1243,6 @@ model CollaborationInvite {
   @@unique([sessionId, fromUserId, toUserId])
   @@index([sessionId])
   @@index([fromUserId])
-  @@index([toUserId])
-  @@index([conversationId])
-  @@index([status])
-  @@index([createdAt])
 }
 
 // Collaboration Updates - for tracking changes in real-time
@@ -1058,18 +1252,15 @@ model CollaborationUpdate {
   userId    String
   operation String // ADD_BLOCK | UPDATE_BLOCK | REMOVE_BLOCK | DRAW | SAVE
   blockId   String?
-  data      String // JSON: the actual change data
-  timestamp DateTime @default(now())
+  data      String // JSON
   synced    Boolean  @default(false)
+  createdAt DateTime @default(now())
 
   session FeatureSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([sessionId])
   @@index([userId])
-  @@index([timestamp])
-  @@index([synced])
-  @@index([sessionId, timestamp])
 }
 
 // ------------------------
@@ -1080,11 +1271,11 @@ model CollaborationUpdate {
 model MessageTag {
   id            String   @id @default(cuid())
   messageId     String
-  userId        String   // User who created the tag
-  profileId     String   // Profile being analyzed (the other person in convo)
-  tagType       String   // BLACKLIST | ANGRY | SAD | HAPPY | JOY | FUNNY | FACT
-  taggedContent String?  // Partial text if only a word/phrase was selected
-  note          String?  // Optional note (mainly for facts)
+  userId        String // User who created the tag
+  profileId     String // Profile being analyzed (the other person in convo)
+  tagType       String // BLACKLIST | ANGRY | SAD | HAPPY | JOY | FUNNY | FACT
+  taggedContent String? // Partial text if only a word/phrase was selected
+  note          String? // Optional note (mainly for facts)
   createdAt     DateTime @default(now())
 
   message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
@@ -1099,10 +1290,10 @@ model MessageTag {
 // Fact locker warnings - keywords that trigger warnings when sending messages
 model FactWarning {
   id          String   @id @default(cuid())
-  userId      String   // User who created the warning
-  profileId   String   // Profile this fact is about
-  keyword     String   // Keyword/phrase to match
-  warningText String   // Warning message to show
+  userId      String // User who created the warning
+  profileId   String // Profile this fact is about
+  keyword     String // Keyword/phrase to match
+  warningText String // Warning message to show
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -1182,6 +1373,8 @@ model Brand {
   reviews      BrandReview[]
   analyticsLog BrandAnalytics?
 
+  banReason String?
+
   @@index([ownerId])
   @@index([status])
 }
@@ -1216,6 +1409,7 @@ model Product {
   seller       User?             @relation("ProductsSold", fields: [sellerId], references: [id], onDelete: Cascade)
   reviews      ProductReview[]
   orderItems   OrderItem[]
+  reports      Report[]
   analyticsLog ProductAnalytics?
   views        ProductView[]
 
@@ -1289,6 +1483,7 @@ model Order {
   user    User          @relation("Orders", fields: [userId], references: [id], onDelete: Cascade)
   items   OrderItem[]
   returns OrderReturn[]
+  reports Report[]
 
   @@index([userId])
   @@index([status])
@@ -1531,6 +1726,28 @@ model Payment {
   @@index([createdAt])
 }
 
+// ========================
+// Bonding & Collaboration
+// ========================
+
+model BondingActivity {
+  id        String    @id @default(cuid())
+  userId    String
+  partnerId String?
+  type      String // CANVAS, JOURNAL, HOPIN, etc.
+  status    String    @default("STARTED") // STARTED, COMPLETED
+  startedAt DateTime  @default(now())
+  endedAt   DateTime?
+  details   String? // JSON for extra metadata
+
+  user User @relation("BondingActivities", fields: [userId], references: [id], onDelete: Cascade)
+  // Optional relation to partner if needed for queries, though explicit relation field on User might be heavy if many activities.
+  // Keeping it lightweight for now.
+
+  @@index([userId])
+  @@index([type])
+}
+
 model WebhookLog {
   id              String    @id @default(cuid())
   paymentId       String? // Reference to Payment record
@@ -1611,15 +1828,33 @@ model AIChatMessage {
 // ------------------------
 
 model ProfileCard {
-  id        String   @id @default(cuid())
-  userId    String   @unique
-  uniqueCode String  @unique // 7-digit alphanumeric code
-  content   String   // JSON: stores sections, questions, and answers
-  theme     String?  // e.g. "dark", "glass", "sunset"
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  uniqueCode String   @unique // 7-digit alphanumeric code
+  content    String // JSON: stores sections, questions, and answers
+  theme      String? // e.g. "dark", "glass", "sunset"
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([uniqueCode])
+}
+
+// ------------------------
+// Content Moderation Logs
+// ------------------------
+model ModerationLog {
+  id         String   @id @default(cuid())
+  userId     String
+  content    String
+  reason     String // "BLOCK" | "FLAG"
+  violations String // JSON string of arrays
+  severity   String // "none" | "low" | "medium" | "high"
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
 }

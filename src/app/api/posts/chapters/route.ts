@@ -1,71 +1,85 @@
-// src/app/api/posts/chapters/route.ts
-export const runtime = 'nodejs';
-
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { requireUserId } from '@/lib/session';
 
 export async function POST(req: NextRequest) {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     try {
-        const userId = await requireUserId();
         const body = await req.json();
+        const { title, description, content, visibility, mediaUrls, mediaTypes, linkedPostId } = body;
 
-        const {
-            title,
-            description,
-            content,
-            visibility = 'PUBLIC',
-            feature = 'OTHER',
-            linkedChapterId,
-            linkedPostId,
-            mediaUrls, // array of URLs
-            mediaTypes, // array of types
-        } = body;
-
-        if (!mediaUrls || !Array.isArray(mediaUrls) || mediaUrls.length === 0) {
-            return NextResponse.json(
-                { error: 'At least one media item is required for chapters' },
-                { status: 400 }
-            );
-        }
-
-        // Create post with chapter data
-        const post = await prisma.post.create({
-            data: {
-                userId,
-                postType: 'CHAPTER',
-                feature,
-                content: content || description || '',
-                visibility,
-                chapterData: {
-                    create: {
-                        title,
-                        description,
-                        linkedChapterId,
-                        linkedPostId,
-                        mediaUrls: JSON.stringify(mediaUrls),
-                        mediaTypes: JSON.stringify(mediaTypes || mediaUrls.map(() => 'IMAGE')),
-                    },
-                },
-            },
-            include: {
-                chapterData: true,
-                user: {
-                    select: {
-                        id: true,
-                        email: true,
-                        profile: { select: { displayName: true, avatarUrl: true } },
-                    },
-                },
-            },
+        const currentUser = await prisma.user.findUnique({
+            where: { email: session.user.email },
         });
 
-        return NextResponse.json(post);
-    } catch (error: any) {
-        console.error('Chapter creation error:', error);
-        return NextResponse.json(
-            { error: error.message || 'Failed to create chapter' },
-            { status: 500 }
-        );
+        if (!currentUser) {
+            return NextResponse.json({ error: 'User not found' }, { status: 404 });
+        }
+
+        // Validate Linked Post Access if provided
+        if (linkedPostId) {
+            const parentPost = await prisma.post.findUnique({
+                where: { id: linkedPostId },
+                include: { chapterAccessRequests: true }
+            });
+
+            if (!parentPost) {
+                return NextResponse.json({ error: 'Linked post not found' }, { status: 404 });
+            }
+
+            // Access Check logic
+            const isOwner = parentPost.userId === currentUser.id;
+            const isPublicAccess = parentPost.chapterAccessPolicy === 'PUBLIC';
+            const hasAcceptedRequest = parentPost.chapterAccessRequests.some(
+                r => r.requesterId === currentUser.id && r.status === 'ACCEPTED'
+            );
+
+            if (!isOwner && !isPublicAccess && !hasAcceptedRequest) {
+                return NextResponse.json({ error: 'You do not have permission to connect to this post' }, { status: 403 });
+            }
+        }
+
+        // Create the Post
+        const newPost = await prisma.post.create({
+            data: {
+                userId: currentUser.id,
+                content: content || description || '',
+                postType: 'CHAPTER',
+                visibility: visibility || 'PUBLIC',
+                // Create the Chapter data
+                chapterData: {
+                    create: {
+                        title: title || 'Untitled Chapter',
+                        description: description,
+                        mediaUrls: JSON.stringify(mediaUrls || []),
+                        mediaTypes: JSON.stringify(mediaTypes || []),
+                        linkedPostId: linkedPostId || null,
+                        // If linking to a chapter, logic for linkedChapterId could be inferred, but requirements say connect to "post"
+                    }
+                },
+                // Add media entries for standard compatibility
+                media: {
+                    create: (mediaUrls || []).map((url: string, index: number) => ({
+                        url,
+                        type: (mediaTypes || [])[index] || 'IMAGE',
+                        userId: currentUser.id
+                    }))
+                }
+            },
+            include: {
+                chapterData: true
+            }
+        });
+
+        return NextResponse.json({ success: true, post: newPost });
+
+    } catch (error) {
+        console.error('Error creating chapter:', error);
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }

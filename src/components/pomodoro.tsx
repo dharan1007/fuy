@@ -16,6 +16,9 @@ import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 type IntervalRef = ReturnType<typeof setInterval> | null;
 type Phase = "work" | "short" | "long";
 
+import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
+import ScrollStarfield from "./ScrollStarfield";
+
 const STORE_KEY = "fuy.pomo.v1";
 const HIST_KEY = "fuy.pomo.history.v1";
 const TASK_KEY = "fuy.pomo.tasks.v1";
@@ -339,97 +342,110 @@ function useVideoRecorder() {
 
 /* ---------------- motion analysis hook ---------------- */
 
-function useMotionAnalysis(stream: MediaStream | null, active: boolean) {
-  const [energy, setEnergy] = useState(5); // 0-10 scale
-  const [isAway, setIsAway] = useState(false);
+/* ---------------- face tracking hook ---------------- */
 
-  const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
-  const prevFrameRef = useRef<Uint8ClampedArray | null>(null);
+function useMotionAnalysis(stream: MediaStream | null, active: boolean) {
+  const [energy, setEnergy] = useState(5);
+  const [quality, setQuality] = useState(5);
+  const [isAway, setIsAway] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  const landmarkerRef = useRef<FaceLandmarker | null>(null);
   const rafRef = useRef<number | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const lastVideoTimeRef = useRef<number>(-1);
+  const prevNoseRef = useRef<{ x: number, y: number } | null>(null);
+  const motionHistoryRef = useRef<number[]>([]);
+
+  // Load Model
+  useEffect(() => {
+    async function load() {
+      try {
+        const vision = await FilesetResolver.forVisionTasks(
+          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm"
+        );
+        const landmarker = await FaceLandmarker.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
+            delegate: "GPU"
+          },
+          runningMode: "VIDEO",
+          numFaces: 1
+        });
+        landmarkerRef.current = landmarker;
+        setIsLoaded(true);
+      } catch (err) {
+        console.error("Failed to load FaceLandmarker", err);
+      }
+    }
+    load();
+  }, []);
 
   useEffect(() => {
-    if (!stream || !active) {
+    if (!stream || !active || !isLoaded || !landmarkerRef.current) {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       return;
     }
 
-    // Create hidden video element to read stream
     const vid = document.createElement('video');
     vid.srcObject = stream;
     vid.muted = true;
     vid.play().catch(() => { });
     videoRef.current = vid;
 
-    // Create offscreen canvas for analysis (low res for performance)
-    const cvs = document.createElement('canvas');
-    cvs.width = 64;
-    cvs.height = 48;
-    ctxRef.current = cvs.getContext('2d', { willReadFrequently: true });
-
-    let staticFrames = 0;
-    let motionAccumulator = 0;
-    let frames = 0;
-
     const analyze = () => {
-      if (!ctxRef.current || !videoRef.current) return;
+      if (!videoRef.current || !landmarkerRef.current) return;
 
-      const ctx = ctxRef.current;
-      const width = 64;
-      const height = 48;
+      const vid = videoRef.current;
+      if (vid.videoWidth === 0 || vid.videoHeight === 0) {
+        rafRef.current = requestAnimationFrame(analyze);
+        return;
+      }
 
-      ctx.drawImage(videoRef.current, 0, 0, width, height);
-      const start = Date.now();
-      const imageData = ctx.getImageData(0, 0, width, height);
-      const data = imageData.data;
+      if (vid.currentTime !== lastVideoTimeRef.current) {
+        lastVideoTimeRef.current = vid.currentTime;
+        const result = landmarkerRef.current.detectForVideo(vid, performance.now());
 
-      let score = 0; // Total pixel change
-      let pixels = 0;
+        if (result.faceLandmarks.length > 0) {
+          setIsAway(false);
+          const landmarks = result.faceLandmarks[0];
 
-      if (prevFrameRef.current) {
-        const prev = prevFrameRef.current;
-        // Sample every 4th pixel for speed
-        for (let i = 0; i < data.length; i += 16) {
-          const r = Math.abs(data[i] - prev[i]);
-          const g = Math.abs(data[i + 1] - prev[i + 1]);
-          const b = Math.abs(data[i + 2] - prev[i + 2]);
-          // Sensitivity threshold
-          if (r + g + b > 30) score++;
-          pixels++;
+          // 1. Focus Calculation (Head Pose)
+          // Heuristic: Face centering and orientation (Yaw/Pitch)
+          // Landmarks: 1=Nose, 33=LeftEye, 263=RightEye, 152=Chin, 10=TopHead
+
+          // Yaw: Nose X relative to Eye Center X
+          const leftEye = landmarks[33];
+          const rightEye = landmarks[263];
+          const midEyeX = (leftEye.x + rightEye.x) / 2;
+          const nose = landmarks[1];
+          const yawDiff = nose.x - midEyeX;
+
+          // Pitch: Nose Y relative to Eye Center Y vs Chin/TopHead? 
+          // Simplification: Nose Y should be roughly between eyes and mouth.
+          // If nose is too high (looking up) or too low (looking down/phone).
+          // We can just use the aspect ratio of the face vertical vs horizontal to detect strict up/down but let's stick to simple "looking direction".
+
+          const isLookingAway = Math.abs(yawDiff) > 0.12; // Threshold for looking sideways (~15 degrees)
+
+          if (isLookingAway) {
+            // Distracted (looking away) -> Count as "Away" for strict tracking
+            setIsAway(true);
+            setQuality(prev => Math.max(0, prev - 0.5)); // Drop fast
+          } else {
+            // Focused (looking at screen)
+            setIsAway(false);
+            setQuality(prev => Math.min(5, prev + 0.1)); // Recover slow
+          }
+
+          // Legacy Energy Removal (noop)
+          setEnergy(0);
+
+        } else {
+          // No face = Away
+          setIsAway(true);
+          setQuality(prev => Math.max(0, prev - 0.2)); // decay quality when away
         }
-      }
-
-      prevFrameRef.current = data;
-
-      // Normalize score (0.0 to 1.0)
-      const motion = Math.min(1, score / (pixels * 0.1)); // 10% change = max motion
-
-      // Energy: Map motion to 0-10 (smoothing)
-      // High motion -> High energy
-      motionAccumulator += motion;
-      frames++;
-
-      if (frames % 10 === 0) { // Update every ~150-200ms
-        const avgMotion = motionAccumulator / 10;
-        setEnergy(prev => {
-          const target = Math.round(avgMotion * 20); // Scale up
-          // Smooth transition
-          return Math.max(0, Math.min(10, Math.round(prev * 0.8 + target * 0.2)));
-        });
-        motionAccumulator = 0;
-      }
-
-      // Away Logic: Constant near-zero motion
-      if (motion < 0.005) { // Very still
-        staticFrames++;
-      } else {
-        staticFrames = 0;
-        setIsAway(false);
-      }
-
-      // If static for ~3 seconds (assuming 30-60fps, say 100 frames)
-      if (staticFrames > 100) {
-        setIsAway(true);
       }
 
       rafRef.current = requestAnimationFrame(analyze);
@@ -439,14 +455,12 @@ function useMotionAnalysis(stream: MediaStream | null, active: boolean) {
 
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      if (videoRef.current) {
-        videoRef.current.pause();
-        videoRef.current.srcObject = null;
-      }
+      vid.pause();
+      vid.srcObject = null;
     };
-  }, [stream, active]);
+  }, [stream, active, isLoaded]);
 
-  return { energy, isAway };
+  return { isAway, quality: Math.round(quality) };
 }
 
 /* ----------------------------- UI ----------------------------- */
@@ -462,11 +476,7 @@ export function PomodoroPro() {
 
   // planner meta
   const [intention, setIntention] = useState("");
-  const [tag, setTag] = useState<"Deep" | "Light">("Deep");
-  const [category, setCategory] = useState<Session["category"]>("Coding");
-  const [energyBefore, setEnergyBefore] = useState(6);
-  const [visibility, setVisibility] =
-    useState<Session["visibility"]>("PRIVATE");
+  // Removed tag, category, energyBefore, visibility states as feature was removed.
 
   // drift + interruptions
   const [awaySeconds, setAwaySeconds] = useState(0);
@@ -487,7 +497,9 @@ export function PomodoroPro() {
 
   // Video Analysis
   // Only analyze when working and camera is on
-  const { energy: videoEnergy, isAway: videoAway } = useMotionAnalysis(
+  // Video Analysis
+  // Only analyze when working and camera is on
+  const { isAway: videoAway, quality: videoQuality } = useMotionAnalysis(
     // @ts-ignore - explicitly accessing the exposed stream even if TS generic slightly off
     rec.stream,
     phase === "work" && running && rec.streamReady && !userStoppedCamera
@@ -497,9 +509,9 @@ export function PomodoroPro() {
   useEffect(() => {
     if (phase === "work" && running) {
       // Slowly blend video energy into visual energy state (optional visual feedback)
-      // setEnergyBefore(videoEnergy); // Or maybe allow it to drift?
+      // No-op after energy removal
     }
-  }, [videoEnergy, phase, running]);
+  }, [phase, running]);
 
   // Mini widget
   const [mini, setMini] = useState(false);
@@ -639,7 +651,7 @@ export function PomodoroPro() {
         lastSession: { phase: "work", endedAt: new Date().toISOString() },
       }));
       if (rec.state === "recording" || rec.state === "paused") rec.stop();
-      setEnergyAfter(energyBefore);
+      setEnergyAfter(6); // Default
       setShowReview(true);
     } else {
       setPhase("work");
@@ -660,7 +672,8 @@ export function PomodoroPro() {
     const actualSeconds = Math.max(0, plannedSeconds - seconds);
 
     let videoUrl: string | null = null;
-    if (rec.blob && visibility !== "PRIVATE") {
+    if (rec.blob) {
+      // Always upload if blob exists, visibility check removed
       const up = await uploadBlob(
         "/api/upload",
         rec.blob,
@@ -671,28 +684,28 @@ export function PomodoroPro() {
 
     const recData: Session = {
       ts: new Date().toISOString(),
-      intention,
-      tag,
-      category,
+      intention: intention || "(no title)",
+      tag: "Deep",
+      category: "Coding",
       phase: "work",
       plannedSeconds,
       actualSeconds,
       awaySeconds,
       idleSeconds,
       interruptions,
-      energyBefore,
-      energyAfter,
-      quality,
-      visibility,
+      energyBefore: 6,
+      energyAfter: energyAfter, // Still allow user to set this in review
+      quality: quality,         // Still allow user to set this in review
+      visibility: "PRIVATE",   // Still allow user to set this in review
       videoUrl: videoUrl ?? null,
     };
     setList((prev) => [...prev, recData]);
 
     const contentLines = [
       `Pomodoro — "${intention || "(no title)"}"`,
-      `Tag: ${tag} · ${category}`,
+      `Tag: Deep · Coding`,
       `Quality: ${quality}/5`,
-      `Energy: ${energyBefore}→${energyAfter}`,
+      `Energy: 6→${energyAfter}`,
       `Drift: away ${awaySeconds}s · idle ${idleSeconds}s`,
       `Interruptions: ${interruptions.length}`,
       videoUrl ? `Video: ${videoUrl}` : "",
@@ -702,7 +715,7 @@ export function PomodoroPro() {
 
     await postJSON("/api/posts", {
       feature: "PROGRESS",
-      visibility: visibility ?? "PRIVATE",
+      visibility: "PRIVATE",
       content: contentLines,
       joyScore: 0,
       connectionScore: 0,
@@ -815,621 +828,482 @@ export function PomodoroPro() {
   };
 
   return (
-    <>
-      {/* Top row */}
-      <div className="flex items-center justify-between text-sm text-neutral-600">
-        <div className="flex items-center gap-3">
-          <span className="inline-flex items-center gap-2">
-            <span
-              className={`h-2 w-2 rounded-full ${phase === "work"
-                ? "bg-emerald-400"
-                : phase === "short"
-                  ? "bg-sky-400"
-                  : "bg-violet-400"
-                }`}
-            />
-            <span className="font-medium">
-              {phase === "work" ? "Work" : phase === "short" ? "Short break" : "Long break"}
-            </span>
-          </span>
-          <span className="hidden sm:inline opacity-60">·</span>
-          <span className="hidden sm:inline opacity-80">
-            Cycle {cycleCount % s.cyclesUntilLong}/{s.cyclesUntilLong}
-          </span>
-          <span className="hidden sm:inline opacity-60">·</span>
-          <span className="hidden sm:inline opacity-80">
-            Today {s.completedToday}/{s.targetPerDay}
-          </span>
+    <ScrollStarfield>
+      <div className="min-h-screen text-white p-6 relative z-10">
+        <div className="max-w-6xl mx-auto grid gap-6">
+          <div className="flex items-center justify-between text-base font-medium text-white/80">
+            <div className="flex items-center gap-4">
+              <span className="inline-flex items-center gap-2">
+                <span
+                  className={`h-2.5 w-2.5 rounded-full ${phase === "work"
+                    ? "bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.8)]"
+                    : phase === "short"
+                      ? "bg-sky-400 shadow-[0_0_10px_rgba(56,189,248,0.8)]"
+                      : "bg-violet-400 shadow-[0_0_10px_rgba(167,139,250,0.8)]"
+                    }`}
+                />
+                <span className="font-bold text-white">
+                  {phase === "work" ? "Work" : phase === "short" ? "Short break" : "Long break"}
+                </span>
+              </span>
+              <span className="hidden sm:inline opacity-60">·</span>
+              <span className="hidden sm:inline text-white font-bold">
+                Cycle {cycleCount % s.cyclesUntilLong}/{s.cyclesUntilLong}
+              </span>
+              <span className="hidden sm:inline opacity-60">·</span>
+              <span className="hidden sm:inline text-white font-bold">
+                Today {s.completedToday}/{s.targetPerDay}
+              </span>
+            </div>
+            <button
+              className="btn-ghost text-sm text-white hover:bg-white/10 font-bold px-3 py-1 rounded-lg"
+              onClick={() => {
+                const next = !mini;
+                setMini(next);
+                userPinnedRef.current = next; // remember user intent
+              }}
+              aria-label={mini ? "Exit mini mode" : "Enter mini mode"}
+            >
+              {mini ? "↙ Expand" : "↗ Mini"}
+            </button>
+          </div>
+
         </div>
-        <button
-          className="btn-ghost text-sm"
-          onClick={() => {
-            const next = !mini;
-            setMini(next);
-            userPinnedRef.current = next; // remember user intent
-          }}
-          aria-label={mini ? "Exit mini mode" : "Enter mini mode"}
-        >
-          {mini ? "↙ Expand" : "↗ Mini"}
-        </button>
-      </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1.05fr_1.25fr]">
-        {/* LEFT — Modern timer card with gradient */}
-        <div className="grid gap-4">
-          <div className="rounded-[28px] border border-white/20 bg-gradient-to-br from-rose-500 via-red-500 to-orange-500 p-6 shadow-2xl">
-            <div className="text-white text-sm font-bold mb-4 uppercase tracking-wider">
-              Set Your Timer
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <WheelCard
-                big={mm}
-                prev={mmPrev}
-                next={mmNext}
-                label="min"
-                ariaLabel="minutes"
-              />
-              <WheelCard
-                big={ss}
-                prev={ssPrev}
-                next={ssNext}
-                label="sec"
-                ariaLabel="seconds"
-              />
-            </div>
-
-            {/* Controls */}
-            <div className="mt-6 flex flex-wrap items-center gap-3">
-              {!running ? (
-                <button
-                  className="rounded-xl bg-white text-rose-600 hover:bg-white/90 px-6 py-3 font-bold shadow-lg transition-all hover:scale-105"
-                  onClick={start}
-                  aria-label="Start"
-                >
-                  ▶ Start
-                </button>
-              ) : (
-                <button
-                  className="rounded-xl bg-white text-rose-600 hover:bg-white/90 px-6 py-3 font-bold shadow-lg transition-all"
-                  onClick={pause}
-                  aria-label="Pause"
-                >
-                  ❚❚ Pause
-                </button>
-              )}
-
-              <button
-                className="rounded-xl bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white border border-white/30 px-4 py-3 font-semibold transition-all"
-                onClick={reset}
-                aria-label="Reset"
-              >
-                Reset ▢
-              </button>
-
-              <div className="ml-auto text-sm text-white font-semibold bg-white/20 backdrop-blur-sm px-4 py-2 rounded-lg">
-                Ends {endLabel}
-              </div>
-            </div>
-
-            {/* Editable duration (current phase) */}
-            <div className="mt-5 p-4 bg-white/10 backdrop-blur-md rounded-xl border border-white/20">
-              <div className="text-white text-xs font-bold mb-3 uppercase tracking-wider">
-                Set {phase === "work" ? "Work" : phase === "short" ? "Short" : "Long"} Duration
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <input
-                  type="number"
-                  min={0}
-                  className="input h-12 w-20 bg-white text-rose-600 font-bold text-center text-lg border-2 border-white/30 rounded-lg"
-                  value={editMin}
-                  onChange={(e) => setEditMin(Math.max(0, Number(e.target.value)))}
-                  aria-label="minutes input"
-                />
-                <span className="text-white text-2xl font-bold">:</span>
-                <input
-                  type="number"
-                  min={0}
-                  max={59}
-                  className="input h-12 w-20 bg-white text-rose-600 font-bold text-center text-lg border-2 border-white/30 rounded-lg"
-                  value={editSec}
-                  onChange={(e) =>
-                    setEditSec(Math.max(0, Math.min(59, Number(e.target.value))))
-                  }
-                  aria-label="seconds input"
-                />
-                <button
-                  className="rounded-lg bg-white text-rose-600 hover:bg-white/90 px-4 py-3 text-sm font-bold transition-all ml-2"
-                  onClick={() => applyCustom(editMin, editSec)}
-                >
-                  Apply
-                </button>
-              </div>
-              <div className="flex flex-wrap items-center gap-2 mt-3">
-                <button
-                  className="rounded-lg bg-white/20 hover:bg-white/30 text-white border border-white/30 px-3 py-2 text-xs font-semibold transition-all"
-                  onClick={() => applyCustom(25, 0)}
-                >
-                  25:00
-                </button>
-                <button
-                  className="rounded-lg bg-white/20 hover:bg-white/30 text-white border border-white/30 px-3 py-2 text-xs font-semibold transition-all"
-                  onClick={() => applyCustom(5, 0)}
-                >
-                  05:00
-                </button>
-                <button
-                  className="rounded-lg bg-white/20 hover:bg-white/30 text-white border border-white/30 px-3 py-2 text-xs font-semibold transition-all"
-                  onClick={() => applyCustom(15, 0)}
-                >
-                  15:00
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Upcoming (glass) */}
-          <div className="rounded-3xl border border-black/10 bg-white shadow-sm p-4 text-neutral-900">
-            <div className="text-xs font-bold opacity-60 uppercase tracking-widest text-neutral-500">UPCOMING</div>
-            <div className="mt-2 text-xl font-bold text-neutral-900">
-              {nextTask ? nextTask.text : intention || "No upcoming task"}
-            </div>
-            <div className="mt-1 text-sm font-medium text-neutral-600">
-              {endLabel} · {category}
-            </div>
-          </div>
-
-          {/* Planner controls (glass) */}
-          <div className="rounded-3xl border border-black/10 bg-white shadow-sm p-4 grid gap-4">
-            {/* Intention input — high contrast */}
-            <input
-              className="input h-12 bg-white border border-neutral-300 focus:border-neutral-500 text-black placeholder:text-neutral-400 font-medium text-base rounded-xl"
-              placeholder='Intention (e.g., "Design review")'
-              value={intention}
-              onChange={(e) => setIntention(e.target.value)}
-            />
-
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
-              <Field label="Tag">
-                <Select
-                  value={tag}
-                  onChange={(v) => setTag(v as "Deep" | "Light")}
-                  items={["Deep", "Light"]}
-                  light
-                />
-              </Field>
-              <Field label="Category">
-                <Select
-                  value={category}
-                  onChange={(v) => setCategory(v as Session["category"])}
-                  items={["Coding", "Reading", "Writing", "Study", "Admin", "Other"]}
-                  light
-                />
-              </Field>
-              <Field label="Energy">
-                <div className="flex items-center gap-2">
-                  {/* Visual bar for calculated energy */}
-                  <div className="flex-1 h-2 bg-neutral-100 rounded-full overflow-hidden relative" title={`Live Video Energy: ${videoEnergy}`}>
-                    <div className="absolute inset-y-0 left-0 bg-rose-500 transition-all duration-500" style={{ width: `${videoEnergy * 10}%`, opacity: 0.5 }} />
-                    <div className="absolute inset-y-0 left-0 bg-neutral-900 w-1 h-full" style={{ left: `${energyBefore * 10}%` }} />
+        <div className="grid gap-6">
+          {/* ROW 1: Timer & Camera */}
+          <div className="grid gap-6 md:grid-cols-[1.05fr_1.25fr]">
+            {/* Timer (Left) */}
+            <div className="grid gap-4">
+              <div className="rounded-[28px] border border-white/50 bg-black/20 backdrop-blur-md p-6 shadow-2xl relative overflow-hidden group">
+                <div className="relative z-10">
+                  <div className="text-white text-sm font-bold mb-4 uppercase tracking-wider">
+                    Set Your Timer
                   </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={10}
-                    value={energyBefore}
-                    onChange={(e) => setEnergyBefore(Number(e.target.value))}
-                    className="w-16 accent-neutral-900"
-                  />
-                  <span className="w-6 text-right font-bold tabular-nums">{energyBefore}</span>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <WheelCard
+                      big={mm}
+                      prev={mmPrev}
+                      next={mmNext}
+                      label="min"
+                      ariaLabel="minutes"
+                    />
+                    <WheelCard
+                      big={ss}
+                      prev={ssPrev}
+                      next={ssNext}
+                      label="sec"
+                      ariaLabel="seconds"
+                    />
+                  </div>
+
+                  {/* Controls */}
+                  <div className="mt-6 flex flex-wrap items-center gap-3">
+                    {!running ? (
+                      <button
+                        className="rounded-xl bg-white text-rose-600 hover:bg-white/90 px-6 py-3 font-bold shadow-lg transition-all hover:scale-105"
+                        onClick={start}
+                        aria-label="Start"
+                      >
+                        ▶ Start
+                      </button>
+                    ) : (
+                      <button
+                        className="rounded-xl bg-white text-rose-600 hover:bg-white/90 px-6 py-3 font-bold shadow-lg transition-all"
+                        onClick={pause}
+                        aria-label="Pause"
+                      >
+                        ❚❚ Pause
+                      </button>
+                    )}
+
+                    <button
+                      className="rounded-xl bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white border border-white/30 px-4 py-3 font-semibold transition-all"
+                      onClick={reset}
+                      aria-label="Reset"
+                    >
+                      Reset ▢
+                    </button>
+
+                    <div className="ml-auto text-sm text-white font-semibold bg-white/20 backdrop-blur-sm px-4 py-2 rounded-lg">
+                      Ends {endLabel}
+                    </div>
+                  </div>
+
+                  {/* Editable duration (current phase) */}
+                  <div className="mt-5 p-4 bg-white/10 backdrop-blur-md rounded-xl border border-white/20">
+                    <div className="text-white text-xs font-bold mb-3 uppercase tracking-wider">
+                      Set {phase === "work" ? "Work" : phase === "short" ? "Short" : "Long"} Duration
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <input
+                        type="number"
+                        min={0}
+                        className="input h-12 w-20 bg-white text-rose-600 font-bold text-center text-lg border-2 border-white/30 rounded-lg"
+                        value={editMin}
+                        onChange={(e) => setEditMin(Math.max(0, Number(e.target.value)))}
+                        aria-label="minutes input"
+                      />
+                      <span className="text-white text-2xl font-bold">:</span>
+                      <input
+                        type="number"
+                        min={0}
+                        max={59}
+                        className="input h-12 w-20 bg-white text-rose-600 font-bold text-center text-lg border-2 border-white/30 rounded-lg"
+                        value={editSec}
+                        onChange={(e) =>
+                          setEditSec(Math.max(0, Math.min(59, Number(e.target.value))))
+                        }
+                        aria-label="seconds input"
+                      />
+                      <button
+                        className="rounded-lg bg-white text-rose-600 hover:bg-white/90 px-4 py-3 text-sm font-bold transition-all ml-2"
+                        onClick={() => applyCustom(editMin, editSec)}
+                      >
+                        Apply
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 mt-3">
+                      <button
+                        className="rounded-lg bg-white/20 hover:bg-white/30 text-white border border-white/30 px-3 py-2 text-xs font-semibold transition-all"
+                        onClick={() => applyCustom(25, 0)}
+                      >
+                        25:00
+                      </button>
+                      <button
+                        className="rounded-lg bg-white/20 hover:bg-white/30 text-white border border-white/30 px-3 py-2 text-xs font-semibold transition-all"
+                        onClick={() => applyCustom(5, 0)}
+                      >
+                        05:00
+                      </button>
+                      <button
+                        className="rounded-lg bg-white/20 hover:bg-white/30 text-white border border-white/30 px-3 py-2 text-xs font-semibold transition-all"
+                        onClick={() => applyCustom(15, 0)}
+                      >
+                        15:00
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </Field>
-              <Field label="Post to">
-                <Select
-                  value={visibility ?? "PRIVATE"}
-                  onChange={(v) => setVisibility(v as Session["visibility"])}
-                  items={["PRIVATE", "FRIENDS", "PUBLIC"]}
-                  light
-                />
-              </Field>
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-sm">
-              <Num
-                label="Focus (min)"
-                value={Math.round(s.work / 60)}
-                onChange={(v) => setS((p) => ({ ...p, work: v * 60 }))}
-                min={5}
-                max={120}
-                light
-              />
-              <Num
-                label="Break (min)"
-                value={Math.round(s.short / 60)}
-                onChange={(v) => setS((p) => ({ ...p, short: v * 60 }))}
-                min={3}
-                max={60}
-                light
-              />
-              <Num
-                label="Rest (min)"
-                value={Math.round(s.long / 60)}
-                onChange={(v) => setS((p) => ({ ...p, long: v * 60 }))}
-                min={5}
-                max={60}
-                light
-              />
-              <Num
-                label="Cycles ↦ long"
-                value={s.cyclesUntilLong}
-                onChange={(v) =>
-                  setS((p) => ({ ...p, cyclesUntilLong: Math.max(1, v) }))
-                }
-                min={1}
-                max={10}
-                light
-              />
-              <Num
-                label="Target/day"
-                value={s.targetPerDay}
-                onChange={(v) =>
-                  setS((p) => ({ ...p, targetPerDay: Math.max(1, v) }))
-                }
-                min={1}
-                max={24}
-                light
-              />
+            {/* Camera (Right) */}
+            <div className="grid gap-4 h-fit">
+              <div className="rounded-3xl border border-white/50 bg-black/50 backdrop-blur-md shadow-sm p-4 grid md:grid-cols-2 gap-4">
+                <div className="rounded-xl overflow-hidden border border-white/30 bg-black/30 grid place-items-center aspect-video relative group">
+                  <video
+                    ref={rec.attachVideo}
+                    autoPlay
+                    muted
+                    playsInline
+                    className="w-full h-full object-cover"
+                    aria-label="Live camera preview"
+                  />
+                  {!rec.streamReady ? (
+                    <div className="absolute inset-0 grid place-items-center">
+                      <button
+                        onClick={() => {
+                          rec.ensureStream().catch(console.error);
+                          setUserStoppedCamera(false);
+                        }}
+                        className="bg-white text-black font-bold px-4 py-2 rounded-lg shadow-sm border border-neutral-300 hover:bg-neutral-50"
+                      >
+                        Enable Camera
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => {
+                          rec.cleanup();
+                          setUserStoppedCamera(true);
+                        }}
+                        className="bg-red-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm hover:bg-red-500"
+                      >
+                        Stop Camera
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <div className="grid content-start gap-3 text-sm text-neutral-700">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      {rec.error ? (
+                        <span className="text-red-500">{rec.error}</span>
+                      ) : rec.streamReady ? (
+                        <span className="text-green-600 font-medium flex items-center gap-1.5">
+                          <span className="relative flex h-2.5 w-2.5">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+                          </span>
+                          Camera active
+                        </span>
+                      ) : (
+                        <span>Camera off</span>
+                      )}
+                    </div>
+                  </div>
+                  {rec.blob && (
+                    <div className="grid gap-2">
+                      <div className="text-neutral-800">Last clip from finished block:</div>
+                      <video
+                        src={videoSrc}
+                        controls
+                        playsInline
+                        preload="metadata"
+                        className="w-full aspect-video bg-black/50"
+                      />
+                      <a
+                        className="btn-ghost w-max"
+                        href={videoSrc}
+                        download={`pomodoro-${Date.now()}.webm`}
+                      >
+                        Download video
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Tasks — glass */}
-          <TaskPanel
-            tasks={tasks}
-            addTask={addTask}
-            toggleTask={toggleTask}
-            removeTask={removeTask}
-            clearDone={clearDone}
-            lightMode={true}
-          />
+          {/* ROW 2: Tasks & Stats */}
+          <div className="grid gap-6 md:grid-cols-[1.05fr_1.25fr]">
+            {/* Left: Tasks/Planner */}
+            <div className="grid gap-4">
+              {/* Upcoming (glass) */}
+              <div className="rounded-3xl border border-white/50 bg-black/50 backdrop-blur-md shadow-sm p-4 text-white">
+                <div className="text-xs font-bold opacity-80 uppercase tracking-widest text-white/70">UPCOMING</div>
+                <div className="mt-2 text-xl font-bold text-white">
+                  {nextTask ? nextTask.text : intention || "No upcoming task"}
+                </div>
+                <div className="mt-1 text-sm font-bold text-white/80">
+                  {endLabel} · Focus
+                </div>
+              </div>
 
-          {/* Interruption ledger — glass */}
-          <div className="rounded-3xl border border-black/10 bg-white shadow-sm p-4">
-            <div className="font-bold text-neutral-900 mb-3">Interruption ledger</div>
-            <div className="flex gap-2">
-              <input
-                className="input w-full bg-white text-black border border-neutral-300 focus:border-neutral-500 placeholder:text-neutral-400 rounded-xl"
-                placeholder='Jot the urge (e.g., "check email")'
-                value={interruptNote}
-                onChange={(e) => setInterruptNote(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") addInterrupt();
-                }}
-              />
-              <button className="btn-ghost font-bold text-neutral-700 hover:bg-neutral-100 rounded-xl px-4" onClick={addInterrupt}>
-                Add
-              </button>
-            </div>
-            <ul className="mt-3 grid gap-2 text-sm">
-              {interruptions.map((txt, i) => (
-                <li
-                  key={i}
-                  className="rounded-lg border border-neutral-300 px-3 py-2 bg-neutral-50 text-neutral-900 font-medium"
-                >
-                  {txt}
-                </li>
-              ))}
-              {interruptions.length === 0 && (
-                <li className="text-neutral-500 italic px-1">Nothing yet — good sign.</li>
-              )}
-            </ul>
-          </div>
-        </div>
-
-        {/* RIGHT — timeline, camera, review, stats */}
-        <div className="grid gap-4">
-          {/* Timeline */}
-          <div className="rounded-3xl border border-black/10 bg-white shadow-sm p-4">
-            <div className="flex items-center justify-between mb-4">
-              <div className="text-lg font-bold text-neutral-900">Today</div>
-              <div className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">{list.length} recent</div>
-            </div>
-            <div className="relative pl-2">
-              <div className="pointer-events-none absolute left-[2.9rem] top-0 bottom-0 w-px bg-neutral-200" />
-              <div className="grid gap-4">
-                <TimelineCard
-                  color="bg-neutral-50 border-neutral-200"
-                  title={intention || (tasks[0] ? tasks[0].text : "Focus block")}
-                  time={`${new Date()
-                    .toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                    .replace(" ", "")}–${endLabel}`}
-                  subtitle="Current"
-                  icon="🧠"
+              {/* Planner controls (glass) */}
+              <div className="rounded-3xl border border-white/50 bg-black/50 backdrop-blur-md shadow-sm p-6 grid gap-6">
+                {/* Intention input — high contrast */}
+                <input
+                  className="input h-14 bg-white/5 border border-white/50 focus:border-white text-white placeholder:text-white/50 font-bold text-lg rounded-2xl backdrop-blur-sm px-4"
+                  placeholder='Intention (e.g., "Design review")'
+                  value={intention}
+                  onChange={(e) => setIntention(e.target.value)}
                 />
 
-                {/* Task Input */}
+                <div className="flex flex-wrap gap-4 text-sm justify-between">
+                  <Num
+                    label="Focus (min)"
+                    value={Math.round(s.work / 60)}
+                    onChange={(v) => setS((p) => ({ ...p, work: v * 60 }))}
+                    min={5}
+                    max={120}
+                  />
+                  <Num
+                    label="Break (min)"
+                    value={Math.round(s.short / 60)}
+                    onChange={(v) => setS((p) => ({ ...p, short: v * 60 }))}
+                    min={3}
+                    max={60}
+                  />
+                  <Num
+                    label="Rest (min)"
+                    value={Math.round(s.long / 60)}
+                    onChange={(v) => setS((p) => ({ ...p, long: v * 60 }))}
+                    min={5}
+                    max={60}
+                  />
+                  <Num
+                    label="Cycles ↦ long"
+                    value={s.cyclesUntilLong}
+                    onChange={(v) =>
+                      setS((p) => ({ ...p, cyclesUntilLong: Math.max(1, v) }))
+                    }
+                    min={1}
+                    max={10}
+                  />
+                  <Num
+                    label="Target/day"
+                    value={s.targetPerDay}
+                    onChange={(v) =>
+                      setS((p) => ({ ...p, targetPerDay: Math.max(1, v) }))
+                    }
+                    min={1}
+                    max={24}
+                  />
+                </div>
+              </div>
+
+              {/* Tasks — glass */}
+              <TaskPanel
+                tasks={tasks}
+                addTask={addTask}
+                toggleTask={toggleTask}
+                removeTask={removeTask}
+                clearDone={clearDone}
+              />
+
+              {/* Interruption ledger — glass */}
+              <div className="rounded-3xl border border-white/50 bg-black/50 backdrop-blur-md shadow-sm p-4">
+                <div className="font-bold text-white mb-3">Interruption ledger</div>
                 <div className="flex gap-2">
                   <input
-                    className="flex-1 bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-black/5"
-                    placeholder="Add upcoming task..."
-                    value={newTaskText}
-                    onChange={(e) => setNewTaskText(e.target.value)}
+                    className="input w-full bg-white/5 text-white border border-white/50 focus:border-white placeholder:text-white/50 rounded-xl font-bold"
+                    placeholder='Jot the urge (e.g., "check email")'
+                    value={interruptNote}
+                    onChange={(e) => setInterruptNote(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        addTask(newTaskText);
-                        setNewTaskText("");
-                      }
+                      if (e.key === "Enter") addInterrupt();
                     }}
                   />
-                  <button
-                    className="btn-ghost font-bold text-neutral-700 hover:bg-neutral-100 rounded-xl px-4 text-sm"
-                    onClick={() => {
-                      addTask(newTaskText);
-                      setNewTaskText("");
-                    }}
-                  >
+                  <button className="btn-ghost font-bold text-white hover:bg-white/20 hover:text-white rounded-xl px-4 border border-white/30" onClick={addInterrupt}>
                     Add
                   </button>
                 </div>
-
-                {/* Upcoming Tasks */}
-                {tasks.map((t) => (
-                  <div key={t.id} className="group relative">
-                    <TimelineCard
-                      color={t.done ? "bg-neutral-100 opacity-60" : "bg-white/10"}
-                      title={t.text}
-                      time={t.done ? "Done" : "Upcoming"}
-                      subtitle="Planned"
-                      icon={t.done ? "✅" : "📅"}
-                    />
-                    <button
-                      onClick={() => removeTask(t.id)}
-                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 text-red-500 rounded-md transition-opacity"
-                      title="Remove task"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
-                    </button>
-                  </div>
-                ))}
-                {list
-                  .slice(-3)
-                  .reverse()
-                  .map((x, i) => (
-                    <TimelineCard
+                <ul className="mt-3 grid gap-2 text-sm">
+                  {interruptions.map((txt, i) => (
+                    <li
                       key={i}
-                      color="bg-neutral-100"
-                      title={x.intention || "Completed block"}
-                      time={new Date(x.ts).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                      subtitle={`${x.category} · ${x.quality}/5`}
-                      icon="✅"
-                    />
+                      className="rounded-lg border border-white/30 px-3 py-2 bg-white/10 text-white font-bold"
+                    >
+                      {txt}
+                    </li>
                   ))}
+                  {interruptions.length === 0 && (
+                    <li className="text-white/50 italic px-1">Nothing yet — good sign.</li>
+                  )}
+                </ul>
               </div>
             </div>
-          </div>
 
-          {/* Camera panel */}
-          <div className="rounded-3xl border border-black/10 bg-white shadow-sm p-4 grid md:grid-cols-2 gap-4">
-            <div className="rounded-xl overflow-hidden border border-neutral-200 bg-black/5 grid place-items-center aspect-video relative group">
-              <video
-                ref={rec.attachVideo}
-                autoPlay
-                muted
-                playsInline
-                className="w-full h-full object-cover"
-                aria-label="Live camera preview"
-              />
-              {!rec.streamReady ? (
-                <div className="absolute inset-0 grid place-items-center">
-                  <button
-                    onClick={() => {
-                      rec.ensureStream().catch(console.error);
-                      setUserStoppedCamera(false);
-                    }}
-                    className="bg-white text-black font-bold px-4 py-2 rounded-lg shadow-sm border border-neutral-300 hover:bg-neutral-50"
-                  >
-                    Enable Camera
-                  </button>
-                </div>
-              ) : (
-                <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button
-                    onClick={() => {
-                      rec.cleanup();
-                      setUserStoppedCamera(true);
-                    }}
-                    className="bg-red-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm hover:bg-red-500"
-                  >
-                    Stop Camera
-                  </button>
-                </div>
-              )}
-            </div>
-            <div className="grid content-start gap-3 text-sm text-neutral-700">
-              <div className="flex items-center justify-between">
-                <div>
-                  {rec.error ? (
-                    <span className="text-red-500">{rec.error}</span>
-                  ) : rec.streamReady ? (
-                    <span className="text-green-600 font-medium flex items-center gap-1.5">
-                      <span className="relative flex h-2.5 w-2.5">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
-                      </span>
-                      Camera active
+            {/* Right: Stats & Review */}
+            <div className="grid gap-4 h-fit">
+              {showReview && (
+                <div className="rounded-3xl border border-black/10 bg-white shadow-sm p-4 grid gap-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-bold text-neutral-900">Session review</h3>
+                    <span className="text-xs font-medium text-neutral-500">
+                      {intention || "(no title)"}
                     </span>
-                  ) : (
-                    <span>Camera off</span>
-                  )}
-                </div>
-              </div>
-              {rec.blob && (
-                <div className="grid gap-2">
-                  <div className="text-neutral-800">Last clip from finished block:</div>
-                  <video
-                    src={videoSrc}
-                    controls
-                    playsInline
-                    preload="metadata"
-                    className="w-full aspect-video bg-black/50"
-                  />
-                  <a
-                    className="btn-ghost w-max"
-                    href={videoSrc}
-                    download={`pomodoro-${Date.now()}.webm`}
-                  >
-                    Download video
-                  </a>
+                  </div>
+                  <div className="grid md:grid-cols-3 gap-3 text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="w-24 font-medium text-neutral-700">Energy after</span>
+                      <input
+                        type="range"
+                        min={0}
+                        max={10}
+                        value={energyAfter}
+                        onChange={(e) => setEnergyAfter(Number(e.target.value))}
+                        className="w-full accent-rose-600"
+                      />
+                      <span className="w-8 font-bold text-neutral-900">{energyAfter}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-24 font-medium text-neutral-700">Quality</span>
+                      <Select
+                        value={String(quality)}
+                        onChange={(v) => setQuality(Number(v) as Session["quality"])}
+                        items={["1", "2", "3", "4", "5"]}
+                        light
+                      />
+                    </div>
+                    <div className="text-neutral-700 grid content-center">
+                      Drift: away <b className="text-neutral-900">{awaySeconds}s</b> · idle <b className="text-neutral-900">{idleSeconds}s</b>
+                    </div>
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-3">
+                    {/* Removed visibility UI */}
+                    {rec.blob && (
+                      <div className="grid gap-2">
+                        <span className="text-sm font-bold text-neutral-900">Recording</span>
+                        <video
+                          src={videoSrc}
+                          controls
+                          playsInline
+                          preload="metadata"
+                          className="w-full aspect-video bg-black/5 rounded-lg border border-neutral-200"
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <div className="grid gap-2">
+                    <button className="btn-gold bg-rose-600 hover:bg-rose-500 text-white border-none py-3 font-bold rounded-xl shadow-md" onClick={saveReview}>
+                      Save review & continue
+                    </button>
+                    <p className="text-xs text-neutral-500 italic">
+                      Heavy drift shortens the next block; excellent focus lengthens it.
+                    </p>
+                  </div>
                 </div>
               )}
-            </div>
-          </div>
 
-          {/* Review */}
-          {showReview && (
-            <div className="rounded-3xl border border-black/10 bg-white shadow-sm p-4 grid gap-3">
-              <div className="flex items-center justify-between">
-                <h3 className="font-bold text-neutral-900">Session review</h3>
-                <span className="text-xs font-medium text-neutral-500">
-                  {intention || "(no title)"}
-                </span>
-              </div>
-              <div className="grid md:grid-cols-3 gap-3 text-sm">
-                <div className="flex items-center gap-2">
-                  <span className="w-24 font-medium text-neutral-700">Energy after</span>
-                  <input
-                    type="range"
-                    min={0}
-                    max={10}
-                    value={energyAfter}
-                    onChange={(e) => setEnergyAfter(Number(e.target.value))}
-                    className="w-full accent-rose-600"
+              {/* Stats Bar Graphs */}
+              <div className="rounded-3xl border border-white/50 bg-black/50 backdrop-blur-md shadow-sm p-6 min-h-[220px]">
+                <div className="grid md:grid-cols-2 gap-6 h-full">
+                  <FocusWave
+                    title="Focus Quality (5 = Locked In)"
+                    data={list
+                      .slice(-20)
+                      .map((x) => x.quality as number)
+                      .concat(phase === "work" && running ? [videoQuality] : [])}
+                    max={5}
+                    color={videoQuality >= 4 ? "bg-emerald-500" : videoQuality >= 2 ? "bg-amber-400" : "bg-rose-500"}
                   />
-                  <span className="w-8 font-bold text-neutral-900">{energyAfter}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-24 font-medium text-neutral-700">Quality</span>
-                  <Select
-                    value={String(quality)}
-                    onChange={(v) => setQuality(Number(v) as Session["quality"])}
-                    items={["1", "2", "3", "4", "5"]}
-                    light
+                  <FocusWave
+                    title="Away Drift (%)"
+                    data={list
+                      .slice(-20)
+                      .map((x) =>
+                        Math.round(
+                          ((x.awaySeconds + x.idleSeconds) /
+                            Math.max(1, x.plannedSeconds)) *
+                          100
+                        )
+                      ).concat(
+                        phase === "work" && running
+                          ? [Math.round(((awaySeconds + idleSeconds) / Math.max(1, s.work)) * 100)]
+                          : []
+                      )}
+                    max={100}
+                    color="bg-white"
+                    inverse // Lower is better
                   />
                 </div>
-                <div className="text-neutral-700 grid content-center">
-                  Drift: away <b className="text-neutral-900">{awaySeconds}s</b> · idle <b className="text-neutral-900">{idleSeconds}s</b>
-                </div>
               </div>
-              <div className="grid md:grid-cols-2 gap-3">
-                <div className="grid gap-2">
-                  <span className="text-sm font-bold text-neutral-900">Post visibility</span>
-                  <Select
-                    value={visibility ?? "PRIVATE"}
-                    onChange={(v) => setVisibility(v as Session["visibility"])}
-                    items={["PRIVATE", "FRIENDS", "PUBLIC"]}
-                    light
-                  />
-                  <p className="text-xs text-neutral-500">
-                    If not private and a video exists, it will be attached.
-                  </p>
-                </div>
-                {rec.blob && (
-                  <div className="grid gap-2">
-                    <span className="text-sm font-bold text-neutral-900">Recording</span>
-                    <video
-                      src={videoSrc}
-                      controls
-                      playsInline
-                      preload="metadata"
-                      className="w-full aspect-video bg-black/5 rounded-lg border border-neutral-200"
-                    />
-                  </div>
-                )}
-              </div>
-              <div className="grid gap-2">
-                <button className="btn-gold bg-rose-600 hover:bg-rose-500 text-white border-none py-3 font-bold rounded-xl shadow-md" onClick={saveReview}>
-                  Save review & continue
-                </button>
-                <p className="text-xs text-neutral-500 italic">
-                  Heavy drift shortens the next block; excellent focus lengthens it.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Stats */}
-          <div className="rounded-3xl border border-black/10 bg-white shadow-sm p-4">
-            <div className="grid md:grid-cols-3 gap-4">
-              <SparkPanel
-                title="Away % (lower is better)"
-                data={list
-                  .slice(-7)
-                  .map((x) =>
-                    Math.round(
-                      ((x.awaySeconds + x.idleSeconds) /
-                        Math.max(1, x.plannedSeconds)) *
-                      100
-                    )
-                  ).concat(
-                    phase === "work" && running
-                      ? [Math.round(((awaySeconds + idleSeconds) / Math.max(1, s.work)) * 100)]
-                      : []
-                  )}
-                format={(v) => `${v}%`}
-              />
-              <SparkPanel
-                title="Quality"
-                data={list
-                  .slice(-7)
-                  .map((x) => x.quality)
-                  .concat(phase === "work" && running ? [4] : [])}
-                format={(v) => `${v}/5`}
-              />
-              <SparkPanel
-                title="Energy Δ"
-                data={list
-                  .slice(-7)
-                  .map((x) => x.energyAfter - x.energyBefore)
-                  .concat(
-                    phase === "work" && running && typeof videoEnergy === "number"
-                      ? [Math.max(-5, Math.min(5, Math.ceil(videoEnergy - energyBefore)))]
-                      : []
-                  )}
-                format={(v) => (v >= 0 ? `+${v}` : `${v}`)}
-              />
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Bottom Bar */}
-      <BottomBar
-        canStart={!running && phase === "work"}
-        onStart={start}
-        onPause={pause}
-        running={running}
-        onReset={reset}
-        lightMode={true}
-      />
-
-      {/* Mini Widget */}
-      {mini && (
-        <MiniWidget
-          running={running}
-          time={fmt(seconds)}
-          phase={phase}
+        {/* Bottom Bar */}
+        <BottomBar
+          canStart={!running && phase === "work"}
           onStart={start}
           onPause={pause}
+          running={running}
           onReset={reset}
-          onClose={() => {
-            setMini(false);
-            userPinnedRef.current = false;
-          }}
         />
-      )}
-    </>
+
+        {/* Mini Widget */}
+        {mini && (
+          <MiniWidget
+            running={running}
+            time={fmt(seconds)}
+            phase={phase}
+            onStart={start}
+            onPause={pause}
+            onReset={reset}
+            onClose={() => {
+              setMini(false);
+              userPinnedRef.current = false;
+            }}
+          />
+        )}
+      </div>
+    </ScrollStarfield>
   );
 }
 
@@ -1451,21 +1325,21 @@ function WheelCard({
   return (
     <div
       aria-label={ariaLabel}
-      className="bg-white/95 text-red-600 rounded-3xl px-6 py-4 grid place-items-center relative"
+      className="bg-white/5 backdrop-blur-md text-white rounded-3xl px-6 py-4 grid place-items-center relative border border-white/50"
     >
-      <div className="absolute inset-0 rounded-3xl ring-1 ring-black/10 pointer-events-none" />
+      <div className="absolute inset-0 rounded-3xl ring-1 ring-white/20 pointer-events-none" />
       <div className="grid place-items-center select-none">
-        <div className="text-3xl font-bold opacity-20 -mb-1 tabular-nums">
+        <div className="text-3xl font-bold opacity-50 -mb-1 tabular-nums">
           {String(prev).padStart(2, "0")}
         </div>
-        <div className="text-7xl leading-none font-extrabold tabular-nums">
+        <div className="text-7xl leading-none font-extrabold tabular-nums text-white drop-shadow-md">
           {String(big).padStart(2, "0")}
         </div>
-        <div className="text-3xl font-bold opacity-20 -mt-1 tabular-nums">
+        <div className="text-3xl font-bold opacity-50 -mt-1 tabular-nums">
           {String(next).padStart(2, "0")}
         </div>
       </div>
-      <div className="mt-2 text-sm text-red-600/70 font-semibold">{label}</div>
+      <div className="mt-2 text-sm text-white/80 font-bold">{label}</div>
     </div>
   );
 }
@@ -1473,7 +1347,7 @@ function WheelCard({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="flex items-center gap-2 text-sm">
-      <span className="w-28 text-neutral-200">{label}</span>
+      <span className="w-28 text-neutral-900">{label}</span>
       <div className="w-full">{children}</div>
     </label>
   );
@@ -1495,11 +1369,10 @@ function Num({
   light?: boolean;
 }) {
   return (
-    <label className="flex items-center gap-2">
-      <span className="w-32 text-neutral-200">{label}</span>
+    <label className="flex flex-col gap-1">
+      <span className="text-white/80 font-bold text-xs uppercase tracking-wider">{label}</span>
       <input
-        className={`input w-24 h-9 ${light ? "bg-white/90 text-black border-black/10" : "bg-white/10 text-white border-white/10"
-          }`}
+        className={`input w-24 h-12 bg-white/5 text-white border-2 border-white/30 focus:border-white rounded-xl text-center font-bold text-lg`}
         type="number"
         min={min}
         max={max}
@@ -1527,18 +1400,16 @@ function Select({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         style={{ WebkitAppearance: "none", MozAppearance: "none", appearance: "none" }}
-        className={`input h-10 pr-9 pl-3 appearance-none w-full ${light ? "bg-white text-neutral-900 border-neutral-300 font-medium" : "bg-white/10 text-white border-white/10"
-          }`}
+        className={`input h-10 pr-9 pl-3 appearance-none w-full bg-white/5 text-white border border-white/50 font-bold rounded-xl`}
       >
         {items.map((it) => (
-          <option key={it} value={it}>
+          <option key={it} value={it} className="bg-zinc-900 text-white">
             {it}
           </option>
         ))}
       </select>
       <svg
-        className={`pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 ${light ? "text-neutral-600" : "text-neutral-200"
-          }`}
+        className={`pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-white`}
         viewBox="0 0 20 20"
         fill="currentColor"
       >
@@ -1552,31 +1423,55 @@ function Select({
   );
 }
 
-function SparkPanel({
+function FocusWave({
   title,
   data,
-  format,
+  max,
+  color,
+  inverse
 }: {
   title: string;
   data: number[];
-  format: (n: number) => string;
+  max: number;
+  color: string;
+  inverse?: boolean;
 }) {
-  const max = Math.max(1, ...data.map((n) => Math.abs(n)));
   return (
-    <div className="rounded-2xl p-4 border border-neutral-200 bg-neutral-50">
-      <div className="text-sm font-bold mb-3 text-neutral-900">{title}</div>
-      <div className="flex items-end gap-1 h-16">
-        {data.map((v, i) => (
-          <div
-            key={i}
-            title={format(v)}
-            className="bg-rose-500 rounded-sm opacity-80 hover:opacity-100 transition-opacity"
-            style={{ height: `${Math.max(10, (Math.abs(v) / max) * 100)}%` }}
-          />
-        ))}
+
+    <div className="rounded-2xl p-5 border border-white/50 bg-white/5">
+      <div className="flex items-center justify-between mb-4">
+        <div className="text-sm font-bold text-white">{title}</div>
+        <div className="text-xs font-bold text-white/70">
+          {data.length > 0 ? data[data.length - 1] : "-"}
+        </div>
       </div>
-      <div className="text-xs font-semibold text-neutral-600 mt-2">
-        {data.map(format).join(" · ") || "—"}
+
+      <div className="flex items-end gap-1.5 h-24 w-full overflow-hidden">
+        {data.length === 0 && <div className="text-xs text-neutral-400 w-full text-center self-center">No data yet</div>}
+        {data.map((v, i) => {
+          // Show height relative to max (100%)
+          // If 'inverse' is true, we might want to color code differently?
+          // For now, let's just make sure 0 values show a tiny bar so it's not empty
+          let heightPct = Math.min(100, Math.max(5, (v / max) * 100));
+
+          // Color logic for 'inverse' (Away %):
+          // Low (good) = Green, High (bad) = Red
+          let barColor = color;
+          if (inverse) {
+            if (v < 10) barColor = "bg-emerald-500";
+            else if (v < 25) barColor = "bg-amber-400";
+            else barColor = "bg-rose-500";
+          }
+
+          return (
+            <div
+              key={i}
+              className={`rounded-t-md opacity-80 hover:opacity-100 transition-all duration-300 flex-1 min-w-[6px] ${barColor}`}
+              style={{ height: `${heightPct}%` }}
+              title={inverse ? `Away: ${v}%` : `Quality: ${v}`}
+            />
+          );
+        })}
       </div>
     </div>
   );
@@ -1633,16 +1528,16 @@ function TaskPanel({
 }) {
   const [text, setText] = useState("");
   return (
-    <div className={`rounded-3xl border p-4 shadow-sm ${lightMode ? "border-black/10 bg-white" : "border-white/10 bg-white/5"}`}>
+    <div className={`rounded-3xl border p-4 shadow-sm border-white/50 bg-black/50 backdrop-blur-md`}>
       <div className="flex items-center justify-between mb-3">
-        <div className="font-bold text-neutral-900">Tasks</div>
-        <button className="btn-ghost btn-xs text-neutral-500 hover:text-neutral-900" onClick={clearDone}>
+        <div className="font-bold text-white">Tasks</div>
+        <button className="btn-ghost btn-xs text-white/70 hover:text-white" onClick={clearDone}>
           Clear done
         </button>
       </div>
       <div className="flex gap-2 mb-4">
         <input
-          className="input w-full bg-white text-black border border-neutral-300 focus:border-neutral-500 placeholder:text-neutral-400 rounded-xl h-10"
+          className="input w-full bg-white/5 text-white border border-white/50 focus:border-white placeholder:text-white/50 rounded-xl h-10 font-medium"
           placeholder='Add a task (e.g., "Outline section 2")'
           value={text}
           onChange={(e) => setText(e.target.value)}
@@ -1654,7 +1549,7 @@ function TaskPanel({
           }}
         />
         <button
-          className="btn-ghost font-bold text-neutral-700 hover:bg-neutral-100 rounded-xl px-4"
+          className="btn-ghost font-bold text-white hover:bg-white/20 hover:text-white rounded-xl px-4 border border-white/30"
           onClick={() => {
             addTask(text);
             setText("");
@@ -1667,19 +1562,19 @@ function TaskPanel({
         {tasks.map((t) => (
           <li
             key={t.id}
-            className="rounded-xl border border-neutral-200 px-3 py-3 bg-neutral-50 flex items-center gap-3 transition-colors hover:border-neutral-300"
+            className="rounded-xl border border-white/30 px-3 py-3 bg-white/10 flex items-center gap-3 transition-colors hover:border-white/50"
           >
             <input
               checked={t.done}
               onChange={() => toggleTask(t.id)}
               type="checkbox"
-              className="checkbox checkbox-sm checkbox-primary border-neutral-400"
+              className="checkbox checkbox-sm checkbox-primary border-white/50"
             />
-            <span className={`font-medium ${t.done ? "line-through text-neutral-400" : "text-neutral-900"}`}>
+            <span className={`font-bold ${t.done ? "line-through text-white/40" : "text-white"}`}>
               {t.text}
             </span>
             <button
-              className="btn-ghost btn-xs ml-auto text-neutral-400 hover:text-red-500"
+              className="btn-ghost btn-xs ml-auto text-white/50 hover:text-red-500"
               onClick={() => removeTask(t.id)}
               aria-label="Delete"
             >
@@ -1688,7 +1583,7 @@ function TaskPanel({
           </li>
         ))}
         {tasks.length === 0 && (
-          <li className="text-neutral-500 italic px-1">No tasks yet — add one above.</li>
+          <li className="text-white/50 italic px-1">No tasks yet — add one above.</li>
         )}
       </ul>
     </div>
@@ -1701,20 +1596,19 @@ function BottomBar({
   onPause,
   running,
   onReset,
-  lightMode,
 }: {
   canStart: boolean;
   onStart: () => void;
   onPause: () => void;
   running: boolean;
   onReset: () => void;
-  lightMode?: boolean;
+  lightMode?: boolean; // deprecated prop, kept for interface compat but unused styles
 }) {
   return (
     <div className="fixed bottom-0 inset-x-0 z-50 pointer-events-none">
       <div className="w-full px-6 pb-5">
-        <div className={`pointer-events-auto rounded-[22px] px-6 py-4 flex items-center justify-between border shadow-lg transition-all ${lightMode ? "border-black/10 bg-white text-black" : "border-white/10 bg-white/5 text-white"}`}>
-          <button className={`btn-ghost font-bold ${lightMode ? "text-neutral-900 hover:bg-neutral-100" : "text-white/90"}`} aria-label="Open tasks">
+        <div className={`pointer-events-auto rounded-[22px] px-6 py-4 flex items-center justify-between border shadow-lg transition-all border-white/50 bg-black/60 backdrop-blur-xl text-white`}>
+          <button className={`btn-ghost font-bold text-white hover:bg-white/10 border border-white/20 rounded-xl px-4`} aria-label="Open tasks">
             Tasks
           </button>
           <div className="flex items-center gap-4">
@@ -1738,7 +1632,7 @@ function BottomBar({
               </button>
             )}
           </div>
-          <button className={`btn-ghost font-bold ${lightMode ? "text-neutral-900 hover:bg-neutral-100" : "text-white/90"}`} onClick={onReset} aria-label="Reset">
+          <button className={`btn-ghost font-bold text-white hover:bg-white/10 border border-white/20 rounded-xl px-4`} onClick={onReset} aria-label="Reset">
             Reset
           </button>
         </div>
@@ -1766,35 +1660,35 @@ function MiniWidget({
 }) {
   return (
     <div
-      className="fixed bottom-4 right-4 z-[60] rounded-2xl shadow-xl w-[280px] p-5 border border-black/10 bg-white text-neutral-900"
+      className="fixed bottom-4 right-4 z-[60] rounded-2xl shadow-xl w-[280px] p-5 border border-white/50 bg-black/70 backdrop-blur-xl text-white"
       role="dialog"
       aria-label="Pomodoro mini widget"
     >
       <div className="flex items-center justify-between mb-4">
-        <div className="text-xs font-bold uppercase tracking-wider text-neutral-500">
+        <div className="text-xs font-bold uppercase tracking-wider text-white/70">
           {phase === "work"
             ? "Work Phase"
             : phase === "short"
               ? "Short Break"
               : "Long Break"}
         </div>
-        <button className="btn-ghost btn-xs text-neutral-400 hover:text-black" onClick={onClose} aria-label="Close mini widget">
+        <button className="btn-ghost btn-xs text-white/50 hover:text-white" onClick={onClose} aria-label="Close mini widget">
           ✕
         </button>
       </div>
       <div className="grid place-items-center gap-4">
-        <div className="text-5xl font-bold tabular-nums tracking-tight text-neutral-900">{time}</div>
+        <div className="text-5xl font-bold tabular-nums tracking-tight text-white">{time}</div>
         <div className="flex items-center gap-3 w-full">
           {!running ? (
-            <button className="flex-1 btn-gold btn-sm bg-rose-600 hover:bg-rose-500 text-white border-none py-2 h-auto text-base" onClick={onStart}>
+            <button className="flex-1 btn-gold btn-sm bg-rose-600 hover:bg-rose-500 text-white border-none py-2 h-auto text-base shadow-md" onClick={onStart}>
               Start
             </button>
           ) : (
-            <button className="flex-1 btn-ghost btn-sm bg-neutral-100 hover:bg-neutral-200 text-neutral-900 py-2 h-auto text-base" onClick={onPause}>
+            <button className="flex-1 btn-ghost btn-sm bg-white/10 hover:bg-white/20 text-white border border-white/20 py-2 h-auto text-base" onClick={onPause}>
               Pause
             </button>
           )}
-          <button className="flex-1 btn-ghost btn-sm text-neutral-500 hover:text-neutral-900 py-2 h-auto text-base" onClick={onReset}>
+          <button className="flex-1 btn-ghost btn-sm text-white/50 hover:text-white border border-transparent hover:border-white/10 py-2 h-auto text-base" onClick={onReset}>
             Reset
           </button>
         </div>

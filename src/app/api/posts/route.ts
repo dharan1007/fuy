@@ -57,6 +57,21 @@ export async function POST(req: NextRequest) {
   // Check content moderation
   const moderation = moderateContent(content, title);
   if (!moderation.isAllowed) {
+    // Log the attempted violation
+    try {
+      await (prisma as any).moderationLog.create({
+        data: {
+          userId,
+          content: content,
+          reason: "BLOCK",
+          violations: JSON.stringify(moderation.violations),
+          severity: moderation.severity,
+        },
+      });
+    } catch (e) {
+      console.error("Failed to log moderation violation", e);
+    }
+
     return NextResponse.json(
       {
         error: "Content violates community guidelines",
@@ -143,6 +158,10 @@ export async function GET(req: NextRequest) {
     where.postType = type.toUpperCase();
   }
 
+  // Always filter out drafts unless specific scope handling says otherwise (e.g. "me" might want drafts, but we use separate endpoint)
+  where.status = "PUBLISHED";
+
+
   if (scope === "me") {
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -172,8 +191,35 @@ export async function GET(req: NextRequest) {
 
     where.userId = { in: [...ids] };
     where.visibility = { in: ["FRIENDS", "PUBLIC"] as VisibilityStr[] };
+  } else if (scope === "bloom") {
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const subscriptions = await prisma.subscription.findMany({
+      where: { subscriberId: userId },
+      select: { subscribedToId: true }
+    });
+
+    const subscribedIds = subscriptions.map(s => s.subscribedToId);
+    // Include self? Usually feed includes self, but Bloom might be strictly subscriptions. 
+    // Let's include self for now so user sees their own posts too if they want, or maybe strict.
+    // "only the content user subscribes will show up" -> strict.
+    where.userId = { in: subscribedIds };
+    // Visibility: They subbed, so they should see PUBLIC. FRIENDS if they are also friends?
+    // Start with PUBLIC. If friend logic is complex, maybe just Public for now or check friendship too.
+    where.visibility = "PUBLIC";
   } else {
     where.visibility = "PUBLIC";
+  }
+
+  // Fetch subscriptions for isSubscribed check if user is logged in
+  let mySubscriptions: Set<string> = new Set();
+  if (userId) {
+    const subs = await prisma.subscription.findMany({
+      where: { subscriberId: userId },
+      select: { subscribedToId: true }
+    });
+    subs.forEach(s => mySubscriptions.add(s.subscribedToId));
   }
 
   const posts = await prisma.post.findMany({
@@ -186,6 +232,8 @@ export async function GET(req: NextRequest) {
           id: true,
           email: true,
           profile: { select: { displayName: true, avatarUrl: true } },
+          followersCount: true, // Needed for UI
+          followingCount: true, // Needed for UI
         },
       },
       group: { select: { id: true, name: true } },
@@ -216,30 +264,62 @@ export async function GET(req: NextRequest) {
           id: true,
         },
       },
+      reactions: {
+        select: {
+          type: true,
+          userId: true,
+        },
+      },
+      reactionBubbles: {
+        take: 3,
+        orderBy: { createdAt: "desc" },
+        include: {
+          user: {
+            select: {
+              id: true,
+              profile: { select: { avatarUrl: true, displayName: true } }
+            }
+          }
+        }
+      },
       // Include all new post types
       chapterData: true,
       xrayData: true,
-      btsData: true,
+      simpleData: true,
       lillData: true,
       fillData: true,
       audData: true,
       chanData: true,
       pullUpDownData: {
         include: {
-          votes: userId ? {
-            where: {
-              userId,
-            },
-          } : false,
+          options: true, // Need all options for stats in detail view
+          votes: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  profile: { select: { displayName: true, avatarUrl: true } }
+                }
+              }
+            }
+          }
         },
       },
+      _count: {
+        select: {
+          likes: true,
+          comments: true,
+          shares: true,
+          reactionBubbles: true
+        }
+      }
     },
     take: 50,
-  });
+  } as any) as any;
 
   // Transform to include likes count, likedByMe, comments count, shares count
   // AND normalize media for specialized post types
-  const transformed = posts.map((post) => {
+  const transformed = posts.map((post: any) => {
     const normalizedMedia = [...post.media];
 
     // LILL: standard video
@@ -311,10 +391,22 @@ export async function GET(req: NextRequest) {
       ...post,
       media: normalizedMedia, // Use the enriched media array
       likes: post.likes?.length || 0,
-      likedByMe: userId ? post.likes?.some((like) => like.userId === userId) : false,
+      likedByMe: userId ? post.likes?.some((like: any) => like.userId === userId) : false,
       shares: post.shares?.length || 0,
+      isSubscribed: mySubscriptions.has(post.userId), // NEW: Add subscription status
       // Add user vote status for polls
       userVote: post.pullUpDownData?.votes?.[0]?.vote || null,
+
+      // Reactions Logic
+      reactionCounts: post.reactions.reduce((acc: any, r: any) => {
+        acc[r.type] = (acc[r.type] || 0) + 1;
+        return acc;
+      }, { W: 0, L: 0, CAP: 0, FIRE: 0 }),
+      userReaction: userId ? post.reactions.find((r: any) => r.userId === userId)?.type || null : null,
+
+      // Bubbles
+      topBubbles: post.reactionBubbles,
+      totalBubbles: post._count?.reactionBubbles || 0,
     };
   });
 

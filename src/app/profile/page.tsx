@@ -1,8 +1,7 @@
-// src/app/profile/page.tsx
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import ProfileEditor from "./_ProfileEditor";
+import ProfileView from "./ProfileView";
 
 export default async function ProfilePage() {
   const session = await getServerSession(authOptions);
@@ -10,5 +9,5 @@ export default async function ProfilePage() {
     const next = encodeURIComponent("/profile");
     redirect(`/join?next=${next}`);
   }
-  return <ProfileEditor />;
+  return <ProfileView />;
 }

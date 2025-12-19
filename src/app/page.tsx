@@ -1,7 +1,9 @@
 import HomeClient from '@/components/HomeClient';
+import { cookies } from 'next/headers';
 
 export const dynamic = 'force-dynamic';
 
 export default function Home() {
-  return <HomeClient />;
+  const isAdmin = cookies().has('fuy_admin_session');
+  return <HomeClient isAdmin={isAdmin} />;
 }

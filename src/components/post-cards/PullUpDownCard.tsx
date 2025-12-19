@@ -1,114 +1,164 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useSession } from 'next-auth/react';
-import { ArrowUp, ArrowDown } from 'lucide-react';
+import { Check, User } from 'lucide-react';
+
+type Option = {
+    id: string;
+    text: string;
+    voteCount: number;
+    specialDetails?: string | null;
+    uniqueDetails?: string | null;
+    taggedUser?: {
+        id: string;
+        profile?: {
+            displayName: string;
+        };
+    } | null;
+};
 
 type PullUpDownCardProps = {
     pullUpDown: {
         id: string;
         question: string;
-        optionA: string;
-        optionB: string;
-        optionACount: number;
-        optionBCount: number;
+        options: Option[];
     };
-    userVote?: string | null;
-    onVote?: (vote: 'A' | 'B') => void;
+    userVote?: string | null; // This will now be optionId
+    onVote?: (optionId: string) => void;
+    isAuthenticated?: boolean;
 };
 
-export default function PullUpDownCard({ pullUpDown, userVote, onVote }: PullUpDownCardProps) {
-    const { data: session } = useSession();
+export default function PullUpDownCard({ pullUpDown, userVote, onVote, isAuthenticated = false }: PullUpDownCardProps) {
     const [voting, setVoting] = useState(false);
     const [localVote, setLocalVote] = useState(userVote);
 
-    const totalVotes = pullUpDown.optionACount + pullUpDown.optionBCount;
-    const percentA = totalVotes > 0 ? (pullUpDown.optionACount / totalVotes) * 100 : 50;
-    const percentB = totalVotes > 0 ? (pullUpDown.optionBCount / totalVotes) * 100 : 50;
+    // Normalize Data (Handle both Flat Dummy Data and Nested Real API Data)
+    const data = (pullUpDown as any).pullUpDownData || pullUpDown;
+    const isDummy = pullUpDown.id.startsWith('dummy-');
 
-    const handleVote = async (vote: 'A' | 'B') => {
-        if (!session || voting || localVote) return;
+    // Calculate total votes
+    const [options, setOptions] = useState<Option[]>(data.options || []);
+    const totalVotes = options.reduce((acc, opt) => acc + opt.voteCount, 0);
+
+    const handleVote = async (optionId: string) => {
+        if (!isAuthenticated) return; // Should likely prompt login?
+        if (voting || localVote) return;
 
         setVoting(true);
-        setLocalVote(vote);
+        setLocalVote(optionId);
+
+        // Optimistic Update
+        setOptions(prev => prev.map(opt =>
+            opt.id === optionId ? { ...opt, voteCount: opt.voteCount + 1 } : opt
+        ));
+
+        // MOCK / DUMMY HANDLER
+        if (isDummy) {
+            // Simulate network delay
+            setTimeout(() => {
+                setVoting(false);
+                if (onVote) onVote(optionId);
+            }, 500);
+            return;
+        }
 
         try {
             const res = await fetch('/api/posts/pullupdown', {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    pullUpDownId: pullUpDown.id,
-                    vote,
+                    pullUpDownId: data.id, // Use inner ID for real data
+                    optionId,
                 }),
             });
 
             if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                console.error('Vote failed:', res.status, errData);
+                // Revert optimistic update
                 setLocalVote(null);
+                setOptions(prev => prev.map(opt =>
+                    opt.id === optionId ? { ...opt, voteCount: opt.voteCount - 1 } : opt
+                ));
             } else if (onVote) {
-                onVote(vote);
+                onVote(optionId);
             }
         } catch (error) {
+            console.error('Vote error exception:', error);
+            // Revert optimistic update
             setLocalVote(null);
+            setOptions(prev => prev.map(opt =>
+                opt.id === optionId ? { ...opt, voteCount: opt.voteCount - 1 } : opt
+            ));
         } finally {
             setVoting(false);
         }
     };
 
     return (
-        <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4">
-            <h3 className="text-lg font-bold mb-4">{pullUpDown.question}</h3>
-
-            <div className="space-y-3">
-                <button
-                    onClick={() => handleVote('A')}
-                    disabled={!!localVote || voting}
-                    className={`w-full p-4 rounded-xl border-2 transition-all ${localVote === 'A'
-                            ? 'border-green-500 bg-green-500/20'
-                            : 'border-white/20 hover:border-white/40 hover:bg-white/5'
-                        } disabled:cursor-not-allowed`}
-                >
-                    <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                            <ArrowUp className="w-5 h-5" />
-                            <span className="font-medium">{pullUpDown.optionA}</span>
+        <div
+            onClick={() => onVote && onVote('OPEN_MODAL')} // Hacky signal to parent or handle click separately? Better: use a separate prop or check target.
+            className="cursor-pointer bg-black/40 backdrop-blur-md border border-white rounded-3xl p-5 w-full hover:bg-black/60 transition-colors"
+        >
+            {/* User Header */}
+            <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-neutral-800 overflow-hidden border border-white/20">
+                    {(pullUpDown as any).user?.profile?.avatarUrl ? (
+                        <img src={(pullUpDown as any).user.profile.avatarUrl} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                            <User className="w-5 h-5 text-white/50" />
                         </div>
-                        <span className="text-sm text-white/60">{Math.round(percentA)}%</span>
-                    </div>
-                    <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
-                        <div
-                            className="h-full bg-green-500 transition-all duration-300"
-                            style={{ width: `${percentA}%` }}
-                        />
-                    </div>
-                </button>
-
-                <button
-                    onClick={() => handleVote('B')}
-                    disabled={!!localVote || voting}
-                    className={`w-full p-4 rounded-xl border-2 transition-all ${localVote === 'B'
-                            ? 'border-red-500 bg-red-500/20'
-                            : 'border-white/20 hover:border-white/40 hover:bg-white/5'
-                        } disabled:cursor-not-allowed`}
-                >
-                    <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                            <ArrowDown className="w-5 h-5" />
-                            <span className="font-medium">{pullUpDown.optionB}</span>
-                        </div>
-                        <span className="text-sm text-white/60">{Math.round(percentB)}%</span>
-                    </div>
-                    <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
-                        <div
-                            className="h-full bg-red-500 transition-all duration-300"
-                            style={{ width: `${percentB}%` }}
-                        />
-                    </div>
-                </button>
+                    )}
+                </div>
+                <div>
+                    <h4 className="font-bold text-white text-sm">{(pullUpDown as any).user?.profile?.displayName || 'Anonymous'}</h4>
+                    <p className="text-white/40 text-xs">Posted a PUD</p>
+                </div>
             </div>
 
-            <p className="text-xs text-white/40 mt-3 text-center">
-                {totalVotes} {totalVotes === 1 ? 'vote' : 'votes'}
-            </p>
+            <h3 className="text-xl font-bold mb-6 text-white leading-tight">{data.question || data.content}</h3>
+
+            <div className="space-y-3">
+                {options.map((option) => {
+                    const percent = totalVotes > 0 ? (option.voteCount / totalVotes) * 100 : 0;
+                    const isSelected = localVote === option.id;
+
+                    return (
+                        <button
+                            key={option.id}
+                            onClick={(e) => {
+                                e.stopPropagation(); // Prevent opening modal when voting
+                                handleVote(option.id);
+                            }}
+                            disabled={!!localVote || voting}
+                            className={`w-full group relative overflow-hidden rounded-xl border transition-all duration-300 text-left h-12 flex items-center ${isSelected
+                                ? 'border-white bg-white text-black'
+                                : 'border-white text-white hover:bg-white/10'
+                                }`}
+                        >
+                            {/* Progress Bar Background */}
+                            <div
+                                className={`absolute top-0 left-0 h-full transition-all duration-500 ${isSelected ? 'bg-neutral-200' : 'bg-white/10'
+                                    }`}
+                                style={{ width: `${percent}%`, opacity: isSelected ? 0 : 0.2 }}
+                            />
+
+                            <div className="relative z-10 w-full px-4 flex justify-between items-center">
+                                <span className={`font-medium ${isSelected ? 'text-black' : 'text-white'}`}>{option.text}</span>
+
+                                {isSelected && <Check className="w-5 h-5" />}
+                                {!isSelected && <span className="text-sm opacity-60">{Math.round(percent)}%</span>}
+                            </div>
+                        </button>
+                    );
+                })}
+            </div>
+
+            <div className="mt-4 flex items-center justify-between text-xs text-white/40">
+                <span>{totalVotes} votes</span>
+                {isDummy && <span className="text-white/60">Demo</span>}
+            </div>
         </div>
     );
 }

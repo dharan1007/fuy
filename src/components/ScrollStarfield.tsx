@@ -1,48 +1,50 @@
 'use client';
 
-import React, { useRef, Suspense } from 'react';
+import React, { useRef, Suspense, useEffect, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { Stars, ScrollControls, Scroll, useScroll, Sparkles } from '@react-three/drei';
+import { Stars, ScrollControls, Scroll, useScroll } from '@react-three/drei';
 import * as THREE from 'three';
 
-function StarfieldScene() {
+const FixedStarfieldScene = () => {
     const starsRef = useRef<THREE.Group>(null);
-    const scroll = useScroll();
-
     useFrame((state, delta) => {
         if (starsRef.current) {
-            const offset = scroll?.offset ?? 0;
-
-            if (scroll) {
-                // Landing mode: Scroll-driven with more dynamic movement
-                starsRef.current.rotation.x = offset * Math.PI * 0.6;
-                starsRef.current.rotation.y = offset * Math.PI * 0.3;
-                starsRef.current.position.z = offset * 25;
-            } else {
-                // Default mode: Auto-rotation
-                starsRef.current.rotation.y += delta * 0.05;
-                starsRef.current.rotation.x += delta * 0.02;
-            }
-
-            // Continuous rotation
-            starsRef.current.rotation.z += delta * 0.03;
+            starsRef.current.rotation.y += delta * 0.02;
+            starsRef.current.rotation.x += delta * 0.01;
         }
     });
 
     return (
         <group ref={starsRef}>
-            <Stars
-                radius={100}
-                depth={50}
-                count={8000}
-                factor={4}
-                saturation={0}
-                fade
-                speed={1}
-            />
+            <Stars radius={80} depth={40} count={10000} factor={6} saturation={0} fade speed={1} />
         </group>
     );
-}
+};
+
+const ScrollingStarfieldScene = () => {
+    const starsRef = useRef<THREE.Group>(null);
+    const scroll = useScroll();
+
+    useFrame((state, delta) => {
+        if (starsRef.current && scroll) {
+            const offset = scroll.offset;
+
+            // Constant "idle" animation
+            starsRef.current.rotation.x += delta * 0.01;
+            starsRef.current.rotation.y += delta * 0.02;
+
+            // Scroll-driven effects (additive to the idle motion)
+            starsRef.current.position.z = offset * 20; // Fly through effect
+            starsRef.current.rotation.z = offset * Math.PI * 0.5; // Twist effect on scroll
+        }
+    });
+
+    return (
+        <group ref={starsRef}>
+            <Stars radius={80} depth={40} count={10000} factor={6} saturation={0} fade speed={1} />
+        </group>
+    );
+};
 
 interface ScrollStarfieldProps {
     children?: React.ReactNode;
@@ -50,38 +52,63 @@ interface ScrollStarfieldProps {
 }
 
 export default function ScrollStarfield({ children, variant = 'default' }: ScrollStarfieldProps) {
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+        return () => setMounted(false);
+    }, []);
+
+    if (!mounted) return <div className="min-h-screen bg-black">{children}</div>;
+
+    const commonCanvasProps = {
+        camera: { position: [0, 0, 5], fov: 60 } as any,
+        gl: {
+            powerPreference: "high-performance",
+            antialias: false,
+            stencil: false,
+            depth: false,
+            alpha: true
+        } as any,
+        dpr: [1, 2] as [number, number]
+    };
+
     if (variant === 'landing') {
         return (
-            <div className="w-full h-screen bg-black">
-                <Suspense fallback={<div className="w-full h-full bg-black" />}>
-                    <Canvas camera={{ position: [0, 0, 5], fov: 45 }} gl={{ powerPreference: "high-performance", failIfMajorPerformanceCaveat: true }}>
-                        <color attach="background" args={['#000000']} />
-                        <ScrollControls pages={5} damping={0.2}>
-                            <Scroll>
-                                <StarfieldScene />
-                            </Scroll>
-                            <Scroll html style={{ width: '100%' }}>
-                                {children}
-                            </Scroll>
-                        </ScrollControls>
-                    </Canvas>
-                </Suspense>
+            <div className="relative w-full h-screen bg-black overflow-hidden">
+                <div className="absolute inset-0 z-0">
+                    <Suspense fallback={<div className="w-full h-full bg-black/90" />}>
+                        <Canvas {...commonCanvasProps}>
+                            <color attach="background" args={['#000000']} />
+                            <ScrollControls pages={5} damping={0.2}>
+                                <Scroll>
+                                    <ScrollingStarfieldScene />
+                                </Scroll>
+                                <Scroll html style={{ width: '100%' }}>
+                                    {children}
+                                </Scroll>
+                            </ScrollControls>
+                        </Canvas>
+                    </Suspense>
+                </div>
             </div>
         );
     }
 
-    // Default fixed background for Home, Login, Signup
+    // Default fixed background
     return (
         <>
-            <div className="fixed inset-0 z-[-1] bg-black pointer-events-none">
+            <div className="fixed inset-0 z-0 bg-black">
                 <Suspense fallback={<div className="w-full h-full bg-black" />}>
-                    <Canvas camera={{ position: [0, 0, 5], fov: 45 }} gl={{ powerPreference: "high-performance", failIfMajorPerformanceCaveat: true }}>
+                    <Canvas {...commonCanvasProps}>
                         <color attach="background" args={['#000000']} />
-                        <StarfieldScene />
+                        <FixedStarfieldScene />
                     </Canvas>
                 </Suspense>
             </div>
-            {children}
+            <div className="relative z-10 w-full">
+                {children}
+            </div>
         </>
     );
 }
