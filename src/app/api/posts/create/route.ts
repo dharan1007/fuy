@@ -193,12 +193,14 @@ export async function POST(request: NextRequest) {
                         data: {
                             postId: post.id,
                             question: pullUpDownData.question,
-                            optionA: pullUpDownData.optionA,
-                            optionB: pullUpDownData.optionB,
-                            optionACount: 0,
-                            optionBCount: 0,
                             allowMultiple: pullUpDownData.allowMultiple || false,
                             expiresAt: pullUpDownData.expiresAt,
+                            options: {
+                                create: [
+                                    { text: pullUpDownData.optionA },
+                                    { text: pullUpDownData.optionB }
+                                ]
+                            }
                         },
                     });
                 }
