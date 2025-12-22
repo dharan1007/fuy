@@ -92,10 +92,13 @@ export default function DashboardPage() {
                         px-4 w-full max-w-7xl
                     "
             >
+              <BondingMeteor />
               <StoreMeteor />
               <GroundingMeteor />
               <PomodoroMeteor />
               <OrdersMeteor />
+              <CanvasMeteor />
+              <HopinMeteor />
               <ChannelMeteor />
             </div>
 
@@ -130,9 +133,13 @@ export default function DashboardPage() {
         }
         
         /* Individual Meteor Shapes */
+        /* Individual Meteor Shapes - WHITE THEME UPDATE */
+        /* Individual Meteor Shapes */
+        /* Individual Meteor Shapes - UPDATED THEME */
         .meteor-store {
            border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
-           background: radial-gradient(circle at 30% 30%, #404040, #1a1a1a);
+           background: radial-gradient(circle at 30% 30%, #1a1a1a, #000000);
+           border: 1px solid rgba(255,255,255,0.3);
            box-shadow: 
               inset -10px -10px 20px rgba(0,0,0,0.8),
               inset 10px 10px 20px rgba(255,255,255,0.1),
@@ -141,47 +148,85 @@ export default function DashboardPage() {
         }
         .meteor-wrex {
            border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
-           background: radial-gradient(circle at 70% 20%, #4a2b69, #1e102e);
+           background: radial-gradient(circle at 70% 20%, #1a1a1a, #000000);
+           border: 1px solid rgba(255,255,255,0.3);
            box-shadow: 
               inset -10px -10px 20px rgba(0,0,0,0.8),
-              inset 10px 10px 20px rgba(216, 180, 254, 0.1),
-              0 0 30px rgba(168, 85, 247, 0.1);
+              inset 10px 10px 20px rgba(255,255,255,0.1),
+              0 0 30px rgba(255, 255, 255, 0.05);
            animation: float 7s ease-in-out infinite reverse;
         }
         .meteor-pomo {
            border-radius: 50% 50% 60% 40% / 50% 60% 30% 60%;
-           background: radial-gradient(circle at 20% 80%, #7c2d12, #290e05);
+           background: radial-gradient(circle at 20% 80%, #1a1a1a, #000000);
+           border: 1px solid rgba(255,255,255,0.3);
            box-shadow: 
               inset -10px -10px 20px rgba(0,0,0,0.8),
-              inset 10px 10px 20px rgba(253, 186, 116, 0.1),
-              0 0 30px rgba(249, 115, 22, 0.1);
+              inset 10px 10px 20px rgba(255,255,255,0.1),
+              0 0 30px rgba(255, 255, 255, 0.05);
            animation: float 8s ease-in-out infinite;
         }
         .meteor-orders {
            border-radius: 45% 55% 40% 60% / 55% 45% 60% 40%;
-           background: radial-gradient(circle at 40% 40%, #1e3a8a, #0f172a);
+           background: radial-gradient(circle at 40% 40%, #1a1a1a, #000000);
+           border: 1px solid rgba(255,255,255,0.3);
            box-shadow: 
               inset -10px -10px 20px rgba(0,0,0,0.8),
-              inset 10px 10px 20px rgba(147, 197, 253, 0.1),
-              0 0 30px rgba(59, 130, 246, 0.1);
+              inset 10px 10px 20px rgba(255,255,255,0.1),
+              0 0 30px rgba(255, 255, 255, 0.05);
            animation: float 9s ease-in-out infinite reverse;
         }
         .meteor-channel {
            border-radius: 40% 60% 60% 40% / 60% 40% 50% 50%;
-           background: radial-gradient(circle at 70% 30%, #b91c1c, #450a0a);
+           background: radial-gradient(circle at 70% 30%, #ffffff, #e5e5e5);
+           box-shadow: 
+              inset -10px -10px 20px rgba(0,0,0,0.2),
+              inset 10px 10px 20px rgba(255,255,255,1),
+              0 0 30px rgba(255, 255, 255, 0.2);
+           animation: float 8s ease-in-out infinite;
+        }
+        .meteor-bonding {
+           border-radius: 50% 40% 60% 50% / 60% 50% 40% 60%;
+           background: radial-gradient(circle at 30% 30%, #d90429, #8d021f);
            box-shadow: 
               inset -10px -10px 20px rgba(0,0,0,0.8),
-              inset 10px 10px 20px rgba(252, 165, 165, 0.1),
-              0 0 30px rgba(239, 68, 68, 0.1);
-           animation: float 8s ease-in-out infinite;
+              inset 10px 10px 20px rgba(255, 100, 100, 0.2),
+              0 0 30px rgba(217, 4, 41, 0.3);
+           animation: float 7s ease-in-out infinite;
+        }
+        .meteor-canvas {
+           border-radius: 60% 50% 40% 50% / 50% 60% 50% 40%;
+           background: radial-gradient(circle at 30% 30%, #1a1a1a, #000000);
+           border: 1px solid rgba(255,255,255,0.3);
+           box-shadow: 
+              inset -10px -10px 20px rgba(0,0,0,0.8),
+              inset 10px 10px 20px rgba(255,255,255,0.1),
+              0 0 30px rgba(255, 255, 255, 0.05);
+           animation: float 8s ease-in-out infinite reverse;
+        }
+        .meteor-hopin {
+           border-radius: 40% 50% 60% 50% / 50% 40% 50% 60%;
+           background: radial-gradient(circle at 30% 30%, #1a1a1a, #000000);
+           border: 1px solid rgba(255,255,255,0.3);
+           box-shadow: 
+              inset -10px -10px 20px rgba(0,0,0,0.8),
+              inset 10px 10px 20px rgba(255,255,255,0.1),
+              0 0 30px rgba(255, 255, 255, 0.05);
+           animation: float 6s ease-in-out infinite;
         }
 
         /* Crater effect overlay */
         .crater {
            position: absolute;
-           background: rgba(0,0,0,0.3);
            border-radius: 50%;
-           box-shadow: inset 2px 2px 5px rgba(0,0,0,0.5), 1px 1px 0 rgba(255,255,255,0.05);
+        }
+        .crater-dark {
+           background: rgba(0,0,0,0.2);
+           box-shadow: inset 2px 2px 5px rgba(0,0,0,0.4), 1px 1px 0 rgba(255,255,255,0.1);
+        }
+        .crater-light {
+           background: rgba(255,255,255,0.1);
+           box-shadow: inset 1px 1px 3px rgba(0,0,0,0.5), 1px 1px 0 rgba(255,255,255,0.1);
         }
 
         @keyframes float {
@@ -222,9 +267,11 @@ function GroundingMeteor() {
 
   return (
     <div onClick={() => router.push("/grounding")} className="meteor-card meteor-wrex group p-8">
-      {/* Craters for texture */}
-      <div className="crater w-4 h-4 top-10 left-12 opacity-50" />
-      <div className="crater w-8 h-6 bottom-16 right-10 opacity-40 rotate-12" />
+      {/* Craters - Light for Black Theme */}
+      <div className="crater crater-light w-4 h-4 top-10 left-12 opacity-40" />
+      <div className="crater crater-light w-8 h-6 bottom-16 right-10 opacity-30 rotate-12" />
+      <div className="crater crater-light w-3 h-3 top-20 right-20 opacity-40" />
+      <div className="crater crater-light w-6 h-6 bottom-8 left-14 opacity-20" />
 
       <div className="relative z-10 flex flex-col items-center">
         <h3 className="text-3xl font-black text-white mb-2 tracking-tighter group-hover:text-purple-300 transition-colors">WREX</h3>
@@ -259,8 +306,10 @@ function PomodoroMeteor() {
 
   return (
     <div onClick={() => router.push("/pomodoro")} className="meteor-card meteor-pomo group p-8">
-      <div className="crater w-6 h-6 top-8 right-16 opacity-30" />
-      <div className="crater w-3 h-3 bottom-12 left-20 opacity-40" />
+      <div className="crater crater-light w-6 h-6 top-8 right-16 opacity-30" />
+      <div className="crater crater-light w-3 h-3 bottom-12 left-20 opacity-40" />
+      <div className="crater crater-light w-5 h-5 top-16 left-10 opacity-20" />
+      <div className="crater crater-light w-4 h-4 bottom-20 right-12 opacity-30" />
 
       <div className="relative z-10 flex flex-col items-center">
         <h3 className="text-2xl font-black text-white mb-3 tracking-tighter group-hover:text-orange-300 transition-colors">FOCUS</h3>
@@ -295,8 +344,10 @@ function StoreMeteor() {
 
   return (
     <div onClick={() => router.push("/dashboard/store")} className="meteor-card meteor-store group p-8">
-      <div className="crater w-10 h-10 top-1/2 left-4 opacity-20" />
-      <div className="crater w-5 h-5 top-10 right-10 opacity-30" />
+      <div className="crater crater-light w-10 h-10 top-1/2 left-4 opacity-20" />
+      <div className="crater crater-light w-5 h-5 top-10 right-10 opacity-30" />
+      <div className="crater crater-light w-4 h-4 bottom-10 left-16 opacity-25" />
+      <div className="crater crater-light w-6 h-6 top-20 right-24 opacity-15" />
 
       <div className="relative z-10 flex flex-col items-center">
         <h3 className="text-2xl font-black text-white mb-2 tracking-tighter group-hover:text-gray-300 transition-colors">STORE</h3>
@@ -316,8 +367,10 @@ function OrdersMeteor() {
   const router = useRouter();
   return (
     <div onClick={() => router.push("/dashboard/orders")} className="meteor-card meteor-orders group p-8">
-      <div className="crater w-8 h-8 top-8 left-10 opacity-30" />
-      <div className="crater w-4 h-4 bottom-10 right-8 opacity-40" />
+      <div className="crater crater-light w-8 h-8 top-8 left-10 opacity-30" />
+      <div className="crater crater-light w-4 h-4 bottom-10 right-8 opacity-40" />
+      <div className="crater crater-light w-6 h-6 top-16 right-16 opacity-20" />
+      <div className="crater crater-light w-3 h-3 bottom-20 left-12 opacity-30" />
 
       <div className="relative z-10 flex flex-col items-center">
         <h3 className="text-2xl font-black text-white mb-3 tracking-tighter group-hover:text-blue-300 transition-colors">ORDERS</h3>
@@ -336,16 +389,98 @@ function ChannelMeteor() {
   const router = useRouter();
   return (
     <div onClick={() => router.push("/dashboard/channel")} className="meteor-card meteor-channel group p-8">
-      <div className="crater w-6 h-6 top-10 right-10 opacity-30" />
-      <div className="crater w-12 h-8 bottom-6 left-6 opacity-20 rotate-45" />
+      {/* Craters - Dark for White Theme */}
+      <div className="crater crater-dark w-6 h-6 top-10 right-10 opacity-20" />
+      <div className="crater crater-dark w-12 h-8 bottom-6 left-6 opacity-15 rotate-45" />
+      <div className="crater crater-dark w-4 h-4 top-20 left-12 opacity-25" />
+      <div className="crater crater-dark w-5 h-5 bottom-20 right-20 opacity-20" />
 
       <div className="relative z-10 flex flex-col items-center">
-        <h3 className="text-2xl font-black text-white mb-3 tracking-tighter group-hover:text-red-300 transition-colors">CHANNEL</h3>
-        <span className="text-[10px] uppercase font-bold tracking-widest px-3 py-1 rounded-full mb-3 border bg-red-500/20 text-red-300 border-red-500/30">
+        <h3 className="text-2xl font-black text-black mb-3 tracking-tighter group-hover:text-red-600 transition-colors">CHANNEL</h3>
+        <span className="text-[10px] uppercase font-bold tracking-widest px-3 py-1 rounded-full mb-3 border bg-red-100/50 text-red-600 border-red-200">
           BROADCAST
         </span>
-        <div className="text-red-200/60 text-xs font-mono max-w-[140px]">
+        <div className="text-gray-600/80 text-xs font-mono max-w-[140px]">
           Manage shows, episodes & live streams.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BondingMeteor() {
+  const router = useRouter();
+  return (
+    <div onClick={() => router.push("/bonds")} className="meteor-card meteor-bonding group p-8">
+      {/* Craters - Dark for Red Theme */}
+      <div className="crater crater-dark w-5 h-5 top-12 left-10 opacity-30" />
+      <div className="crater crater-dark w-8 h-8 bottom-14 right-8 opacity-20" />
+      <div className="crater crater-dark w-4 h-4 top-8 right-16 opacity-25" />
+      <div className="crater crater-dark w-6 h-6 bottom-8 left-20 opacity-15" />
+
+      <div className="relative z-10 flex flex-col items-center">
+        <h3 className="text-2xl font-black text-white mb-3 tracking-tighter group-hover:text-red-300 transition-colors">BONDING</h3>
+        <div className="p-2 bg-red-500/20 rounded-full mb-3 text-red-300 border border-red-500/30">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M19 14c1.49-1.28 3.6-2.35 4.54-3.56C24.8 9.07 24.31 7.15 23.36 6c-1.26-1.52-3.23-2-5.36-1.53C16.33 4.8 14.86 6.06 14 7c-1.55 1.7-2.79 3.32-3.14 3.73-.55 1.05-.18 3.2.35 4.67.68 1.86 1.86 3.19 3.09 4.3 1.12.98 2.62 1.94 4.7 1.3z" />
+            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+          </svg>
+        </div>
+        <div className="text-red-200/60 text-xs font-mono max-w-[140px]">
+          Connection Metrics.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CanvasMeteor() {
+  const router = useRouter();
+  return (
+    <div onClick={() => router.push("/journal")} className="meteor-card meteor-canvas group p-8">
+      <div className="crater crater-light w-5 h-5 top-12 left-10 opacity-30" />
+      <div className="crater crater-light w-8 h-8 bottom-14 right-8 opacity-20" />
+      <div className="crater crater-light w-4 h-4 top-20 right-12 opacity-25" />
+      <div className="crater crater-light w-6 h-6 bottom-10 left-20 opacity-15" />
+
+      <div className="relative z-10 flex flex-col items-center">
+        <h3 className="text-2xl font-black text-white mb-3 tracking-tighter group-hover:text-cyan-300 transition-colors">CANVAS</h3>
+        <div className="p-2 bg-cyan-500/20 rounded-full mb-3 text-cyan-300 border border-cyan-500/30">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 19l7-7 3 3-7 7-3-3z" />
+            <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
+            <path d="M2 2l7.586 7.586" />
+            <circle cx="11" cy="11" r="2" />
+          </svg>
+        </div>
+        <div className="text-cyan-200/60 text-xs font-mono max-w-[140px]">
+          Creative Studio.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HopinMeteor() {
+  const router = useRouter();
+  return (
+    <div onClick={() => router.push("/hopin")} className="meteor-card meteor-hopin group p-8">
+      <div className="crater crater-light w-6 h-6 top-8 left-12 opacity-30" />
+      <div className="crater crater-light w-4 h-4 bottom-10 right-10 opacity-20" />
+      <div className="crater crater-light w-5 h-5 top-16 right-20 opacity-25" />
+      <div className="crater crater-light w-3 h-3 bottom-16 left-8 opacity-30" />
+
+      <div className="relative z-10 flex flex-col items-center">
+        <h3 className="text-2xl font-black text-white mb-3 tracking-tighter group-hover:text-yellow-300 transition-colors">HOPIN</h3>
+        <div className="p-2 bg-yellow-500/20 rounded-full mb-3 text-yellow-300 border border-yellow-500/30">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
+            <line x1="9" y1="3" x2="9" y2="18" />
+            <line x1="15" y1="6" x2="15" y2="21" />
+          </svg>
+        </div>
+        <div className="text-yellow-200/60 text-xs font-mono max-w-[140px]">
+          Social Plans.
         </div>
       </div>
     </div>

@@ -3,18 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import {
-    Frown,
-    Smile,
-    BookOpen,
-    Plus,
-    Trash2,
-    AlertTriangle,
-    ChevronLeft,
-    Search,
-    Clock,
-    Activity
-} from 'lucide-react';
+// Icons replaced with inline SVGs
 import styles from './BondingDashboard.module.css';
 
 // Types
@@ -224,12 +213,17 @@ export default function BondingDashboard() {
                 <div className={styles.header}>
                     <div className={styles.headerTop}>
                         <button className={styles.backButton} onClick={() => router.push('/messages')}>
-                            <ChevronLeft size={20} />
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
+                                <polyline points="15 18 9 12 15 6" />
+                            </svg>
                         </button>
                         <h2>Bonding</h2>
                     </div>
                     <div className={styles.searchBox}>
-                        <Search size={16} className={styles.searchIcon} />
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={styles.searchIcon} style={{ display: 'block' }}>
+                            <circle cx="11" cy="11" r="8" />
+                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        </svg>
                         <input
                             type="text"
                             placeholder="Search profiles..."
@@ -316,7 +310,12 @@ export default function BondingDashboard() {
                                     className={`${styles.menuItem} ${activeLocker === 'blacklist' ? styles.active : ''}`}
                                     onClick={() => setActiveLocker('blacklist')}
                                 >
-                                    <Frown size={20} />
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
+                                        <circle cx="12" cy="12" r="10" />
+                                        <path d="M16 16s-1.5-2-4-2-4 2-4 2" />
+                                        <line x1="9" y1="9" x2="9.01" y2="9" />
+                                        <line x1="15" y1="9" x2="15.01" y2="9" />
+                                    </svg>
                                     <span>Blacklist Locker</span>
                                     {tagCounts['BLACKLIST'] > 0 && <span className={styles.badge}>{tagCounts['BLACKLIST']}</span>}
                                 </button>
@@ -324,7 +323,12 @@ export default function BondingDashboard() {
                                     className={`${styles.menuItem} ${activeLocker === 'happy' ? styles.active : ''}`}
                                     onClick={() => setActiveLocker('happy')}
                                 >
-                                    <Smile size={20} />
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
+                                        <circle cx="12" cy="12" r="10" />
+                                        <path d="M8 14s1.5 2 4 2 4-2 4-2" />
+                                        <line x1="9" y1="9" x2="9.01" y2="9" />
+                                        <line x1="15" y1="9" x2="15.01" y2="9" />
+                                    </svg>
                                     <span>Happy Locker</span>
                                     {tagCounts['HAPPY'] > 0 && <span className={styles.badge}>{tagCounts['HAPPY']}</span>}
                                 </button>
@@ -332,7 +336,10 @@ export default function BondingDashboard() {
                                     className={`${styles.menuItem} ${activeLocker === 'fact' ? styles.active : ''}`}
                                     onClick={() => setActiveLocker('fact')}
                                 >
-                                    <BookOpen size={20} />
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
+                                        <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+                                        <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+                                    </svg>
                                     <span>Fact Warnings</span>
                                     {facts.length > 0 && <span className={styles.badge}>{facts.length}</span>}
                                 </button>
@@ -340,7 +347,9 @@ export default function BondingDashboard() {
                                     className={`${styles.menuItem} ${activeLocker === 'activities' ? styles.active : ''}`}
                                     onClick={() => setActiveLocker('activities')}
                                 >
-                                    <Activity size={20} />
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
+                                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                                    </svg>
                                     <span>Activities</span>
                                     {activities.length > 0 && <span className={styles.badge}>{activities.length}</span>}
                                 </button>
@@ -402,7 +411,10 @@ export default function BondingDashboard() {
                                                     <h3>Fact Warnings</h3>
                                                     <div className={styles.headerActions}>
                                                         <button className={styles.addButton} onClick={() => setShowAddFact(true)}>
-                                                            <Plus size={16} /> Add Warning
+                                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
+                                                                <line x1="12" y1="5" x2="12" y2="19" />
+                                                                <line x1="5" y1="12" x2="19" y2="12" />
+                                                            </svg> Add Warning
                                                         </button>
                                                     </div>
                                                 </div>
@@ -443,7 +455,11 @@ export default function BondingDashboard() {
                                                                     </div>
                                                                 </div>
                                                                 <div className={styles.factWarning}>
-                                                                    <AlertTriangle size={16} />
+                                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
+                                                                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                                                                        <line x1="12" y1="9" x2="12" y2="13" />
+                                                                        <line x1="12" y1="17" x2="12.01" y2="17" />
+                                                                    </svg>
                                                                     {fact.warningText}
                                                                 </div>
                                                                 {/* <button className={styles.deleteButton} onClick={() => handleDeleteFact(fact.id)}>

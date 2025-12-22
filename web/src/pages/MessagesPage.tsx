@@ -3,6 +3,7 @@
  * Displays conversations list with AI Assistant integration and real-time messaging
  */
 
+import { ArrowLeft, Flag, MoreVertical, Edit2, Check, X, Search, Paperclip, Smile } from 'lucide-react';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
@@ -819,11 +820,22 @@ function MessagesPageContent() {
                     title="View Bonding Dashboard"
                     onClick={() => router.push(`/bonds?profileId=${selectedConversation.participantId}`)}
                   >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: '#ffffff' }}>
-                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                      <circle cx="9" cy="7" r="4"></circle>
-                      <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                      <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                    <svg
+                      width="24"
+                      height="24"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="#ffffff"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      style={{ display: 'block', minWidth: '24px', minHeight: '24px', color: '#ffffff' }}
+                      className="text-white"
+                    >
+                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                      <circle cx="9" cy="7" r="4" />
+                      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
                     </svg>
                   </button>
 
@@ -841,12 +853,20 @@ function MessagesPageContent() {
                       onClick={() => setShowRetentionSettings(!showRetentionSettings)}
                       style={{ position: 'relative' }}
                     >
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: '#ffffff' }}>
-                        <circle cx="12" cy="12" r="1" />
-                        <path d="M12 1v6m0 6v6" />
-                        <path d="M4.22 4.22l4.24 4.24M15.54 15.54l4.24 4.24" />
-                        <path d="M1 12h6m6 0h6" />
-                        <path d="M4.22 19.78l4.24-4.24M15.54 8.46l4.24-4.24" />
+                      <svg
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="#ffffff"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        style={{ display: 'block', minWidth: '24px', minHeight: '24px', color: '#ffffff' }}
+                        className="text-white"
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <polyline points="12 6 12 12 16 14" />
                       </svg>
                     </button>
 
@@ -931,8 +951,19 @@ function MessagesPageContent() {
                       title="Collaborative features"
                       onClick={() => setShowFeatureModal('features')}
                     >
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: '#ffffff' }}>
-                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                      <svg
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="#ffffff"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        style={{ display: 'block', minWidth: '24px', minHeight: '24px', color: '#ffffff' }}
+                        className="text-white"
+                      >
+                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
                       </svg>
                     </button>
                   </div>
@@ -1631,8 +1662,20 @@ function MessagesPageContent() {
                     className={styles.sendButton}
                     onClick={handleSendMessage}
                   >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style={{ color: '#ffffff' }}>
-                      <path d="M16.6915026,12.4744748 L3.50612381,13.2599618 C3.19218622,13.2599618 3.03521743,13.4170592 3.03521743,13.5741566 L1.15159189,20.0151496 C0.8376543,20.8006365 0.99,21.89 1.77946707,22.52 C2.41,22.99 3.50612381,23.1 4.13399899,22.8429026 L21.714504,14.0454487 C22.6563168,13.5741566 23.1272231,12.6315722 22.9702544,11.6889879 L4.13399899,1.16296077 C3.34915502,0.9 2.40734225,1.00636533 1.77946707,1.4776575 C0.994623095,2.10604706 0.837654326,3.0486314 1.15159189,3.97788973 L3.03521743,10.4188827 C3.03521743,10.5759801 3.03521743,10.7330775 3.50612381,10.7330775 L16.6915026,11.5185644 C16.6915026,11.5185644 17.1624089,11.5185644 17.1624089,12.0374122 C17.1624089,12.4744748 16.6915026,12.4744748 16.6915026,12.4744748 Z" />
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="#ffffff"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      style={{ display: 'block', minWidth: '20px', minHeight: '20px', color: '#ffffff' }}
+                      className="text-white"
+                    >
+                      <line x1="22" y1="2" x2="11" y2="13" />
+                      <polygon points="22 2 15 22 11 13 2 9 22 2" />
                     </svg>
                   </button>
                 </div>

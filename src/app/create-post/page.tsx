@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { ArrowLeft, BookOpen, Search, Smartphone, Film, Music, Tv, PieChart, Image as ImageIcon, FileEdit } from 'lucide-react';
+import { ArrowLeft, BookOpen, Search, Smartphone, Film, Music, Clock, PieChart, Image as ImageIcon, FileEdit } from 'lucide-react';
 import Link from 'next/link';
 import ScrollStarfield from '@/components/ScrollStarfield';
 import DraftsList from '@/components/DraftsList';
@@ -15,10 +15,10 @@ import XrayForm from '@/components/post-forms/XrayForm';
 import LillForm from '@/components/post-forms/LillForm';
 import FillForm from '@/components/post-forms/FillForm';
 import AudForm from '@/components/post-forms/AudForm';
-import ChanForm from '@/components/post-forms/ChanForm';
+import ClockForm from '@/components/post-forms/ClockForm';
 import PullUpDownForm from '@/components/post-forms/PullUpDownForm';
 
-type PostType = 'SIMPLE' | 'CHAPTER' | 'XRAY' | 'LILL' | 'FILL' | 'AUD' | 'CHAN' | 'PULLUPDOWN' | null;
+type PostType = 'SIMPLE' | 'CHAPTER' | 'XRAY' | 'LILL' | 'FILL' | 'AUD' | 'CLOCK' | 'PULLUPDOWN' | null;
 
 const POST_TYPES = [
     {
@@ -64,10 +64,10 @@ const POST_TYPES = [
         gradient: 'from-indigo-500 to-purple-500',
     },
     {
-        type: 'CHAN' as const,
-        name: 'Chans',
-        description: 'Channels with episodes & schedules',
-        icon: <Tv size={32} />,
+        type: 'CLOCK' as const,
+        name: 'Clocks',
+        description: 'Timed stories (1-48 hours)',
+        icon: <Clock size={32} />,
         gradient: 'from-yellow-500 to-orange-500',
     },
     {
@@ -129,8 +129,8 @@ export default function CreatePostPage() {
                 return <FillForm {...props} />;
             case 'AUD':
                 return <AudForm {...props} />;
-            case 'CHAN':
-                return <ChanForm {...props} />;
+            case 'CLOCK':
+                return <ClockForm {...props} />;
             case 'PULLUPDOWN':
                 return <PullUpDownForm {...pProps} />;
             default:
