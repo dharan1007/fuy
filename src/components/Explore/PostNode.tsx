@@ -32,46 +32,100 @@ export function PostNode({ post, position, onClick }: PostNodeProps) {
                     onMouseEnter={() => setHovered(true)}
                     onMouseLeave={() => setHovered(false)}
                 >
-                    {/* Media Preview */}
-                    <div className="h-32 w-full bg-gray-900 relative overflow-hidden rounded-t-xl">
-                        {post.postType === 'SIMPLE' && post.simpleData?.mediaUrls ? (
-                            (() => {
-                                try {
-                                    const urls = JSON.parse(post.simpleData.mediaUrls);
-                                    const types = JSON.parse(post.simpleData.mediaTypes);
-                                    return types[0] === 'IMAGE' ? (
-                                        <img src={urls[0]} alt="Post" className="w-full h-full object-cover" />
-                                    ) : (
-                                        <video src={urls[0]} className="w-full h-full object-cover" />
-                                    );
-                                } catch (e) {
-                                    return <div className="w-full h-full bg-gray-800" />;
-                                }
-                            })()
-                        ) : post.media && post.media.length > 0 ? (
-                            post.media[0].type === 'IMAGE' ? (
+                    {/* Media Preview / Content Area */}
+                    <div className="h-32 w-full bg-gray-900 relative overflow-hidden rounded-t-xl group-hover:scale-105 transition-transform duration-500">
+                        {/* PUD Rendering */}
+                        {post.postType === 'PULLUPDOWN' || post.feature === 'PULLUPDOWN' ? (
+                            <div className="w-full h-full flex flex-col items-center justify-center bg-gray-800 text-yellow-400 p-2 text-center">
+                                <span className="text-3xl mb-1">📊</span>
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-white/80 line-clamp-2">
+                                    {post.question || post.content}
+                                </span>
+                            </div>
+                        ) : post.postType === 'AUD' ? (
+                            // Audio Rendering
+                            <div className="w-full h-full relative">
                                 <img
-                                    src={post.media[0].url}
-                                    alt="Post"
-                                    className="w-full h-full object-cover"
+                                    src={post.audData?.coverImageUrl || "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=300&auto=format&fit=crop"}
+                                    className="w-full h-full object-cover opacity-80"
+                                    alt="Audio Cover"
                                 />
-                            ) : (
-                                <video
-                                    src={post.media[0].url}
-                                    className="w-full h-full object-cover"
-                                />
-                            )
-                        ) : post.postType === 'PULLUPDOWN' ? (
-                            <div className="w-full h-full flex flex-col items-center justify-center bg-gray-800 text-yellow-400">
-                                <span className="text-4xl mb-2">📊</span>
-                                <span className="text-[10px] font-bold uppercase tracking-wider">Poll</span>
+                                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/30 backdrop-blur-[1px]">
+                                    <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 text-white shadow-lg">
+                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                                        </svg>
+                                    </div>
+                                    <div className="mt-2 text-center px-2">
+                                        <p className="text-[10px] font-bold text-white truncate w-full">{post.audData?.title || "Audio Track"}</p>
+                                        <p className="text-[8px] text-white/70 truncate w-full">{post.audData?.artist || post.user?.profile?.displayName}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : post.postType === 'LILL' || (post.postType === 'SIMPLE' && !post.media?.length && !post.simpleData?.mediaUrls) ? (
+                            // Text / Lill Rendering
+                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900 p-4">
+                                <p className="text-xs text-white/90 font-serif italic text-center leading-relaxed line-clamp-5">
+                                    "{post.content}"
+                                </p>
+                            </div>
+                        ) : post.postType === 'FILL' ? (
+                            // Fill (Video) Rendering
+                            <div className="w-full h-full relative bg-black">
+                                {post.fillData?.thumbnailUrl ? (
+                                    <img src={post.fillData.thumbnailUrl} className="w-full h-full object-cover" alt="Fill" />
+                                ) : post.media?.[0]?.url ? (
+                                    <video src={post.media[0].url} className="w-full h-full object-cover" muted />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center bg-gray-800">
+                                        <span className="text-2xl">🎬</span>
+                                    </div>
+                                )}
+                                <div className="absolute top-2 right-2 bg-black/60 rounded px-1.5 py-0.5 text-[8px] font-bold text-white border border-white/10">
+                                    FILL
+                                </div>
+                            </div>
+                        ) : post.postType === 'CHAPTER' ? (
+                            // Chapter Rendering
+                            <div className="w-full h-full flex flex-col items-center justify-center bg-[#1a1a1a] border-b border-white/5 relative overflow-hidden">
+                                <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white to-transparent" />
+                                <span className="text-3xl mb-2 opacity-80">📖</span>
+                                <span className="text-[10px] font-bold text-white/80 uppercase tracking-widest">Chapter</span>
+                                <p className="text-[9px] text-white/50 mt-1 max-w-[80%] text-center truncate">
+                                    {post.content || "Read more..."}
+                                </p>
+                            </div>
+                        ) : post.postType === 'XRAY' ? (
+                            // XRay Rendering
+                            <div className="w-full h-full bg-black relative border border-white/10 flex flex-col items-center justify-center overflow-hidden">
+                                <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/diagmonds-light.png')] opacity-20"></div>
+                                <span className="text-4xl animate-pulse text-cyan-400">⚡</span>
+                                <span className="text-[10px] font-mono text-cyan-400 mt-2">X-RAY VIEW</span>
                             </div>
                         ) : (
-                            <div className="w-full h-full flex items-center justify-center text-2xl">
-                                📄
-                            </div>
+                            // Default / Media Fallback
+                            <React.Fragment>
+                                {post.media && post.media.length > 0 ? (
+                                    post.media[0].type === 'IMAGE' ? (
+                                        <img
+                                            src={post.media[0].url}
+                                            alt="Post"
+                                            className="w-full h-full object-cover"
+                                        />
+                                    ) : (
+                                        <video
+                                            src={post.media[0].url}
+                                            className="w-full h-full object-cover"
+                                        />
+                                    )
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-2xl bg-gray-800">
+                                        📄
+                                    </div>
+                                )}
+                            </React.Fragment>
                         )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-60" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-60" />
                     </div>
 
                     {/* Mini Content */}

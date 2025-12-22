@@ -6,7 +6,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import GalaxyScene from '@/components/Explore/GalaxyScene';
 import { SearchOverlay } from '@/components/Explore/SearchOverlay';
 import { PostDetailModal } from '@/components/Explore/PostDetailModal';
-import { DUMMY_PUDS } from './dummyData';
+import { DUMMY_PUDS, DUMMY_CHANS } from './dummyData';
 
 interface Post {
   id: string;
@@ -88,8 +88,11 @@ export default function ExplorePage() {
 
         const [mainData, chanData, lillData, fillData, audData, chapterData, xrayData, pudData] = results;
 
-        setPosts(mainData);
-        setChans(chanData);
+        // Filter out Chans from main posts
+        const filteredMainData = mainData.filter((post: any) => post.postType !== 'CHAN' && post.feature !== 'CHAN');
+
+        setPosts(filteredMainData);
+        setChans(chanData && chanData.length > 0 ? chanData : DUMMY_CHANS as unknown as Post[]);
         setLils(lillData);
         setFills(fillData);
         setAuds(audData);
@@ -135,7 +138,7 @@ export default function ExplorePage() {
 
       {/* Globe Selector Tabs */}
       <div className="absolute top-24 left-1/2 transform -translate-x-1/2 z-20 flex gap-2 overflow-x-auto max-w-full px-4 pb-2 no-scrollbar">
-        {['Posts', 'Chans', 'Lils', 'Fills', 'Auds', 'Chaptes', 'X Rays', 'Puds'].map((tab) => (
+        {['Posts', 'Chans', 'Auds', 'Chaptes', 'X Rays', 'Puds'].map((tab) => (
           <button
             key={tab}
             onClick={() => { setActiveGlobe(tab); setSelectedPost(null); }}
@@ -164,21 +167,23 @@ export default function ExplorePage() {
         showLines={showLines}
       />
 
-      {/* Controls */}
-      <div className="absolute bottom-8 right-8 z-10 flex flex-col gap-4">
-        <button
-          onClick={() => setShowLines(!showLines)}
-          className={`p-3 rounded-full backdrop-blur-md border transition-all duration-300 ${showLines
-            ? 'bg-blue-500/20 border-blue-500/50 text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.3)]'
-            : 'bg-white/10 border-white/20 text-white/60 hover:bg-white/20'
-            }`}
-          title="Toggle Globe Lines"
-        >
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-          </svg>
-        </button>
-      </div>
+      {/* Controls - Hide for Chans, Fills, Puds */}
+      {!['Chans', 'Puds'].includes(activeGlobe) && (
+        <div className="absolute bottom-8 right-8 z-10 flex flex-col gap-4">
+          <button
+            onClick={() => setShowLines(!showLines)}
+            className={`p-3 rounded-full backdrop-blur-md border transition-all duration-300 ${showLines
+              ? 'bg-blue-500/20 border-blue-500/50 text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.3)]'
+              : 'bg-white/10 border-white/20 text-white/60 hover:bg-white/20'
+              }`}
+            title="Toggle Globe Lines"
+          >
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+            </svg>
+          </button>
+        </div>
+      )}
 
       {/* Post Modal */}
       {selectedPost && (

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Play } from 'lucide-react';
+import Link from 'next/link';
 
 type LillCardProps = {
     lill: {
@@ -10,20 +10,35 @@ type LillCardProps = {
         thumbnailUrl?: string | null;
         duration: number;
     };
+    user?: any;
 };
 
-export default function LillCard({ lill }: LillCardProps) {
+export default function LillCard({ lill, user }: LillCardProps) {
     return (
-        <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl overflow-hidden">
-            <div className="relative aspect-[9/16] max-h-[600px] bg-black">
-                <video
-                    src={lill.videoUrl}
-                    poster={lill.thumbnailUrl || undefined}
-                    controls
-                    className="w-full h-full object-contain"
-                />
-                <div className="absolute top-2 right-2 px-2 py-1 bg-black/70 rounded text-xs">
-                    {lill.duration}s
+        <div className="bg-black rounded-lg overflow-hidden relative h-full w-full aspect-[9/16] group">
+            {/* Full Height Video */}
+            <video
+                src={lill.videoUrl}
+                poster={lill.thumbnailUrl || undefined}
+                controls
+                className="w-full h-full object-cover"
+            />
+
+            {/* Overlay Details (Reels Style) */}
+            <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                    {user && (
+                        <Link href={`/profile/${user.id}`} className="shrink-0">
+                            <img
+                                src={user.profile?.avatarUrl || "https://api.dicebear.com/7.x/initials/svg?seed=User"}
+                                alt={user.profile?.displayName}
+                                className="w-8 h-8 rounded-full border border-white/20"
+                            />
+                        </Link>
+                    )}
+                    <span className="text-white font-bold text-sm shadow-black drop-shadow-md">
+                        {user?.profile?.displayName || 'User'}
+                    </span>
                 </div>
             </div>
         </div>

@@ -10,11 +10,13 @@ type Props = {
   accept?: string;
   /** DOM event channel name the component will dispatch to (window) */
   channel?: string;
+  /** Callback when upload completes */
+  onUpload?: (result: Uploaded) => void;
 };
 
 const DEFAULT_CHANNEL = "feed-upload";
 
-export default function UploadField({ accept = "image/*,video/*,audio/*", channel = DEFAULT_CHANNEL }: Props) {
+export default function UploadField({ accept = "image/*,video/*,audio/*", channel = DEFAULT_CHANNEL, onUpload }: Props) {
   const inp = useRef<HTMLInputElement | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -56,12 +58,17 @@ export default function UploadField({ accept = "image/*,video/*,audio/*", channe
         const type = detectType(f);
 
         const detail: Uploaded = { type, url, file: f };
+
+        // Dispatch event (legacy support)
         window.dispatchEvent(new CustomEvent(channel, { detail }));
+
+        // Call callback if provided
+        onUpload?.(detail);
       } finally {
         setBusy(false);
       }
     })();
-  }, [channel]);
+  }, [channel, onUpload]);
 
   return (
     <div

@@ -16,7 +16,7 @@ const FixedStarfieldScene = () => {
 
     return (
         <group ref={starsRef}>
-            <Stars radius={80} depth={40} count={10000} factor={6} saturation={0} fade speed={1} />
+            <Stars radius={80} depth={40} count={6000} factor={6} saturation={0} fade speed={1} />
         </group>
     );
 };
@@ -41,7 +41,7 @@ const ScrollingStarfieldScene = () => {
 
     return (
         <group ref={starsRef}>
-            <Stars radius={80} depth={40} count={10000} factor={6} saturation={0} fade speed={1} />
+            <Stars radius={80} depth={40} count={6000} factor={6} saturation={0} fade speed={1} />
         </group>
     );
 };
@@ -64,7 +64,7 @@ export default function ScrollStarfield({ children, variant = 'default' }: Scrol
     const commonCanvasProps = {
         camera: { position: [0, 0, 5], fov: 60 } as any,
         gl: {
-            powerPreference: "high-performance",
+            // powerPreference: "high-performance", // Removed to prevent context loss on lower-end devices
             antialias: false,
             stencil: false,
             depth: false,

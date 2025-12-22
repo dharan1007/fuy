@@ -96,7 +96,9 @@ export default function DashboardPage() {
               <GroundingMeteor />
               <PomodoroMeteor />
               <OrdersMeteor />
+              <ChannelMeteor />
             </div>
+
 
 
 
@@ -163,6 +165,15 @@ export default function DashboardPage() {
               inset 10px 10px 20px rgba(147, 197, 253, 0.1),
               0 0 30px rgba(59, 130, 246, 0.1);
            animation: float 9s ease-in-out infinite reverse;
+        }
+        .meteor-channel {
+           border-radius: 40% 60% 60% 40% / 60% 40% 50% 50%;
+           background: radial-gradient(circle at 70% 30%, #b91c1c, #450a0a);
+           box-shadow: 
+              inset -10px -10px 20px rgba(0,0,0,0.8),
+              inset 10px 10px 20px rgba(252, 165, 165, 0.1),
+              0 0 30px rgba(239, 68, 68, 0.1);
+           animation: float 8s ease-in-out infinite;
         }
 
         /* Crater effect overlay */
@@ -300,6 +311,7 @@ function StoreMeteor() {
   );
 }
 
+
 function OrdersMeteor() {
   const router = useRouter();
   return (
@@ -314,6 +326,26 @@ function OrdersMeteor() {
         </div>
         <div className="text-blue-200/60 text-xs font-mono max-w-[140px]">
           Track shipments & previous acquisitions.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ChannelMeteor() {
+  const router = useRouter();
+  return (
+    <div onClick={() => router.push("/dashboard/channel")} className="meteor-card meteor-channel group p-8">
+      <div className="crater w-6 h-6 top-10 right-10 opacity-30" />
+      <div className="crater w-12 h-8 bottom-6 left-6 opacity-20 rotate-45" />
+
+      <div className="relative z-10 flex flex-col items-center">
+        <h3 className="text-2xl font-black text-white mb-3 tracking-tighter group-hover:text-red-300 transition-colors">CHANNEL</h3>
+        <span className="text-[10px] uppercase font-bold tracking-widest px-3 py-1 rounded-full mb-3 border bg-red-500/20 text-red-300 border-red-500/30">
+          BROADCAST
+        </span>
+        <div className="text-red-200/60 text-xs font-mono max-w-[140px]">
+          Manage shows, episodes & live streams.
         </div>
       </div>
     </div>

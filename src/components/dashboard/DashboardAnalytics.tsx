@@ -56,7 +56,23 @@ interface AnalyticsData {
                 wCount: number;
                 createdAt: string;
             } | null;
+        }[] | null;
+    };
+    channel?: {
+        topShows: {
+            id: string;
+            title: string;
+            coverUrl: string | null;
+            episodesCount: number;
+            views: number;
+            avgDuration: number;
+            engagement: { likes: number; dislikes: number; w: number; l: number };
         }[];
+        audience: {
+            totalReactions: number;
+            sentiment: { W: number; L: number; FIRE: number; CAP: number };
+        };
+        currentViewers: number;
     };
 }
 
@@ -81,15 +97,21 @@ export default function DashboardAnalytics() {
     const [loading, setLoading] = useState(true);
     const router = useRouter();
 
+    const [error, setError] = useState<string | null>(null);
+
     useEffect(() => {
         fetch("/api/dashboard/analytics")
-            .then((res) => res.json())
+            .then((res) => {
+                if (!res.ok) throw new Error("Failed to load analytics");
+                return res.json();
+            })
             .then((d) => {
                 setData(d);
                 setLoading(false);
             })
             .catch((err) => {
                 console.error("Failed to fetch analytics", err);
+                setError(err.message);
                 setLoading(false);
             });
     }, []);
@@ -99,6 +121,14 @@ export default function DashboardAnalytics() {
             <div className="flex items-center justify-center p-12 text-white/50">
                 <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
                 <span className="ml-2 font-mono text-xs tracking-widest uppercase">Analyzing Data Streams...</span>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="flex items-center justify-center p-12 text-red-400/70 border border-red-500/20 rounded-2xl bg-red-900/10">
+                <span className="font-mono text-xs tracking-widest uppercase">System Malfunction: {error}</span>
             </div>
         );
     }
@@ -158,6 +188,71 @@ export default function DashboardAnalytics() {
                 <h2 className="text-2xl font-bold text-white tracking-tight">Mission Report</h2>
                 <p className="text-gray-400 text-sm">Performance metrics and crew interactions.</p>
             </div>
+
+            {/* CHANNEL ANALYTICS (NEW) */}
+            {data.channel && (
+                <div className="space-y-4">
+                    <h3 className="text-xl font-bold text-white pt-4">Channel Performance</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {/* Current Viewers */}
+                        <div className="bg-red-500/10 p-5 rounded-2xl border border-red-500/20 backdrop-blur-sm animate-pulse">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="w-2 h-2 bg-red-500 rounded-full" />
+                                <h3 className="text-xs font-bold text-red-400 uppercase tracking-widest">Live Audience</h3>
+                            </div>
+                            <div className="text-3xl font-black text-white">{data.channel.currentViewers}</div>
+                            <p className="text-[10px] text-red-300/50 mt-1">Currently watching across the galaxy</p>
+                        </div>
+
+                        {/* Audience Sentiment */}
+                        <div className="bg-transparent p-5 rounded-2xl border border-white/20 backdrop-blur-sm col-span-2">
+                            <h3 className="text-xs font-bold text-white uppercase tracking-widest mb-4">Audience Sentiment</h3>
+                            <div className="flex justify-between items-end gap-4">
+                                <div className="text-center">
+                                    <div className="text-2xl font-black text-green-400">{data.channel.audience.sentiment.W}</div>
+                                    <div className="text-[10px] text-gray-500 uppercase">Wins</div>
+                                </div>
+                                <div className="text-center">
+                                    <div className="text-2xl font-black text-red-400">{data.channel.audience.sentiment.L}</div>
+                                    <div className="text-[10px] text-gray-500 uppercase">Losses</div>
+                                </div>
+                                <div className="text-center">
+                                    <div className="text-2xl font-black text-orange-400">{data.channel.audience.sentiment.FIRE}</div>
+                                    <div className="text-[10px] text-gray-500 uppercase">Fire</div>
+                                </div>
+                                <div className="text-center">
+                                    <div className="text-2xl font-black text-blue-400">{data.channel.audience.sentiment.CAP}</div>
+                                    <div className="text-[10px] text-gray-500 uppercase">Cap</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Top Shows */}
+                    <h4 className="text-sm font-bold text-white/50 uppercase tracking-wider mt-4">Top Broadcasts</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        {data.channel.topShows.map(show => (
+                            <div key={show.id} className="bg-white/5 border border-white/10 p-4 rounded-xl flex gap-4">
+                                <div className="w-16 h-16 bg-black rounded-lg shrink-0 overflow-hidden">
+                                    {show.coverUrl ? (
+                                        <img src={show.coverUrl} className="w-full h-full object-cover" />
+                                    ) : (
+                                        <div className="w-full h-full bg-gray-800" />
+                                    )}
+                                </div>
+                                <div>
+                                    <h5 className="font-bold text-sm text-white line-clamp-1">{show.title}</h5>
+                                    <p className="text-xs text-blue-400 font-mono mt-1">{show.views.toLocaleString()} Views</p>
+                                    <div className="flex gap-2 mt-2 text-[10px] text-gray-400">
+                                        <span>👍 {show.engagement.likes}</span>
+                                        <span className="text-green-400">W {show.engagement.w}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -276,7 +371,7 @@ export default function DashboardAnalytics() {
                 {/* Feature Usage Chart */}
                 <div className="bg-transparent p-6 rounded-2xl border border-white/20 hover:border-white/40 transition-all backdrop-blur-sm">
                     <h3 className="text-sm font-bold text-white uppercase tracking-widest mb-6">System Usage</h3>
-                    <div className="h-64 w-full min-h-[250px]">
+                    <div className="relative w-full h-[250px]" style={{ width: '100%', height: '250px' }}>
                         {featureData.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
@@ -311,7 +406,7 @@ export default function DashboardAnalytics() {
                 {/* Content Performance */}
                 <div className="bg-transparent p-6 rounded-2xl border border-white/20 hover:border-white/40 transition-all backdrop-blur-sm">
                     <h3 className="text-sm font-bold text-white uppercase tracking-widest mb-6">Reaction Analysis</h3>
-                    <div className="h-64 w-full min-h-[250px]">
+                    <div className="relative w-full h-[250px]" style={{ width: '100%', height: '250px' }}>
                         {data.content.posts.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart

@@ -7,6 +7,8 @@ import UserListModal from "@/components/UserListModal";
 import ProfileHeader from "@/components/profile/ProfileHeader";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
+import ProfilePostsGrid from "@/components/profile/ProfilePostsGrid";
+import { SpaceBackground } from "@/components/SpaceBackground";
 
 const ProfileCardModal = dynamic(() => import("@/components/profile/ProfileCardModal").then(mod => mod.ProfileCardModal), { ssr: false });
 
@@ -104,7 +106,8 @@ export default function ProfileView() {
   };
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-sky-50 via-white to-white dark:from-neutral-900 dark:via-neutral-800 dark:to-neutral-900 pb-20">
+    <div className="min-h-screen bg-black relative pb-20 text-white">
+      <SpaceBackground />
       <AppHeader title="Profile" showSettingsAndLogout />
 
       {/* Header */}
@@ -123,67 +126,18 @@ export default function ProfileView() {
       />
 
       {/* Content card */}
-      <div className="mx-auto max-w-4xl px-4 sm:px-6 mt-12">
+      <div className="mx-auto max-w-4xl px-4 sm:px-6 mt-12 relative z-10">
         {/* Posts */}
         <section className="mb-12">
-          <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">Your Recent Posts</h2>
-          {data?.posts && (data.posts as Post[]).length > 0 ? (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {(data.posts as Post[]).map((p) => (
-                <article
-                  key={p.id}
-                  className="rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 shadow-sm dark:shadow-lg p-5 hover:shadow-md dark:hover:shadow-xl transition-all duration-200"
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200">
-                      {p.feature}
-                    </span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">{p.visibility}</span>
-                  </div>
-                  <p className="whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-200 mb-3 line-clamp-4">
-                    {p.content}
-                  </p>
-                  {p.media?.length > 0 && (
-                    <div className="mt-3 space-y-2">
-                      {p.media.map((m, i) =>
-                        m.type === "IMAGE" ? (
-                          <img
-                            key={i}
-                            src={m.url}
-                            alt="Post media"
-                            className="w-full h-48 object-cover rounded-lg"
-                          />
-                        ) : m.type === "VIDEO" ? (
-                          <video
-                            key={i}
-                            src={m.url}
-                            className="w-full h-48 object-cover rounded-lg"
-                            controls
-                            playsInline
-                          />
-                        ) : null
-                      )}
-                    </div>
-                  )}
-                  <div className="mt-3 text-xs text-gray-400 dark:text-gray-500">
-                    {new Date(p.createdAt).toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                      year: 'numeric'
-                    })}
-                  </div>
-                </article>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12 bg-white/50 dark:bg-neutral-800/50 rounded-xl border border-gray-200 dark:border-neutral-700">
-              <svg className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              <p className="mt-4 text-gray-500 dark:text-gray-400">No posts yet</p>
-              <p className="mt-1 text-sm text-gray-400 dark:text-gray-500">Start sharing your journey!</p>
-            </div>
-          )}
+          <ProfilePostsGrid
+            posts={(data?.posts || []).map((p: any) => ({
+              ...p,
+              // Ensure dates are strings or Date objects as expected
+              createdAt: p.createdAt
+            }))}
+            isMe={true}
+            onActionComplete={() => mutate()} // Revalidate SWR cache after actions
+          />
         </section>
 
         {/* My Brands */}
@@ -221,24 +175,24 @@ function MyBrandsSection() {
 
   return (
     <section className="mb-10">
-      <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">My Brands</h2>
+      <h2 className="text-xl font-bold mb-4 text-white">My Brands</h2>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {brands.map((brand: any) => (
           <div
             key={brand.id}
             onClick={() => router.push(`/shop/brand/${brand.slug}/dashboard`)}
-            className="cursor-pointer rounded-xl border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 shadow-sm p-5 hover:shadow-md transition-all flex items-center gap-4"
+            className="cursor-pointer rounded-xl border border-white/10 bg-white/5 shadow-sm p-5 hover:shadow-md transition-all flex items-center gap-4 hover:bg-white/10"
           >
             {brand.logoUrl ? (
               <img src={brand.logoUrl} alt={brand.name} className="w-12 h-12 rounded-full object-cover" />
             ) : (
-              <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-lg font-bold">
+              <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-lg font-bold text-white">
                 {brand.name[0]}
               </div>
             )}
             <div>
-              <h3 className="font-bold text-gray-900 dark:text-white">{brand.name}</h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Manage Brand →</p>
+              <h3 className="font-bold text-white">{brand.name}</h3>
+              <p className="text-xs text-gray-400">Manage Brand →</p>
             </div>
           </div>
         ))}

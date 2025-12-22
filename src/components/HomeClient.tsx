@@ -18,6 +18,7 @@ import ScrollStarfield from '@/components/ScrollStarfield';
 import LandingPage from '@/components/LandingPage/LandingPage';
 
 // Post type card components
+import SimplePostCard from '@/components/post-cards/SimplePostCard';
 import ChapterCard from '@/components/post-cards/ChapterCard';
 import XrayCard from '@/components/post-cards/XrayCard';
 
@@ -29,6 +30,7 @@ import PullUpDownCard from '@/components/post-cards/PullUpDownCard';
 import ReportModal from '@/components/ReportModal';
 import ReactionControl from '@/components/ReactionControl';
 import ReactionBubbleList from '@/components/ReactionBubbleList';
+import StoriesRail from '@/components/Feed/StoriesRail';
 import { MoreVertical, Flag } from 'lucide-react';
 
 interface UserProfile {
@@ -431,122 +433,62 @@ export default function HomeClient({ isAdmin = false }: { isAdmin?: boolean }) {
 
                     {/* Center Feed */}
                     <div className="space-y-6 px-3 sm:px-4 lg:px-8">
-
+                        {/* Stories Rail */}
+                        <StoriesRail />
 
                         {/* Posts Feed */}
-                        <div className="space-y-4">
+                        {/* Hybrid Grid Feed */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 auto-rows-auto">
                             {posts.length === 0 ? (
-                                <div className="text-center py-12 border border-white/20 rounded-lg bg-transparent backdrop-blur-md">
+                                <div className="col-span-1 md:col-span-2 text-center py-12 border border-white/20 rounded-lg bg-transparent backdrop-blur-md">
                                     <p className="text-white/70">No posts yet. Be the first to share!</p>
                                 </div>
                             ) : (
-                                posts.map((post: any) => (
-                                    <div key={post.id} className="border border-white/20 rounded-lg p-6 bg-transparent backdrop-blur-md hover:border-white/40 transition-colors">
-                                        <div className="flex items-start gap-4 mb-4">
-                                            <Link href={`/profile/${post.user.id}`} className="shrink-0">
-                                                <img
-                                                    src={post.user.profile?.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${post.user.profile?.displayName || post.user.email}`}
-                                                    alt={post.user.profile?.displayName || post.user.email}
-                                                    className="w-10 h-10 rounded-full border border-white/20 hover:opacity-80 transition-opacity"
-                                                />
-                                            </Link>
-                                            <div className="flex-1 min-w-0">
-                                                <Link href={`/profile/${post.user.id}`} className="hover:underline decoration-white/50">
-                                                    <div className="font-bold text-sm text-white">{post.user.profile?.displayName || post.user.email}</div>
-                                                </Link>
-                                                <div className="text-xs text-white/50">{new Date(post.createdAt).toLocaleDateString()}</div>
+                                posts.map((post: any) => {
+                                    // Determine Grid Spans
+                                    let spanClass = "col-span-1";
+
+                                    // Wide Cards (Chan, Fill) -> Span 2
+                                    if (post.postType === 'CHAN' || post.postType === 'FILL') {
+                                        spanClass = "col-span-1 md:col-span-2";
+                                    }
+
+                                    // Height/Row Spans are handled by the card's intrinsic aspect ratio,
+                                    // but we can enforce container behavior.
+                                    // Lill -> Tall (handled by aspect-ratio 9/16 in card)
+                                    // Aud -> Standard Square
+                                    // Simple -> Standard Square
+
+                                    return (
+                                        <div key={post.id} className={`${spanClass} flex flex-col relative`}>
+                                            <div className="absolute top-3 left-3 z-30 bg-black text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider shadow-sm pointer-events-none">
+                                                {post.postType || 'POST'}
                                             </div>
-                                            {/* Post Options Menu */}
-                                            <div className="relative">
-                                                <button
-                                                    onClick={() => setActiveMenuPostId(activeMenuPostId === post.id ? null : post.id)}
-                                                    className="p-1 text-white/40 hover:text-white transition-colors rounded-full hover:bg-white/10"
-                                                >
-                                                    <MoreVertical size={16} />
-                                                </button>
-                                                {activeMenuPostId === post.id && (
-                                                    <div className="absolute right-0 mt-2 w-32 bg-black/90 border border-white/20 rounded-lg shadow-xl overflow-hidden z-10 backdrop-blur-md">
-                                                        <button
-                                                            onClick={() => {
-                                                                setReportPostId(post.id);
-                                                                setReportModalOpen(true);
-                                                                setActiveMenuPostId(null);
-                                                            }}
-                                                            className="w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-white/10 flex items-center gap-2 transition-colors"
-                                                        >
-                                                            <Flag size={14} />
-                                                            Report
-                                                        </button>
-                                                    </div>
-                                                )}
-                                            </div>
+                                            {/* Render Card Type */}
+                                            {post.postType === 'CHAPTER' ? (
+                                                <ChapterCard post={post} onRefresh={fetchPosts} />
+                                            ) : post.postType === 'XRAY' && post.xrayData ? (
+                                                <XrayCard xray={post.xrayData} />
+                                            ) : post.postType === 'LILL' && post.lillData ? (
+                                                <LillCard lill={post.lillData} user={post.user} />
+                                            ) : post.postType === 'FILL' && post.fillData ? (
+                                                <FillCard fill={post.fillData} user={post.user} />
+                                            ) : post.postType === 'AUD' && post.audData ? (
+                                                <AudCard aud={post.audData} user={post.user} />
+                                            ) : post.postType === 'CHAN' && post.chanData ? (
+                                                <ChanCard chan={post.chanData} user={post.user} postId={post.id} />
+                                            ) : post.postType === 'PULLUPDOWN' && post.pullUpDownData ? (
+                                                <div className="bg-transparent">
+                                                    {/* PUDs maintain their own style - maybe wrap to fit grid? */}
+                                                    <PullUpDownCard pullUpDown={post.pullUpDownData} userVote={post.userVote} isAuthenticated={!!session} />
+                                                </div>
+                                            ) : (
+                                                // Default / Simple Post
+                                                <SimplePostCard post={post} onRefresh={fetchPosts} />
+                                            )}
                                         </div>
-
-                                        {/* Render type-specific card or standard content */}
-                                        {post.postType === 'CHAPTER' && post.chapterData ? (
-                                            <ChapterCard chapter={post.chapterData} />
-                                        ) : post.postType === 'XRAY' && post.xrayData ? (
-                                            <XrayCard xray={post.xrayData} />
-
-                                        ) : post.postType === 'LILL' && post.lillData ? (
-                                            <LillCard lill={post.lillData} />
-                                        ) : post.postType === 'FILL' && post.fillData ? (
-                                            <FillCard fill={post.fillData} />
-                                        ) : post.postType === 'AUD' && post.audData ? (
-                                            <AudCard aud={post.audData} />
-                                        ) : post.postType === 'CHAN' && post.chanData ? (
-                                            <ChanCard chan={post.chanData} />
-                                        ) : post.postType === 'PULLUPDOWN' && post.pullUpDownData ? (
-                                            <PullUpDownCard pullUpDown={post.pullUpDownData} userVote={post.userVote} isAuthenticated={!!session} />
-                                        ) : (
-                                            <>
-                                                <p className="text-sm text-white/80 mb-4 leading-relaxed">{post.content}</p>
-                                                {post.media && post.media.length > 0 && (
-                                                    <div className="grid grid-cols-2 gap-2 mb-4">
-                                                        {post.media.map((m: any, i: number) => (
-                                                            <img key={i} src={m.url} alt="post media" className="w-full h-32 object-cover rounded-lg bg-white/5" />
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </>
-                                        )}
-
-                                        <div className="mt-4">
-                                            {/* Reaction Bubbles */}
-                                            <div className="mb-3">
-                                                <ReactionBubbleList
-                                                    postId={post.id}
-                                                    bubbles={post.topBubbles || []}
-                                                    totalBubbles={post.totalBubbles || 0}
-                                                    onAddBubble={(newBubble) => {
-                                                        // Refresh posts to show new bubble (simple approach)
-                                                        fetchPosts();
-                                                    }}
-                                                />
-                                            </div>
-
-                                            {/* Action Bar */}
-                                            <div className="flex items-center gap-6 text-xs text-white/60 border-t border-white/10 pt-4">
-                                                <ReactionControl
-                                                    postId={post.id}
-                                                    initialReaction={post.userReaction}
-                                                    counts={post.reactionCounts || { W: 0, L: 0, CAP: 0, FIRE: 0 }}
-                                                    onReact={(type) => {
-                                                        // Optional: Global refresh or analytics
-                                                    }}
-                                                />
-
-                                                <button className="flex items-center gap-2 hover:text-white/80 transition-colors">
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                                                    </svg>
-                                                    <span>{post.comments?.length || post.comments || 0}</span>
-                                                </button>
-
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))
+                                    );
+                                })
                             )}
                         </div>
                     </div>

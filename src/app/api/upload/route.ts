@@ -7,7 +7,11 @@ import { createClient } from '@supabase/supabase-js';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+
+if (!process.env.SUPABASE_SERVICE_ROLE_KEY && !process.env.SUPABASE_SERVICE_ROLE) {
+  console.warn('⚠️ WARNING: SUPABASE_SERVICE_ROLE is missing. Uploads may fail due to RLS policies.');
+}
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -22,9 +26,9 @@ const r2 = new S3Client({
 });
 
 const FILE_SIZE_LIMITS = {
-  image: 10 * 1024 * 1024, // 10MB
-  video: 500 * 1024 * 1024, // 500MB
-  audio: 50 * 1024 * 1024, // 50MB
+  image: 20 * 1024 * 1024, // 20MB
+  video: 2 * 1024 * 1024 * 1024, // 2GB
+  audio: 100 * 1024 * 1024, // 100MB
 };
 
 const ALLOWED_MIME_TYPES = {
@@ -123,6 +127,14 @@ export async function POST(req: NextRequest) {
 
     if (error) {
       console.error('Supabase upload error:', error);
+
+      // Check for RLS error
+      if (error.message.includes('row-level security') || (error as any).statusCode === '403') {
+        return NextResponse.json({
+          error: 'Upload failed: Row-Level Security violation. Please ensure SUPABASE_SERVICE_ROLE_KEY is set in your .env file to allow server-side uploads.'
+        }, { status: 500 });
+      }
+
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 

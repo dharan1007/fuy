@@ -311,6 +311,52 @@ export async function GET(req: Request) {
         const mostDisliked = [...processedPosts].sort((a, b) => b.breakdown.L - a.breakdown.L)[0];
         const mostCapped = [...processedPosts].sort((a, b) => b.breakdown.CAP - a.breakdown.CAP)[0];
 
+        // --- 6. Channel / Show Analytics ---
+        const myShows = await prisma.show.findMany({
+            where: {
+                chan: { post: { userId } }
+            },
+            include: {
+                episodes: true
+            }
+        });
+
+        // Mocking views/engagement for shows since we don't have direct metrics on them yet
+        const showStats = myShows.map(show => {
+            // Simulate view count based on episodes * random factor or age
+            const episodeCount = show.episodes.length;
+            const mockViews = episodeCount * 1200 + Math.floor(Math.random() * 5000);
+            const mockLikes = Math.floor(mockViews * 0.15);
+
+            return {
+                id: show.id,
+                title: show.title,
+                coverUrl: show.coverUrl,
+                episodesCount: episodeCount,
+                views: mockViews,
+                avgDuration: show.episodes.reduce((acc, ep) => acc + (ep.duration || 0), 0) / (episodeCount || 1),
+                engagement: {
+                    likes: mockLikes,
+                    dislikes: Math.floor(mockLikes * 0.05),
+                    w: Math.floor(mockLikes * 0.2),
+                    l: Math.floor(mockLikes * 0.02)
+                }
+            };
+        });
+
+        const topShows = [...showStats].sort((a, b) => b.views - a.views).slice(0, 3);
+
+        // Aggregate Audience Sentiment (From all posts)
+        const totalReactions = processedPosts.reduce((acc, curr) => acc + curr.reactions, 0);
+        const sentiment = processedPosts.reduce((acc, curr) => {
+            acc.W += curr.breakdown.W;
+            acc.L += curr.breakdown.L;
+            acc.FIRE += curr.breakdown.FIRE;
+            acc.CAP += curr.breakdown.CAP;
+            return acc;
+        }, { W: 0, L: 0, FIRE: 0, CAP: 0 });
+
+
         return NextResponse.json({
             profile: { views: profileViews },
             buddies: {
@@ -336,6 +382,14 @@ export async function GET(req: Request) {
                 rankings: { mostLiked, mostDisliked, mostCapped },
                 totalPosts: totalPostsCount,
                 typeBreakdown: typeBreakdown
+            },
+            channel: {
+                topShows,
+                audience: {
+                    totalReactions,
+                    sentiment
+                },
+                currentViewers: Math.floor(Math.random() * 200) + 50 // Mock current viewers
             }
         });
 

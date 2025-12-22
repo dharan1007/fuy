@@ -4,6 +4,7 @@ import { OrbitControls, Stars } from '@react-three/drei';
 import { useSession } from 'next-auth/react';
 import { GlobeContent } from './GlobeContent';
 import PudGrid from './PudGrid';
+import ChanCarousel from './ChanCarousel';
 
 interface GalaxySceneProps {
     posts: any[];
@@ -58,8 +59,8 @@ export default function GalaxyScene({
                 <pointLight position={[10, 10, 10]} intensity={1} />
                 <Stars radius={200} depth={50} count={7000} factor={4} saturation={0} fade speed={0.5} />
 
-                {/* PUDs Grid is standard HTML overlay, handled outside Canvas */}
-                {activeGlobe === 'Puds' ? null : (
+                {/* PUDs and Chans are 2D overlays, handled outside Canvas */}
+                {activeGlobe === 'Puds' || activeGlobe === 'Chans' ? null : (
                     /* Single Active Globe for other types */
                     <GlobeContent
                         position={[0, 0, 0]}
@@ -88,6 +89,11 @@ export default function GalaxyScene({
             {/* PUDs Overlay - 2D Grid */}
             {activeGlobe === 'Puds' && (
                 <PudGrid puds={puds} isAuthenticated={!!session} />
+            )}
+
+            {/* Chans Overlay - Carousel */}
+            {activeGlobe === 'Chans' && (
+                <ChanCarousel chans={chans} onPostClick={onPostClick} />
             )}
         </div>
     );

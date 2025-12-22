@@ -194,3 +194,138 @@ export const DUMMY_PUDS = [
         ],
     },
 ];
+
+export const DUMMY_CHANS = [
+    {
+        id: 'chan-1',
+        userId: 'user-101',
+        content: 'Exclusive concert backstage access',
+        feature: 'CHAN',
+        visibility: 'PUBLIC',
+        joyScore: 95,
+        connectionScore: 80,
+        createdAt: new Date().toISOString(),
+        user: {
+            name: 'Genny James',
+            profile: {
+                displayName: 'Genny James',
+                avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=150&auto=format&fit=crop',
+            },
+        },
+        chanData: {
+            channelName: 'Music Vibes Live',
+            description: 'Live coverage from the biggest music festivals around the world.',
+            coverImageUrl: 'https://images.unsplash.com/photo-1514525253440-b393452e8d26?q=80&w=1200&auto=format&fit=crop',
+        },
+    },
+    {
+        id: 'chan-2',
+        userId: 'user-102',
+        content: 'Coding in the Wild: Rust Edition',
+        feature: 'CHAN',
+        visibility: 'PUBLIC',
+        joyScore: 88,
+        connectionScore: 40,
+        createdAt: new Date().toISOString(),
+        user: {
+            name: 'Dev Guru',
+            profile: {
+                displayName: 'Dev Guru',
+                avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=150&auto=format&fit=crop',
+            },
+        },
+        chanData: {
+            channelName: 'Code Masters',
+            description: 'Deep dive into system programming with Rust.',
+            coverImageUrl: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?q=80&w=1200&auto=format&fit=crop',
+        },
+    },
+    {
+        id: 'chan-3',
+        userId: 'user-103',
+        content: 'Summiting Everest: The Final Push',
+        feature: 'CHAN',
+        visibility: 'PUBLIC',
+        joyScore: 99,
+        connectionScore: 90,
+        createdAt: new Date().toISOString(),
+        user: {
+            name: 'Mountain Man',
+            profile: {
+                displayName: 'Mountain Man',
+                avatarUrl: 'https://images.unsplash.com/photo-1599566150163-29194dcaad36?q=80&w=150&auto=format&fit=crop',
+            },
+        },
+        chanData: {
+            channelName: 'Peak Performance',
+            description: 'Documenting the highest peaks on Earth.',
+            coverImageUrl: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=1200&auto=format&fit=crop',
+        },
+    },
+    {
+        id: 'chan-4',
+        userId: 'user-104',
+        content: 'Street Food Tour: Tokyo',
+        feature: 'CHAN',
+        visibility: 'PUBLIC',
+        joyScore: 92,
+        connectionScore: 70,
+        createdAt: new Date().toISOString(),
+        user: {
+            name: 'Foodie Fam',
+            profile: {
+                displayName: 'Foodie Fam',
+                avatarUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?q=80&w=150&auto=format&fit=crop',
+            },
+        },
+        chanData: {
+            channelName: 'Global Bites',
+            description: 'Exploring the tastiest street foods.',
+            coverImageUrl: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=1200&auto=format&fit=crop',
+        },
+    },
+    {
+        id: 'chan-5',
+        userId: 'user-105',
+        content: 'Galaxy S25 Ultra Review',
+        feature: 'CHAN',
+        visibility: 'PUBLIC',
+        joyScore: 75,
+        connectionScore: 30,
+        createdAt: new Date().toISOString(),
+        user: {
+            name: 'Tech Insider',
+            profile: {
+                displayName: 'Tech Insider',
+                avatarUrl: 'https://images.unsplash.com/photo-1527980965255-d3b416303d12?q=80&w=150&auto=format&fit=crop',
+            },
+        },
+        chanData: {
+            channelName: 'Tech Today',
+            description: 'Latest gadget reviews and tech news.',
+            coverImageUrl: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?q=80&w=1200&auto=format&fit=crop',
+        },
+    },
+    {
+        id: 'chan-6',
+        userId: 'user-106',
+        content: 'Yoga for Beginners',
+        feature: 'CHAN',
+        visibility: 'PUBLIC',
+        joyScore: 85,
+        connectionScore: 60,
+        createdAt: new Date().toISOString(),
+        user: {
+            name: 'Zen Master',
+            profile: {
+                displayName: 'Zen Master',
+                avatarUrl: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?q=80&w=150&auto=format&fit=crop',
+            },
+        },
+        chanData: {
+            channelName: 'Daily Flow',
+            description: 'Daily yoga routines for all levels.',
+            coverImageUrl: 'https://images.unsplash.com/photo-1544367563-12123d8965cd?q=80&w=1200&auto=format&fit=crop',
+        },
+    },
+];

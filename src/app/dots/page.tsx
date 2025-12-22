@@ -9,15 +9,10 @@ import { useRouter } from 'next/navigation';
 
 // Categories for content filtering
 const CATEGORIES = [
-    { id: 'mix', label: 'Mix' },
+    { id: 'fills', label: 'Fills' },
     { id: 'bloom', label: 'Bloom' },
     { id: 'lills', label: 'Lills' },
-    { id: 'fills', label: 'Fills' },
     { id: 'auds', label: 'Auds' },
-    { id: 'channels', label: 'Channels' },
-    { id: 'chapters', label: 'Chapters' },
-    { id: 'xrays', label: 'X Rays' },
-    { id: 'pupds', label: 'Pupds' },
 ];
 
 const FILL_FILTERS = ['All', 'New to you', 'Live', 'Stand-Up', 'Gaming', 'Music', 'Cartoons', 'Challenges', 'Visual Arts'];
@@ -43,7 +38,7 @@ interface DotData {
 export default function DotsPage() {
     const { data: session, status } = useSession();
     const router = useRouter();
-    const [activeCategory, setActiveCategory] = useState('mix');
+    const [activeCategory, setActiveCategory] = useState('fills');
     const [dots, setDots] = useState<DotData[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeDotIndex, setActiveDotIndex] = useState(0);
@@ -77,16 +72,12 @@ export default function DotsPage() {
                 lills: 'LILL',
                 fills: 'FILL',
                 auds: 'AUD',
-                channels: 'CHAN',
-                chapters: 'CHAPTER',
-                xrays: 'XRAY',
-                pupds: 'PULLUPDOWN',
             };
 
             let scope = 'public';
             if (activeCategory === 'bloom') {
                 scope = 'bloom';
-            } else if (activeCategory !== 'mix' && categoryToPostType[activeCategory]) {
+            } else if (categoryToPostType[activeCategory]) {
                 typeParam = `&type=${categoryToPostType[activeCategory]}`;
             }
 
@@ -106,9 +97,6 @@ export default function DotsPage() {
                     mediaType = 'video';
                 } else if (post.xrayData?.topLayerUrl) {
                     mediaUrl = post.xrayData.topLayerUrl;
-                    mediaType = 'image';
-                } else if (post.chanData?.coverImageUrl) {
-                    mediaUrl = post.chanData.coverImageUrl;
                     mediaType = 'image';
                 } else if (post.audData?.audioUrl) {
                     mediaUrl = post.audData.coverImageUrl || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800';
@@ -382,8 +370,8 @@ export default function DotsPage() {
                                     key={filter}
                                     onClick={() => setActiveFillFilter(filter)}
                                     className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${activeFillFilter === filter
-                                            ? 'bg-[#E5E5E5] text-black'
-                                            : 'bg-[#272727] text-white hover:bg-[#3F3F3F]'
+                                        ? 'bg-[#E5E5E5] text-black'
+                                        : 'bg-[#272727] text-white hover:bg-[#3F3F3F]'
                                         }`}
                                 >
                                     {filter}

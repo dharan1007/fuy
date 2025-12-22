@@ -336,8 +336,10 @@ model Post {
   // NEW: Post type - STANDARD | CHAPTER | XRAY | LILL | FILL | AUD | CHAN | PULLUPDOWN
   postType            String   @default("STANDARD")
   content             String
-  // Allowed: PUBLIC | FRIENDS | PRIVATE
+  // Allowed: PUBLIC | FRIENDS | PRIVATE | SPECIFIC
   visibility          String   @default("PUBLIC")
+  // Expiration for Timed Posts
+  expiresAt           DateTime? 
   joyScore            Int      @default(0)
   connectionScore     Int      @default(0)
   creativityScore     Int      @default(0)
@@ -369,6 +371,7 @@ model Post {
   // Relations to new post types
   chapterData Chapter?
   xrayData    Xray?
+  storyData   Story?
 
   simpleData     SimplePost?
   lillData       Lill?
@@ -590,6 +593,19 @@ model SimplePost {
   @@index([postId])
 }
 
+// Stories - Timed content
+model Story {
+  id        String   @id @default(cuid())
+  postId    String   @unique
+  duration  Int      // Duration in hours (1-48)
+  createdAt DateTime @default(now())
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+  @@index([createdAt]) // For querying active stories
+}
+
 // Lills - Short-form videos (like reels)
 model Lill {
   id           String   @id @default(cuid())
@@ -654,19 +670,60 @@ model Chan {
   channelName     String
   description     String?
   coverImageUrl   String?
-  schedule        String? // JSON array of {day, time, title}
+  schedule        String? // JSON array of {day, time, title} - DEPRECATED
   isLive          Boolean  @default(false)
   liveUrl         String? // URL for live stream if active
-  episodes        String // JSON array of {title, url, thumbnail, duration, publishedAt}
+  episodes        String? // JSON array of {title, url, thumbnail, duration} - DEPRECATED
   subscriberCount Int      @default(0)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
 
+  shows Show[]
+
   @@index([postId])
   @@index([isLive])
   @@index([createdAt])
+}
+
+model Show {
+  id          String   @id @default(cuid())
+  chanId      String
+  title       String
+  description String?
+  coverUrl    String?
+  schedule    String? // e.g. "Mon 9 PM IST" or JSON
+  credits     String? // JSON array of cast/crew
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  isArchived  Boolean  @default(false)
+
+  chan     Chan      @relation(fields: [chanId], references: [id], onDelete: Cascade)
+  episodes Episode[]
+
+  @@index([chanId])
+}
+
+model Episode {
+  id            String   @id @default(cuid())
+  showId        String
+  title         String
+  description   String?
+  episodeNumber Int
+  coverUrl      String?
+  trailerUrl    String?
+  videoUrl      String?
+  duration      Int      @default(0) // seconds
+  releaseDate   DateTime?
+  credits       String?  // JSON array of cast/crew
+  isLive        Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  show Show @relation(fields: [showId], references: [id], onDelete: Cascade)
+
+  @@index([showId])
 }
 
 // PullUpDown - Voting/polling posts

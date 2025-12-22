@@ -9,6 +9,7 @@ import { useSession } from 'next-auth/react';
 import AIChatbot from '@/components/AIChatbot';
 import { useMessaging } from '../hooks/useMessaging';
 import styles from './MessagesPage.module.css';
+import { SpaceBackground } from '@/components/SpaceBackground';
 
 interface Conversation {
   id: string;
@@ -414,7 +415,8 @@ function MessagesPageContent() {
   };
 
   return (
-    <div className={styles.container} data-theme={theme}>
+    <div className={styles.container} data-theme={theme} style={{ position: 'relative' }}>
+      <SpaceBackground />
       {/* Sidebar - Conversations List */}
       <div className={`${styles.sidebar} ${showMobileSidebar ? styles.mobileOpen : ''}`}>
         <div className={styles.header}>
@@ -466,14 +468,14 @@ function MessagesPageContent() {
               top: '100%',
               left: 0,
               right: 0,
-              backgroundColor: '#ffffff',
-              border: '1px solid #e5e7eb',
+              backgroundColor: 'rgba(0,0,0,0.95)',
+              border: '1px solid rgba(255,255,255,0.1)',
               borderTop: 'none',
               borderBottomLeftRadius: '8px',
               borderBottomRightRadius: '8px',
               maxHeight: '400px',
               overflowY: 'auto',
-              boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+              boxShadow: '0 4px 6px rgba(0,0,0,0.5)',
               zIndex: 10,
             }}>
               {isSearching && (
@@ -502,11 +504,11 @@ function MessagesPageContent() {
                 <>
                   <div style={{
                     padding: '8px 12px',
-                    backgroundColor: '#f9fafb',
+                    backgroundColor: 'rgba(255,255,255,0.05)',
                     fontSize: '12px',
                     fontWeight: '600',
-                    color: '#6b7280',
-                    borderBottom: '1px solid #e5e7eb',
+                    color: '#9ca3af',
+                    borderBottom: '1px solid rgba(255,255,255,0.1)',
                   }}>
                     {filteredFriends.length} result{filteredFriends.length !== 1 ? 's' : ''}
                   </div>
@@ -525,13 +527,14 @@ function MessagesPageContent() {
                           padding: '12px',
                           textAlign: 'left',
                           border: 'none',
-                          borderBottom: '1px solid #f0f0f0',
-                          backgroundColor: isAlreadyConversation ? '#f0f4ff' : 'transparent',
+                          borderBottom: '1px solid rgba(255,255,255,0.1)',
+                          backgroundColor: isAlreadyConversation ? 'rgba(255,255,255,0.1)' : 'transparent',
                           fontSize: '14px',
+                          color: '#ffffff',
                           transition: 'background-color 0.2s',
                         }}
-                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = isAlreadyConversation ? '#e0e7ff' : '#f9fafb')}
-                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = isAlreadyConversation ? '#f0f4ff' : 'transparent')}
+                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = isAlreadyConversation ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.05)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = isAlreadyConversation ? 'rgba(255,255,255,0.1)' : 'transparent')}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'space-between' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
@@ -564,7 +567,7 @@ function MessagesPageContent() {
                               )}
                             </div>
                             <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontWeight: '500', color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              <div style={{ fontWeight: '500', color: '#ffffff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {friend.profile?.displayName || friend.name}
                               </div>
                               <div style={{ fontSize: '12px', color: isOnline ? '#10b981' : '#9ca3af' }}>
@@ -680,13 +683,13 @@ function MessagesPageContent() {
                     position: 'absolute',
                     right: '30px',
                     top: '20px',
-                    backgroundColor: '#fff',
+                    backgroundColor: '#1a1a1a',
                     borderRadius: '8px',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
                     zIndex: 100,
                     overflow: 'hidden',
                     minWidth: '120px',
-                    border: '1px solid #e5e7eb'
+                    border: '1px solid rgba(255,255,255,0.1)'
                   }}
                   onClick={(e) => e.stopPropagation()}
                 >
@@ -701,9 +704,9 @@ function MessagesPageContent() {
                       background: 'transparent',
                       fontSize: '13px',
                       cursor: 'pointer',
-                      color: '#374151'
+                      color: '#e5e7eb'
                     }}
-                    onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
+                    onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
                     onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                   >
                     {/* @ts-ignore */}
@@ -721,9 +724,9 @@ function MessagesPageContent() {
                       fontSize: '13px',
                       cursor: 'pointer',
                       color: '#ef4444',
-                      borderTop: '1px solid #f3f4f6'
+                      borderTop: '1px solid rgba(255,255,255,0.1)'
                     }}
-                    onMouseEnter={(e) => e.currentTarget.style.background = '#fef2f2'}
+                    onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239,68,68,0.1)'}
                     onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                   >
                     Delete Chat
@@ -816,7 +819,7 @@ function MessagesPageContent() {
                     title="View Bonding Dashboard"
                     onClick={() => router.push(`/bonds?profileId=${selectedConversation.participantId}`)}
                   >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: '#ffffff' }}>
                       <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
                       <circle cx="9" cy="7" r="4"></circle>
                       <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
@@ -838,7 +841,7 @@ function MessagesPageContent() {
                       onClick={() => setShowRetentionSettings(!showRetentionSettings)}
                       style={{ position: 'relative' }}
                     >
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: '#ffffff' }}>
                         <circle cx="12" cy="12" r="1" />
                         <path d="M12 1v6m0 6v6" />
                         <path d="M4.22 4.22l4.24 4.24M15.54 15.54l4.24 4.24" />
@@ -854,14 +857,14 @@ function MessagesPageContent() {
                         top: '100%',
                         right: 0,
                         marginTop: '8px',
-                        backgroundColor: '#ffffff',
-                        border: '1px solid #e5e7eb',
+                        backgroundColor: '#1a1a1a',
+                        border: '1px solid rgba(255,255,255,0.1)',
                         borderRadius: '8px',
                         minWidth: '200px',
                         boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
                         zIndex: 20,
                       }}>
-                        <div style={{ padding: '12px', borderBottom: '1px solid #e5e7eb', fontSize: '12px', fontWeight: '600', color: '#6b7280' }}>
+                        <div style={{ padding: '12px', borderBottom: '1px solid rgba(255,255,255,0.1)', fontSize: '12px', fontWeight: '600', color: '#9ca3af' }}>
                           Auto-delete messages after:
                         </div>
                         {(['1day', '7days', '30days', 'forever'] as const).map((option) => (
@@ -876,15 +879,15 @@ function MessagesPageContent() {
                               padding: '10px 12px',
                               textAlign: 'left',
                               border: 'none',
-                              backgroundColor: chatRetention === option ? '#eff6ff' : 'transparent',
-                              color: chatRetention === option ? '#1e40af' : '#374151',
+                              backgroundColor: chatRetention === option ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
+                              color: chatRetention === option ? '#60a5fa' : '#e5e7eb',
                               fontSize: '14px',
                               transition: 'background-color 0.2s',
-                              borderBottom: option !== 'forever' ? '1px solid #f3f4f6' : 'none',
+                              borderBottom: option !== 'forever' ? '1px solid rgba(255,255,255,0.1)' : 'none',
                             }}
                             onMouseEnter={(e) => {
                               if (chatRetention !== option) {
-                                e.currentTarget.style.backgroundColor = '#f9fafb';
+                                e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)';
                               }
                             }}
                             onMouseLeave={(e) => {
@@ -928,7 +931,7 @@ function MessagesPageContent() {
                       title="Collaborative features"
                       onClick={() => setShowFeatureModal('features')}
                     >
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: '#ffffff' }}>
                         <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
                       </svg>
                     </button>
@@ -944,11 +947,11 @@ function MessagesPageContent() {
                       onClick={() => fetchMessages(selectedConversationId, cursors[selectedConversationId] || undefined)}
                       style={{
                         padding: '6px 12px',
-                        backgroundColor: '#f3f4f6',
-                        border: '1px solid #e5e7eb',
+                        backgroundColor: 'rgba(255,255,255,0.05)',
+                        border: '1px solid rgba(255,255,255,0.1)',
                         borderRadius: '20px',
                         fontSize: '12px',
-                        color: '#6b7280',
+                        color: '#9ca3af',
                         cursor: 'pointer',
                         transition: 'all 0.2s'
                       }}
@@ -981,7 +984,7 @@ function MessagesPageContent() {
                           flexDirection: 'column',
                           marginBottom: isSameSender ? '6px' : '14px',
                           paddingBottom: isSameSender ? '2px' : '6px',
-                          borderTop: !isSameSender && idx > 0 ? '1px solid #f3f4f6' : 'none',
+                          borderTop: !isSameSender && idx > 0 ? '1px solid rgba(255,255,255,0.1)' : 'none',
                           paddingTop: !isSameSender && idx > 0 ? '6px' : '0px',
                         }}
                       >
@@ -1020,15 +1023,15 @@ function MessagesPageContent() {
                               borderRadius: isOwnMessage
                                 ? '18px 18px 4px 18px'
                                 : '18px 18px 18px 4px',
-                              backgroundColor: isOwnMessage ? '#3b82f6' : '#f3f4f6',
-                              color: isOwnMessage ? '#ffffff' : '#1f2937',
+                              backgroundColor: isOwnMessage ? '#000000' : 'rgba(255,255,255,0.1)', // Changed to black for own messages
+                              color: '#ffffff',
                               wordWrap: 'break-word',
                               wordBreak: 'break-word',
                               boxShadow: isOwnMessage
-                                ? '0 2px 8px rgba(59, 130, 246, 0.15)'
-                                : '0 1px 3px rgba(0,0,0,0.08)',
+                                ? '0 2px 8px rgba(0, 0, 0, 0.5)'
+                                : '0 1px 3px rgba(0,0,0,0.2)',
                               transition: 'all 0.2s ease',
-                              border: isOwnMessage ? 'none' : '1px solid #e5e7eb',
+                              border: isOwnMessage ? '1px solid rgba(255,255,255,0.2)' : '1px solid rgba(255,255,255,0.1)', // Added border for black bubble visibility
                               // @ts-ignore
                               opacity: msg.status === 'sending' ? 0.7 : 1,
                             }}
@@ -1042,7 +1045,7 @@ function MessagesPageContent() {
                             }}
                           >
                             {!isOwnMessage && !isSameSender && (
-                              <p style={{ margin: '0 0 6px 0', fontSize: '12px', fontWeight: '700', color: '#374151', letterSpacing: '0.3px' }}>
+                              <p style={{ margin: '0 0 6px 0', fontSize: '12px', fontWeight: '700', color: '#e5e7eb', letterSpacing: '0.3px' }}>
                                 {msg.senderName}
                               </p>
                             )}
@@ -1092,8 +1095,8 @@ function MessagesPageContent() {
                                 position: 'absolute',
                                 top: '100%',
                                 right: 0,
-                                backgroundColor: 'white',
-                                border: '1px solid #e5e7eb',
+                                backgroundColor: '#1a1a1a',
+                                border: '1px solid rgba(255,255,255,0.1)',
                                 borderRadius: '8px',
                                 boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
                                 zIndex: 50,
@@ -1118,9 +1121,9 @@ function MessagesPageContent() {
                                     background: 'transparent',
                                     cursor: 'pointer',
                                     fontSize: '13px',
-                                    color: '#374151'
+                                    color: '#e5e7eb'
                                   }}
-                                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f3f4f6'; }}
+                                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'; }}
                                   onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                                 >
                                   <span>🏷️</span> Tag Message
@@ -1336,17 +1339,18 @@ function MessagesPageContent() {
                     onClick={() => setShowTagModal(false)}
                   >
                     <div style={{
-                      backgroundColor: 'white',
+                      backgroundColor: '#1a1a1a',
                       padding: '24px',
                       borderRadius: '16px',
                       width: '300px',
-                      boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+                      boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+                      border: '1px solid rgba(255,255,255,0.1)'
                     }}
                       onClick={e => e.stopPropagation()}
                     >
-                      <h3 style={{ marginTop: 0, marginBottom: '16px', color: '#111827' }}>Tag Message</h3>
+                      <h3 style={{ marginTop: 0, marginBottom: '16px', color: '#ffffff' }}>Tag Message</h3>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        <div style={{ fontSize: '12px', fontWeight: '600', color: '#6b7280', marginTop: '4px' }}>Blacklist Locker</div>
+                        <div style={{ fontSize: '12px', fontWeight: '600', color: '#9ca3af', marginTop: '4px' }}>Blacklist Locker</div>
                         {['BLACKLIST', 'ANGRY', 'SAD'].map(type => (
                           <button
                             key={type}
@@ -1627,7 +1631,7 @@ function MessagesPageContent() {
                     className={styles.sendButton}
                     onClick={handleSendMessage}
                   >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style={{ color: '#ffffff' }}>
                       <path d="M16.6915026,12.4744748 L3.50612381,13.2599618 C3.19218622,13.2599618 3.03521743,13.4170592 3.03521743,13.5741566 L1.15159189,20.0151496 C0.8376543,20.8006365 0.99,21.89 1.77946707,22.52 C2.41,22.99 3.50612381,23.1 4.13399899,22.8429026 L21.714504,14.0454487 C22.6563168,13.5741566 23.1272231,12.6315722 22.9702544,11.6889879 L4.13399899,1.16296077 C3.34915502,0.9 2.40734225,1.00636533 1.77946707,1.4776575 C0.994623095,2.10604706 0.837654326,3.0486314 1.15159189,3.97788973 L3.03521743,10.4188827 C3.03521743,10.5759801 3.03521743,10.7330775 3.50612381,10.7330775 L16.6915026,11.5185644 C16.6915026,11.5185644 17.1624089,11.5185644 17.1624089,12.0374122 C17.1624089,12.4744748 16.6915026,12.4744748 16.6915026,12.4744748 Z" />
                     </svg>
                   </button>

@@ -69,6 +69,7 @@ export async function GET() {
           feature: true,
           createdAt: true,
           media: { select: { type: true, url: true } },
+          status: true,
         },
       }),
     ]);

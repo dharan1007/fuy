@@ -50,9 +50,17 @@ export async function POST(req: NextRequest) {
 
   const feature = asFeat(body.feature);
   const visibility = asVis(body.visibility);
+  const postType = body.postType === "STORY" ? "STORY" : (body.postType || "STANDARD").toUpperCase();
   const content = String(body.content ?? "");
   const title = String(body.title ?? "");
   const groupId = body.groupId ? String(body.groupId) : null;
+
+  // Timed Post Logic
+  let expiresAt: Date | undefined;
+  if (postType === "STORY" || body.expiresInHours) {
+    const hours = Number(body.expiresInHours) || 24;
+    expiresAt = new Date(Date.now() + hours * 60 * 60 * 1000);
+  }
 
   // Check content moderation
   const moderation = moderateContent(content, title);
@@ -87,25 +95,37 @@ export async function POST(req: NextRequest) {
   const connectionScore = Number.isFinite(body.connectionScore) ? Math.trunc(body.connectionScore) : 0;
   const creativityScore = Number.isFinite(body.creativityScore) ? Math.trunc(body.creativityScore) : 0;
 
-  const post = await prisma.post.create({
-    data: {
-      userId,
-      feature,
-      content,
-      visibility,
-      groupId,
-      joyScore,
-      connectionScore,
-      creativityScore,
-      media: {
-        create: media.map((m: any) => ({
-          userId,
-          feature,
-          type: asMT(m.type),
-          url: String(m.url),
-        })),
-      },
+  const postData: any = {
+    userId,
+    feature,
+    content,
+    visibility,
+    groupId,
+    postType,
+    expiresAt,
+    joyScore,
+    connectionScore,
+    creativityScore,
+    media: {
+      create: media.map((m: any) => ({
+        userId,
+        feature,
+        type: asMT(m.type),
+        url: String(m.url),
+      })),
     },
+  };
+
+  if (postType === "STORY") {
+    postData.storyData = {
+      create: {
+        duration: Number(body.expiresInHours) || 24
+      }
+    };
+  }
+
+  const post = await prisma.post.create({
+    data: postData,
     include: {
       media: true,
       user: {
@@ -289,7 +309,19 @@ export async function GET(req: NextRequest) {
       lillData: true,
       fillData: true,
       audData: true,
-      chanData: true,
+      chanData: {
+        include: {
+          shows: {
+            include: {
+              episodes: {
+                orderBy: { createdAt: 'desc' },
+                take: 1 // Only need the latest for preview
+              }
+            },
+            take: 1 // Get the latest show
+          }
+        }
+      },
       pullUpDownData: {
         include: {
           options: true, // Need all options for stats in detail view
