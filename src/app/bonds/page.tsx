@@ -6,7 +6,9 @@ export default function BondingPage() {
   return (
     <div style={{ backgroundColor: '#000000', minHeight: '100vh', position: 'relative' }}>
       <SpaceBackground />
-      <BondingDashboard />
+      <React.Suspense fallback={<div>Loading...</div>}>
+        <BondingDashboard />
+      </React.Suspense>
     </div>
   );
 }
