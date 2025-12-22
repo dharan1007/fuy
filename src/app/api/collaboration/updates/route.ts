@@ -122,7 +122,7 @@ export async function GET(req: Request) {
     // Fetch updates
     const whereClause: any = { sessionId };
     if (since) {
-      whereClause.timestamp = {
+      whereClause.createdAt = {
         gt: new Date(since),
       };
     }
@@ -143,7 +143,7 @@ export async function GET(req: Request) {
           },
         },
       },
-      orderBy: { timestamp: "asc" },
+      orderBy: { createdAt: "asc" },
       take: limit,
     });
 
