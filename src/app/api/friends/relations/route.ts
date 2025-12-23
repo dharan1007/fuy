@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
 
+export const dynamic = 'force-dynamic';
+
 // GET /api/friends/relations?type=BLOCKED|GHOSTED
 export async function GET(req: Request) {
     try {

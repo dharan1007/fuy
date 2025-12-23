@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { logger } from "@/lib/logger";
+import { requireUserId } from "@/lib/session";
 import { getSessionUser } from "@/lib/session";
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
     try {
