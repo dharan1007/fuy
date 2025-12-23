@@ -12,7 +12,7 @@ export async function GET(req: Request) {
         const filter = searchParams.get("filter") || "ALL"; // Post Type filter
         const sort = searchParams.get("sort") || "DESC"; // Date sort
 
-        let data = [];
+        let data: any[] = [];
 
         const orderBy = { createdAt: sort === "ASC" ? "asc" : "desc" } as const;
 
