@@ -2,14 +2,24 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
+import { prisma } from "@/lib/prisma";
+
 export async function getSessionUser() {
   const session = await getServerSession(authOptions);
   return session?.user ?? null;
 }
 
 export async function requireUser() {
-  const user = await getSessionUser();
-  if (!user?.id) throw new Error("UNAUTHENTICATED");
+  const sessionUser = await getSessionUser();
+  if (!sessionUser?.id) throw new Error("UNAUTHENTICATED");
+
+  // Verify user exists in DB to prevent FK errors
+  const user = await prisma.user.findUnique({
+    where: { id: sessionUser.id },
+  });
+
+  if (!user) throw new Error("USER_NOT_FOUND");
+
   return user;
 }
 

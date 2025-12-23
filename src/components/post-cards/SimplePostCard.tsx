@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { MoreVertical, Flag, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -142,7 +144,7 @@ export default function SimplePostCard({ post, onRefresh }: SimplePostCardProps)
                             postId={post.id}
                             initialReaction={post.userReaction}
                             counts={post.reactionCounts}
-                            onReact={() => { }}
+                            onReact={() => onRefresh()}
                         />
                         <div className="text-xs text-white/50">
                             {post.comments?.length || 0} comments

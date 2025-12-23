@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Flame, ThumbsUp, ThumbsDown, AlertCircle, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +16,11 @@ interface ReactionControlProps {
 export default function ReactionControl({ postId, initialReaction, counts, onReact }: ReactionControlProps) {
     const [currentReaction, setCurrentReaction] = useState<ReactionType>(initialReaction);
     const [optimisticCounts, setOptimisticCounts] = useState(counts);
+
+    useEffect(() => {
+        setCurrentReaction(initialReaction);
+        setOptimisticCounts(counts);
+    }, [initialReaction, counts]);
 
     const handleReact = async (type: ReactionType) => {
         if (!type) return;
