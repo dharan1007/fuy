@@ -1,5 +1,5 @@
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect, ChangeEvent } from "react";
 import { X, Camera, Eye, Users, Globe, Save, Info, Heart, Star, Sparkles, AlertCircle, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -13,6 +13,16 @@ interface ProfileCardModalProps {
 export function ProfileCardModal({ isOpen, closeModal, profile: initialProfile, isOwnProfile }: ProfileCardModalProps) {
     const router = useRouter();
     const [isEditing, setIsEditing] = useState(false);
+
+    // Sync state with props when opened or verified
+    useEffect(() => {
+        setProfile(initialProfile);
+        setBgImage(initialProfile.cardBackgroundUrl || null);
+        const settings = typeof initialProfile.cardSettings === 'string'
+            ? JSON.parse(initialProfile.cardSettings)
+            : (initialProfile.cardSettings || {});
+        setSettings(settings);
+    }, [initialProfile, isOpen]);
 
     // Local state for edits
     const [profile, setProfile] = useState(initialProfile);
@@ -61,12 +71,21 @@ export function ProfileCardModal({ isOpen, closeModal, profile: initialProfile, 
             "conversationStarter", "workHistory", "education", "achievements",
             "lifeIsLike", "interactionMode", "bestVibeTime", "vibeWithPeople",
             "emotionalFit", "pleaseDont", "careAbout", "protectiveAbout", "distanceMakers",
-            "goals", "lifestyle"
+            "goals", "lifestyle",
+            "skills", "topMovies", "topSongs", "topFoods", "topGames",
+            "values", "hardNos", "topGenres", "topPlaces", "currentlyInto",
+            "dislikes", "icks", "interactionTopics", "stalkMe"
         ];
 
         fieldsToSave.forEach(key => {
-            if (profile[key] !== undefined && profile[key] !== null) {
-                formData.append(key, profile[key]);
+            const val = profile[key];
+            if (val !== undefined && val !== null) {
+                // If it's an array or object (and not a File), stringify it
+                if (typeof val === 'object' && !(val instanceof File)) {
+                    formData.append(key, JSON.stringify(val));
+                } else {
+                    formData.append(key, val as string);
+                }
             }
         });
 
@@ -81,9 +100,13 @@ export function ProfileCardModal({ isOpen, closeModal, profile: initialProfile, 
             if (res.ok) {
                 setIsEditing(false);
                 router.refresh();
+            } else {
+                const data = await res.json();
+                alert(`Failed to save: ${data.error || 'Unknown error'}`);
             }
-        } catch (e) {
+        } catch (e: any) {
             console.error("Failed to save", e);
+            alert(`Error saving profile: ${e.message}`);
         }
     };
 
@@ -226,10 +249,18 @@ export function ProfileCardModal({ isOpen, closeModal, profile: initialProfile, 
                                     )}
                                 </div>
                                 <div className="flex flex-wrap gap-2">
-                                    {getArr(profile.skills).length > 0 ? getArr(profile.skills).map((s: string) => (
-                                        <span key={s} className="px-4 py-2 bg-white/10 rounded-xl text-sm font-black border border-white/5">{s}</span>
-                                    )) : (
-                                        <p className="text-white/30 italic text-sm font-bold">No skills added yet.</p>
+                                    {isEditing ? (
+                                        <ListEditor
+                                            value={getArr(profile.skills)}
+                                            onChange={(newVal: string[]) => updateField('skills', newVal)}
+                                            placeholder="Add skills (comma separated)..."
+                                        />
+                                    ) : (
+                                        getArr(profile.skills).length > 0 ? getArr(profile.skills).map((s: string) => (
+                                            <span key={s} className="px-4 py-2 bg-white/10 rounded-xl text-sm font-black border border-white/5">{s}</span>
+                                        )) : (
+                                            <p className="text-white/30 italic text-sm font-bold">No skills added yet.</p>
+                                        )
                                     )}
                                 </div>
                             </div>
@@ -349,10 +380,22 @@ export function ProfileCardModal({ isOpen, closeModal, profile: initialProfile, 
                             />
 
                             <div className="grid grid-cols-2 gap-4">
-                                <FavoriteBox label="MOVIES" items={getArr(profile.topMovies)} icon={<Star size={12} />} />
-                                <FavoriteBox label="SONGS" items={getArr(profile.topSongs)} icon={<Heart size={12} />} />
-                                <FavoriteBox label="FOODS" items={getArr(profile.topFoods)} icon={<Sparkles size={12} />} />
-                                <FavoriteBox label="GAMES" items={getArr(profile.topGames)} icon={<AlertCircle size={12} />} />
+                                <FavoriteBox
+                                    label="MOVIES" items={getArr(profile.topMovies)} icon={<Star size={12} />}
+                                    isEditing={isEditing} onChange={(v: string[]) => updateField('topMovies', v)}
+                                />
+                                <FavoriteBox
+                                    label="SONGS" items={getArr(profile.topSongs)} icon={<Heart size={12} />}
+                                    isEditing={isEditing} onChange={(v: string[]) => updateField('topSongs', v)}
+                                />
+                                <FavoriteBox
+                                    label="FOODS" items={getArr(profile.topFoods)} icon={<Sparkles size={12} />}
+                                    isEditing={isEditing} onChange={(v: string[]) => updateField('topFoods', v)}
+                                />
+                                <FavoriteBox
+                                    label="GAMES" items={getArr(profile.topGames)} icon={<AlertCircle size={12} />}
+                                    isEditing={isEditing} onChange={(v: string[]) => updateField('topGames', v)}
+                                />
                             </div>
                         </div>
                     </CardWrapper>
@@ -491,7 +534,29 @@ function SectionBox({ title, content, isEditing, onChange, visibility, onToggle,
     )
 }
 
-function FavoriteBox({ label, items, icon }: { label: string, items: string[], icon: React.ReactNode }) {
+function ListEditor({ value = [], onChange, placeholder }: { value: string[], onChange: (val: string[]) => void, placeholder?: string }) {
+    // Initialize text from value on mount
+    const [text, setText] = useState(() => Array.isArray(value) ? value.join(", ") : "");
+
+    const handleChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
+        const txt = e.target.value;
+        setText(txt);
+        // Update parent with array
+        const arr = txt.split(",").map(s => s.trim()).filter(Boolean);
+        onChange(arr);
+    };
+
+    return (
+        <textarea
+            className="w-full bg-black/20 border border-white/10 rounded-xl p-3 text-sm font-bold focus:outline-none focus:border-white/50 transition-all h-24 resize-none placeholder-white/20"
+            value={text}
+            onChange={handleChange}
+            placeholder={placeholder}
+        />
+    )
+}
+
+function FavoriteBox({ label, items, icon, isEditing, onChange }: { label: string, items: string[], icon: React.ReactNode, isEditing?: boolean, onChange?: (val: string[]) => void }) {
     return (
         <div className="bg-white/5 rounded-[1.5rem] p-4 border border-white/5">
             <div className="flex items-center gap-2 mb-3 opacity-40">
@@ -499,9 +564,13 @@ function FavoriteBox({ label, items, icon }: { label: string, items: string[], i
                 <span className="text-[10px] font-black tracking-widest uppercase">{label}</span>
             </div>
             <div className="space-y-1.5">
-                {items.length > 0 ? items.map((it, idx) => (
-                    <div key={idx} className="text-xs font-bold leading-tight">{it}</div>
-                )) : <div className="text-[10px] opacity-20 font-black">NONE</div>}
+                {isEditing && onChange ? (
+                    <ListEditor value={items} onChange={onChange} placeholder={`Add ${label.toLowerCase()}...`} />
+                ) : (
+                    items.length > 0 ? items.map((it, idx) => (
+                        <div key={idx} className="text-xs font-bold leading-tight">{it}</div>
+                    )) : <div className="text-[10px] opacity-20 font-black">NONE</div>
+                )}
             </div>
         </div>
     )

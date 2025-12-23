@@ -128,7 +128,15 @@ export async function PUT(req: Request) {
     const bio = getStr("bio");
     const location = getStr("location");
     const dobStr = getStr("dob"); // Expecting ISO string or YYYY-MM-DD
-    const dob = dobStr ? new Date(dobStr) : undefined;
+    let dob: Date | undefined;
+    if (dobStr) {
+      const parsed = new Date(dobStr);
+      if (!isNaN(parsed.getTime())) {
+        dob = parsed;
+      } else {
+        console.warn(`Invalid DOB format received: ${dobStr}`);
+      }
+    }
     const height = getStr("height");
     const weight = getStr("weight");
     const conversationStarter = getStr("conversationStarter");
@@ -305,7 +313,9 @@ export async function PUT(req: Request) {
 
     return NextResponse.json({ ok: true, avatarUrl, coverVideoUrl, coverImageUrl });
   } catch (e: any) {
-    console.error("Profile save error:", e);
-    return NextResponse.json({ error: e?.message ?? "Failed to save profile" }, { status: 500 });
+    console.error("Profile save error detailed:", e);
+    // Return specific Prisma error if possible, or stack
+    const errorMessage = e instanceof Error ? e.message : "Unknown error";
+    return NextResponse.json({ error: errorMessage, details: String(e) }, { status: 500 });
   }
 }
