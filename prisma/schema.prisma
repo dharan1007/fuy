@@ -140,6 +140,20 @@ model User {
   // PullUpDown Relations
   pullUpDownTags   PullUpDownOption[]
   pullUpDownVotes  PullUpDownVote[]
+
+  // Settings & Privacy
+  // Settings & Privacy
+  autoAcceptFollows     Boolean @default(false)
+  defaultPostVisibility String  @default("PUBLIC") // PUBLIC | FOLLOWERS
+  taggingPrivacy        String  @default("EVERYONE") // EVERYONE | FOLLOWERS
+  
+  // Notification Settings (JSON to control what notifications are received)
+  // Structure: { likes: boolean, comments: boolean, mentions: boolean, follows: boolean, system: boolean }
+  notificationSettings  Json?
+
+  // Activity & History
+  viewHistory    ViewHistory[]
+  postTags       PostTag[]
 }
 
 model Subscription {
@@ -379,6 +393,10 @@ model Post {
   audData        Aud?
   chanData       Chan?
   pullUpDownData PullUpDown?
+
+  // Activity & History
+  viewHistory    ViewHistory[]
+  postTags       PostTag[]
 
   @@index([postType])
   @@index([createdAt])
@@ -1914,4 +1932,30 @@ model ModerationLog {
 
   @@index([userId])
   @@index([createdAt])
+}
+
+model ViewHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  postId    String
+  viewedAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([viewedAt])
+}
+
+model PostTag {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String   // The user being tagged
+  createdAt DateTime @default(now())
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@index([userId])
 }

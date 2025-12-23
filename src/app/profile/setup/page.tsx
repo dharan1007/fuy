@@ -52,6 +52,8 @@ interface ProfileFormData {
 
   // Media
   stalkMeFiles: File[];
+  avatarFile: File | null;
+  coverFile: File | null;
 }
 
 // Initial State
@@ -92,6 +94,8 @@ const initialData: ProfileFormData = {
   lifestyle: "",
   interactionTopics: [],
   stalkMeFiles: [],
+  avatarFile: null,
+  coverFile: null,
 };
 
 export default function ProfileSetupPage() {
@@ -100,6 +104,10 @@ export default function ProfileSetupPage() {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<ProfileFormData>(initialData);
   const [stalkMePreviews, setStalkMePreviews] = useState<string[]>(Array(11).fill(""));
+
+  // Previews for Avatar & Cover
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
 
   const totalSteps = 6; // Basics, Professional, Vibe, Deep Dive, Favorites, Stalk Me
 
@@ -141,6 +149,22 @@ export default function ProfileSetupPage() {
 
   const handleSkip = () => {
     if (step < totalSteps) setStep(step + 1);
+  };
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setData({ ...data, avatarFile: file });
+      setAvatarPreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setData({ ...data, coverFile: file });
+      setCoverPreview(URL.createObjectURL(file));
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
@@ -229,6 +253,10 @@ export default function ProfileSetupPage() {
 
       // Note: "Stalk Me" files simplistic handling for demo
 
+      // Append Avatar & Cover if present
+      if (data.avatarFile) formData.append("avatar", data.avatarFile);
+      if (data.coverFile) formData.append("cover", data.coverFile);
+
       const res = await fetch("/api/profile", {
         method: "PUT",
         body: formData,
@@ -255,6 +283,44 @@ export default function ProfileSetupPage() {
         return (
           <div className="space-y-6 animate-in fade-in slide-in-from-right duration-500">
             <h2 className="text-2xl font-bold text-white mb-2">The Basics</h2>
+
+            {/* Avatar & Cover Upload */}
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="text-sm font-medium text-gray-300 block mb-2">Profile Picture</label>
+                <div className="flex items-center gap-4">
+                  <div className="w-20 h-20 rounded-full bg-white/10 overflow-hidden border border-white/20 relative group">
+                    {avatarPreview ? (
+                      <img src={avatarPreview} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-xs text-gray-500">Upload</div>
+                    )}
+                    <input type="file" accept="image/*" onChange={handleAvatarChange} className="absolute inset-0 opacity-0 cursor-pointer" />
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    Tap to upload your avatar.
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-gray-300 block mb-2">Cover Media (Image/Video)</label>
+                <div className="w-full h-32 rounded-xl bg-white/10 overflow-hidden border border-white/20 relative group">
+                  {coverPreview ? (
+                    // Simple check for video preview, though URL.createObjectURL works for video src too
+                    coverPreview.startsWith("blob:") && data.coverFile?.type.startsWith("video") ? (
+                      <video src={coverPreview} className="w-full h-full object-cover" autoPlay muted loop />
+                    ) : (
+                      <img src={coverPreview} className="w-full h-full object-cover" />
+                    )
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-sm text-gray-500">Tap to upload Cover (Image or Video)</div>
+                  )}
+                  <input type="file" accept="image/*,video/*" onChange={handleCoverChange} className="absolute inset-0 opacity-0 cursor-pointer" />
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-300">Display Name *</label>

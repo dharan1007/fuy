@@ -66,7 +66,7 @@ function CreateStoryModal({ isOpen, onClose, onCreated }: CreateStoryModalProps)
             const fileUrl = uploadData.url;
 
             // 2. Create Post (Clock/Story)
-            const postRes = await fetch("/api/posts/clocks", {
+            const postRes = await fetch("/api/stories", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({

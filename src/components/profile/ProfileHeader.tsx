@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Copy } from "lucide-react";
 
 type ProfileHeaderProps = {
     profile: {
+        id?: string; // userId needed for actions
         displayName?: string | null;
         name?: string | null;
         avatarUrl?: string | null;
@@ -27,6 +28,27 @@ type ProfileHeaderProps = {
 export default function ProfileHeader({ profile, isOwnProfile, stats }: ProfileHeaderProps) {
     const coverUrl = profile.coverVideoUrl || profile.coverImageUrl;
     const isVideo = !!profile.coverVideoUrl;
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+    const handleAction = async (action: 'BLOCK' | 'GHOST') => {
+        setIsMenuOpen(false);
+        if (!profile.id) return;
+
+        try {
+            const res = await fetch('/api/friends/relations', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ targetUserId: profile.id, action })
+            });
+            if (res.ok) {
+                alert(`User ${action === 'BLOCK' ? 'Blocked' : 'Ghosted'}!`);
+            } else {
+                console.error('Action failed');
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    };
 
     const avatarSrc = useMemo(
         () =>
@@ -109,9 +131,32 @@ export default function ProfileHeader({ profile, isOwnProfile, stats }: ProfileH
                                     <button className="px-8 py-2.5 rounded-full bg-white text-black font-bold hover:opacity-90 transition-all shadow-md">
                                         Follow
                                     </button>
-                                    <button className="p-2.5 rounded-full border border-white/20 hover:bg-white/10 transition-all text-white">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" /></svg>
-                                    </button>
+                                    {/* Action Menu */}
+                                    <div className="relative">
+                                        <button
+                                            onClick={() => setIsMenuOpen(!isMenuOpen)}
+                                            className="p-2.5 rounded-full border border-white/20 hover:bg-white/10 transition-all text-white"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" /></svg>
+                                        </button>
+
+                                        {isMenuOpen && (
+                                            <div className="absolute right-0 mt-2 w-48 bg-black border border-white/10 rounded-xl shadow-xl z-50 overflow-hidden">
+                                                <button
+                                                    onClick={() => handleAction('GHOST')}
+                                                    className="w-full text-left px-4 py-3 text-sm text-gray-300 hover:bg-white/10 hover:text-white font-bold transition-colors uppercase tracking-wide flex items-center gap-2"
+                                                >
+                                                    👻 Ghost User
+                                                </button>
+                                                <button
+                                                    onClick={() => handleAction('BLOCK')}
+                                                    className="w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-red-500/10 hover:text-red-500 font-bold transition-colors uppercase tracking-wide flex items-center gap-2"
+                                                >
+                                                    🚫 Block User
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
                                 </>
                             )}
                         </div>

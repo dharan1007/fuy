@@ -419,6 +419,28 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    // SIMPLE: parse simpleData JSON media
+    if (post.simpleData && post.simpleData.mediaUrls) {
+      try {
+        const urls = JSON.parse(post.simpleData.mediaUrls);
+        const types = post.simpleData.mediaTypes ? JSON.parse(post.simpleData.mediaTypes) : [];
+
+        urls.forEach((url: string, idx: number) => {
+          normalizedMedia.push({
+            id: `simple-${post.id}-${idx}`,
+            type: types[idx] || 'IMAGE', // Default to IMAGE if type missing
+            url: url,
+            postId: post.id,
+            userId: post.userId,
+            feature: 'SIMPLE',
+            createdAt: post.createdAt
+          });
+        });
+      } catch (e) {
+        console.error("Failed to parse simpleData media", e);
+      }
+    }
+
     return {
       ...post,
       media: normalizedMedia, // Use the enriched media array

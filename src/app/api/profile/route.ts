@@ -36,6 +36,11 @@ export async function GET() {
         followersCount: true,
         followingCount: true,
         profile: true, // Fetch all profile fields including new ones
+        autoAcceptFollows: true,
+        defaultPostVisibility: true,
+        taggingPrivacy: true,
+        notificationSettings: true,
+        createdAt: true, // For showing account age
       },
     });
 
@@ -76,6 +81,12 @@ export async function GET() {
 
     return NextResponse.json({
       name: userData?.name ?? null,
+      email: u.email, // Return email for display
+      createdAt: userData?.createdAt,
+      autoAcceptFollows: userData?.autoAcceptFollows,
+      defaultPostVisibility: userData?.defaultPostVisibility,
+      taggingPrivacy: userData?.taggingPrivacy,
+      notificationSettings: userData?.notificationSettings,
       profile: userData?.profile ?? null,
       followersCount,
       followingCount,
@@ -189,9 +200,34 @@ export async function PUT(req: Request) {
       }
     }
 
-    // Update User Model (Name)
-    if (name) {
-      await prisma.user.update({ where: { id: userId }, data: { name } });
+    const cardBackground = form.get("cardBackground") as File | null;
+    if (cardBackground && typeof cardBackground !== "string") {
+      cardBackgroundUrl = await uploadToStorage(userId, "stalk", cardBackground); // Reusing 'stalk' or create new folder logic if needed, but 'stalk' is fine or 'background'
+    }
+
+    // Privacy Settings
+    const autoAcceptFollowsStr = getStr("autoAcceptFollows");
+    const defaultPostVisibility = getStr("defaultPostVisibility");
+    const taggingPrivacy = getStr("taggingPrivacy");
+    const notificationSettingsStr = getStr("notificationSettings");
+
+    // Update User Model (Name & Settings)
+    const userUpdateData: any = {};
+    if (name) userUpdateData.name = name;
+    if (autoAcceptFollowsStr !== undefined) userUpdateData.autoAcceptFollows = autoAcceptFollowsStr === "true";
+    if (defaultPostVisibility) userUpdateData.defaultPostVisibility = defaultPostVisibility;
+    if (taggingPrivacy) userUpdateData.taggingPrivacy = taggingPrivacy;
+
+    if (notificationSettingsStr) {
+      try {
+        userUpdateData.notificationSettings = JSON.parse(notificationSettingsStr);
+      } catch (e) {
+        console.error("Failed to parse notification settings", e);
+      }
+    }
+
+    if (Object.keys(userUpdateData).length > 0) {
+      await prisma.user.update({ where: { id: userId }, data: userUpdateData });
     }
 
     // Update Profile Model

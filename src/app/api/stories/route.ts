@@ -77,3 +77,47 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(railData);
 }
+
+export async function POST(req: NextRequest) {
+    try {
+        const user = await getSessionUser();
+        if (!user) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        const body = await req.json();
+        const { mediaUrl, mediaType, duration, visibility } = body;
+
+        if (!mediaUrl) {
+            return NextResponse.json({ error: "Media URL is required" }, { status: 400 });
+        }
+
+        // Calculate expiration
+        const expiresAt = new Date();
+        expiresAt.setHours(expiresAt.getHours() + (duration || 24));
+
+        // Create the Story Post
+        const post = await prisma.post.create({
+            data: {
+                userId: user.id,
+                postType: "STORY",
+                content: "Story", // Default content for stories
+                visibility: visibility || "PUBLIC",
+                expiresAt,
+                media: {
+                    create: {
+                        type: mediaType || "IMAGE",
+                        url: mediaUrl,
+                        userId: user.id
+                    }
+                }
+                // Note: If Story model exists, we can add storyData here, but standard Post is sufficient for basic stories
+            }
+        });
+
+        return NextResponse.json(post);
+    } catch (error) {
+        console.error("Error creating story:", error);
+        return NextResponse.json({ error: "Failed to create story" }, { status: 500 });
+    }
+}

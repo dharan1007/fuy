@@ -4,7 +4,7 @@ import { signOut, useSession } from "next-auth/react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useCartStore } from "@/lib/cartStore";
+
 
 interface AppHeaderProps {
   title?: string;
@@ -18,9 +18,6 @@ export default function AppHeader({ title, showBackButton = false, showSettingsA
   const pathname = usePathname();
   const { data: session } = useSession();
   const [unreadCount, setUnreadCount] = useState(0);
-  const [cartItemCount, setCartItemCount] = useState(0);
-  const cartItems = useCartStore((state) => state.items);
-
   useEffect(() => {
     if (session) {
       loadUnreadCount();
@@ -29,12 +26,6 @@ export default function AppHeader({ title, showBackButton = false, showSettingsA
       return () => clearInterval(interval);
     }
   }, [session]);
-
-  useEffect(() => {
-    // Update cart item count whenever items change
-    const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
-    setCartItemCount(totalItems);
-  }, [cartItems]);
 
   async function loadUnreadCount() {
     try {
@@ -139,21 +130,16 @@ export default function AppHeader({ title, showBackButton = false, showSettingsA
               </Link>
             )}
 
-            {/* Cart button */}
-            {!hideShopAndCart && pathname !== "/cart" && (
+            {/* Dashboard button */}
+            {session && pathname !== "/dashboard" && (
               <Link
-                href="/cart"
-                className="relative p-1.5 sm:p-2 rounded-lg hover:bg-white/10 transition-colors text-white"
-                title="Shopping Cart"
+                href="/dashboard"
+                className="p-1.5 sm:p-2 rounded-lg hover:bg-white/10 transition-colors text-white"
+                title="Dashboard"
               >
                 <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
                 </svg>
-                {cartItemCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 sm:-top-1 sm:-right-1 bg-blue-600 text-white text-[10px] sm:text-xs rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center font-medium">
-                    {cartItemCount > 9 ? "9+" : cartItemCount}
-                  </span>
-                )}
               </Link>
             )}
 

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import styles from './GhostedRequestsSection.module.css';
+import { Ghost, ChevronDown, ChevronRight } from 'lucide-react';
 
 interface GhostedRequest {
   id: string;
@@ -62,48 +62,52 @@ export default function GhostedRequestsSection() {
   };
 
   if (loading) {
-    return <div className={styles.loading}>Loading...</div>;
+    return <div className="text-center text-gray-400 py-4">Loading...</div>;
   }
 
   return (
-    <div className={styles.section}>
-      <div className={styles.header}>
-        <div className={styles.titleRow}>
-          <span className={styles.icon}>👻</span>
-          <h3 className={styles.title}>Ghosted Requests ({ghostedRequests.length})</h3>
+    <section className="bg-black/40 backdrop-blur-md rounded-xl border border-white/10 shadow-lg p-6 mb-6">
+      <div className="flex items-center justify-between cursor-pointer" onClick={() => setExpanded(!expanded)}>
+        <div className="flex items-center gap-2">
+          <Ghost className="w-5 h-5 text-white" />
+          <h3 className="text-xl font-bold text-white uppercase tracking-wider">
+            Ghosted Requests ({ghostedRequests.length})
+          </h3>
         </div>
-        <button
-          className={styles.toggleBtn}
-          onClick={() => setExpanded(!expanded)}
-        >
-          {expanded ? '▼' : '▶'}
+        <button className="text-white hover:text-gray-300 transition-colors">
+          {expanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
         </button>
       </div>
 
       {expanded && (
-        <div className={styles.content}>
-          {error && <p className={styles.error}>{error}</p>}
+        <div className="mt-6 animate-in fade-in slide-in-from-top-2 duration-300">
+          {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
           {ghostedRequests.length === 0 ? (
-            <p className={styles.emptyMessage}>No ghosted requests</p>
+            <p className="text-gray-400 text-sm font-medium">No ghosted requests found.</p>
           ) : (
-            <div className={styles.requestsList}>
+            <div className="space-y-4">
               {ghostedRequests.map((request) => (
-                <div key={request.id} className={styles.requestItem}>
-                  <img
-                    src={request.friend.profile?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${request.friend.id}`}
-                    alt={request.friend.name}
-                    className={styles.avatar}
-                  />
-                  <div className={styles.info}>
-                    <p className={styles.name}>{request.friend.name}</p>
-                    <p className={styles.email}>{request.friend.email}</p>
-                    <p className={styles.date}>
-                      Ghosted on {new Date(request.updatedAt).toLocaleDateString()}
-                    </p>
+                <div key={request.id} className="flex items-center justify-between bg-white/5 border border-white/10 rounded-lg p-4">
+                  <div className="flex items-center gap-4">
+                    <img
+                      src={request.friend.profile?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${request.friend.id}`}
+                      alt={request.friend.name}
+                      className="w-10 h-10 rounded-full bg-gray-800 object-cover"
+                    />
+                    <div>
+                      <p className="text-white font-bold">{request.friend.name}</p>
+                      <p className="text-xs text-gray-400">{request.friend.email}</p>
+                      <p className="text-[10px] text-gray-500 mt-1 uppercase">
+                        Ghosted on {new Date(request.updatedAt).toLocaleDateString()}
+                      </p>
+                    </div>
                   </div>
                   <button
-                    className={styles.removeBtn}
-                    onClick={() => handleRemoveFromGhosted(request.id)}
+                    className="p-2 text-gray-400 hover:text-white transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRemoveFromGhosted(request.id);
+                    }}
                     title="Remove from ghosted"
                   >
                     ✕
@@ -114,6 +118,6 @@ export default function GhostedRequestsSection() {
           )}
         </div>
       )}
-    </div>
+    </section>
   );
 }

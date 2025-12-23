@@ -13,9 +13,34 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const unreadOnly = searchParams.get("unreadOnly") === "true";
 
+    // Fetch user settings to filter notifications
+    const userSettings = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { notificationSettings: true }
+    });
+
+    const settings = (userSettings?.notificationSettings as any) || {
+      likes: true,
+      comments: true,
+      mentions: true,
+      follows: true,
+      system: true
+    };
+
+    const allowedTypes = [];
+    if (settings.likes) allowedTypes.push('POST_LIKE', 'COMMENT_LIKE', 'REACTION');
+    if (settings.comments) allowedTypes.push('POST_COMMENT', 'COMMENT_REPLY');
+    if (settings.mentions) allowedTypes.push('POST_MENTION', 'COMMENT_MENTION');
+    if (settings.follows) allowedTypes.push('FRIEND_REQUEST', 'FRIEND_ACCEPT', 'FOLLOW');
+    if (settings.system) allowedTypes.push('SYSTEM_ALERT', 'WELCOME', 'WARNING');
+
+    // Always include types not explicitly categorized if needed, or strictly filter?
+    // User asked to toggle features off, so likely strict filter for known types.
+
     const notifications = await prisma.notification.findMany({
       where: {
         userId,
+        type: { in: allowedTypes },
         ...(unreadOnly ? { read: false } : {}),
       },
       orderBy: { createdAt: "desc" },

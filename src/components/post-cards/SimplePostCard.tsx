@@ -36,7 +36,7 @@ export default function SimplePostCard({ post, onRefresh }: SimplePostCardProps)
             <div className="relative w-full aspect-square bg-black/50 overflow-hidden group">
                 {post.media && post.media.length > 0 ? (
                     <>
-                        {post.media[currentMediaIndex].type === 'video' ? (
+                        {post.media[currentMediaIndex].type === 'VIDEO' ? (
                             <video
                                 src={post.media[currentMediaIndex].url}
                                 className="w-full h-full object-cover"

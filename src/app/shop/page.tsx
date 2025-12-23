@@ -5,6 +5,8 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { ShoppingBag, BookOpen, GraduationCap, LayoutTemplate, Map } from 'lucide-react';
 import { SpaceBackground } from '@/components/SpaceBackground';
+import AppHeader from '@/components/AppHeader';
+import { useCartStore } from "@/lib/cartStore";
 
 interface Brand {
   id: string;
@@ -41,6 +43,8 @@ export default function ShopPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [myBrands, setMyBrands] = useState<Brand[]>([]);
+  const cartItems = useCartStore((state) => state.items);
+  const cartItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   // Filter States
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
@@ -138,17 +142,11 @@ export default function ShopPage() {
   return (
     <div className="min-h-screen bg-black text-white font-sans relative">
       <SpaceBackground />
+      <AppHeader title="Shop" showBackButton />
 
-      {/* Navigation / Header */}
-      <nav className="flex items-center justify-between px-6 py-4 border-b border-white/10 sticky top-0 bg-black/80 backdrop-blur-md z-50 text-white relative">
-        <div className="flex items-center gap-4">
-          <Link href="/" className="p-2 hover:bg-white/10 rounded-full transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
-          </Link>
-          <div className="text-2xl font-black tracking-tighter">STORE.</div>
-        </div>
-
-        <div className="hidden md:flex gap-6 text-sm font-medium text-gray-400 items-center">
+      {/* Toolbar / Categories */}
+      <div className="sticky top-14 sm:top-16 z-40 bg-black/80 backdrop-blur-md border-b border-white/10 px-6 py-3 flex items-center justify-between gap-4 overflow-x-auto scrollbar-hide">
+        <div className="flex gap-6 text-sm font-medium text-gray-400 items-center shrink-0">
           {/* Dynamic Categories with Dropdowns */}
           {[
             {
@@ -166,7 +164,7 @@ export default function ShopPage() {
           ].map((category) => (
             <div key={category.label} className="relative group">
               <button
-                className="hover:text-white transition-colors flex items-center gap-1 py-2"
+                className="hover:text-white transition-colors flex items-center gap-1 py-1"
                 onClick={(e) => {
                   const menu = e.currentTarget.nextElementSibling;
                   menu?.classList.toggle('hidden');
@@ -197,47 +195,65 @@ export default function ShopPage() {
 
           {/* Existing Links */}
           <div className="w-px h-4 bg-white/20 mx-2" />
-          <Link href="#courses" className="hover:text-white transition-colors">Courses</Link>
-          <Link href="#books" className="hover:text-white transition-colors">Books</Link>
-          <Link href="#templates" className="hover:text-white transition-colors">Templates</Link>
+          <Link href="#courses" className="hover:text-white transition-colors whitespace-nowrap">Courses</Link>
+          <Link href="#books" className="hover:text-white transition-colors whitespace-nowrap">Books</Link>
+          <Link href="#templates" className="hover:text-white transition-colors whitespace-nowrap">Templates</Link>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="relative hidden sm:block">
+
+        <div className="flex items-center gap-4 shrink-0">
+          <div className="relative hidden lg:block">
             <input
               placeholder="Search..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="bg-white/10 px-4 py-2 pl-10 rounded-full text-sm outline-none focus:ring-2 focus:ring-white/20 w-48 focus:w-64 transition-all text-white placeholder-gray-500"
+              className="bg-white/10 px-4 py-1.5 pl-9 rounded-full text-sm outline-none focus:ring-2 focus:ring-white/20 w-40 focus:w-60 transition-all text-white placeholder-gray-500"
             />
-            <svg className="absolute left-3 top-2.5 text-gray-400" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
+            <svg className="absolute left-3 top-2 text-gray-400" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
           </div>
 
-          <Link href="/shop/sell" className="group px-4 py-2 bg-white text-black rounded-full font-medium hover:bg-gray-200 transition-colors flex items-center gap-2 overflow-hidden relative">
-            <ShoppingBag className="w-4 h-4" />
-            <span className="group-hover:hidden transition-all duration-300">so.fuy</span>
-            <span className="hidden group-hover:block transition-all duration-300">Sell on FUY</span>
+          <Link href="/shop/sell" className="group px-4 py-1.5 bg-white text-black rounded-full text-sm font-bold hover:bg-gray-200 transition-colors flex items-center gap-2 overflow-hidden relative">
+            <ShoppingBag className="w-3.5 h-3.5" />
+            <span className="group-hover:hidden">s.o. fuy</span>
+            <span className="hidden group-hover:inline">Sell on FUY</span>
           </Link>
 
-          <Link href="/dashboard/purchases" className="hidden sm:block px-4 py-2 border border-white/20 text-white text-sm font-bold rounded-full hover:bg-white/10 transition-colors">
-            My Library
+          <Link href="/dashboard/purchases" className="hidden sm:block px-4 py-1.5 border border-white/20 text-white text-sm font-bold rounded-full hover:bg-white/10 transition-colors whitespace-nowrap">
+            Library
           </Link>
 
           {myBrands.length > 0 ? (
-            <Link href={`/shop/brand/${myBrands[0].slug}/dashboard`} className="hidden sm:block px-4 py-2 border border-white text-white text-sm font-bold rounded-full hover:bg-white/10 transition-colors">
-              Brand Dashboard
+            <Link href={`/shop/brand/${myBrands[0].slug}/dashboard`} className="hidden sm:block px-4 py-1.5 border border-white text-white text-sm font-bold rounded-full hover:bg-white/10 transition-colors whitespace-nowrap">
+              My Brand
             </Link>
           ) : (
-            <Link href="/shop/create-brand" className="hidden sm:block px-4 py-2 bg-white text-black text-sm font-bold rounded-full hover:bg-gray-200 transition-colors">
+            <Link href="/shop/create-brand" className="hidden sm:block px-4 py-1.5 bg-white text-black text-sm font-bold rounded-full hover:bg-gray-200 transition-colors whitespace-nowrap">
               Create Brand
             </Link>
           )}
-        </div>
-      </nav>
 
+          {/* Cart button */}
+          <Link
+            href="/cart"
+            className="relative p-2 rounded-full hover:bg-white/10 transition-colors text-white"
+            title="Shopping Cart"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+            {cartItemCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-[10px] rounded-full w-5 h-5 flex items-center justify-center font-bold border border-black">
+                {cartItemCount > 9 ? "9+" : cartItemCount}
+              </span>
+            )}
+          </Link>
+        </div>
+      </div>
+
+      {/* Main Content */}
       <div className="relative z-10">
 
-        {/* Hero Section */}
-        <div className="relative h-[60vh] w-full overflow-hidden flex items-center justify-center">
+        {/* Hero Section - Full viewport height */}
+        <div className="relative h-[100vh] w-full overflow-hidden flex items-center justify-center">
           {/* Background Image */}
           <img
             src="https://images.unsplash.com/photo-1483985988355-763728e1935b?w=1600&h=900&fit=crop"
