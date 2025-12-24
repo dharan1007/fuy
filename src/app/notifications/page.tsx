@@ -268,7 +268,7 @@ type Notification = {
       name: string | null;
     };
   };
-  _actionTaken?: "ACCEPT" | "REJECT" | "GHOST";
+  _actionTaken?: "ACCEPT" | "REJECT" | "GHOST" | "UNDO";
 };
 
 export default function NotificationsPage() {
@@ -348,25 +348,38 @@ export default function NotificationsPage() {
     }
   }
 
-  async function handleFriendAction(friendshipId: string, action: "ACCEPT" | "REJECT" | "GHOST") {
-    setNotifications(prev => prev.map(n => {
-      if (n.friendshipId === friendshipId) {
-        return { ...n, _actionTaken: action };
+  async function handleFriendAction(friendshipId: string, action: "ACCEPT" | "REJECT" | "GHOST" | "UNDO") {
+    // Optimistic UI Update
+    setNotifications(prev => {
+      // If GHOST, remove immediately from view
+      if (action === 'GHOST') {
+        return prev.filter(n => n.friendshipId !== friendshipId);
       }
-      return n;
-    }));
+
+      return prev.map(n => {
+        if (n.friendshipId === friendshipId) {
+          // If UNDO, clear the action taken
+          if (action === 'UNDO') {
+            return { ...n, _actionTaken: undefined };
+          }
+          return { ...n, _actionTaken: action };
+        }
+        return n;
+      });
+    });
 
     try {
       const res = await fetch("/api/friends/request", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
+        // @ts-ignore
         body: JSON.stringify({ friendshipId, action }),
       });
 
       if (!res.ok) {
         const error = await res.json();
         console.error("Action failed:", error.error);
-        loadNotifications();
+        loadNotifications(); // Revert on error
       }
     } catch (error) {
       console.error("Friend action error:", error);
@@ -539,12 +552,19 @@ export default function NotificationsPage() {
                           {notif.type === "FRIEND_REQUEST" && notif.sender && (
                             <div className="flex gap-2">
                               {notif._actionTaken ? (
-                                <span className={`text-[9px] font-black px-3 py-1 rounded border tracking-widest uppercase ${notif._actionTaken === 'ACCEPT' ? 'border-green-500/30 text-green-400 bg-green-900/10' :
-                                  notif._actionTaken === 'REJECT' ? 'border-red-500/30 text-red-400 bg-red-900/10' :
-                                    'border-gray-500/30 text-gray-400 bg-gray-900/10'
-                                  }`}>
-                                  {notif._actionTaken}
-                                </span>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (notif.friendshipId) handleFriendAction(notif.friendshipId, "UNDO");
+                                  }}
+                                  className={`text-[9px] font-black px-3 py-1 rounded border tracking-widest uppercase transition-colors hover:opacity-80 ${notif._actionTaken === 'ACCEPT' ? 'border-green-500/30 text-green-400 bg-green-900/10' :
+                                    notif._actionTaken === 'REJECT' ? 'border-red-500/30 text-red-400 bg-red-900/10' :
+                                      'border-gray-500/30 text-gray-400 bg-gray-900/10'
+                                    }`}
+                                  title="Click to Undo"
+                                >
+                                  {notif._actionTaken === 'ACCEPT' ? 'ACCEPTED' : notif._actionTaken === 'REJECT' ? 'DECLINED' : notif._actionTaken}
+                                </button>
                               ) : (
                                 <div className="flex items-center gap-2">
                                   <button
@@ -564,7 +584,20 @@ export default function NotificationsPage() {
                                     }}
                                     className="px-4 py-1.5 bg-transparent text-white border border-white/20 hover:bg-white/5 rounded text-[10px] font-black uppercase tracking-wider transition-all active:scale-95"
                                   >
-                                    Delete
+                                    Decline
+                                  </button>
+
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (notif.friendshipId) handleFriendAction(notif.friendshipId, "GHOST");
+                                    }}
+                                    className="p-1.5 text-gray-500 hover:text-white transition-colors"
+                                    title="Ghost Request"
+                                  >
+                                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                      <path d="M9 10h.01" /><path d="M15 10h.01" /><path d="M12 2a8 8 0 0 0-8 8v12l3-3 2.5 2.5L12 19l2.5 2.5L17 19l3 3V10a8 8 0 0 0-8-8z" />
+                                    </svg>
                                   </button>
                                 </div>
                               )}

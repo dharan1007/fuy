@@ -176,6 +176,9 @@ export async function GET(req: NextRequest) {
   // Filter by post type if provided
   if (type) {
     where.postType = type.toUpperCase();
+  } else {
+    // Default: Exclude stories/clocks from main feed
+    where.postType = { not: "STORY" };
   }
 
   // Always filter out drafts unless specific scope handling says otherwise (e.g. "me" might want drafts, but we use separate endpoint)

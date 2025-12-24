@@ -3,8 +3,13 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/session";
+import { cleanupExpiredStories } from "@/lib/cron";
+
 
 export async function GET(req: NextRequest) {
+    // Lazy cleanup of expired stories
+    await cleanupExpiredStories();
+
     const user = await getSessionUser();
     if (!user) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

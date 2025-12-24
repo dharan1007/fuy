@@ -106,7 +106,7 @@ export async function PATCH(req: Request) {
 
     const { friendshipId, action } = await req.json();
 
-    if (!friendshipId || !["ACCEPT", "REJECT", "GHOST"].includes(action)) {
+    if (!friendshipId || !["ACCEPT", "REJECT", "GHOST", "UNDO"].includes(action)) {
       return NextResponse.json({ error: "Invalid request" }, { status: 400 });
     }
 
@@ -118,36 +118,128 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: "Friendship not found" }, { status: 404 });
     }
 
-    // Verify permission (only the recipient can accept/reject/ghost)
-    // For GHOST, maybe the sender can also ghost? Assuming recipient for now based on UI.
+    // Verify permission (only the recipient can accept/reject/ghost/undo)
     if (friendship.friendId !== session.user.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
     if (action === "ACCEPT") {
-      await prisma.friendship.update({
-        where: { id: friendshipId },
-        data: { status: "ACCEPTED" },
+      // Transaction: Update status, increment counts, create subscription
+      await prisma.$transaction(async (tx) => {
+        // 1. Update Friendship
+        await tx.friendship.update({
+          where: { id: friendshipId },
+          data: { status: "ACCEPTED" },
+        });
+
+        // 2. Increment ACCEPTER's (Session User) follower count? 
+        // Wait, if I accept a request, the sender becomes my friend. In standard social models:
+        // If it's bidirectional (Friendship), usually both follow each other or it's just "Friends".
+        // The prompt says: "followers count of the person who accepted (Session User) should increase"
+        // "following count of the user who sent the request (Sender) should change"
+        // This implies the Sender is *following* the Accepter.
+
+        // 3. Create Subscription (Sender follows Accepter)
+        // Check if exists first to avoid unique constraint error
+        const existingSub = await tx.subscription.findUnique({
+          where: {
+            subscriberId_subscribedToId: {
+              subscriberId: friendship.userId, // Sender
+              subscribedToId: session.user.id, // Accepter
+            }
+          }
+        });
+
+        if (!existingSub) {
+          await tx.subscription.create({
+            data: {
+              subscriberId: friendship.userId,
+              subscribedToId: session.user.id,
+            },
+          });
+
+          await tx.user.update({
+            where: { id: session.user.id },
+            data: { followersCount: { increment: 1 } },
+          });
+
+          await tx.user.update({
+            where: { id: friendship.userId }, // The sender
+            data: { followingCount: { increment: 1 } },
+          });
+        }
+
+        // Notify the sender
+        await tx.notification.create({
+          data: {
+            userId: friendship.userId,
+            type: "FRIEND_ACCEPT",
+            message: `${session.user.name || "Someone"} accepted your friend request.`,
+            postId: session.user.id,
+          },
+        });
       });
 
-      // Notify the sender
-      await prisma.notification.create({
-        data: {
-          userId: friendship.userId,
-          type: "FRIEND_ACCEPT",
-          message: `${session.user.name || "Someone"} accepted your friend request.`,
-          postId: session.user.id,
-        },
-      });
     } else if (action === "REJECT") {
       await prisma.friendship.update({
         where: { id: friendshipId },
         data: { status: "REJECTED" },
       });
+
     } else if (action === "GHOST") {
       await prisma.friendship.update({
         where: { id: friendshipId },
         data: { isGhosted: true, ghostedBy: session.user.id },
+      });
+
+    } else if (action === "UNDO") {
+      // UNDO Logic
+      await prisma.$transaction(async (tx) => {
+        // We need to know what the previous state was to undo correctly.
+        // If it was ACCEPTED, we decrement.
+        // If it was REJECTED, we just set to PENDING.
+        // If it was GHOSTED, we set ghosted to false.
+
+        // We use the current state of 'friendship' fetched above, but be careful of race conditions.
+        // Ideally we fetch inside transaction or check logic.
+        // For simplicity, we check the current status.
+
+        if (friendship.status === "ACCEPTED") {
+          // Revert counts
+          await tx.user.update({
+            where: { id: session.user.id },
+            data: { followersCount: { decrement: 1 } },
+          });
+
+          await tx.user.update({
+            where: { id: friendship.userId },
+            data: { followingCount: { decrement: 1 } },
+          });
+
+          // Remove Subscription
+          try {
+            await tx.subscription.delete({
+              where: {
+                subscriberId_subscribedToId: {
+                  subscriberId: friendship.userId,
+                  subscribedToId: session.user.id,
+                }
+              }
+            });
+          } catch (e) {
+            // Subscription might not exist or already deleted, ignore
+          }
+        }
+
+        // Reset to PENDING
+        await tx.friendship.update({
+          where: { id: friendshipId },
+          data: {
+            status: "PENDING",
+            isGhosted: false,
+            ghostedBy: null
+          },
+        });
       });
     }
 

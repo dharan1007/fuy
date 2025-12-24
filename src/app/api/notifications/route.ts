@@ -120,7 +120,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ notifications: enrichedNotifications });
   } catch (error: any) {
     logger.error("Get notifications error:", error);
-    if (error?.message === "UNAUTHENTICATED") {
+    if (error?.message === "UNAUTHENTICATED" || error?.message === "USER_NOT_FOUND") {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
     return NextResponse.json(

@@ -5,7 +5,7 @@ import { Ghost, ChevronDown, ChevronRight } from 'lucide-react';
 
 interface GhostedRequest {
   id: string;
-  friend: {
+  user: {
     id: string;
     name: string;
     email: string;
@@ -90,13 +90,13 @@ export default function GhostedRequestsSection() {
                 <div key={request.id} className="flex items-center justify-between bg-white/5 border border-white/10 rounded-lg p-4">
                   <div className="flex items-center gap-4">
                     <img
-                      src={request.friend.profile?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${request.friend.id}`}
-                      alt={request.friend.name}
+                      src={request.user.profile?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${request.user.id}`}
+                      alt={request.user.name}
                       className="w-10 h-10 rounded-full bg-gray-800 object-cover"
                     />
                     <div>
-                      <p className="text-white font-bold">{request.friend.name}</p>
-                      <p className="text-xs text-gray-400">{request.friend.email}</p>
+                      <p className="text-white font-bold">{request.user.name}</p>
+                      <p className="text-xs text-gray-400">{request.user.email}</p>
                       <p className="text-[10px] text-gray-500 mt-1 uppercase">
                         Ghosted on {new Date(request.updatedAt).toLocaleDateString()}
                       </p>

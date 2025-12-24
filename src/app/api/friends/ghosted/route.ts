@@ -12,15 +12,14 @@ export async function GET(req: Request) {
   try {
     const userId = await requireUserId();
 
-    // Get all ghosted requests sent by the current user
+    // Get all ghosted requests ghosted BY the current user
     const ghostedRequests = await prisma.friendship.findMany({
       where: {
-        userId, // Requests sent by current user
+        ghostedBy: userId, // Requests ghosted by me
         isGhosted: true,
-        ghostedBy: { not: null },
       },
       include: {
-        friend: {
+        user: {
           select: {
             id: true,
             name: true,
@@ -75,8 +74,8 @@ export async function PUT(req: Request) {
       );
     }
 
-    // Verify the current user sent this request
-    if (friendship.userId !== userId) {
+    // Verify the current user is the one who ghosted it
+    if (friendship.ghostedBy !== userId) {
       return NextResponse.json(
         { error: "Not authorized" },
         { status: 403 }

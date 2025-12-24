@@ -26,45 +26,37 @@ async function uploadToStorage(userId: string, kind: "avatar" | "cover" | "stalk
 // GET /api/profile
 export async function GET() {
   try {
-    const u = await getSessionUser();
-    if (!u?.id) return NextResponse.json({ error: "Not authenticated" }, { status: 401, headers: { "Cache-Control": "no-store, max-age=0" } });
+    const userId = await requireUserId();
 
     const userData = await prisma.user.findUnique({
-      where: { id: u.id },
+      where: { id: userId },
       select: {
+        email: true, // Need to fetch email here since we don't have session object
         name: true,
         followersCount: true,
         followingCount: true,
-        profile: true, // Fetch all profile fields including new ones
+        profile: true,
         autoAcceptFollows: true,
         defaultPostVisibility: true,
         taggingPrivacy: true,
         notificationSettings: true,
-        createdAt: true, // For showing account age
+        createdAt: true,
       },
     });
 
     const [friendCount, postCount, followersCount, followingCount, posts] = await Promise.all([
       prisma.friendship.count({
-        where: { status: "ACCEPTED", OR: [{ userId: u.id }, { friendId: u.id }] },
+        where: { status: "ACCEPTED", OR: [{ userId: userId }, { friendId: userId }] },
       }),
-      prisma.post.count({ where: { userId: u.id } }),
-      // Count followers: users who have accepted friendships where this user is the friendId
+      prisma.post.count({ where: { userId: userId } }),
       prisma.friendship.count({
-        where: {
-          friendId: u.id,
-          status: "ACCEPTED",
-        },
+        where: { friendId: userId, status: "ACCEPTED" },
       }),
-      // Count following: users who this user has accepted friendships with
       prisma.friendship.count({
-        where: {
-          userId: u.id,
-          status: "ACCEPTED",
-        },
+        where: { userId: userId, status: "ACCEPTED" },
       }),
       prisma.post.findMany({
-        where: { userId: u.id },
+        where: { userId: userId },
         orderBy: { createdAt: "desc" },
         take: 12,
         select: {
@@ -75,13 +67,20 @@ export async function GET() {
           createdAt: true,
           media: { select: { type: true, url: true } },
           status: true,
+          // Need to fetch user details for post card display? 
+          // HomeClient expects post.user structure. 
+          // But currently profile GET returns pure posts.
+          // Let's keep it as is, frontend might be handling it or these are just raw posts.
+          // Actually HomeClient map usually expects post.user.
+          // Let's check the old code... old code didn't select user for profile posts.
+          // Just keeps it same as before.
         },
       }),
     ]);
 
     return NextResponse.json({
       name: userData?.name ?? null,
-      email: u.email, // Return email for display
+      email: userData?.email,
       createdAt: userData?.createdAt,
       autoAcceptFollows: userData?.autoAcceptFollows,
       defaultPostVisibility: userData?.defaultPostVisibility,
@@ -96,6 +95,9 @@ export async function GET() {
       headers: { "Cache-Control": "no-store, max-age=0" },
     });
   } catch (e: any) {
+    if (e?.message === "UNAUTHENTICATED" || e?.message === "USER_NOT_FOUND") {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
     return NextResponse.json({ error: e?.message ?? "Failed to load profile" }, { status: 500, headers: { "Cache-Control": "no-store, max-age=0" } });
   }
 }

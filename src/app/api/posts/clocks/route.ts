@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { cleanupExpiredStories } from '@/lib/cron';
 
 export async function POST(request: NextRequest) {
     try {
@@ -76,6 +77,7 @@ export async function POST(request: NextRequest) {
 // GET active stories (clocks) for the stories rail
 export async function GET(request: NextRequest) {
     try {
+        await cleanupExpiredStories();
         const { searchParams } = new URL(request.url);
         const userId = searchParams.get('userId');
         const limit = parseInt(searchParams.get('limit') || '20');
