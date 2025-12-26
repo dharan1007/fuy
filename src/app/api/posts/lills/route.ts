@@ -20,6 +20,7 @@ export async function POST(req: NextRequest) {
             musicUrl,
             musicTitle,
             filters,
+            status = 'PUBLISHED',
         } = body;
 
         if (!videoUrl) {
@@ -43,6 +44,7 @@ export async function POST(req: NextRequest) {
                 feature,
                 content: content || '',
                 visibility,
+                status,
                 lillData: {
                     create: {
                         videoUrl,

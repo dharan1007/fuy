@@ -15,11 +15,11 @@ interface ReactionControlProps {
 
 export default function ReactionControl({ postId, initialReaction, counts, onReact }: ReactionControlProps) {
     const [currentReaction, setCurrentReaction] = useState<ReactionType>(initialReaction);
-    const [optimisticCounts, setOptimisticCounts] = useState(counts);
+    const [optimisticCounts, setOptimisticCounts] = useState(counts || { W: 0, L: 0, CAP: 0, FIRE: 0 });
 
     useEffect(() => {
         setCurrentReaction(initialReaction);
-        setOptimisticCounts(counts);
+        setOptimisticCounts(counts || { W: 0, L: 0, CAP: 0, FIRE: 0 });
     }, [initialReaction, counts]);
 
     const handleReact = async (type: ReactionType) => {

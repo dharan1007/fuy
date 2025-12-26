@@ -20,6 +20,7 @@ export async function POST(req: NextRequest) {
             chapters, // array of {time, title}
             subtitlesUrl,
             quality = 'HD',
+            status = 'PUBLISHED',
         } = body;
 
         if (!videoUrl) {
@@ -36,6 +37,7 @@ export async function POST(req: NextRequest) {
                 feature,
                 content: content || '',
                 visibility,
+                status,
                 fillData: {
                     create: {
                         videoUrl,

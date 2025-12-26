@@ -138,22 +138,59 @@ model User {
   chapterAccessRequestsSent ChapterAccessRequest[]
 
   // PullUpDown Relations
-  pullUpDownTags   PullUpDownOption[]
-  pullUpDownVotes  PullUpDownVote[]
+  pullUpDownTags  PullUpDownOption[]
+  pullUpDownVotes PullUpDownVote[]
 
   // Settings & Privacy
   // Settings & Privacy
   autoAcceptFollows     Boolean @default(false)
   defaultPostVisibility String  @default("PUBLIC") // PUBLIC | FOLLOWERS
   taggingPrivacy        String  @default("EVERYONE") // EVERYONE | FOLLOWERS
-  
+
   // Notification Settings (JSON to control what notifications are received)
   // Structure: { likes: boolean, comments: boolean, mentions: boolean, follows: boolean, system: boolean }
-  notificationSettings  Json?
+  notificationSettings Json?
 
   // Activity & History
-  viewHistory    ViewHistory[]
-  postTags       PostTag[]
+  viewHistory ViewHistory[]
+  postTags    PostTag[]
+
+  // Hidden & Muted
+  hiddenPosts      HiddenPost[]
+  mutedUsers       MutedUser[]       @relation("Muter")
+  mutedBy          MutedUser[]       @relation("MutedUser")
+  stressMapEntries StressMapEntry[]
+  healthConditions HealthCondition[]
+  dietPlans        DietPlan[]
+}
+
+model HiddenPost {
+  id        String   @id @default(cuid())
+  userId    String
+  postId    String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+  @@index([userId])
+}
+
+model MutedUser {
+  id          String   @id @default(cuid())
+  muterId     String
+  mutedUserId String
+  // JSON array of strings: ["ALL"] or ["STORY", "POST", etc]
+  mutedTypes  String   @default("[\"ALL\"]")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  muter     User @relation("Muter", fields: [muterId], references: [id], onDelete: Cascade)
+  mutedUser User @relation("MutedUser", fields: [mutedUserId], references: [id], onDelete: Cascade)
+
+  @@unique([muterId, mutedUserId])
+  @@index([muterId])
 }
 
 model Subscription {
@@ -246,8 +283,9 @@ model Profile {
 
   // -- Basics --
   dob                 DateTime? // <--- Replaced 'age'
-  height              String?   // e.g. "5'10" or "178cm"
-  weight              String?   // e.g. "70kg"
+  gender              String?   // User's gender
+  height              String? // e.g. "5'10" or "178cm"
+  weight              String? // e.g. "70kg"
   city                String?
   interactionMode     String?
   conversationStarter String?
@@ -266,11 +304,11 @@ model Profile {
   // -- Deep Dive --
   values          String[] // e.g., Growth, Money, Spiritual
   hardNos         String[] // e.g., Smoking, Political talks
-  emotionalFit    String?  // "Only people who can emotionally fit..."
-  pleaseDont      String?  // "Please don't with me..."
-  careAbout       String?  // "What I care about..."
-  protectiveAbout String?  // "One thing I'm protective about..."
-  distanceMakers  String?  // "The distance makers..."
+  emotionalFit    String? // "Only people who can emotionally fit..."
+  pleaseDont      String? // "Please don't with me..."
+  careAbout       String? // "What I care about..."
+  protectiveAbout String? // "One thing I'm protective about..."
+  distanceMakers  String? // "The distance makers..."
 
   // -- Favorites & Interests --
   topMovies         String[]
@@ -342,29 +380,29 @@ model Friendship {
 }
 
 model Post {
-  id                  String   @id @default(cuid())
+  id                  String    @id @default(cuid())
   userId              String
   groupId             String?
   // Allowed: JOURNAL | JOY | AWE | BONDS | SERENDIPITY | CHECKIN | PROGRESS | OTHER
-  feature             String   @default("OTHER")
+  feature             String    @default("OTHER")
   // NEW: Post type - STANDARD | CHAPTER | XRAY | LILL | FILL | AUD | CHAN | PULLUPDOWN
-  postType            String   @default("STANDARD")
+  postType            String    @default("STANDARD")
   content             String
   // Allowed: PUBLIC | FRIENDS | PRIVATE | SPECIFIC
-  visibility          String   @default("PUBLIC")
+  visibility          String    @default("PUBLIC")
   // Expiration for Timed Posts
-  expiresAt           DateTime? 
-  joyScore            Int      @default(0)
-  connectionScore     Int      @default(0)
-  creativityScore     Int      @default(0)
+  expiresAt           DateTime?
+  joyScore            Int       @default(0)
+  connectionScore     Int       @default(0)
+  creativityScore     Int       @default(0)
   // Chapter Access Policy
-  chapterAccessPolicy String   @default("PUBLIC") // PUBLIC | PRIVATE | OWNER_ONLY
+  chapterAccessPolicy String    @default("PUBLIC") // PUBLIC | PRIVATE | OWNER_ONLY
   // Moderation
-  moderationStatus    String   @default("CLEAN") // CLEAN, FLAGGED, REMOVED
+  moderationStatus    String    @default("CLEAN") // CLEAN, FLAGGED, REMOVED
   moderationReason    String?
-  status              String   @default("PUBLISHED") // PUBLISHED, DRAFT, ARCHIVED
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  status              String    @default("PUBLISHED") // PUBLISHED, DRAFT, ARCHIVED
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   group    Group?        @relation(fields: [groupId], references: [id], onDelete: SetNull)
@@ -395,8 +433,9 @@ model Post {
   pullUpDownData PullUpDown?
 
   // Activity & History
-  viewHistory    ViewHistory[]
-  postTags       PostTag[]
+  viewHistory ViewHistory[]
+  postTags    PostTag[]
+  hiddenPosts HiddenPost[]
 
   @@index([postType])
   @@index([createdAt])
@@ -615,7 +654,7 @@ model SimplePost {
 model Story {
   id        String   @id @default(cuid())
   postId    String   @unique
-  duration  Int      // Duration in hours (1-48)
+  duration  Int // Duration in hours (1-48)
   createdAt DateTime @default(now())
 
   post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
@@ -724,7 +763,7 @@ model Show {
 }
 
 model Episode {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   showId        String
   title         String
   description   String?
@@ -732,12 +771,12 @@ model Episode {
   coverUrl      String?
   trailerUrl    String?
   videoUrl      String?
-  duration      Int      @default(0) // seconds
+  duration      Int       @default(0) // seconds
   releaseDate   DateTime?
-  credits       String?  // JSON array of cast/crew
-  isLive        Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  credits       String? // JSON array of cast/crew
+  isLive        Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   show Show @relation(fields: [showId], references: [id], onDelete: Cascade)
 
@@ -746,13 +785,13 @@ model Episode {
 
 // PullUpDown - Voting/polling posts
 model PullUpDown {
-  id            String    @id @default(cuid())
-  postId        String    @unique
-  question      String
-  
+  id       String @id @default(cuid())
+  postId   String @unique
+  question String
+
   // Options are now a separate relation
-  options       PullUpDownOption[]
-  
+  options PullUpDownOption[]
+
   allowMultiple Boolean   @default(false)
   expiresAt     DateTime?
   createdAt     DateTime  @default(now())
@@ -771,13 +810,13 @@ model PullUpDownOption {
   text           String
   specialDetails String?
   uniqueDetails  String?
-  
+
   // User tagging for this option
-  taggedUserId   String?
-  tagStatus      String  @default("PENDING") // PENDING, ACCEPTED, REJECTED
-  
-  voteCount      Int     @default(0)
-  
+  taggedUserId String?
+  tagStatus    String  @default("PENDING") // PENDING, ACCEPTED, REJECTED
+
+  voteCount Int @default(0)
+
   pullUpDown PullUpDown       @relation(fields: [pullUpDownId], references: [id], onDelete: Cascade)
   taggedUser User?            @relation(fields: [taggedUserId], references: [id], onDelete: SetNull)
   votes      PullUpDownVote[]
@@ -791,7 +830,7 @@ model PullUpDownVote {
   id           String   @id @default(cuid())
   pullUpDownId String
   userId       String
-  optionId     String   // Link to specific option
+  optionId     String // Link to specific option
   createdAt    DateTime @default(now())
 
   pullUpDown PullUpDown       @relation(fields: [pullUpDownId], references: [id], onDelete: Cascade)
@@ -1380,6 +1419,73 @@ model FactWarning {
 }
 
 // ------------------------
+// Wrex (Grounding) Features
+// ------------------------
+
+model StressMapEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  side      String // FRONT | BACK
+  region    String
+  x         Float
+  y         Float
+  z         Float?    @default(0)
+  intensity Int
+  quality   String
+  note      String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model HealthCondition {
+  id       String   @id @default(cuid())
+  userId   String
+  type     String // INJURY | ILLNESS | ALLERGY | MEDICATION
+  name     String
+  date     DateTime
+  notes    String?
+  resolved Boolean  @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model DietPlan {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  items DietItem[]
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model DietItem {
+  id         String @id @default(cuid())
+  dietPlanId String
+  foodName   String
+  quantity   Float
+  unit       String
+  calories   Float
+  protein    Float
+  carbs      Float
+  fats       Float
+
+  dietPlan DietPlan @relation(fields: [dietPlanId], references: [id], onDelete: Cascade)
+
+  @@index([dietPlanId])
+}
+
+// ------------------------
 // Auth.js / NextAuth tables
 // ------------------------
 
@@ -1935,10 +2041,10 @@ model ModerationLog {
 }
 
 model ViewHistory {
-  id        String   @id @default(cuid())
-  userId    String
-  postId    String
-  viewedAt  DateTime @default(now())
+  id       String   @id @default(cuid())
+  userId   String
+  postId   String
+  viewedAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
@@ -1950,7 +2056,7 @@ model ViewHistory {
 model PostTag {
   id        String   @id @default(cuid())
   postId    String
-  userId    String   // The user being tagged
+  userId    String // The user being tagged
   createdAt DateTime @default(now())
 
   post Post @relation(fields: [postId], references: [id], onDelete: Cascade)

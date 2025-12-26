@@ -110,7 +110,7 @@ export default function OrdersPage() {
             {/* MODALS */}
             <AnimatePresence>
                 {showReportModal && selectedItem && (
-                    <ReportModal
+                    <OrderReportModal
                         item={selectedItem}
                         onClose={() => setShowReportModal(false)}
                     />
@@ -126,7 +126,7 @@ export default function OrdersPage() {
     );
 }
 
-function ReportModal({ item, onClose }: { item: any, onClose: () => void }) {
+function OrderReportModal({ item, onClose }: { item: any, onClose: () => void }) {
     const [target, setTarget] = useState<'SELLER' | 'FUY'>('SELLER');
     const [reason, setReason] = useState('');
     const [details, setDetails] = useState('');

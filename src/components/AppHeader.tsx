@@ -30,6 +30,13 @@ export default function AppHeader({ title, showBackButton = false, showSettingsA
   async function loadUnreadCount() {
     try {
       const res = await fetch("/api/notifications?unreadOnly=true");
+
+      if (res.status === 401) {
+        // Session is invalid (e.g. user deleted from DB), log out to fix state
+        await signOut({ callbackUrl: "/login" });
+        return;
+      }
+
       const data = await res.json();
       setUnreadCount(data.notifications?.length || 0);
     } catch (error) {

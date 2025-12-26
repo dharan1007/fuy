@@ -2,8 +2,8 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Play, Tv, MoreVertical } from 'lucide-react';
-import ReactionControl from '@/components/ReactionControl';
+import { Play, Tv } from 'lucide-react';
+import PostActionMenu from '@/components/PostActionMenu';
 
 type ChanCardProps = {
     chan: {
@@ -13,11 +13,15 @@ type ChanCardProps = {
         coverImageUrl?: string | null;
         episodes: string | any[];
     };
-    user: any; // Add user prop for linking
+    user: any;
     postId: string;
+    post?: any; // Full post object for menu
+    currentUserId?: string;
+    onPostHidden?: () => void;
+    onRefresh?: () => void;
 };
 
-export default function ChanCard({ chan, user, postId }: ChanCardProps) {
+export default function ChanCard({ chan, user, postId, post, currentUserId, onPostHidden, onRefresh }: ChanCardProps) {
     const episodes = typeof chan.episodes === 'string' ? JSON.parse(chan.episodes || '[]') : chan.episodes || [];
     const [selectedEpisode, setSelectedEpisode] = useState(0);
     const hasEpisodes = episodes.length > 0;
@@ -73,9 +77,14 @@ export default function ChanCard({ chan, user, postId }: ChanCardProps) {
                                 <span className="text-white/40 text-xs">• {episodes.length} episodes</span>
                             </div>
                         </div>
-                        <button className="text-white/40 hover:text-white">
-                            <MoreVertical size={18} />
-                        </button>
+                        <div className="z-10">
+                            <PostActionMenu
+                                post={post || { id: postId, user: user, userId: user?.id }} // Fallback if full post not passed, but we need full post for some actions. FeedPostItem passes it.
+                                currentUserId={currentUserId}
+                                onPostHidden={onPostHidden}
+                                onRefresh={onRefresh}
+                            />
+                        </div>
                     </div>
 
                     {/* Reactions Bar (Optional for Chans? User said "basic stuff") */}

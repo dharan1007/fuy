@@ -4,6 +4,8 @@ import React from 'react';
 import Link from 'next/link';
 import { Tv } from 'lucide-react';
 
+import PostActionMenu from '@/components/PostActionMenu';
+
 type FillCardProps = {
     fill: {
         id: string;
@@ -12,9 +14,13 @@ type FillCardProps = {
         duration: number;
     };
     user?: any;
+    post?: any;
+    currentUserId?: string;
+    onPostHidden?: () => void;
+    onRefresh?: () => void;
 };
 
-export default function FillCard({ fill, user }: FillCardProps) {
+export default function FillCard({ fill, user, post, currentUserId, onPostHidden, onRefresh }: FillCardProps) {
     const formatDuration = (seconds: number) => {
         const mins = Math.floor(seconds / 60);
         const secs = seconds % 60;
@@ -32,6 +38,14 @@ export default function FillCard({ fill, user }: FillCardProps) {
                 />
                 <div className="absolute bottom-2 right-2 px-2 py-1 bg-black/70 rounded text-xs">
                     {formatDuration(fill.duration)}
+                </div>
+                <div className="absolute top-2 right-2 z-20">
+                    <PostActionMenu
+                        post={post || { id: fill.id, user, userId: user?.id }}
+                        currentUserId={currentUserId}
+                        onPostHidden={onPostHidden}
+                        onRefresh={onRefresh}
+                    />
                 </div>
             </div>
 

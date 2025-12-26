@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
+import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Palette, Rocket, ShoppingBag, LayoutDashboard, Menu } from 'lucide-react';
@@ -18,17 +18,11 @@ import ScrollStarfield from '@/components/ScrollStarfield';
 import LandingPage from '@/components/LandingPage/LandingPage';
 
 // Post type card components
-import SimplePostCard from '@/components/post-cards/SimplePostCard';
-import ChapterCard from '@/components/post-cards/ChapterCard';
-import XrayCard from '@/components/post-cards/XrayCard';
-
-import LillCard from '@/components/post-cards/LillCard';
-import FillCard from '@/components/post-cards/FillCard';
-import AudCard from '@/components/post-cards/AudCard';
-import ChanCard from '@/components/post-cards/ChanCard';
-import PullUpDownCard from '@/components/post-cards/PullUpDownCard';
+// Post type card components
+import FeedPostItem from '@/components/FeedPostItem';
+import { FeedRefreshProvider } from '@/context/FeedItemContext';
 import ReportModal from '@/components/ReportModal';
-import ReactionControl from '@/components/ReactionControl';
+// import ReactionControl from '@/components/ReactionControl';
 import ReactionBubbleList from '@/components/ReactionBubbleList';
 import StoriesRail from '@/components/Feed/StoriesRail';
 import { MoreVertical, Flag } from 'lucide-react';
@@ -111,6 +105,10 @@ export default function HomeClient({ isAdmin = false }: { isAdmin?: boolean }) {
     const fetchUserProfile = async () => {
         try {
             const response = await fetch('/api/profile');
+            if (response.status === 401) {
+                await signOut({ callbackUrl: '/login' });
+                return;
+            }
             if (response.ok) {
                 const data = await response.json();
                 setUserProfile(data);
@@ -444,51 +442,24 @@ export default function HomeClient({ isAdmin = false }: { isAdmin?: boolean }) {
                                     <p className="text-white/70">No posts yet. Be the first to share!</p>
                                 </div>
                             ) : (
-                                posts.map((post: any) => {
-                                    // Determine Grid Spans
-                                    let spanClass = "col-span-1";
+                                <FeedRefreshProvider onRefresh={fetchPosts}>
+                                    {posts.map((post: any) => {
+                                        // Wide Cards (Chan, Fill) -> Span 2
+                                        let spanClass = "col-span-1";
+                                        if (post.postType === 'CHAN' || post.postType === 'FILL') {
+                                            spanClass = "col-span-1 md:col-span-2";
+                                        }
 
-                                    // Wide Cards (Chan, Fill) -> Span 2
-                                    if (post.postType === 'CHAN' || post.postType === 'FILL') {
-                                        spanClass = "col-span-1 md:col-span-2";
-                                    }
-
-                                    // Height/Row Spans are handled by the card's intrinsic aspect ratio,
-                                    // but we can enforce container behavior.
-                                    // Lill -> Tall (handled by aspect-ratio 9/16 in card)
-                                    // Aud -> Standard Square
-                                    // Simple -> Standard Square
-
-                                    return (
-                                        <div key={post.id} className={`${spanClass} flex flex-col relative`}>
-                                            <div className="absolute top-3 left-3 z-30 bg-black text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider shadow-sm pointer-events-none">
-                                                {post.postType || 'POST'}
-                                            </div>
-                                            {/* Render Card Type */}
-                                            {post.postType === 'CHAPTER' ? (
-                                                <ChapterCard post={post} onRefresh={fetchPosts} />
-                                            ) : post.postType === 'XRAY' && post.xrayData ? (
-                                                <XrayCard xray={post.xrayData} />
-                                            ) : post.postType === 'LILL' && post.lillData ? (
-                                                <LillCard lill={post.lillData} user={post.user} />
-                                            ) : post.postType === 'FILL' && post.fillData ? (
-                                                <FillCard fill={post.fillData} user={post.user} />
-                                            ) : post.postType === 'AUD' && post.audData ? (
-                                                <AudCard aud={post.audData} user={post.user} />
-                                            ) : post.postType === 'CHAN' && post.chanData ? (
-                                                <ChanCard chan={post.chanData} user={post.user} postId={post.id} />
-                                            ) : post.postType === 'PULLUPDOWN' && post.pullUpDownData ? (
-                                                <div className="bg-transparent">
-                                                    {/* PUDs maintain their own style - maybe wrap to fit grid? */}
-                                                    <PullUpDownCard pullUpDown={post.pullUpDownData} userVote={post.userVote} isAuthenticated={!!session} />
-                                                </div>
-                                            ) : (
-                                                // Default / Simple Post
-                                                <SimplePostCard post={post} onRefresh={fetchPosts} />
-                                            )}
-                                        </div>
-                                    );
-                                })
+                                        return (
+                                            <FeedPostItem
+                                                key={post.id}
+                                                post={post}
+                                                currentUserId={session?.user?.id}
+                                                className={spanClass}
+                                            />
+                                        );
+                                    })}
+                                </FeedRefreshProvider>
                             )}
                         </div>
                     </div>

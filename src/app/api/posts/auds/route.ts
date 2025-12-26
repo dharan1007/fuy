@@ -21,6 +21,7 @@ export async function POST(req: NextRequest) {
             artist,
             title,
             genre,
+            status = 'PUBLISHED',
         } = body;
 
         if (!audioUrl) {
@@ -37,6 +38,7 @@ export async function POST(req: NextRequest) {
                 feature,
                 content: content || title || '',
                 visibility,
+                status,
                 audData: {
                     create: {
                         audioUrl,

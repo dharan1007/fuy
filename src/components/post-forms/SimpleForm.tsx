@@ -5,11 +5,17 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Upload, X, Loader2 } from 'lucide-react';
 
-type SimpleFormProps = {
-    onBack: () => void;
-};
+import { useCreatePost } from '@/context/CreatePostContext';
 
-export default function SimpleForm({ onBack }: SimpleFormProps) {
+interface SimpleFormProps {
+    onBack?: () => void;
+    initialData?: any;
+}
+
+export default function SimpleForm({ onBack: propOnBack, initialData }: SimpleFormProps) {
+    const { onBack: contextOnBack, initialData: contextInitialData } = useCreatePost() || {};
+    const onBack = propOnBack || contextOnBack || (() => { });
+    const data = initialData || contextInitialData;
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -47,7 +53,7 @@ export default function SimpleForm({ onBack }: SimpleFormProps) {
         });
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent | React.MouseEvent, status: 'PUBLISHED' | 'DRAFT' = 'PUBLISHED') => {
         e.preventDefault();
         setError('');
         setLoading(true);
@@ -85,6 +91,7 @@ export default function SimpleForm({ onBack }: SimpleFormProps) {
                     visibility,
                     mediaUrls,
                     mediaTypes,
+                    status,
                 }),
             });
 
@@ -178,6 +185,14 @@ export default function SimpleForm({ onBack }: SimpleFormProps) {
                         className="flex-1 py-3 bg-white/10 hover:bg-white/20 rounded-xl font-medium transition-colors"
                     >
                         Back
+                    </button>
+                    <button
+                        type="button"
+                        onClick={(e) => handleSubmit(e, 'DRAFT')}
+                        disabled={loading || mediaItems.length === 0}
+                        className="flex-1 py-3 bg-yellow-500/20 text-yellow-500 border border-yellow-500/50 rounded-xl font-bold hover:bg-yellow-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                        {loading ? <Loader2 className="animate-spin" size={20} /> : 'Save Draft'}
                     </button>
                     <button
                         type="submit"

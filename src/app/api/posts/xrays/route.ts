@@ -19,6 +19,7 @@ export async function POST(req: NextRequest) {
       bottomLayerUrl,
       bottomLayerType,
       scratchPattern = 'RANDOM',
+      status = 'PUBLISHED',
     } = body;
 
     if (!topLayerUrl || !bottomLayerUrl) {
@@ -35,6 +36,7 @@ export async function POST(req: NextRequest) {
         feature,
         content: content || 'Scratch to reveal!',
         visibility,
+        status,
         xrayData: {
           create: {
             topLayerUrl,

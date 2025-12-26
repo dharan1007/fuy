@@ -2,6 +2,8 @@
 
 import React, { useRef, useEffect, useState } from 'react';
 
+import PostActionMenu from '@/components/PostActionMenu';
+
 type XrayCardProps = {
     xray: {
         id: string;
@@ -10,9 +12,12 @@ type XrayCardProps = {
         topLayerType: string;
         bottomLayerType: string;
     };
+    currentUserId?: string;
+    onPostHidden?: () => void;
+    onRefresh?: () => void;
 };
 
-export default function XrayCard({ xray }: XrayCardProps) {
+export default function XrayCard({ xray, currentUserId, onPostHidden, onRefresh }: XrayCardProps) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [isScratching, setIsScratching] = useState(false);
     const [revealPercent, setRevealPercent] = useState(0);
@@ -85,8 +90,17 @@ export default function XrayCard({ xray }: XrayCardProps) {
                     onTouchMove={scratch}
                 />
 
-                <div className="absolute top-2 left-2 px-3 py-1 bg-black/70 rounded-full text-xs">
+                <div className="absolute top-2 left-2 px-3 py-1 bg-black/70 rounded-full text-xs pointer-events-none">
                     🔍 Scratch to reveal
+                </div>
+
+                <div className="absolute top-2 right-2 z-20">
+                    <PostActionMenu
+                        post={{ id: xray.id }} // Xray might not have full post attached easily here unless passed. For now just ID for hiding.
+                        currentUserId={currentUserId}
+                        onPostHidden={onPostHidden}
+                        onRefresh={onRefresh}
+                    />
                 </div>
             </div>
         </div>

@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import React, { useRef, Suspense, useEffect, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
@@ -64,7 +64,6 @@ export default function ScrollStarfield({ children, variant = 'default' }: Scrol
     const commonCanvasProps = {
         camera: { position: [0, 0, 5], fov: 60 } as any,
         gl: {
-            // powerPreference: "high-performance", // Removed to prevent context loss on lower-end devices
             antialias: false,
             stencil: false,
             depth: false,
@@ -98,7 +97,7 @@ export default function ScrollStarfield({ children, variant = 'default' }: Scrol
     // Default fixed background
     return (
         <>
-            <div className="fixed inset-0 z-0 bg-black">
+            <div className="fixed inset-0 z-0 bg-black pointer-events-none">
                 <Suspense fallback={<div className="w-full h-full bg-black" />}>
                     <Canvas {...commonCanvasProps}>
                         <color attach="background" args={['#000000']} />

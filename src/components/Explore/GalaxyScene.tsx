@@ -17,6 +17,7 @@ interface GalaxySceneProps {
     puds: any[];
     onPostClick: (post: any) => void;
     showLines: boolean;
+    activeGlobe: string;
 }
 
 export default function GalaxyScene({
@@ -31,7 +32,7 @@ export default function GalaxyScene({
     onPostClick,
     showLines,
     activeGlobe
-}: GalaxySceneProps & { activeGlobe: string }) {
+}: GalaxySceneProps) {
 
     const { data: session } = useSession();
 
@@ -59,21 +60,20 @@ export default function GalaxyScene({
                 <pointLight position={[10, 10, 10]} intensity={1} />
                 <Stars radius={200} depth={50} count={7000} factor={4} saturation={0} fade speed={0.5} />
 
-                {/* PUDs and Chans are 2D overlays, handled outside Canvas */}
-                {activeGlobe === 'Puds' || activeGlobe === 'Chans' ? null : (
-                    /* Single Active Globe for other types */
-                    <GlobeContent
-                        position={[0, 0, 0]}
-                        posts={activeData}
-                        onPostClick={onPostClick}
-                        showLines={showLines}
-                        label={activeGlobe === 'Posts' ? '' : activeGlobe}
-                        scale={1.5}
-                        color="#ffffff"
-                        hasRing={false}
-                        isFocused={true}
-                    />
-                )}
+                {/* PUDs and Chans are 2D overlays, handled outside Canvas */
+                    activeGlobe === 'Puds' || activeGlobe === 'Chans' ? null : (
+                        <GlobeContent
+                            position={[0, 0, 0]}
+                            posts={activeData}
+                            onPostClick={onPostClick}
+                            showLines={showLines}
+                            label={activeGlobe === 'Posts' ? '' : activeGlobe}
+                            scale={1.5}
+                            color="#ffffff"
+                            hasRing={false}
+                            isFocused={true}
+                        />
+                    )}
 
                 <OrbitControls
                     enablePan={true}

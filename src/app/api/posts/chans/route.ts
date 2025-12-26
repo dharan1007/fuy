@@ -19,6 +19,7 @@ export async function POST(req: NextRequest) {
             coverImageUrl,
             schedule, // array of {day, time, title}
             episodes, // array of {title, url, thumbnail, duration, publishedAt}
+            status = 'PUBLISHED',
         } = body;
 
         if (!channelName) {
@@ -42,6 +43,7 @@ export async function POST(req: NextRequest) {
                 feature,
                 content: content || description || '',
                 visibility,
+                status,
                 chanData: {
                     create: {
                         channelName,

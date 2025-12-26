@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import DeleteAccountModal from '@/components/DeleteAccountModal';
 import GhostedRequestsSection from '@/components/GhostedRequestsSection';
+import HiddenPostsManager from '@/components/settings/HiddenPostsManager';
+import MutedUsersManager from '@/components/settings/MutedUsersManager';
 import { SpaceBackground } from '@/components/SpaceBackground';
 import AppHeader from '@/components/AppHeader';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -307,6 +309,16 @@ export default function SettingsPage() {
             </div>
           </div>
         </section>
+
+
+
+
+
+        {/* Hidden Posts & Muted Users (New) */}
+        <div className="grid grid-cols-1 gap-6">
+          <HiddenPostsManager />
+          <MutedUsersManager />
+        </div>
 
         {/* Ghosted Requests (Existing feature) */}
         <GhostedRequestsSection />

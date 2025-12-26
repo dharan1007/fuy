@@ -16,6 +16,7 @@ export async function POST(req: NextRequest) {
             feature = 'OTHER',
             mediaUrls, // Array of strings
             mediaTypes, // Array of 'IMAGE' | 'VIDEO'
+            status = 'PUBLISHED', // New field for drafts
         } = body;
 
         if (!mediaUrls || !Array.isArray(mediaUrls)) {
@@ -46,6 +47,7 @@ export async function POST(req: NextRequest) {
                 feature,
                 content: content || '',
                 visibility,
+                status, // Use the provided status
                 simpleData: {
                     create: {
                         mediaUrls: JSON.stringify(mediaUrls),

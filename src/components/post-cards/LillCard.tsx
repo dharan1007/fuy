@@ -1,7 +1,5 @@
-'use client';
-
-import React from 'react';
 import Link from 'next/link';
+import PostActionMenu from '@/components/PostActionMenu';
 
 type LillCardProps = {
     lill: {
@@ -11,9 +9,13 @@ type LillCardProps = {
         duration: number;
     };
     user?: any;
+    post?: any;
+    currentUserId?: string;
+    onPostHidden?: () => void;
+    onRefresh?: () => void;
 };
 
-export default function LillCard({ lill, user }: LillCardProps) {
+export default function LillCard({ lill, user, post, currentUserId, onPostHidden, onRefresh }: LillCardProps) {
     return (
         <div className="bg-black rounded-lg overflow-hidden relative h-full w-full aspect-[9/16] group">
             {/* Full Height Video */}
@@ -40,6 +42,14 @@ export default function LillCard({ lill, user }: LillCardProps) {
                         {user?.profile?.displayName || 'User'}
                     </span>
                 </div>
+            </div>
+            <div className="absolute top-2 right-2 z-20">
+                <PostActionMenu
+                    post={post || { id: lill.id, user, userId: user?.id }}
+                    currentUserId={currentUserId}
+                    onPostHidden={onPostHidden}
+                    onRefresh={onRefresh}
+                />
             </div>
         </div>
     );

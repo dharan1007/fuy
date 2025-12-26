@@ -2,13 +2,19 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Upload } from 'lucide-react';
+import { Upload, Loader2 } from 'lucide-react';
+
+import { useCreatePost } from '@/context/CreatePostContext';
 
 type FillFormProps = {
-    onBack: () => void;
+    onBack?: () => void;
+    initialData?: any;
 };
 
-export default function FillForm({ onBack }: FillFormProps) {
+export default function FillForm({ onBack: propOnBack, initialData }: FillFormProps) {
+    const { onBack: contextOnBack, initialData: contextInitialData } = useCreatePost() || {};
+    const onBack = propOnBack || contextOnBack || (() => { });
+    const data = initialData || contextInitialData;
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -33,7 +39,7 @@ export default function FillForm({ onBack }: FillFormProps) {
         }
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent | React.MouseEvent, status: 'PUBLISHED' | 'DRAFT' = 'PUBLISHED') => {
         e.preventDefault();
         setError('');
         setLoading(true);
@@ -61,6 +67,7 @@ export default function FillForm({ onBack }: FillFormProps) {
                     visibility,
                     videoUrl: uploadData.url,
                     duration,
+                    status,
                 }),
             });
 
@@ -154,11 +161,19 @@ export default function FillForm({ onBack }: FillFormProps) {
                         Back
                     </button>
                     <button
+                        type="button"
+                        onClick={(e) => handleSubmit(e, 'DRAFT')}
+                        disabled={loading || !videoFile}
+                        className="flex-1 py-3 bg-yellow-500/20 text-yellow-500 border border-yellow-500/50 rounded-xl font-bold hover:bg-yellow-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                        {loading ? <Loader2 className="animate-spin" size={20} /> : 'Save Draft'}
+                    </button>
+                    <button
                         type="submit"
                         disabled={loading || !videoFile}
-                        className="flex-1 py-3 bg-white text-black rounded-xl font-bold hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex-1 py-3 bg-white text-black rounded-xl font-bold hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
-                        {loading ? 'Creating...' : 'Create Fill'}
+                        {loading ? <Loader2 className="animate-spin" size={20} /> : 'Create Fill'}
                     </button>
                 </div>
             </div>

@@ -2,11 +2,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Upload, X, Plus, Search, Link as LinkIcon, Lock } from 'lucide-react';
+import { Upload, X, Plus, Search, Link as LinkIcon, Lock, Loader2 } from 'lucide-react';
 import Image from 'next/image';
 
+import { useCreatePost } from '@/context/CreatePostContext';
+
 type ChapterFormProps = {
-    onBack: () => void;
+    onBack?: () => void;
+    initialData?: any;
 };
 
 type ConnectablePost = {
@@ -20,7 +23,10 @@ type ConnectablePost = {
     isOwner: boolean;
 };
 
-export default function ChapterForm({ onBack }: ChapterFormProps) {
+export default function ChapterForm({ onBack: propOnBack, initialData }: ChapterFormProps) {
+    const { onBack: contextOnBack, initialData: contextInitialData } = useCreatePost() || {};
+    const onBack = propOnBack || contextOnBack || (() => { });
+    const data = initialData || contextInitialData;
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -68,7 +74,7 @@ export default function ChapterForm({ onBack }: ChapterFormProps) {
         setMediaFiles(prev => prev.filter((_, i) => i !== index));
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent | React.MouseEvent, status: 'PUBLISHED' | 'DRAFT' = 'PUBLISHED') => {
         e.preventDefault();
         setError('');
         setLoading(true);
@@ -109,7 +115,8 @@ export default function ChapterForm({ onBack }: ChapterFormProps) {
                         f.type.startsWith('video') ? 'VIDEO' :
                             f.type.startsWith('audio') ? 'AUDIO' : 'IMAGE'
                     ),
-                    linkedPostId: linkedPost?.id // Pass the linked post ID
+                    linkedPostId: linkedPost?.id, // Pass the linked post ID
+                    status
                 }),
             });
 
@@ -245,6 +252,14 @@ export default function ChapterForm({ onBack }: ChapterFormProps) {
                         className="flex-1 py-3 bg-white/10 hover:bg-white/20 rounded-xl font-medium transition-colors"
                     >
                         Back
+                    </button>
+                    <button
+                        type="button"
+                        onClick={(e) => handleSubmit(e, 'DRAFT')}
+                        disabled={loading || mediaFiles.length === 0}
+                        className="flex-1 py-3 bg-yellow-500/20 text-yellow-500 border border-yellow-500/50 rounded-xl font-bold hover:bg-yellow-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {loading ? <Loader2 className="animate-spin" size={20} /> : 'Save Draft'}
                     </button>
                     <button
                         type="submit"

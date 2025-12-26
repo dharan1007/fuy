@@ -119,10 +119,12 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ notifications: enrichedNotifications });
   } catch (error: any) {
-    logger.error("Get notifications error:", error);
+    // special handling for auth errors to avoid log spam
     if (error?.message === "UNAUTHENTICATED" || error?.message === "USER_NOT_FOUND") {
+      // logger.warn("Get notifications: User not found or unauthenticated");
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
+    logger.error("Get notifications error:", error);
     return NextResponse.json(
       { error: "Failed to get notifications" },
       { status: 500 }

@@ -62,19 +62,45 @@ export default function StoryViewerPage() {
         }
     }, [shareMode, followers.length]);
 
-    // Auto-advance
+    // Auto-advance & Progress
+    const [progress, setProgress] = useState(0);
+    const STORY_DURATION = 5000; // 5 seconds for images
+
     useEffect(() => {
-        if (!stories.length || shareMode || replyText) return; // Pause if interacting
+        if (!stories.length || shareMode || replyText) return;
 
-        const timer = setTimeout(() => {
-            if (currentIndex < stories.length - 1) {
-                setCurrentIndex(c => c + 1);
-            } else {
-                router.push("/");
+        const currentStory = stories[currentIndex];
+        const isVideo = currentStory.media?.[0]?.type === 'VIDEO';
+
+        // Reset progress on story change
+        setProgress(0);
+
+        if (isVideo) {
+            // For video, we handle progress in onTimeUpdate of the video element
+            // and onEnded for next track. We don't use a timer here.
+            return;
+        }
+
+        // For Images: Manual Timer with animation frame or interval for smooth progress
+        const start = Date.now();
+        const duration = STORY_DURATION;
+
+        const timer = setInterval(() => {
+            const elapsed = Date.now() - start;
+            const p = Math.min((elapsed / duration) * 100, 100);
+            setProgress(p);
+
+            if (elapsed >= duration) {
+                clearInterval(timer);
+                if (currentIndex < stories.length - 1) {
+                    setCurrentIndex(c => c + 1);
+                } else {
+                    router.push("/");
+                }
             }
-        }, 5000);
+        }, 50); // Update every 50ms
 
-        return () => clearTimeout(timer);
+        return () => clearInterval(timer);
     }, [currentIndex, stories.length, shareMode, replyText, router]);
 
     if (loading) return <div className="min-h-screen bg-black flex items-center justify-center text-white">Loading...</div>;
@@ -168,17 +194,20 @@ export default function StoryViewerPage() {
             <div className="absolute top-0 left-0 right-0 z-20 px-4 pt-4 pb-12 bg-gradient-to-b from-black/70 to-transparent flex flex-col gap-2">
                 <div className="flex gap-1 h-1">
                     {stories.map((_, idx) => (
-                        <div key={idx} className="flex-1 bg-white/20 rounded-full overflow-hidden">
+                        <div key={idx} className="flex-1 bg-white/20 rounded-full overflow-hidden h-1">
                             <div
-                                className={`h-full bg-white transition-all duration-300 ${idx < currentIndex ? "w-full" :
-                                    idx === currentIndex ? "w-full" : "w-0"
+                                className={`h-full bg-white transition-all ease-linear ${idx < currentIndex ? "w-full duration-0" :
+                                    idx === currentIndex ? "duration-100" : // Smooth updates for current
+                                        "w-0 duration-0"
                                     }`}
+                                style={{ width: idx === currentIndex ? `${progress}%` : idx < currentIndex ? '100%' : '0%' }}
                             />
                         </div>
                     ))}
                 </div>
 
                 <div className="flex items-center justify-between mt-2">
+                    {/* ... (User info) ... */}
                     <div className="flex items-center gap-3 text-white">
                         <img
                             src={user?.profile?.avatarUrl || "https://api.dicebear.com/7.x/initials/svg?seed=User"}
@@ -209,14 +238,23 @@ export default function StoryViewerPage() {
             </div>
 
             {/* Media Content */}
-            <div className="flex-1 relative flex items-center justify-center bg-black">
+            <div className="flex-1 relative flex items-center justify-center bg-black overflow-hidden w-full h-full">
                 {isVideo ? (
                     <video
                         src={mediaItem?.url}
-                        className="max-w-full max-h-full w-auto h-auto object-contain"
+                        className="w-full h-full object-contain"
                         autoPlay
+                        // Remove controls, we use custom progress
                         controls={false}
                         loop={false}
+                        onTimeUpdate={(e) => {
+                            if (shareMode || replyText) return;
+                            const vid = e.currentTarget;
+                            if (vid.duration) {
+                                const p = (vid.currentTime / vid.duration) * 100;
+                                setProgress(p);
+                            }
+                        }}
                         onEnded={() => {
                             if (currentIndex < stories.length - 1) setCurrentIndex(c => c + 1);
                             else router.push("/");
@@ -225,7 +263,7 @@ export default function StoryViewerPage() {
                 ) : (
                     <img
                         src={mediaItem?.url}
-                        className="max-w-full max-h-full w-auto h-auto object-contain"
+                        className="w-full h-full object-contain"
                         alt="Clock Content"
                         onError={(e) => {
                             e.currentTarget.src = "https://via.placeholder.com/400x800?text=Error+Loading+Image";
@@ -236,7 +274,7 @@ export default function StoryViewerPage() {
                 {/* Navigation Overlays */}
                 <div className="absolute inset-0 flex z-10">
                     <div className="w-1/3 h-full cursor-pointer" onClick={() => !shareMode && currentIndex > 0 && setCurrentIndex(c => c - 1)} />
-                    <div className="w-1/3 h-full cursor-pointer" onClick={() => {/* Pause logic */ }} />
+                    <div className="w-1/3 h-full cursor-pointer" onClick={() => {/* Pause logic could go here */ }} />
                     <div className="w-1/3 h-full cursor-pointer" onClick={() => {
                         if (!shareMode) {
                             if (currentIndex < stories.length - 1) setCurrentIndex(c => c + 1);
@@ -245,7 +283,7 @@ export default function StoryViewerPage() {
                     }} />
                 </div>
 
-                {/* Right Arrow (Next) */}
+                {/* Right Arrow (Keep existing) */}
                 {!shareMode && (
                     <button
                         onClick={(e) => {
@@ -260,7 +298,7 @@ export default function StoryViewerPage() {
                 )}
             </div>
 
-            {/* Share Modal (Popup Style) */}
+            {/* Share Modal & Reply Bar (Keep existing) */}
             {shareMode && (
                 <div className="fixed inset-0 z-[210] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in duration-200">
                     {/* Modal Content */}

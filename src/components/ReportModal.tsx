@@ -1,7 +1,8 @@
+
 "use client";
 
-import { useState } from "react";
-import { X } from "lucide-react";
+import React, { useState } from 'react';
+import { X, AlertTriangle, ChevronRight, CheckCircle } from 'lucide-react';
 
 interface ReportModalProps {
     isOpen: boolean;
@@ -9,166 +10,136 @@ interface ReportModalProps {
     postId: string;
 }
 
+const REPORT_REASONS = [
+    "Spam or misleading",
+    "Harassment or bullying",
+    "Hate speech or symbols",
+    "Violence or dangerous organizations",
+    "Nudity or sexual activity",
+    "Scam or fraud",
+    "Intellectual property violation",
+    "I just don't like it"
+];
+
 export default function ReportModal({ isOpen, onClose, postId }: ReportModalProps) {
-    const [reason, setReason] = useState("");
+    const [selectedReason, setSelectedReason] = useState<string | null>(null);
     const [details, setDetails] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [success, setSuccess] = useState(false);
-    const [error, setError] = useState("");
+    const [isSuccess, setIsSuccess] = useState(false);
 
     if (!isOpen) return null;
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!reason) {
-            setError("Please select a reason");
-            return;
-        }
+    const handleSubmit = async () => {
+        if (!selectedReason) return;
 
         setIsSubmitting(true);
-        setError("");
-
         try {
-            const response = await fetch("/api/posts/report", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ postId, reason, details }),
+            const res = await fetch('/api/posts/report', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    postId,
+                    reason: selectedReason,
+                    details
+                }),
             });
 
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.message || data.error || "Failed to report post");
-            }
-
-            setSuccess(true);
-            setTimeout(() => {
-                onClose();
-                setSuccess(false);
-                setReason("");
-                setDetails("");
-            }, 2000);
-        } catch (err: any) {
-            if (err.message.includes("already reported")) {
-                setSuccess(true); // Treat as success for UX
-                setTimeout(onClose, 2000);
+            if (res.ok) {
+                setIsSuccess(true);
+                setTimeout(() => {
+                    onClose();
+                    setIsSuccess(false);
+                    setSelectedReason(null);
+                    setDetails("");
+                }, 2000);
             } else {
-                setError(err.message);
+                alert("Failed to compile report. Please try again.");
             }
+        } catch (error) {
+            console.error("Report error:", error);
+            alert("An error occurred.");
         } finally {
             setIsSubmitting(false);
         }
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-            <div className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200">
-                <div className="flex items-center justify-between p-4 border-b border-zinc-800">
-                    <h2 className="text-lg font-semibold text-white">Report Post</h2>
-                    <button
-                        onClick={onClose}
-                        className="p-2 text-zinc-400 hover:text-white rounded-full hover:bg-zinc-800 transition-colors"
-                    >
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <div className="w-full max-w-md bg-[#121212] border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
+                {/* Header */}
+                <div className="flex items-center justify-between p-4 border-b border-white/10">
+                    <h2 className="text-white font-bold flex items-center gap-2">
+                        <AlertTriangle className="text-red-500" size={20} />
+                        Report Content
+                    </h2>
+                    <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full text-white/70 transition-colors">
                         <X size={20} />
                     </button>
                 </div>
 
+                {/* content */}
                 <div className="p-6">
-                    {success ? (
-                        <div className="text-center py-8">
-                            <div className="w-16 h-16 bg-green-500/20 text-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <svg
-                                    className="w-8 h-8"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor"
-                                >
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M5 13l4 4L19 7"
-                                    />
-                                </svg>
+                    {isSuccess ? (
+                        <div className="flex flex-col items-center justify-center py-8 text-center space-y-4">
+                            <div className="w-16 h-16 bg-green-500/20 text-green-500 rounded-full flex items-center justify-center">
+                                <CheckCircle size={32} />
                             </div>
-                            <h3 className="text-xl font-bold text-white mb-2">Thanks for reporting</h3>
-                            <p className="text-zinc-400">
-                                We'll review this post and take appropriate action.
-                            </p>
+                            <div>
+                                <h3 className="text-xl font-bold text-white">Report Received</h3>
+                                <p className="text-white/60 mt-2 text-sm">
+                                    Thanks for looking out for the community. We'll review your report shortly.
+                                </p>
+                            </div>
                         </div>
                     ) : (
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium text-zinc-300">
-                                    Why are you reporting this post?
-                                </label>
-                                <div className="grid gap-2">
-                                    {[
-                                        "Spam or misleading",
-                                        "Harassment or bullying",
-                                        "Hate speech or symbols",
-                                        "Violence or illegal acts",
-                                        "Nudity or sexual content",
-                                        "Self-harm or suicide",
-                                        "Other",
-                                    ].map((r) => (
-                                        <label
-                                            key={r}
-                                            className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${reason === r
-                                                    ? "bg-zinc-800 border-zinc-600 ring-1 ring-zinc-500"
-                                                    : "bg-zinc-950/50 border-zinc-800 hover:bg-zinc-800"
-                                                }`}
+                        <div className="space-y-6">
+                            {!selectedReason ? (
+                                <div className="space-y-2">
+                                    <p className="text-sm text-white/60 mb-4">Why are you reporting this post?</p>
+                                    {REPORT_REASONS.map((reason) => (
+                                        <button
+                                            key={reason}
+                                            onClick={() => setSelectedReason(reason)}
+                                            className="w-full flex items-center justify-between p-4 text-left bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 rounded-xl transition-all group"
                                         >
-                                            <input
-                                                type="radio"
-                                                name="reason"
-                                                value={r}
-                                                checked={reason === r}
-                                                onChange={(e) => setReason(e.target.value)}
-                                                className="w-4 h-4 text-blue-500 bg-zinc-900 border-zinc-700 focus:ring-blue-500"
-                                            />
-                                            <span className="text-sm text-zinc-200">{r}</span>
-                                        </label>
+                                            <span className="text-white/90 font-medium text-sm">{reason}</span>
+                                            <ChevronRight size={16} className="text-white/30 group-hover:text-white transition-colors" />
+                                        </button>
                                     ))}
                                 </div>
-                            </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    <button
+                                        onClick={() => setSelectedReason(null)}
+                                        className="text-xs text-white/50 hover:text-white flex items-center gap-1"
+                                    >
+                                        ← Back to reasons
+                                    </button>
 
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium text-zinc-300">
-                                    Additional Details (Optional)
-                                </label>
-                                <textarea
-                                    value={details}
-                                    onChange={(e) => setDetails(e.target.value)}
-                                    placeholder="Provide more context..."
-                                    className="w-full h-24 bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-700 resize-none"
-                                />
-                            </div>
+                                    <div>
+                                        <h3 className="text-white font-bold text-lg mb-1">{selectedReason}</h3>
+                                        <p className="text-xs text-white/50">Does this report need more context?</p>
+                                    </div>
 
-                            {error && (
-                                <div className="text-red-400 text-sm bg-red-400/10 p-3 rounded-lg flex gap-2">
-                                    <span>⚠️</span>
-                                    {error}
+                                    <textarea
+                                        value={details}
+                                        onChange={(e) => setDetails(e.target.value)}
+                                        placeholder="Optional: Provide more details to help us understand..."
+                                        className="w-full h-32 bg-black/40 border border-white/10 rounded-xl p-4 text-white text-sm focus:outline-none focus:border-white/30 resize-none"
+                                    />
+
+                                    <button
+                                        onClick={handleSubmit}
+                                        disabled={isSubmitting}
+                                        className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                    >
+                                        {isSubmitting ? "Submitting..." : "Submit Report"}
+                                    </button>
                                 </div>
                             )}
-
-                            <div className="flex gap-3 pt-2">
-                                <button
-                                    type="button"
-                                    onClick={onClose}
-                                    className="flex-1 py-2.5 px-4 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg font-medium transition-colors"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={isSubmitting}
-                                    className="flex-1 py-2.5 px-4 bg-white text-black hover:bg-zinc-200 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    {isSubmitting ? "Submitting..." : "Submit Report"}
-                                </button>
-                            </div>
-                        </form>
+                        </div>
                     )}
                 </div>
             </div>

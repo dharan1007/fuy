@@ -7,6 +7,7 @@ import { ArrowLeft, BookOpen, Search, Smartphone, Film, Music, Clock, PieChart, 
 import Link from 'next/link';
 import ScrollStarfield from '@/components/ScrollStarfield';
 import DraftsList from '@/components/DraftsList';
+import { CreatePostProvider } from '@/context/CreatePostContext';
 
 // Import form components
 import SimpleForm from '@/components/post-forms/SimpleForm';
@@ -112,30 +113,32 @@ export default function CreatePostPage() {
     };
 
     const renderForm = () => {
-        const props = { onBack: handleBack };
-        // Only passing initialData to PUD for now as requested, others can ignore or be updated later
-        const pProps = { ...props, initialData: draftPost };
-
-        switch (selectedType) {
-            case 'SIMPLE':
-                return <SimpleForm {...props} />;
-            case 'CHAPTER':
-                return <ChapterForm {...props} />;
-            case 'XRAY':
-                return <XrayForm {...props} />;
-            case 'LILL':
-                return <LillForm {...props} />;
-            case 'FILL':
-                return <FillForm {...props} />;
-            case 'AUD':
-                return <AudForm {...props} />;
-            case 'CLOCK':
-                return <ClockForm {...props} />;
-            case 'PULLUPDOWN':
-                return <PullUpDownForm {...pProps} />;
-            default:
-                return null;
-        }
+        return (
+            <CreatePostProvider onBack={handleBack} initialData={draftPost}>
+                {(() => {
+                    switch (selectedType) {
+                        case 'SIMPLE':
+                            return <SimpleForm />;
+                        case 'CHAPTER':
+                            return <ChapterForm />;
+                        case 'XRAY':
+                            return <XrayForm />;
+                        case 'LILL':
+                            return <LillForm />;
+                        case 'FILL':
+                            return <FillForm />;
+                        case 'AUD':
+                            return <AudForm />;
+                        case 'CLOCK':
+                            return <ClockForm />;
+                        case 'PULLUPDOWN':
+                            return <PullUpDownForm />;
+                        default:
+                            return null;
+                    }
+                })()}
+            </CreatePostProvider>
+        );
     };
 
     return (

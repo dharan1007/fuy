@@ -235,15 +235,64 @@ export async function GET(req: NextRequest) {
     where.visibility = "PUBLIC";
   }
 
-  // Fetch subscriptions for isSubscribed check if user is logged in
+  // Fetch subscriptions, hidden posts, and muted users if logged in
   let mySubscriptions: Set<string> = new Set();
+  const hiddenPostIds = new Set<string>();
+  const mutedUsersMap = new Map<string, string[]>(); // userId -> types[]
+
   if (userId) {
-    const subs = await prisma.subscription.findMany({
-      where: { subscriberId: userId },
-      select: { subscribedToId: true }
+    const [subs, hidden, muted] = await Promise.all([
+      prisma.subscription.findMany({
+        where: { subscriberId: userId },
+        select: { subscribedToId: true }
+      }),
+      (prisma as any).hiddenPost.findMany({
+        where: { userId },
+        select: { postId: true }
+      }),
+      (prisma as any).mutedUser.findMany({
+        where: { muterId: userId },
+        select: { mutedUserId: true, mutedTypes: true }
+      })
+    ]);
+
+    subs.forEach((s: { subscribedToId: string }) => mySubscriptions.add(s.subscribedToId));
+    hidden.forEach((h: { postId: string }) => hiddenPostIds.add(h.postId));
+
+    muted.forEach((m: { mutedUserId: string; mutedTypes: string }) => {
+      try {
+        const types = JSON.parse(m.mutedTypes);
+        mutedUsersMap.set(m.mutedUserId, Array.isArray(types) ? types : ["ALL"]);
+      } catch (e) {
+        mutedUsersMap.set(m.mutedUserId, ["ALL"]);
+      }
     });
-    subs.forEach(s => mySubscriptions.add(s.subscribedToId));
   }
+
+  // Apply Hidden Posts Filter
+  if (hiddenPostIds.size > 0) {
+    where.id = { notIn: Array.from(hiddenPostIds) };
+  }
+
+  // Apply Muted Users Filter (Partial application in WHERE is hard if purely by type, 
+  // but we can filter ALL here and specific types in post-processing or advanced AND)
+  // For simplicity and performance, if "ALL" is muted, exclude userId.
+  // If specific types, we might need to filter after fetch OR usage complex OR logic.
+  // Complex OR: where.AND = [ { OR: [ { userId: { notIn: fullyMutedIds } }, { userId: partialId, postType: { notIn: types } } ] } ]
+  // Let's do a simple exclusion of "ALL" muted users first.
+  const fullyMutedIds = Array.from(mutedUsersMap.entries())
+    .filter(([_, types]) => types.includes("ALL"))
+    .map(([id]) => id);
+
+  if (fullyMutedIds.length > 0) {
+    where.userId = { notIn: fullyMutedIds };
+  }
+
+  // Note: For specific muted types (e.g. STORIES), we will filter in the map/filter step below or enhance query.
+  // Given pagination, query filtering is better. Let's try to add specific type exclusion if possible.
+  // It's hard with Prisma's simple where types dynamically. 
+  // Strategy: We fetch posts as usual (minus fully blocked), then filter out specific muted types from the results.
+  // This might clear the page size slightly but is safer.
 
   const posts = await prisma.post.findMany({
     where,

@@ -254,12 +254,13 @@ export default function StoriesRail() {
                 {/* Create Clock Button (My Clock) */}
                 <div className="flex flex-col items-center gap-2 shrink-0 cursor-pointer group relative">
                     <div className="relative" onClick={() => userHasStory ? (window.location.href = `/stories/${currentUser?.id}`) : setIsCreateOpen(true)}>
-                        <div className={`w-16 h-16 rounded-full p-[2px] ${userHasStory ? "bg-gradient-to-tr from-yellow-400 to-fuchsia-600" : "border-2 border-white/20"}`}>
+                        {/* My Clock Ring: White if active, Dark/Border if empty or seen */}
+                        <div className={`w-16 h-16 rounded-full p-[2px] mb-1 transition-all ${userHasStory ? "bg-white shadow-[0_0_10px_rgba(255,255,255,0.3)]" : "bg-transparent border border-white/20"}`}>
                             <div className="w-full h-full rounded-full border-2 border-black overflow-hidden relative bg-black">
                                 <img
                                     src={currentUser?.image || `https://api.dicebear.com/7.x/initials/svg?seed=${currentUser?.email}`}
                                     alt="My Clock"
-                                    className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+                                    className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
                                 />
                             </div>
                         </div>

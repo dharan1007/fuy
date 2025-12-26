@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
 
     try {
         const body = await req.json();
-        const { title, description, content, visibility, mediaUrls, mediaTypes, linkedPostId } = body;
+        const { title, description, content, visibility, mediaUrls, mediaTypes, linkedPostId, status = 'PUBLISHED' } = body;
 
         const currentUser = await prisma.user.findUnique({
             where: { email: session.user.email },
@@ -51,6 +51,7 @@ export async function POST(req: NextRequest) {
                 content: content || description || '',
                 postType: 'CHAPTER',
                 visibility: visibility || 'PUBLIC',
+                status,
                 // Create the Chapter data
                 chapterData: {
                     create: {

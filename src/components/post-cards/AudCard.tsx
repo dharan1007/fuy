@@ -4,6 +4,8 @@ import React, { useRef, useState } from 'react';
 import { Play, Pause, Music } from 'lucide-react';
 import Link from 'next/link';
 
+import PostActionMenu from '@/components/PostActionMenu';
+
 type AudCardProps = {
     aud: {
         id: string;
@@ -14,9 +16,13 @@ type AudCardProps = {
         artist?: string | null;
     };
     user?: any;
+    post?: any;
+    currentUserId?: string;
+    onPostHidden?: () => void;
+    onRefresh?: () => void;
 };
 
-export default function AudCard({ aud, user }: AudCardProps) {
+export default function AudCard({ aud, user, post, currentUserId, onPostHidden, onRefresh }: AudCardProps) {
     const audioRef = useRef<HTMLAudioElement>(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [progress, setProgress] = useState(0);
@@ -51,6 +57,14 @@ export default function AudCard({ aud, user }: AudCardProps) {
                     style={{ backgroundImage: `url(${aud.coverImageUrl})` }}
                 />
             )}
+            <div className="absolute top-2 right-2 z-20">
+                <PostActionMenu
+                    post={post || { id: aud.id, user, userId: user?.id }}
+                    currentUserId={currentUserId}
+                    onPostHidden={onPostHidden}
+                    onRefresh={onRefresh}
+                />
+            </div>
 
             <div className="relative z-10 flex-1 flex flex-col items-center justify-center p-4 text-center">
                 {/* Album Art */}

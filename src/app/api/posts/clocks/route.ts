@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { mediaUrl, mediaType, duration, visibility = 'PUBLIC' } = body;
+        const { mediaUrl, mediaType, duration, visibility = 'PUBLIC', status = 'PUBLISHED' } = body;
 
         if (!mediaUrl) {
             return NextResponse.json({ error: 'Media URL is required' }, { status: 400 });
@@ -29,6 +29,7 @@ export async function POST(request: NextRequest) {
                 postType: 'STORY',
                 content: '',
                 visibility,
+                status,
                 expiresAt,
             },
         });

@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Trash2, Archive, CheckSquare, Square, X } from "lucide-react";
 import { createPortal } from "react-dom";
+import FeedPostItem from '@/components/FeedPostItem';
+import { FeedRefreshProvider } from '@/context/FeedItemContext';
 
 type Media = { type: "IMAGE" | "VIDEO" | "AUDIO"; url: string };
 
@@ -12,9 +14,12 @@ type Post = {
     content: string;
     visibility: string;
     feature: string;
-    createdAt: Date | string; // Date from server, string from JSON serialization
+    createdAt: Date | string;
     media: Media[];
-    status?: string; // ARCHIVED | PUBLISHED
+    status?: string;
+    postType?: string;
+    user: any; // User object is needed for cards
+    [key: string]: any;
 };
 
 interface ProfilePostsGridProps {
@@ -52,22 +57,15 @@ export default function ProfilePostsGrid({ posts, isMe, onActionComplete }: Prof
         try {
             const res = await fetch('/api/posts/bulk', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    ids: Array.from(selectedIds),
-                    action
-                })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids: Array.from(selectedIds), action })
             });
 
             if (!res.ok) throw new Error("Action failed");
 
-            if (onActionComplete) {
-                onActionComplete();
-            } else {
-                router.refresh();
-            }
+            if (onActionComplete) onActionComplete();
+            else router.refresh();
+
             setSelectionMode(false);
             setSelectedIds(new Set());
         } catch (error) {
@@ -94,104 +92,57 @@ export default function ProfilePostsGrid({ posts, isMe, onActionComplete }: Prof
                             }`}
                     >
                         {selectionMode ? (
-                            <>
-                                <X size={16} /> Cancel
-                            </>
+                            <><X size={16} /> Cancel</>
                         ) : (
-                            <>
-                                <CheckSquare size={16} /> Select
-                            </>
+                            <><CheckSquare size={16} /> Select</>
                         )}
                     </button>
                 )}
             </div>
 
             {posts.length > 0 ? (
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {posts.map((p) => {
-                        const isSelected = selectedIds.has(p.id);
-                        const isArchived = p.status === 'ARCHIVED';
+                <FeedRefreshProvider onRefresh={() => onActionComplete ? onActionComplete() : router.refresh()}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {posts.map((p) => {
+                            const isSelected = selectedIds.has(p.id);
 
-                        return (
-                            <div key={p.id} className="relative group">
-                                <article
-                                    className={`relative rounded-xl border transition-all duration-200 p-5 h-full flex flex-col ${isArchived
-                                        ? "bg-gray-50 dark:bg-neutral-900/50 border-dashed border-gray-300 dark:border-neutral-800 opacity-70"
-                                        : "bg-white dark:bg-neutral-800 border-gray-200 dark:border-neutral-700 shadow-sm dark:shadow-lg hover:shadow-md dark:hover:shadow-xl"
-                                        }`}
-                                    onClick={() => selectionMode && toggleSelect(p.id)}
-                                >
+                            // Determine layout similar to HomeClient
+                            let spanClass = "col-span-1";
+                            if (p.postType === 'CHAN' || p.postType === 'FILL') {
+                                spanClass = "col-span-1 md:col-span-2";
+                            }
+
+                            return (
+                                <div key={p.id} className={`${spanClass} relative group`}>
                                     {/* Selection Overlay */}
                                     {selectionMode && (
-                                        <div className={`absolute inset-0 z-20 rounded-xl cursor-pointer transition-colors ${isSelected ? "bg-blue-500/10 ring-2 ring-blue-500" : "hover:bg-black/5 dark:hover:bg-white/5"
-                                            }`}>
+                                        <div
+                                            className={`absolute inset-0 z-50 rounded-xl cursor-pointer transition-colors ${isSelected ? "bg-blue-500/10 ring-2 ring-blue-500" : "hover:bg-black/5 dark:hover:bg-white/5"}`}
+                                            onClick={() => toggleSelect(p.id)}
+                                        >
                                             <div className="absolute top-3 right-3">
                                                 {isSelected ? (
-                                                    <div className="bg-blue-500 text-white rounded-md p-1">
-                                                        <CheckSquare size={20} />
-                                                    </div>
+                                                    <div className="bg-blue-500 text-white rounded-md p-1"><CheckSquare size={20} /></div>
                                                 ) : (
-                                                    <div className="bg-white/50 dark:bg-black/50 text-gray-500 rounded-md p-1">
-                                                        <Square size={20} />
-                                                    </div>
+                                                    <div className="bg-white/50 dark:bg-black/50 text-gray-500 rounded-md p-1"><Square size={20} /></div>
                                                 )}
                                             </div>
                                         </div>
                                     )}
 
-                                    {/* Archived Badge */}
-                                    {isArchived && (
-                                        <div className="absolute top-3 right-3 z-10 px-2 py-1 bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 text-xs font-bold rounded uppercase tracking-wider">
-                                            Archived
-                                        </div>
-                                    )}
-
-                                    <div className="flex items-center justify-between mb-3">
-                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200">
-                                            {p.feature}
-                                        </span>
-                                        <span className="text-xs text-gray-500 dark:text-gray-400">{p.visibility}</span>
+                                    {/* Card Rendering */}
+                                    <div className={selectionMode ? "pointer-events-none" : ""}>
+                                        <FeedPostItem
+                                            post={p}
+                                            currentUserId={isMe ? p.user?.id : undefined}
+                                            isProfileView={true}
+                                        />
                                     </div>
-
-                                    <p className="whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-200 mb-3 line-clamp-4 flex-grow">
-                                        {p.content}
-                                    </p>
-
-                                    {p.media?.length > 0 && (
-                                        <div className="mt-3 space-y-2">
-                                            {p.media.map((m: any, i: number) =>
-                                                m.type === "IMAGE" ? (
-                                                    <img
-                                                        key={i}
-                                                        src={m.url}
-                                                        alt="Post media"
-                                                        className="w-full h-48 object-cover rounded-lg"
-                                                    />
-                                                ) : m.type === "VIDEO" ? (
-                                                    <video
-                                                        key={i}
-                                                        src={m.url}
-                                                        className="w-full h-48 object-cover rounded-lg"
-                                                        controls
-                                                        playsInline
-                                                    />
-                                                ) : null
-                                            )}
-                                        </div>
-                                    )}
-
-                                    <div className="mt-3 text-xs text-gray-400 dark:text-gray-500">
-                                        {new Date(p.createdAt).toLocaleDateString('en-US', {
-                                            month: 'short',
-                                            day: 'numeric',
-                                            year: 'numeric'
-                                        })}
-                                    </div>
-                                </article>
-                            </div>
-                        );
-                    })}
-                </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </FeedRefreshProvider>
             ) : (
                 <div className="text-center py-12 bg-white/50 dark:bg-neutral-800/50 rounded-xl border border-gray-200 dark:border-neutral-700">
                     <p className="text-gray-500 dark:text-gray-400">No posts shared yet.</p>
@@ -204,24 +155,11 @@ export default function ProfilePostsGrid({ posts, isMe, onActionComplete }: Prof
                     <span className="text-sm font-medium mr-4 text-gray-600 dark:text-white/60">
                         {selectedIds.size} selected
                     </span>
-
                     <div className="h-4 w-px bg-gray-300 dark:bg-white/10 mr-2" />
-
-                    <button
-                        onClick={() => handleBulkAction('ARCHIVE')}
-                        disabled={isLoading}
-                        className="p-2 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full text-yellow-600 dark:text-yellow-500 transition-colors disabled:opacity-50"
-                        title="Archive Selected"
-                    >
+                    <button onClick={() => handleBulkAction('ARCHIVE')} disabled={isLoading} className="p-2 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full text-yellow-600 dark:text-yellow-500 transition-colors disabled:opacity-50" title="Archive Selected">
                         <Archive size={20} />
                     </button>
-
-                    <button
-                        onClick={() => handleBulkAction('DELETE')}
-                        disabled={isLoading}
-                        className="p-2 hover:bg-red-50 dark:hover:bg-red-500/20 rounded-full text-red-600 dark:text-red-500 transition-colors disabled:opacity-50"
-                        title="Delete Selected"
-                    >
+                    <button onClick={() => handleBulkAction('DELETE')} disabled={isLoading} className="p-2 hover:bg-red-50 dark:hover:bg-red-500/20 rounded-full text-red-600 dark:text-red-500 transition-colors disabled:opacity-50" title="Delete Selected">
                         <Trash2 size={20} />
                     </button>
                 </div>,

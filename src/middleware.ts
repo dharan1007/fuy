@@ -68,7 +68,29 @@ export default withAuth(
   },
   {
     callbacks: {
-      authorized: () => true, // Allow all requests through, client-side will handle auth
+      authorized: ({ req, token }) => {
+        const path = req.nextUrl.pathname;
+
+        // Define public paths that don't require authentication
+        if (
+          path === "/" ||
+          path.startsWith("/login") ||
+          path.startsWith("/signup") ||
+          path.startsWith("/join") ||
+          path.startsWith("/passkeys") ||
+          path.startsWith("/api") || // Let API routes handle their own auth or be public
+          path.startsWith("/_next") ||
+          path.includes("favicon.ico")
+        ) {
+          return true;
+        }
+
+        // For all other paths, require a token
+        return !!token;
+      },
+    },
+    pages: {
+      signIn: '/', // Redirect unauthenticated users to Landing Page
     },
   }
 );

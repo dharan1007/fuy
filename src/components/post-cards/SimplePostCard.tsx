@@ -5,17 +5,27 @@ import Link from 'next/link';
 import { MoreVertical, Flag, ChevronLeft, ChevronRight } from 'lucide-react';
 import ReactionBubbleList from '@/components/ReactionBubbleList';
 import ReactionControl from '@/components/ReactionControl';
+import PostActionMenu from '@/components/PostActionMenu';
+
+import { useFeedItem } from '@/context/FeedItemContext';
 
 interface SimplePostCardProps {
     post: any;
-    onRefresh: () => void;
     currentUserId?: string;
 }
 
-export default function SimplePostCard({ post, onRefresh }: SimplePostCardProps) {
+export default function SimplePostCard({ post, currentUserId }: SimplePostCardProps) {
+    const { onRefresh: contextOnRefresh, onPostHidden: contextOnPostHidden } = useFeedItem() || {};
+    const onRefresh = contextOnRefresh || (() => { });
+    const onPostHidden = contextOnPostHidden ? () => contextOnPostHidden(post.id) : (() => { });
+
     const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
+    const [isHidden, setIsHidden] = useState(false);
+
+    if (isHidden) return null;
 
     const nextMedia = (e: React.MouseEvent) => {
+
         e.preventDefault();
         e.stopPropagation();
         if (post.media && currentMediaIndex < post.media.length - 1) {
@@ -32,10 +42,10 @@ export default function SimplePostCard({ post, onRefresh }: SimplePostCardProps)
     };
 
     return (
-        <div className="bg-transparent border border-white/20 rounded-xl overflow-hidden hover:border-white/40 transition-colors flex flex-col h-full">
+        <div className="bg-transparent border border-white/20 rounded-xl hover:border-white/40 transition-colors flex flex-col h-full relative">
             {/* Visual Header / Content Area */}
             {/* If there is media, show it. If purely text, show text in a nice container. */}
-            <div className="relative w-full aspect-square bg-black/50 overflow-hidden group">
+            <div className="relative w-full aspect-square bg-black/50 overflow-hidden group rounded-t-xl">
                 {post.media && post.media.length > 0 ? (
                     <>
                         {post.media[currentMediaIndex].type === 'VIDEO' ? (
@@ -96,35 +106,54 @@ export default function SimplePostCard({ post, onRefresh }: SimplePostCardProps)
             {/* Details Section (Below Content) */}
             <div className="p-4 flex flex-col gap-3">
                 {/* User Info */}
-                <div className="flex items-center gap-3">
-                    <Link href={`/profile/${post.user.id}`} className="shrink-0">
-                        <img
-                            src={post.user.profile?.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${post.user.id}`}
-                            alt={post.user.profile?.displayName}
-                            className="w-8 h-8 rounded-full border border-white/20"
-                        />
-                    </Link>
-                    <div className="flex flex-col">
-                        <Link href={`/profile/${post.user.id}`} className="text-sm font-bold text-white hover:underline">
-                            {post.user.profile?.displayName || "User"}
+                {post.user ? (
+                    <div className="flex items-center gap-3">
+                        <Link href={`/profile/${post.user.id}`} className="shrink-0">
+                            <img
+                                src={post.user.profile?.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${post.user.id}`}
+                                alt={post.user.profile?.displayName || "User"}
+                                className="w-8 h-8 rounded-full border border-white/20"
+                            />
                         </Link>
-                        {post.location && (
-                            <span className="text-xs text-white/50">{post.location}</span>
-                        )}
+                        <div className="flex flex-col">
+                            <Link href={`/profile/${post.user.id}`} className="text-sm font-bold text-white hover:underline">
+                                {post.user.profile?.displayName || "Unknown User"}
+                            </Link>
+                            {post.location && (
+                                <span className="text-xs text-white/50">{post.location}</span>
+                            )}
+                        </div>
+                        {/* Timestamp / Menu */}
+                        <div className="ml-auto flex items-center gap-2">
+                            <span className="text-xs text-white/40">{new Date(post.createdAt).toLocaleDateString()}</span>
+                            <PostActionMenu
+                                post={post}
+                                currentUserId={currentUserId}
+                            />
+                        </div>
                     </div>
-                    {/* Timestamp / Menu */}
-                    <div className="ml-auto flex items-center gap-2">
-                        <span className="text-xs text-white/40">{new Date(post.createdAt).toLocaleDateString()}</span>
-                        <button className="text-white/40 hover:text-white">
-                            <MoreVertical size={16} />
-                        </button>
+                ) : (
+                    <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-white/10" />
+                        <div className="flex flex-col">
+                            <span className="text-sm font-bold text-white/50">Unknown User</span>
+                        </div>
+                        <div className="ml-auto flex items-center gap-2">
+                            <span className="text-xs text-white/40">{new Date(post.createdAt).toLocaleDateString()}</span>
+                            <PostActionMenu
+                                post={post}
+                                currentUserId={currentUserId}
+                            />
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {/* Caption (if media present, otherwise it's in the main area) */}
                 {post.media && post.media.length > 0 && post.content && (
                     <p className="text-sm text-white/80 line-clamp-2">
-                        <span className="font-bold mr-1">{post.user.profile?.displayName}</span>
+                        {post.user?.profile?.displayName && (
+                            <span className="font-bold mr-1">{post.user.profile.displayName}</span>
+                        )}
                         {post.content}
                     </p>
                 )}
@@ -136,7 +165,7 @@ export default function SimplePostCard({ post, onRefresh }: SimplePostCardProps)
                             postId={post.id}
                             bubbles={post.topBubbles || []}
                             totalBubbles={post.totalBubbles || 0}
-                            onAddBubble={onRefresh} // Simple refresh trigger
+                            onAddBubble={() => onRefresh()} // Simple refresh trigger
                         />
                     </div>
                     <div className="flex items-center justify-between">

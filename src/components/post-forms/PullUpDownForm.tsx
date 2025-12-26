@@ -3,9 +3,11 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Trash2, User, Plus, X, Search, Check, Save } from 'lucide-react';
+import { useCreatePost } from '@/context/CreatePostContext';
 
 type PullUpDownFormProps = {
-    onBack: () => void;
+    onBack?: () => void;
+    initialData?: any;
 };
 
 // Types for options
@@ -25,18 +27,22 @@ type SearchUser = {
     avatar: string;
 };
 
-export default function PullUpDownForm({ onBack, initialData }: PullUpDownFormProps & { initialData?: any }) {
+export default function PullUpDownForm({ onBack: propOnBack, initialData }: PullUpDownFormProps) {
+    const { onBack: contextOnBack, initialData: contextInitialData } = useCreatePost() || {};
+    const onBack = propOnBack || contextOnBack || (() => { });
+    // Merge props initialData with context if needed, or prefer props
+    const data = initialData || contextInitialData;
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
-    const [question, setQuestion] = useState(initialData?.content || initialData?.pullUpDownData?.question || '');
-    const [visibility, setVisibility] = useState(initialData?.visibility || 'PUBLIC');
+    const [question, setQuestion] = useState(data?.content || data?.pullUpDownData?.question || '');
+    const [visibility, setVisibility] = useState(data?.visibility || 'PUBLIC');
 
     // Initialize options from draft data or default
     const [options, setOptions] = useState<Option[]>(() => {
-        if (initialData?.pullUpDownData?.options?.length > 0) {
-            return initialData.pullUpDownData.options.map((o: any) => ({
+        if (data?.pullUpDownData?.options?.length > 0) {
+            return data.pullUpDownData.options.map((o: any) => ({
                 id: o.id || Math.random().toString(), // Use existing ID if possible
                 text: o.text || '',
                 specialDetails: o.specialDetails || '',
