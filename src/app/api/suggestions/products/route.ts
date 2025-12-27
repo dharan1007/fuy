@@ -60,7 +60,7 @@ export async function GET() {
       finalProducts = await prisma.product.findMany({
         orderBy: { createdAt: 'desc' },
         take: 10,
-        select: { id: true, name: true, images: true, price: true, description: true }
+        select: { id: true, name: true, images: true, price: true, description: true, tags: true }
       });
     }
 
