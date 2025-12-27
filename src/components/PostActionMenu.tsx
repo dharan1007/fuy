@@ -11,10 +11,14 @@ import { useFeedItem } from '@/context/FeedItemContext';
 interface PostActionMenuProps {
     post: any;
     currentUserId?: string;
+    onPostHidden?: () => void;
+    onRefresh?: () => void;
 }
 
-export default function PostActionMenu({ post, currentUserId }: PostActionMenuProps) {
-    const { onRefresh, onPostHidden } = useFeedItem() || {};
+export default function PostActionMenu({ post, currentUserId, onPostHidden: propOnHide, onRefresh: propOnRefresh }: PostActionMenuProps) {
+    const context = useFeedItem();
+    const onRefresh = propOnRefresh || context?.onRefresh;
+    const onPostHidden = propOnHide || context?.onPostHidden;
     const [reportOpen, setReportOpen] = useState(false);
     const [muteOpen, setMuteOpen] = useState(false);
     const [isHidden, setIsHidden] = useState(false);
