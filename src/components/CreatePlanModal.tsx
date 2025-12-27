@@ -391,7 +391,7 @@ export default function CreatePlanModal({ isOpen, onClose, currentLocation, loca
                                 <label className="text-xs text-neutral-400 mb-1 block">Tags (Slashes)</label>
                                 <div className="flex gap-2 mb-2 flex-wrap">
                                     {formData.slashes.map((s: string) => (
-                                        <span key={s} onClick={() => setFormData({ ...formData, slashes: formData.slashes.filter(x => x !== s) })} className="bg-white/10 px-2 py-1 rounded text-xs cursor-pointer hover:bg-red-500/20">#{s}</span>
+                                        <span key={s} onClick={() => setFormData({ ...formData, slashes: formData.slashes.filter((x: string) => x !== s) })} className="bg-white/10 px-2 py-1 rounded text-xs cursor-pointer hover:bg-red-500/20">#{s}</span>
                                     ))}
                                 </div>
                                 <div className="relative">
