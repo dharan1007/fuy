@@ -1,5 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
+import { Globe } from 'lucide-react';
 
 interface PostDetailModalProps {
     post: any;
@@ -82,6 +83,10 @@ export function PostDetailModal({ post, onClose }: PostDetailModalProps) {
                             </p>
                         </div>
 
+
+
+                        // ... (in PostDetailModal)
+
                         {/* Stats & Actions */}
                         <div className="mt-auto pt-4 border-t border-white/10">
                             <div className="flex items-center justify-between mb-4">
@@ -97,7 +102,9 @@ export function PostDetailModal({ post, onClose }: PostDetailModalProps) {
                                         <span>CAP</span>
                                     </button>
                                 </div>
+
                             </div>
+// ... unchanged code
 
                             {post.feature && (
                                 <span className="inline-block px-3 py-1 bg-blue-500/20 border border-blue-500/30 rounded-full text-xs text-blue-300 font-medium">

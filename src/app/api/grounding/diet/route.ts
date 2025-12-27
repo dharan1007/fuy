@@ -1,70 +1,71 @@
 
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 
+// GET: Fetch today's log (and optionally recent history or plans if needed later)
 export async function GET(req: Request) {
     const session = await auth();
-    if (!session?.user?.id) {
-        return new NextResponse("Unauthorized", { status: 401 });
-    }
+    if (!session?.user?.id) return new NextResponse("Unauthorized", { status: 401 });
 
     try {
-        const plans = await prisma.dietPlan.findMany({
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const log = await prisma.nutritionLog.findFirst({
             where: {
                 userId: session.user.id,
-            },
-            include: {
-                items: true,
-            },
-            orderBy: {
-                createdAt: "desc",
+                date: today,
             },
         });
 
-        return NextResponse.json(plans);
+        return NextResponse.json(log || {
+            calories: 0, protein: 0, carbs: 0, fats: 0, meals: { breakfast: [], lunch: [], dinner: [], snacks: [] }
+        });
     } catch (error) {
-        console.error("Error fetching diet plans:", error);
-        return new NextResponse("Internal Server Error", { status: 500 });
+        console.error("Diet API GET Error:", error);
+        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
 }
 
+// POST: Update today's log
 export async function POST(req: Request) {
     const session = await auth();
-    if (!session?.user?.id) {
-        return new NextResponse("Unauthorized", { status: 401 });
-    }
+    if (!session?.user?.id) return new NextResponse("Unauthorized", { status: 401 });
 
     try {
         const body = await req.json();
-        const { name, description, items } = body;
-        // Expecting items: { foodName, quantity, unit, calories, protein, carbs, fats }[]
+        const { meals, calories, protein, carbs, fats } = body;
 
-        const plan = await prisma.dietPlan.create({
-            data: {
-                userId: session.user.id,
-                name,
-                description,
-                items: {
-                    create: items.map((item: any) => ({
-                        foodName: item.foodName,
-                        quantity: item.quantity,
-                        unit: item.unit,
-                        calories: item.calories,
-                        protein: item.protein,
-                        carbs: item.carbs,
-                        fats: item.fats,
-                    })),
-                },
-            },
-            include: {
-                items: true,
-            },
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const existing = await prisma.nutritionLog.findFirst({
+            where: { userId: session.user.id, date: today }
         });
 
-        return NextResponse.json(plan);
+        if (existing) {
+            const updated = await prisma.nutritionLog.update({
+                where: { id: existing.id },
+                data: { meals, calories, protein, carbs, fats }
+            });
+            return NextResponse.json(updated);
+        } else {
+            const created = await prisma.nutritionLog.create({
+                data: {
+                    userId: session.user.id,
+                    date: today,
+                    meals,
+                    calories,
+                    protein,
+                    carbs,
+                    fats
+                }
+            });
+            return NextResponse.json(created);
+        }
     } catch (error) {
-        console.error("Error creating diet plan:", error);
-        return new NextResponse("Internal Server Error", { status: 500 });
+        console.error("Diet API POST Error:", error);
+        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
 }

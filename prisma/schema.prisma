@@ -23,6 +23,7 @@ model User {
   email          String    @unique
   password       String? // hashed password for email/password auth
   name           String?
+  profileCode    String?   @unique // For user search
   emailVerified  DateTime?
   createdAt      DateTime  @default(now())
   lastSeen       DateTime? // Track last active time for online status
@@ -117,6 +118,9 @@ model User {
   gymPartnersSent     GymPartner[]  @relation("GymPartnerSender")
   gymPartnersReceived GymPartner[]  @relation("GymPartnerReceiver")
   workoutPlans        WorkoutPlan[]
+  // Workout Relations
+  workouts        WorkoutSession[] @relation("UserWorkouts")
+  partnerWorkouts WorkoutSession[] @relation("PartnerWorkouts")
 
   // --- Hopin Plans ---
   plansCreated    Plan[]           @relation("PlanCreator")
@@ -162,6 +166,9 @@ model User {
   stressMapEntries StressMapEntry[]
   healthConditions HealthCondition[]
   dietPlans        DietPlan[]
+  biometricLogs    BiometricLog[]
+  nutritionLogs    NutritionLog[]
+  savedFoods       SavedFood[]
 }
 
 model HiddenPost {
@@ -212,20 +219,48 @@ model Plan {
   title       String
   description String?
   creatorId   String
+  
+  // New Fields
+  type          String   @default("SOLO") // SOLO | COMMUNITY
+  location      String?  // Text description or JSON coordinates
+  locationLink  String?  // Google Maps link
+  isLocationLocked Boolean @default(false)
+  
+  latitude      Float?
+  longitude     Float?
+  visibility    String   @default("PRIVATE") // PRIVATE | FOLLOWERS | PUBLIC
+  
+  date          DateTime?
+  maxSize       Int?     
+  mediaUrls     String?  // JSON array of image/video URLs
+  slashes       String?  // JSON array of tags (e.g. #nightout)
+  status        String   @default("OPEN") // OPEN | FULL | COMPLETED | CANCELLED
+  
+  posts         Post[]   @relation("CommunityPosts") // Community posts for the plan
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   creator User         @relation("PlanCreator", fields: [creatorId], references: [id], onDelete: Cascade)
   members PlanMember[]
+  workouts WorkoutSession[] @relation("PlanWorkouts")
+
 
   @@index([creatorId])
+  @@index([date])
 }
 
 model PlanMember {
   id        String   @id @default(cuid())
   planId    String
   userId    String
-  status    String   @default("PENDING") // PENDING, ACCEPTED, REJECTED
+  status    String   @default("PENDING") // PENDING, ACCEPTED, REJECTED, INTERESTED
+  
+  // Verification
+  verificationCode String? // 7-digit code generated on ACCEPTED
+  qrCodeUrl        String? // URL to QR code image (or generated on client)
+  isVerified       Boolean @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -287,6 +322,7 @@ model Profile {
   height              String? // e.g. "5'10" or "178cm"
   weight              String? // e.g. "70kg"
   city                String?
+  isOpenToWorkout     Boolean @default(false) // Toggle for Gym Pal suggestions
   interactionMode     String?
   conversationStarter String?
 
@@ -323,6 +359,7 @@ model Profile {
   goals             String?
   lifestyle         String?
   interactionTopics String[]
+  shoppingInterests String[] // User's shopping preferences (slashes)
 
   // -- Media --
   stalkMe String? // JSON string: [{url, type}, ...] (11 items)
@@ -383,6 +420,7 @@ model Post {
   id                  String    @id @default(cuid())
   userId              String
   groupId             String?
+  planId              String?
   // Allowed: JOURNAL | JOY | AWE | BONDS | SERENDIPITY | CHECKIN | PROGRESS | OTHER
   feature             String    @default("OTHER")
   // NEW: Post type - STANDARD | CHAPTER | XRAY | LILL | FILL | AUD | CHAN | PULLUPDOWN
@@ -406,6 +444,7 @@ model Post {
 
   user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   group    Group?        @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  plan     Plan?         @relation("CommunityPosts", fields: [planId], references: [id], onDelete: SetNull)
   media    Media[]
   likes    PostLike[]
   comments PostComment[]
@@ -437,8 +476,28 @@ model Post {
   postTags    PostTag[]
   hiddenPosts HiddenPost[]
 
+  // New Slashes Relation
+  slashes     Slash[]
+
+  // Metrics
+  impressions Int @default(0)
+  shareCount  Int @default(0)
+  viewCount   Int @default(0)
+
   @@index([postType])
   @@index([createdAt])
+  @@index([planId])
+}
+
+// Slashes (Hashtags)
+model Slash {
+  id        String   @id @default(cuid())
+  tag       String   @unique
+  createdAt DateTime @default(now())
+  
+  posts     Post[]
+
+  @@index([tag])
 }
 
 model PostLike {
@@ -1304,6 +1363,14 @@ model FeatureSession {
 
   // Collaboration features
   canvasData      String? // JSON: blocks, drawing state
+  
+  // Hopin / Plan fields
+  latitude        Float?
+  longitude       Float?
+  location        String?
+  visibility      String   @default("PRIVATE") // PRIVATE | FOLLOWERS | PUBLIC
+  tags            String?  // JSON array of strings
+  
   autoSaveEnabled Boolean   @default(true)
   lastSavedAt     DateTime?
   lastModifiedBy  String?
@@ -1439,6 +1506,59 @@ model StressMapEntry {
 
   @@index([userId])
   @@index([createdAt])
+}
+
+
+
+model WorkoutSession {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  date        DateTime @default(now())
+  completed   Boolean  @default(false)
+  exercises   WorkoutExercise[] 
+  partnerId   String?
+  planId      String?
+  calories    Int?     @default(0)
+
+  user    User      @relation("UserWorkouts", fields: [userId], references: [id], onDelete: Cascade)
+  partner User?     @relation("PartnerWorkouts", fields: [partnerId], references: [id], onDelete: SetNull)
+  plan    Plan?     @relation("PlanWorkouts", fields: [planId], references: [id], onDelete: SetNull)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([date])
+}
+
+model WorkoutExercise {
+  id        String   @id @default(cuid())
+  sessionId String
+  name      String
+  order     Int      @default(0)
+  sets      WorkoutSet[]
+  
+  session   WorkoutSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+}
+
+model WorkoutSet {
+  id         String   @id @default(cuid())
+  exerciseId String
+  
+  reps       Int
+  weight     Float?
+  restSeconds Int     @default(60)
+
+  // Status for each user (if partner workout)
+  completed  Boolean  @default(false)
+  completedByPartner Boolean @default(false)
+
+  exercise   WorkoutExercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+  @@index([exerciseId])
 }
 
 model HealthCondition {
@@ -2063,5 +2183,52 @@ model PostTag {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([postId, userId])
+  @@index([userId])
+}
+
+model BiometricLog {
+  id          String   @id @default(cuid())
+  userId      String
+  date        DateTime @default(now())
+  weight      Float?
+  heartRate   Int?
+  sleepHours  Float?
+  hydration   Int?     // ml
+  mood        String?  // 'great' | 'good' | 'meh' | 'bad' | 'terrible'
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+
+  @@index([userId])
+  @@index([date])
+}
+
+model NutritionLog {
+  id        String   @id @default(cuid())
+  userId    String
+  date      DateTime @default(now())
+  calories  Int      @default(0)
+  protein   Int      @default(0)
+  carbs     Int      @default(0)
+  fats      Int      @default(0)
+  meals     Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+  @@index([date])
+}
+
+model SavedFood {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  calories  Int
+  protein   Int
+  carbs     Int
+  fats      Int
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@index([userId])
 }

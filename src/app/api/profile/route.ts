@@ -139,6 +139,7 @@ export async function PUT(req: Request) {
         console.warn(`Invalid DOB format received: ${dobStr}`);
       }
     }
+    const gender = getStr("gender");
     const height = getStr("height");
     const weight = getStr("weight");
     const conversationStarter = getStr("conversationStarter");
@@ -249,6 +250,7 @@ export async function PUT(req: Request) {
         bio,
         location,
         dob,
+        gender,
         height,
         weight,
         achievements,
@@ -288,7 +290,7 @@ export async function PUT(req: Request) {
         cardSettings,
       },
       update: {
-        displayName, bio, location, dob, height, weight, city, interactionMode, conversationStarter,
+        displayName, bio, location, dob, gender, height, weight, city, interactionMode, conversationStarter,
         achievements, workHistory, education,
         bestVibeTime, vibeWithPeople, lifeIsLike, emotionalFit, pleaseDont, careAbout, protectiveAbout, distanceMakers, goals, lifestyle,
         ...(skills ? { skills } : {}),

@@ -87,7 +87,18 @@ export async function GET(req: Request) {
       orderBy: { createdAt: 'desc' }
     });
 
-    return NextResponse.json(brands);
+    // Also fetch new arrivals if not searching for specific brand ownership
+    let newArrivals: any[] = [];
+    if (!mine && !query) {
+      newArrivals = await prisma.product.findMany({
+        where: { status: 'ACTIVE' },
+        orderBy: { createdAt: 'desc' },
+        take: 8,
+        include: { brand: { select: { name: true, slug: true } } }
+      });
+    }
+
+    return NextResponse.json({ brands, newArrivals });
   } catch (error) {
     console.error('Error fetching brands:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

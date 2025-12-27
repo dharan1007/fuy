@@ -118,6 +118,14 @@ export default function ExplorePage() {
     );
   }
 
+  const handlePostClick = (post: Post) => {
+    if (activeGlobe === 'Posts') {
+      router.push(`/explore/similar/${post.id}`);
+    } else {
+      setSelectedPost(post);
+    }
+  };
+
   return (
     <div className="h-screen w-full bg-black relative overflow-hidden">
       {/* Back Button */}
@@ -163,7 +171,7 @@ export default function ExplorePage() {
         chaptes={chaptes}
         xrays={xrays}
         puds={puds}
-        onPostClick={setSelectedPost}
+        onPostClick={handlePostClick}
         showLines={showLines}
       />
 

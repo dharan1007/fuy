@@ -1,15 +1,17 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import ScrollStarfield from "@/components/ScrollStarfield";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { cn } from "@/lib/utils";
 
 // Types for our form data
 interface ProfileFormData {
   // Basics
   displayName: string;
   dob: string; // YYYY-MM-DD
+  gender: string;
   height: string;
   weight: string;
   conversationStarter: string;
@@ -60,6 +62,7 @@ interface ProfileFormData {
 const initialData: ProfileFormData = {
   displayName: "",
   dob: "",
+  gender: "",
   height: "",
   weight: "",
   conversationStarter: "",
@@ -101,7 +104,8 @@ const initialData: ProfileFormData = {
 export default function ProfileSetupPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // Loading initially to fetch data
+  const [isEditing, setIsEditing] = useState(false);
   const [data, setData] = useState<ProfileFormData>(initialData);
   const [stalkMePreviews, setStalkMePreviews] = useState<string[]>(Array(11).fill(""));
 
@@ -110,6 +114,74 @@ export default function ProfileSetupPage() {
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
 
   const totalSteps = 6; // Basics, Professional, Vibe, Deep Dive, Favorites, Stalk Me
+
+  // Fetch Existing Profile
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const res = await fetch("/api/profile");
+        if (res.ok) {
+          const resData = await res.json();
+          if (resData.profile) {
+            setIsEditing(true);
+            const p = resData.profile;
+            // Map existing profile to form data
+            setData(prev => ({
+              ...prev,
+              displayName: p.displayName || "",
+              dob: p.dob ? new Date(p.dob).toISOString().split('T')[0] : "",
+              gender: p.gender || "",
+              height: p.height || "",
+              weight: p.weight || "",
+              conversationStarter: p.conversationStarter || prev.conversationStarter, // fallbacks
+              achievements: p.achievements || "",
+              skills: p.skills || [],
+              workHistory: p.workHistory || "",
+              education: p.education || "",
+              city: p.city || "",
+              interactionMode: p.interactionMode || "",
+              bestVibeTime: p.bestVibeTime || "",
+              vibeWithPeople: p.vibeWithPeople || "",
+              lifeIsLike: p.lifeIsLike || "",
+              values: p.values || [],
+              hardNos: p.hardNos || [],
+              emotionalFit: p.emotionalFit || "",
+              pleaseDont: p.pleaseDont || "",
+              careAbout: p.careAbout || "",
+              protectiveAbout: p.protectiveAbout || "",
+              distanceMakers: p.distanceMakers || "",
+              topMovies: fillArray(p.topMovies, 3),
+              topGenres: fillArray(p.topGenres, 3),
+              topSongs: fillArray(p.topSongs, 3),
+              topFoods: fillArray(p.topFoods, 3),
+              topPlaces: fillArray(p.topPlaces, 3),
+              topGames: fillArray(p.topGames, 3),
+              currentlyInto: p.currentlyInto || [],
+              dislikes: p.dislikes || [],
+              icks: p.icks || [],
+              goals: p.goals || "",
+              lifestyle: p.lifestyle || "",
+              interactionTopics: p.interactionTopics || [],
+              // Files can't be pre-filled as 'File' objects, we handle previews differently or just show current URL
+            }));
+            if (p.avatarUrl) setAvatarPreview(p.avatarUrl);
+            if (p.coverVideoUrl) setCoverPreview(p.coverVideoUrl);
+            else if (p.coverImageUrl) setCoverPreview(p.coverImageUrl);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to load profile", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProfile();
+  }, []);
+
+  const fillArray = (arr: any[] | undefined, length: number) => {
+    const a = arr || [];
+    return [...a, ...Array(Math.max(0, length - a.length)).fill("")].slice(0, length);
+  };
 
   // Validation
   const isAdult = (dob: string) => {
@@ -126,30 +198,16 @@ export default function ProfileSetupPage() {
 
   const handleNext = () => {
     if (step === 1) {
-      if (!data.displayName) {
-        alert("Please enter your display name.");
-        return;
-      }
-      if (!data.dob) {
-        alert("Date of Birth is compulsory.");
-        return;
-      }
-      if (!isAdult(data.dob)) {
-        alert("You must be 18 years or older to use this app.");
-        return;
-      }
+      if (!data.displayName) { alert("Please enter your display name."); return; }
+      if (!data.dob) { alert("Date of Birth is compulsory."); return; }
+      if (!isAdult(data.dob)) { alert("You must be 18 years or older to use this app."); return; }
+      if (!data.gender) { alert("Please select your gender."); return; }
     }
-    // Validation for other steps can be skipped if desired, or enforced lightly.
     if (step < totalSteps) setStep(step + 1);
   };
 
-  const handleBack = () => {
-    if (step > 1) setStep(step - 1);
-  };
-
-  const handleSkip = () => {
-    if (step < totalSteps) setStep(step + 1);
-  };
+  const handleBack = () => { if (step > 1) setStep(step - 1); };
+  const handleSkip = () => { if (step < totalSteps) setStep(step + 1); };
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -204,13 +262,12 @@ export default function ProfileSetupPage() {
 
   const handleSubmit = async () => {
     setLoading(true);
-
     try {
       const formData = new FormData();
-
       // Basics
       formData.append("displayName", data.displayName);
       formData.append("dob", data.dob);
+      formData.append("gender", data.gender);
       formData.append("height", data.height);
       formData.append("weight", data.weight);
       formData.append("conversationStarter", data.conversationStarter);
@@ -251,9 +308,6 @@ export default function ProfileSetupPage() {
       formData.append("icks", JSON.stringify(data.icks));
       formData.append("interactionTopics", JSON.stringify(data.interactionTopics));
 
-      // Note: "Stalk Me" files simplistic handling for demo
-
-      // Append Avatar & Cover if present
       if (data.avatarFile) formData.append("avatar", data.avatarFile);
       if (data.coverFile) formData.append("cover", data.coverFile);
 
@@ -275,7 +329,7 @@ export default function ProfileSetupPage() {
     }
   };
 
-  if (loading) return <LoadingSpinner variant="auth" message="Saving your universe..." />;
+  if (loading) return <LoadingSpinner variant="auth" message={isEditing ? "Loading profile..." : "Preparing setup..."} />;
 
   const renderStep = () => {
     switch (step) {
@@ -297,9 +351,7 @@ export default function ProfileSetupPage() {
                     )}
                     <input type="file" accept="image/*" onChange={handleAvatarChange} className="absolute inset-0 opacity-0 cursor-pointer" />
                   </div>
-                  <div className="text-xs text-gray-400">
-                    Tap to upload your avatar.
-                  </div>
+                  <div className="text-xs text-gray-400">Tap to upload your avatar.</div>
                 </div>
               </div>
 
@@ -307,8 +359,7 @@ export default function ProfileSetupPage() {
                 <label className="text-sm font-medium text-gray-300 block mb-2">Cover Media (Image/Video)</label>
                 <div className="w-full h-32 rounded-xl bg-white/10 overflow-hidden border border-white/20 relative group">
                   {coverPreview ? (
-                    // Simple check for video preview, though URL.createObjectURL works for video src too
-                    coverPreview.startsWith("blob:") && data.coverFile?.type.startsWith("video") ? (
+                    (coverPreview.startsWith("blob:") && data.coverFile?.type.startsWith("video")) || coverPreview.endsWith(".mp4") || coverPreview.endsWith(".webm") ? (
                       <video src={coverPreview} className="w-full h-full object-cover" autoPlay muted loop />
                     ) : (
                       <img src={coverPreview} className="w-full h-full object-cover" />
@@ -341,6 +392,23 @@ export default function ProfileSetupPage() {
                 />
               </div>
             </div>
+
+            {/* GENDER INPUT */}
+            <div className="space-y-2 mb-4">
+              <label className="text-sm font-medium text-gray-300">Gender *</label>
+              <div className="flex gap-4">
+                {["Male", "Female", "Other"].map(g => (
+                  <button
+                    key={g}
+                    onClick={() => setData({ ...data, gender: g })}
+                    className={cn("flex-1 py-3 rounded-xl border transition-all", data.gender === g ? "bg-white text-black border-white" : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10")}
+                  >
+                    {g}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-300">Height</label>
@@ -372,7 +440,7 @@ export default function ProfileSetupPage() {
             </div>
           </div>
         );
-      case 2: // Professional (New Step)
+      case 2: // Professional
         return (
           <div className="space-y-6 animate-in fade-in slide-in-from-right duration-500 h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
             <h2 className="text-2xl font-bold text-white mb-2">My Professional Side</h2>
@@ -598,11 +666,9 @@ export default function ProfileSetupPage() {
                   {step}/{totalSteps}
                 </div>
                 <div>
-                  <h1 className="text-lg font-bold text-white">Setup Profile</h1>
-                  {/* Optional subtitle driven by step */}
+                  <h1 className="text-lg font-bold text-white">{isEditing ? "Edit Profile" : "Setup Profile"}</h1>
                 </div>
               </div>
-              {/* Skip Button showing for steps > 1 */}
               {step > 1 && step < totalSteps && (
                 <button onClick={handleSkip} className="text-xs text-gray-400 hover:text-white uppercase tracking-wider">
                   Skip
@@ -631,7 +697,7 @@ export default function ProfileSetupPage() {
                   disabled={loading}
                   className="px-8 py-3 bg-black border border-white/20 hover:bg-white/10 text-white rounded-xl font-bold shadow-lg transition-all transform hover:scale-105"
                 >
-                  {loading ? "Launching..." : "Complete Setup"}
+                  {loading ? "Saving..." : (isEditing ? "Save Changes" : "Complete Setup")}
                 </button>
               ) : (
                 <button

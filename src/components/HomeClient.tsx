@@ -465,7 +465,7 @@ export default function HomeClient({ isAdmin = false }: { isAdmin?: boolean }) {
                     </div>
 
                     {/* Right Sidebar - Features Cards */}
-                    <aside className="p-4 bg-transparent backdrop-blur-md border border-white/20 rounded-2xl hover:border-white/40 space-y-4">
+                    <aside className="space-y-4">
                         <HopinProgramsCard />
                         <ProductsSidebarCard />
                     </aside>

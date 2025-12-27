@@ -2,17 +2,22 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import SwipeableStack from './SwipeableStack';
+import { ShoppingBag, ArrowRight, Tag } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 interface SuggestedProduct {
     id: string;
     name: string;
     image?: string;
     price: number;
+    description?: string;
 }
 
 export default function ProductsSidebarCard() {
     const [products, setProducts] = useState<SuggestedProduct[]>([]);
     const [loading, setLoading] = useState(true);
+    const router = useRouter();
 
     useEffect(() => {
         const fetchProducts = async () => {
@@ -20,7 +25,6 @@ export default function ProductsSidebarCard() {
                 const res = await fetch('/api/suggestions/products');
                 if (res.ok) {
                     const data = await res.json();
-                    // Show at least 4 products if available, defaulting to empty array
                     setProducts(data.products || []);
                 }
             } catch (error) {
@@ -35,7 +39,7 @@ export default function ProductsSidebarCard() {
 
     if (loading) {
         return (
-            <div className="rounded-2xl p-4 bg-transparent backdrop-blur-md border border-white/20 h-[200px] flex items-center justify-center">
+            <div className="rounded-2xl p-4 bg-transparent backdrop-blur-md border border-white/20 h-[280px] flex items-center justify-center">
                 <div className="text-white/50 text-xs text-center">Loading shop...</div>
             </div>
         );
@@ -43,63 +47,62 @@ export default function ProductsSidebarCard() {
 
     if (products.length === 0) return null;
 
-    // Display top 5 products to ensure "at least 4" are visible
-    const displayProducts = products.slice(0, 5);
-
     return (
-        <div className="rounded-2xl p-5 bg-transparent backdrop-blur-md border border-white/20 hover:border-white/40 transition-all">
-            <div className="flex items-center gap-2 mb-4">
-                <span className="text-xs font-bold text-white uppercase tracking-wider">Trending Shop</span>
-                <span className="ml-auto text-yellow-500">★</span>
+        <div className="w-full mb-6">
+            <div className="flex justify-between items-center mb-3 pb-2 border-b border-white/20">
+                <h3 className="font-bold text-lg text-white">Trending Shop</h3>
+                <Link href="/shop" className="text-xs text-neutral-400 hover:text-white flex items-center gap-1">
+                    View All <ArrowRight size={12} />
+                </Link>
             </div>
 
-            <div className="space-y-4">
-                {displayProducts.map((product, i) => (
-                    <Link
-                        key={product.id}
-                        href={`/shop/product/${product.id}`}
-                        className="flex items-start gap-3 group"
-                    >
-                        {/* Product Image */}
-                        <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-white/5 border border-white/10 group-hover:border-white/30 transition-colors flex-shrink-0">
+            <SwipeableStack
+                items={products}
+                containerHeight="320px"
+                onCardClick={(product) => {
+                    router.push(`/shop/product/${product.id}`);
+                }}
+            >
+                {(product: SuggestedProduct) => (
+                    <div className="flex flex-col h-full bg-black/40 backdrop-blur-md border border-white/20 rounded-2xl overflow-hidden shadow-xl" style={{ cursor: 'pointer' }}>
+                        {/* Product Image Area */}
+                        <div className="relative h-40 bg-white/5 flex items-center justify-center overflow-hidden">
                             {product.image ? (
                                 <img
                                     src={product.image}
                                     alt={product.name}
-                                    className="w-full h-full object-cover"
+                                    className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
                                 />
                             ) : (
-                                <div className="w-full h-full flex items-center justify-center text-white/20">
-                                    🛍️
-                                </div>
+                                <div className="text-4xl">🛍️</div>
                             )}
-                        </div>
-
-                        {/* details */}
-                        <div className="flex-1 min-w-0 pt-0.5">
-                            <h4 className="text-sm font-medium text-white group-hover:text-blue-300 transition-colors truncate">
-                                {product.name}
-                            </h4>
-                            <div className="flex items-center gap-2 mt-0.5">
-                                <span className="text-xs font-bold text-blue-200">₹{product.price}</span>
-                                {/* Optional: Add rating or other info here if available in future */}
+                            <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md px-2 py-1 rounded-md text-xs font-bold text-green-400 border border-green-500/30">
+                                ₹{product.price}
                             </div>
                         </div>
 
-                        {/* Arrow/Action */}
-                        <div className="self-center">
-                            <span className="text-white/20 group-hover:text-white/60 transition-colors text-lg">›</span>
-                        </div>
-                    </Link>
-                ))}
-            </div>
+                        {/* Details */}
+                        <div className="p-4 flex flex-col flex-1">
+                            <h4 className="text-base font-bold text-white mb-1 line-clamp-1">{product.name}</h4>
 
-            <Link
-                href="/shop"
-                className="block w-full py-2 mt-4 text-center text-xs font-medium text-white/60 hover:text-white bg-white/5 hover:bg-white/10 rounded-lg transition-all"
-            >
-                View All Products
-            </Link>
+                            {product.description && (
+                                <p className="text-xs text-neutral-400 line-clamp-2 mb-3 leading-relaxed">
+                                    {product.description}
+                                </p>
+                            )}
+
+                            <div className="mt-auto flex items-center justify-between pt-2 border-t border-white/10">
+                                <span className="text-[10px] text-neutral-500 uppercase tracking-widest font-semibold flex items-center gap-1">
+                                    <Tag size={10} /> Exclusive
+                                </span>
+                                <button className="px-3 py-1.5 bg-white text-black text-xs font-bold rounded-lg hover:bg-neutral-200 transition-colors flex items-center gap-1">
+                                    <ShoppingBag size={12} /> Shop
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </SwipeableStack>
         </div>
     );
 }

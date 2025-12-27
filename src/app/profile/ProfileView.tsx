@@ -168,8 +168,10 @@ export default function ProfileView() {
 }
 
 function MyBrandsSection() {
-  const { data: brands, error } = useSWR('/api/shop/brands?mine=true', fetcher);
+  const { data, error } = useSWR('/api/shop/brands?mine=true', fetcher);
   const router = useRouter();
+
+  const brands = data?.brands;
 
   if (!brands || brands.length === 0) return null;
 

@@ -311,7 +311,7 @@ export default function StressMapSection() {
 
     const generateReport = useCallback(() => {
         if (reportRef.current) {
-            toPng(reportRef.current, { cacheBust: true, backgroundColor: '#000000' })
+            toPng(reportRef.current, { cacheBust: true, backgroundColor: '#ffffff' })
                 .then((dataUrl) => {
                     const link = document.createElement('a');
                     link.download = `system-diagnostic-${Date.now()}.png`;
@@ -391,9 +391,9 @@ export default function StressMapSection() {
                 <div className="flex gap-4">
                     <button
                         onClick={() => setShowLogbook(!showLogbook)}
-                        className={cn("flex items-center gap-2 px-4 py-2 text-xs border transition-all hover:bg-white hover:text-black", showLogbook ? "bg-white text-black border-transparent" : "border-white/20 text-white/50")}
+                        className={cn("flex items-center gap-2 px-4 py-3 text-xs md:text-sm border transition-all hover:bg-white hover:text-black", showLogbook ? "bg-white text-black border-transparent" : "border-white/20 text-white/50")}
                     >
-                        <History size={14} /> LOGBOOK
+                        <History size={16} /> VIEW HISTORY
                     </button>
                 </div>
             </div>
@@ -406,26 +406,26 @@ export default function StressMapSection() {
                         <div className="border border-white/20 p-6 bg-black h-full flex flex-col animate-in fade-in slide-in-from-left-4">
                             <div className="flex justify-between items-start mb-8">
                                 <div>
-                                    <div className="text-[10px] text-white/40 uppercase">Target Sector</div>
-                                    <div className="text-xl font-bold text-red-500 mt-1">{selected.regionLabel}</div>
+                                    <div className="text-xs text-white/40 uppercase">Target Sector</div>
+                                    <div className="text-3xl font-bold text-red-500 mt-2">{selected.regionLabel}</div>
                                 </div>
                                 <div className="text-right">
-                                    <div className="text-[10px] text-white/40 uppercase">ID RECOGNITION</div>
-                                    <div className="font-mono text-xs">{selected.id.slice(0, 8)}</div>
+                                    <div className="text-xs text-white/40 uppercase">ID RECOGNITION</div>
+                                    <div className="font-mono text-sm">{selected.id.slice(0, 8)}</div>
                                 </div>
                             </div>
 
                             <div className="space-y-8 flex-1">
                                 {/* Quality Selector */}
                                 <div>
-                                    <div className="text-[10px] text-white/40 uppercase mb-3">Signal Signature</div>
+                                    <div className="text-xs text-white/40 uppercase mb-3">Signal Signature</div>
                                     <div className="grid grid-cols-3 gap-2">
                                         {(["ache", "sharp", "burn", "numb", "tingle", "tight"] as Quality[]).map(q => (
                                             <button
                                                 key={q}
                                                 onClick={() => updateSelected({ quality: q })}
                                                 className={cn(
-                                                    "border text-[10px] py-2 px-1 uppercase tracking-wider hover:bg-white hover:text-black transition-all",
+                                                    "border text-xs py-3 px-1 uppercase tracking-wider hover:bg-white hover:text-black transition-all",
                                                     selected.quality === q ? "bg-white text-black border-white" : "border-white/20 text-white/50"
                                                 )}
                                             >
@@ -437,7 +437,7 @@ export default function StressMapSection() {
 
                                 {/* Intensity */}
                                 <div>
-                                    <div className="text-[10px] text-white/40 uppercase mb-3 flex justify-between">
+                                    <div className="text-xs text-white/40 uppercase mb-3 flex justify-between">
                                         <span>Signal Amplitude</span>
                                         <span className="text-red-500 font-bold">{selected.intensity * 10}%</span>
                                     </div>
@@ -449,25 +449,36 @@ export default function StressMapSection() {
                                     />
                                 </div>
 
+                                {/* Note Input */}
+                                <div>
+                                    <div className="text-xs text-white/40 uppercase mb-2">Clinical Note</div>
+                                    <textarea
+                                        value={selected.note || ""}
+                                        onChange={(e) => updateSelected({ note: e.target.value })}
+                                        className="w-full bg-white/5 border border-white/10 text-sm p-3 text-white focus:border-red-500 focus:outline-none min-h-[80px] resize-none"
+                                        placeholder="Add observations..."
+                                    />
+                                </div>
+
                                 {/* Protocol (Suggestions) */}
                                 <div className="border-t border-white/10 pt-6 mt-6">
                                     <div className="flex items-center gap-2 mb-4 text-emerald-500">
-                                        <Terminal size={12} />
-                                        <span className="text-xs font-bold uppercase tracking-widest">Repair Protocol</span>
+                                        <Terminal size={14} />
+                                        <span className="text-sm font-bold uppercase tracking-widest">Repair Protocol</span>
                                     </div>
-                                    <div className="space-y-3">
+                                    <div className="space-y-4">
                                         {(suggestions[selected.regionId] || []).map((s, i) => (
                                             <div key={i} className="group">
-                                                <div className="text-xs font-bold text-white group-hover:text-emerald-400 transition-colors">
+                                                <div className="text-sm font-bold text-white group-hover:text-emerald-400 transition-colors">
                                                     {`>> ${s.name}`}
                                                 </div>
-                                                <div className="text-[10px] text-white/40 pl-4 mt-1 leading-relaxed border-l border-white/10 ml-1">
+                                                <div className="text-xs text-white/60 pl-4 mt-1 leading-relaxed border-l border-white/10 ml-1">
                                                     {s.desc}
                                                 </div>
                                             </div>
                                         ))}
                                         {!suggestions[selected.regionId] && (
-                                            <div className="text-[10px] text-white/30 italic">No specific protocol found for this sector.</div>
+                                            <div className="text-xs text-white/30 italic">No specific protocol found for this sector.</div>
                                         )}
                                     </div>
                                 </div>
@@ -482,9 +493,9 @@ export default function StressMapSection() {
                         </div>
                     ) : (
                         <div className="border border-white/10 p-6 h-full flex flex-col justify-center items-center text-center opacity-50 border-dashed">
-                            <Activity className="w-12 h-12 text-white/20 mb-4 animate-pulse" />
-                            <div className="text-sm tracking-widest uppercase text-white/40">Waiting for Input</div>
-                            <div className="text-[10px] text-white/20 mt-2">Select a sector on the chassis map</div>
+                            <Activity className="w-16 h-16 text-white/20 mb-6 animate-pulse" />
+                            <div className="text-lg tracking-widest uppercase text-white/60">Waiting for Input</div>
+                            <div className="text-sm text-white/30 mt-3">Select a sector on the chassis map</div>
                         </div>
                     )}
                 </div>
@@ -540,14 +551,17 @@ export default function StressMapSection() {
 
                     {/* Actions */}
                     <div className="border border-white/10 p-4 bg-white/5 space-y-3">
-                        <button onClick={saveSession} className="w-full border border-white/20 hover:bg-white hover:text-black hover:border-white text-white/70 py-3 text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all">
-                            <Save size={14} /> Commit Data
+                        <button onClick={saveSession} className="w-full border border-white/20 hover:bg-white hover:text-black hover:border-white text-white/70 py-4 text-sm font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all">
+                            <Save size={16} /> Commit Data
                         </button>
-                        <button onClick={generateReport} className="w-full border border-white/20 hover:bg-emerald-500/20 hover:text-emerald-500 hover:border-emerald-500/50 text-white/70 py-3 text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all">
-                            <Share2 size={14} /> Export Report
+                        <button onClick={() => setShowLogbook(true)} className="w-full border border-white/20 hover:bg-white hover:text-black hover:border-white text-white/70 py-4 text-sm font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all">
+                            <History size={16} /> View History
                         </button>
-                        <button onClick={() => setMarkers([])} className="w-full border border-red-900/30 hover:bg-red-950/30 text-red-700 hover:text-red-500 py-3 text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all">
-                            <RotateCcw size={14} /> Purge System
+                        <button onClick={generateReport} className="w-full border border-white/20 hover:bg-emerald-500/20 hover:text-emerald-500 hover:border-emerald-500/50 text-white/70 py-4 text-sm font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all">
+                            <Share2 size={16} /> Download Report
+                        </button>
+                        <button onClick={() => setMarkers([])} className="w-full border border-red-900/30 hover:bg-red-950/30 text-red-700 hover:text-red-500 py-4 text-sm font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all">
+                            <RotateCcw size={16} /> Purge System
                         </button>
                     </div>
 
@@ -556,31 +570,31 @@ export default function StressMapSection() {
                         <div className="text-[10px] uppercase text-white/30 tracking-widest mb-4">Metric Summary</div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <div className="text-2xl font-mono">{markers.length}</div>
-                                <div className="text-[10px] text-white/50">ACTIVE POINTS</div>
+                                <div className="text-3xl font-mono">{markers.length}</div>
+                                <div className="text-xs text-white/50">ACTIVE POINTS</div>
                             </div>
                             <div>
-                                <div className="text-2xl font-mono text-red-500">{markers.reduce((a, b) => a + b.intensity, 0)}</div>
-                                <div className="text-[10px] text-white/50">TOTAL LOAD</div>
+                                <div className="text-3xl font-mono text-red-500">{markers.reduce((a, b) => a + b.intensity, 0)}</div>
+                                <div className="text-xs text-white/50">TOTAL LOAD</div>
                             </div>
                         </div>
                     </div>
 
                     {/* Logbook Overlay (Conditional) */}
                     {showLogbook && (
-                        <div className="absolute inset-x-0 -bottom-96 h-96 border border-white/10 bg-black/95 backdrop-blur z-50 overflow-y-auto p-4 animate-in slide-in-from-bottom-10">
-                            <div className="flex justify-between items-center mb-4 sticky top-0 bg-black py-2 border-b border-white/10">
-                                <h4 className="text-xs font-bold uppercase tracking-widest">System Logs</h4>
-                                <button onClick={() => setShowLogbook(false)} className="text-white/50 hover:text-white"><X size={14} /></button>
+                        <div className="absolute inset-x-0 -bottom-96 h-96 border border-white/10 bg-black/95 backdrop-blur z-50 overflow-y-auto p-6 animate-in slide-in-from-bottom-10">
+                            <div className="flex justify-between items-center mb-6 sticky top-0 bg-black py-2 border-b border-white/10">
+                                <h4 className="text-sm font-bold uppercase tracking-widest">System History</h4>
+                                <button onClick={() => setShowLogbook(false)} className="text-white/50 hover:text-white"><X size={16} /></button>
                             </div>
-                            <div className="space-y-1">
+                            <div className="space-y-2">
                                 {history.map((h, i) => (
-                                    <div key={i} className="flex justify-between items-center text-[10px] font-mono p-2 hover:bg-white/5 cursor-pointer border-b border-white/5">
-                                        <span className="text-white/50">{new Date(h.createdAt).toLocaleString()}</span>
-                                        <span className="text-red-500">{h.region} [LVL {h.intensity}]</span>
+                                    <div key={i} className="flex justify-between items-center text-xs font-mono p-3 hover:bg-white/5 cursor-pointer border-b border-white/5">
+                                        <span className="text-white/60">{new Date(h.createdAt).toLocaleString()}</span>
+                                        <span className="text-red-500 font-bold">{h.region} [LVL {h.intensity}]</span>
                                     </div>
                                 ))}
-                                {history.length === 0 && <div className="text-center text-white/20 py-8 text-xs">NO LOGS FOUND</div>}
+                                {history.length === 0 && <div className="text-center text-white/20 py-8 text-sm">NO LOGS FOUND</div>}
                             </div>
                         </div>
                     )}
@@ -588,50 +602,62 @@ export default function StressMapSection() {
                 </div>
 
                 {/* HIDDEN REPORT TEMPLATE (For HTML to Image) */}
-                <div className="absolute opacity-0 pointer-events-none top-0 left-0">
-                    <div ref={reportRef} className="bg-black text-white p-8 w-[600px] font-mono border border-white">
-                        <div className="border-b-2 border-white pb-4 mb-6 flex justify-between items-end">
-                            <h1 className="text-4xl font-black tracking-tighter">DIAGNOSTIC REPORT</h1>
+                <div className="fixed -left-[2000px] top-0 pointer-events-none">
+                    <div ref={reportRef} className="bg-white text-black p-10 w-[800px] min-h-[600px] font-mono border-4 border-black">
+                        <div className="border-b-4 border-black pb-6 mb-8 flex justify-between items-end">
+                            <h1 className="text-5xl font-black tracking-tighter text-black">DIAGNOSTIC REPORT</h1>
                             <div className="text-right">
-                                <div className="text-xs uppercase text-white/50">TIMESTAMP</div>
-                                <div>{new Date().toISOString()}</div>
+                                <div className="text-sm font-bold uppercase text-black/60">TIMESTAMP</div>
+                                <div className="text-lg font-bold text-black" suppressHydrationWarning>{new Date().toLocaleString()}</div>
                             </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-8">
+                        <div className="grid grid-cols-2 gap-12">
                             <div>
-                                {/* Mini Map approximation using simple CSS shapes would be hard to match 1:1, 
-                                    so we list data instead for simplicity as 'html-to-image' can handle the React nodes but complex SVG might be tricky if not visible. 
-                                    Actually, reusing the markers list to draw a 'text based' body map or just a data table is safer. */}
-                                <div className="text-sm border-b border-white/20 pb-2 mb-4 uppercase tracking-widest">Detected Anomalies</div>
-                                <div className="space-y-2">
+                                <div className="text-lg font-bold border-b-2 border-black pb-2 mb-6 uppercase tracking-widest text-black">Detected Anomalies</div>
+                                <div className="space-y-4">
                                     {markers.map((m, i) => (
-                                        <div key={i} className="flex justify-between text-xs border-l-2 border-red-500 pl-2">
-                                            <span>{m.regionLabel}</span>
-                                            <span className="text-red-500">INT: {m.intensity} // {m.quality.toUpperCase()}</span>
+                                        <div key={i} className="flex flex-col border-l-4 border-red-600 pl-4 py-1">
+                                            <div className="flex justify-between items-baseline mb-1">
+                                                <span className="font-bold text-lg text-black">{m.regionLabel}</span>
+                                                <span className="text-red-600 font-bold">{m.quality.toUpperCase()}</span>
+                                            </div>
+                                            <div className="text-sm text-black/70">Intensity: {m.intensity}/10</div>
+                                            {m.note && <div className="text-sm italic mt-1 text-black bg-gray-100 p-2 border border-gray-300">"{m.note}"</div>}
                                         </div>
                                     ))}
+                                    {markers.length === 0 && <div className="italic text-gray-500">No anomalies recorded.</div>}
                                 </div>
                             </div>
                             <div>
-                                <div className="text-sm border-b border-white/20 pb-2 mb-4 uppercase tracking-widest">System Load</div>
-                                <div className="text-6xl font-black mb-2">{markers.reduce((a, b) => a + b.intensity, 0)}</div>
-                                <div className="text-xs uppercase text-white/50">Cumulative Stress Index</div>
+                                <div className="text-lg font-bold border-b-2 border-black pb-2 mb-6 uppercase tracking-widest text-black">System Load</div>
+                                <div className="text-8xl font-black mb-2 text-red-600">{markers.reduce((a, b) => a + b.intensity, 0)}</div>
+                                <div className="text-sm font-bold uppercase text-black/60">Cumulative Stress Index</div>
 
-                                <div className="mt-12 p-4 border border-white/20 bg-white/5">
-                                    <div className="text-xs uppercase mb-2">Recommended Protocol</div>
+                                <div className="mt-12 p-6 border-2 border-black bg-gray-50">
+                                    <div className="text-sm font-bold uppercase mb-4 text-black">Recommended Protocol</div>
                                     {markers.slice(0, 3).map((m, i) => {
                                         const sugg = suggestions[m.regionId]?.[0];
                                         return sugg ? (
-                                            <div key={i} className="mb-2 text-[10px]">
-                                                <span className="text-emerald-500 font-bold">&gt;&gt; {sugg.name}</span>
-                                                <div className="text-white/50">{sugg.desc}</div>
+                                            <div key={i} className="mb-4 text-sm">
+                                                <span className="text-red-700 font-bold block mb-1">&gt;&gt; {sugg.name}</span>
+                                                <div className="text-black/80 leading-relaxed">{sugg.desc}</div>
                                             </div>
                                         ) : null;
                                     })}
+                                    {markers.length === 0 && <div className="italic text-gray-500">System functional. No protocols required.</div>}
+                                </div>
+                                <div className="mt-8 flex justify-end items-center gap-4 border-t-2 border-black pt-4">
+                                    <div className="text-right">
+                                        <div className="text-xs font-bold uppercase text-black/50">Authorized By</div>
+                                        <div className="font-black text-xl italic text-red-600">FUY</div>
+                                    </div>
+                                    <div className="w-12 h-12 border-2 border-black flex items-center justify-center p-1">
+                                        <img src="/icon.png" alt="Logo" className="w-full h-full object-contain grayscale" />
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                        <div className="mt-8 pt-4 border-t border-white/20 text-[10px] text-center uppercase tracking-[0.5em] text-white/30">
+                        <div className="mt-12 pt-6 border-t-2 border-black text-xs text-center uppercase tracking-[0.5em] text-black/40">
                             End of Report
                         </div>
                     </div>

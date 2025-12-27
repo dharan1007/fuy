@@ -58,14 +58,29 @@ export async function GET(req: Request) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        // Fetch plans where user is owner OR a member
-        const plans = await prisma.plan.findMany({
-            where: {
+        const { searchParams } = new URL(req.url);
+        const mode = searchParams.get("mode"); // "map" (public/global) or undefined (dashboard/my plans)
+
+        let whereClause: any = {
+            OR: [
+                { creatorId: session.user.id },
+                { members: { some: { userId: session.user.id } } },
+            ],
+        };
+
+        if (mode === "map" || mode === "public") {
+            whereClause = {
                 OR: [
+                    { visibility: "PUBLIC" },
+                    // Also include my own private plans on the map so I can see them
                     { creatorId: session.user.id },
-                    { members: { some: { userId: session.user.id } } },
-                ],
-            },
+                    { members: { some: { userId: session.user.id } } }
+                ]
+            };
+        }
+
+        const plans = await prisma.plan.findMany({
+            where: whereClause,
             include: {
                 members: {
                     include: {
@@ -79,11 +94,27 @@ export async function GET(req: Request) {
                         },
                     },
                 },
+                _count: {
+                    select: { members: true }
+                }
             },
-            orderBy: { updatedAt: "desc" },
+            take: mode === "public" ? 20 : undefined,
+            orderBy: { createdAt: "desc" },
         });
 
-        return NextResponse.json(plans);
+        // Sanitize verification codes
+        const sanitizedParams = plans.map(plan => ({
+            ...plan,
+            members: plan.members.map(m => {
+                if (m.userId === session.user.id || plan.creatorId === session.user.id) {
+                    return m;
+                }
+                const { verificationCode, ...rest } = m;
+                return rest;
+            })
+        }));
+
+        return NextResponse.json(sanitizedParams);
     } catch (error) {
         console.error("Error fetching plans:", error);
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

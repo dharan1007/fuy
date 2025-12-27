@@ -3,10 +3,11 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { ShoppingBag, BookOpen, GraduationCap, LayoutTemplate, Map } from 'lucide-react';
+import { ShoppingBag, BookOpen, GraduationCap, LayoutTemplate, Map, Heart, TrendingUp } from 'lucide-react';
 import { SpaceBackground } from '@/components/SpaceBackground';
 import AppHeader from '@/components/AppHeader';
 import { useCartStore } from "@/lib/cartStore";
+import SlashInput from "@/components/post-forms/SlashInput";
 
 interface Brand {
   id: string;
@@ -51,6 +52,11 @@ export default function ShopPage() {
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000]);
   const [showFilters, setShowFilters] = useState(false);
 
+  // Interests & Recommendations
+  const [showInterests, setShowInterests] = useState(false);
+  const [interests, setInterests] = useState<string[]>([]);
+  const [recommended, setRecommended] = useState<Product[]>([]);
+
   const categories = ['ALL', 'CLOTHING', 'ACCESSORIES', 'DIGITAL', 'ART', 'OTHER'];
 
   useEffect(() => {
@@ -94,9 +100,48 @@ export default function ShopPage() {
       }
     };
 
+    const fetchInterestsAndRecs = async () => {
+      try {
+        // Fetch Interests
+        const intRes = await fetch('/api/shop/interests');
+        if (intRes.ok) {
+          const { interests } = await intRes.json();
+          setInterests(interests || []);
+        }
+
+        // Fetch Recommendations (Trending/Personalized)
+        const recRes = await fetch('/api/suggestions/products');
+        if (recRes.ok) {
+          const { products } = await recRes.json();
+          setRecommended(products || []);
+        }
+      } catch (e) {
+        console.error("Failed to fetch recs", e);
+      }
+    };
+
     fetchData();
     fetchUserBrands();
+    fetchInterestsAndRecs();
   }, []);
+
+  const handleSaveInterests = async (newInterests: string[]) => {
+    setInterests(newInterests);
+    try {
+      await fetch('/api/shop/interests', {
+        method: 'POST',
+        body: JSON.stringify({ interests: newInterests })
+      });
+      // Refresh recs
+      const recRes = await fetch('/api/suggestions/products');
+      if (recRes.ok) {
+        const { products } = await recRes.json();
+        setRecommended(products || []);
+      }
+    } catch (e) {
+      console.error("Failed to update interests", e);
+    }
+  };
 
   const filteredBrands = brands.filter(b =>
     b.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -231,6 +276,14 @@ export default function ShopPage() {
             </Link>
           )}
 
+          <button
+            onClick={() => setShowInterests(true)}
+            className="hidden sm:flex items-center gap-2 px-4 py-1.5 border border-white/20 text-white text-sm font-bold rounded-full hover:bg-white/10 transition-colors whitespace-nowrap"
+          >
+            <Heart className={`w-3.5 h-3.5 ${interests.length > 0 ? 'fill-red-500 text-red-500' : ''}`} />
+            Interests
+          </button>
+
           {/* Cart button */}
           <Link
             href="/cart"
@@ -302,6 +355,41 @@ export default function ShopPage() {
             </button>
           </div>
 
+          {/* Interests Modal */}
+          {showInterests && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="bg-black border border-white/20 p-8 rounded-2xl w-full max-w-lg relative"
+              >
+                <button
+                  onClick={() => setShowInterests(false)}
+                  className="absolute top-4 right-4 text-white/50 hover:text-white"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+
+                <h2 className="text-2xl font-bold mb-2">Shopping Interests</h2>
+                <p className="text-gray-400 mb-6">Add slashes for things you love. We'll curate the best products for you.</p>
+
+                <SlashInput
+                  slashes={interests}
+                  onChange={handleSaveInterests}
+                />
+
+                <div className="mt-8 flex justify-end">
+                  <button
+                    onClick={() => setShowInterests(false)}
+                    className="px-6 py-2 bg-white text-black font-bold rounded-lg hover:bg-gray-200"
+                  >
+                    Done
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+
           {showFilters && (
             <motion.div
               initial={{ height: 0, opacity: 0 }}
@@ -345,6 +433,26 @@ export default function ShopPage() {
 
         {/* Digital Marketplace Sections */}
         <div className="max-w-7xl mx-auto px-6 pb-12 space-y-20">
+
+          {/* Recommended For You / Trending */}
+          {recommended.length > 0 && (
+            <section id="trending">
+              <div className="flex justify-between items-end mb-8">
+                <div className="flex items-center gap-3">
+                  <TrendingUp className="w-8 h-8 text-white" />
+                  <div>
+                    <h2 className="text-3xl font-black uppercase tracking-tight text-white">
+                      {interests.length > 0 ? 'Recommended For You' : 'Trending Now'}
+                    </h2>
+                    {interests.length > 0 && <p className="text-sm text-gray-400">Based on your interests: {interests.map(i => i).join(', ')}</p>}
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+                {recommended.map(product => <ProductCard key={product.id} product={product} />)}
+              </div>
+            </section>
+          )}
 
           {/* Courses */}
           {courses.filter(p => {

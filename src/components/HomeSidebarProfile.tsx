@@ -116,7 +116,7 @@ export default function HomeSidebarProfile({
             <img
               src={avatarUrl}
               alt={displayName}
-              className="w-16 h-16 rounded-full mx-auto mb-3 border-2 border-blue-400"
+              className="w-16 h-16 rounded-full mx-auto mb-3"
             />
             <h3 className="font-semibold text-lg text-white">{displayName}</h3>
             <p className="text-sm text-white/80 mt-1">{userProfile.profile?.bio || 'No bio yet'}</p>

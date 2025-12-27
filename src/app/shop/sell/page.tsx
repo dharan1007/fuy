@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Upload, Link as LinkIcon, Check, DollarSign, FileText, BookOpen, GraduationCap, LayoutTemplate, Map } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import SlashInput from "@/components/post-forms/SlashInput";
 
 const PRODUCT_TYPES = [
     { id: "COURSE", label: "Course", icon: GraduationCap, description: "Sell your knowledge" },
@@ -31,6 +32,7 @@ function SellPageContent() {
         images: "",
         digitalFileUrl: "",
         linkedResourceId: "",
+        slashes: [] as string[],
     });
     const [loading, setLoading] = useState(false);
 
@@ -76,6 +78,7 @@ function SellPageContent() {
                     ...formData,
                     price: parseFloat(formData.price),
                     // images is already a JSON string of objects {url, type}
+                    tags: JSON.stringify(formData.slashes),
                 }),
             });
 
@@ -265,6 +268,12 @@ function SellPageContent() {
                                             </div>
                                         )}
                                     </div>
+                                </div>
+                                <div>
+                                    <SlashInput
+                                        slashes={formData.slashes}
+                                        onChange={(slashes) => setFormData({ ...formData, slashes })}
+                                    />
                                 </div>
                             </div>
                             <div className="flex justify-between pt-6">

@@ -1,8 +1,10 @@
 'use client';
 
+
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
+import SlashInput from "@/components/post-forms/SlashInput";
 
 interface Product {
     id: string;
@@ -30,7 +32,8 @@ export default function InventoryPage() {
         price: '',
         externalUrl: '',
         mediaFiles: [] as string[], // Base64 strings
-        category: 'OTHER'
+        category: 'OTHER',
+        tags: [] as string[],
     });
 
     useEffect(() => {
@@ -84,13 +87,14 @@ export default function InventoryPage() {
                     price: newProduct.price,
                     externalUrl: newProduct.externalUrl,
                     images: newProduct.mediaFiles,
-                    category: newProduct.category
+                    category: newProduct.category,
+                    tags: JSON.stringify(newProduct.tags)
                 })
             });
 
             if (res.ok) {
                 setShowAddProduct(false);
-                setNewProduct({ name: '', description: '', price: '', externalUrl: '', mediaFiles: [], category: 'OTHER' });
+                setNewProduct({ name: '', description: '', price: '', externalUrl: '', mediaFiles: [], category: 'OTHER', tags: [] });
                 fetchData(params.slug as string); // Refresh
             }
         } catch (error) {
@@ -194,6 +198,12 @@ export default function InventoryPage() {
                                     <option value="DIGITAL">Digital</option>
                                     <option value="ART">Art</option>
                                 </select>
+                            </div>
+                            <div className="space-y-2 md:col-span-2">
+                                <SlashInput
+                                    slashes={newProduct.tags}
+                                    onChange={(tags) => setNewProduct({ ...newProduct, tags })}
+                                />
                             </div>
                             <div className="space-y-2">
                                 <label className="text-xs text-gray-500 uppercase">External Buy URL</label>

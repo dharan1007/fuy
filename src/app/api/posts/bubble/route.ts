@@ -30,6 +30,17 @@ export async function POST(req: NextRequest) {
                     createdAt: new Date() // Bump to top
                 }
             });
+
+            // Clean up any other duplicates just in case (self-healing)
+            if (Math.random() < 0.1) { // 10% chance to run cleanup to avoid perf hit every time
+                await prisma.reactionBubble.deleteMany({
+                    where: {
+                        postId,
+                        userId,
+                        id: { not: existingBubble.id }
+                    }
+                });
+            }
         } else {
             // Create new bubble
             await prisma.reactionBubble.create({

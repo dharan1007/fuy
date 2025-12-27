@@ -3,61 +3,73 @@
 import React, { useState, useEffect } from 'react';
 import SwipeableStack from './SwipeableStack';
 import styles from './HopinProgramsCard.module.css';
+import { MapPin, Calendar, User, ArrowRight } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
-interface HopinProgram {
+interface HopinPlan {
   id: string;
   title: string;
   description: string;
-  category: string;
-  participants: number;
-  friendsInterested: string[];
-  image: string;
-  startTime: string;
-  duration: number;
+  location: string;
+  date: string;
+  maxSize: number;
+  creatorId: string;
+  members: Array<{
+    user: {
+      profile: {
+        avatarUrl: string | null;
+      };
+    };
+  }>;
+  _count?: {
+    members: number;
+  };
 }
 
 export default function HopinProgramsCard() {
-  const [programs, setPrograms] = useState<HopinProgram[]>([]);
+  const [plans, setPlans] = useState<HopinPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
-    const fetchPrograms = async () => {
+    const fetchPlans = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/api/hopin/programs');
+        const response = await fetch('/api/hopin/plans?mode=public');
         if (!response.ok) {
-          throw new Error('Failed to fetch programs');
+          throw new Error('Failed to fetch plans');
         }
         const data = await response.json();
-        setPrograms(data.programs || []);
+        setPlans(data || []);
         setError(null);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred');
-        console.error('Error fetching programs:', err);
+        console.error('Error fetching plans:', err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchPrograms();
+    fetchPlans();
   }, []);
 
   if (loading) {
     return (
       <div className={styles.container}>
-        <h3 className={styles.title}>Hopin Programs</h3>
-        <div className={styles.loadingState}>Loading programs...</div>
+        <h3 className={styles.title}>Community Plans</h3>
+        <div className={styles.loadingState}>Loading plans...</div>
       </div>
     );
   }
 
-  if (error || programs.length === 0) {
+  if (error || plans.length === 0) {
     return (
       <div className={styles.container}>
-        <h3 className={styles.title}>Hopin Programs</h3>
+        <h3 className={styles.title}>Community Plans</h3>
         <div className={styles.emptyState}>
-          {error ? `Error: ${error}` : 'No programs available'}
+          {error ? `Error: ${error}` : 'No upcoming plans nearby.'}
         </div>
       </div>
     );
@@ -65,50 +77,60 @@ export default function HopinProgramsCard() {
 
   return (
     <div className={styles.container}>
-      <h3 className={styles.title}>Hopin Programs</h3>
+      <div className="flex justify-between items-center mb-3 pb-2 border-b border-white/20">
+        <h3 className="font-bold text-lg text-white">Community Plans</h3>
+        <Link href="/hopin" className="text-xs text-neutral-400 hover:text-white flex items-center gap-1">
+          View All <ArrowRight size={12} />
+        </Link>
+      </div>
+
       <SwipeableStack
-        items={programs}
+        items={plans}
         containerHeight="280px"
-        onCardClick={(program) => {
-          // Handle program click - can navigate to program detail page
-          console.log('Program clicked:', program);
+        onCardClick={(plan) => {
+          router.push('/hopin');
         }}
       >
-        {(program: HopinProgram) => (
-          <div className={styles.programCard}>
+        {(plan: HopinPlan) => (
+          <div className={styles.programCard} style={{ cursor: 'pointer' }}>
             <div className={styles.programHeader}>
-              <span className={styles.programImage}>{program.image}</span>
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-red-500/20 to-purple-500/20 flex items-center justify-center border border-white/10 text-2xl">
+                🚀
+              </div>
               <div className={styles.programMeta}>
-                <h4 className={styles.programTitle}>{program.title}</h4>
-                <p className={styles.programDescription}>{program.description}</p>
+                <h4 className={styles.programTitle}>{plan.title}</h4>
+                <p className={styles.programDescription}>{plan.description}</p>
               </div>
             </div>
 
             <div className={styles.programDetails}>
               <div className={styles.detailItem}>
-                <span className={styles.detailLabel}>Participants</span>
-                <span className={styles.detailValue}>{program.participants}</span>
+                <span className={styles.detailLabel}><MapPin size={10} className="inline mr-1" />Location</span>
+                <span className={styles.detailValue} style={{ fontSize: '0.8rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{plan.location}</span>
               </div>
               <div className={styles.detailItem}>
-                <span className={styles.detailLabel}>Duration</span>
-                <span className={styles.detailValue}>{program.duration}m</span>
+                <span className={styles.detailLabel}><Calendar size={10} className="inline mr-1" />When</span>
+                <span className={styles.detailValue} style={{ fontSize: '0.8rem' }}>
+                  {new Date(plan.date).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                </span>
               </div>
             </div>
 
-            {program.friendsInterested.length > 0 && (
-              <div className={styles.friendsInterested}>
-                <span className={styles.friendsLabel}>Friends interested:</span>
-                <div className={styles.friendsTags}>
-                  {program.friendsInterested.map((friend) => (
-                    <span key={friend} className={styles.friendTag}>
-                      {friend}
-                    </span>
-                  ))}
-                </div>
+            <div className="flex items-center justify-between mt-auto pt-2">
+              <div className="flex -space-x-2">
+                {plan.members?.slice(0, 3).map((m: any, i: number) => (
+                  <div key={i} className="w-6 h-6 rounded-full border border-black bg-neutral-800 overflow-hidden">
+                    {m.user.profile?.avatarUrl && <img src={m.user.profile.avatarUrl} className="w-full h-full object-cover" />}
+                  </div>
+                ))}
+                {(plan._count?.members || 0) > 3 && (
+                  <div className="w-6 h-6 rounded-full border border-black bg-neutral-800 flex items-center justify-center text-[8px] text-white">
+                    +{(plan._count?.members || 0) - 3}
+                  </div>
+                )}
               </div>
-            )}
-
-            <button className={styles.joinButton}>Join Program</button>
+              <button className={styles.joinButton}>View</button>
+            </div>
           </div>
         )}
       </SwipeableStack>

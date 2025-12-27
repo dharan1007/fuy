@@ -19,7 +19,7 @@ function SpaceBackground({ children }: { children: React.ReactNode }) {
       />
 
       {/* Content */}
-      <div className="relative z-10 p-6 md:p-12 max-w-7xl mx-auto space-y-24 pb-32">
+      <div className="relative z-10 w-full px-8 pb-32 space-y-24">
         {children}
       </div>
     </div>

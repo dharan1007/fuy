@@ -12,7 +12,15 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
         }
 
-        // Check if reaction exists
+        // We need to handle three cases:
+        // 1. No reaction exists -> Create
+        // 2. Reaction exists and type is same -> Delete (Toggle Off)
+        // 3. Reaction exists and type is different -> Update
+
+        // To handle race conditions (P2025: Record not found during update/delete, P2002: Unique constraint during create),
+        // we will use a loop or strictly ordered try-catch blocks.
+        // A simple approach is to try to find first.
+
         const existingReaction = await prisma.reaction.findUnique({
             where: {
                 userId_postId: {
@@ -24,22 +32,19 @@ export async function POST(req: NextRequest) {
 
         if (existingReaction) {
             if (existingReaction.type === type) {
-                // Toggle off (remove)
+                // TOGGLE OFF: Delete
                 try {
                     await prisma.reaction.delete({
                         where: { id: existingReaction.id },
                     });
                 } catch (error: any) {
-                    // P2025: Record to delete does not exist.
-                    // This is fine, it means it was already deleted by another request.
+                    // If P2025, it's already deleted. That's fine.
                     if (error.code !== 'P2025') {
                         throw error;
                     }
                 }
             } else {
-                // Change type
-                // We use update, but if it was deleted in the meantime, this might fail with P2025.
-                // If it fails, we should try to create it.
+                // UPDATE TYPE
                 try {
                     await prisma.reaction.update({
                         where: { id: existingReaction.id },
@@ -47,24 +52,27 @@ export async function POST(req: NextRequest) {
                     });
                 } catch (error: any) {
                     if (error.code === 'P2025') {
-                        // It was deleted, so we create it
+                        // It was deleted concurrently. So we create it.
                         try {
                             await prisma.reaction.create({
                                 data: { userId, postId, type },
                             });
-                            // Note: We skip notification here for simplicity in this edge case resilience
+                            // Send notification for creation
+                            await sendNotification(userId, postId, type);
                         } catch (createError: any) {
                             if (createError.code === 'P2002') {
-                                // Double race! It exists again. Update it.
-                                const retryReaction = await prisma.reaction.findUnique({
+                                // Race! It was created again concurrently. Update it.
+                                const retry = await prisma.reaction.findUnique({
                                     where: { userId_postId: { userId, postId } }
                                 });
-                                if (retryReaction) {
+                                if (retry) {
                                     await prisma.reaction.update({
-                                        where: { id: retryReaction.id },
+                                        where: { id: retry.id },
                                         data: { type }
                                     });
                                 }
+                            } else {
+                                throw createError;
                             }
                         }
                     } else {
@@ -73,60 +81,38 @@ export async function POST(req: NextRequest) {
                 }
             }
         } else {
-            // Create new
+            // CREATE NEW
             try {
-                const newReaction = await prisma.reaction.create({
-                    data: {
-                        userId,
-                        postId,
-                        type,
-                    },
+                await prisma.reaction.create({
+                    data: { userId, postId, type },
                 });
-
-                // Create notification if not reacting to own post
-                const post = await prisma.post.findUnique({
-                    where: { id: postId },
-                    select: { userId: true }
-                });
-
-                if (post && post.userId !== userId) {
-                    // Get reactor name
-                    const reactor = await prisma.user.findUnique({
-                        where: { id: userId },
-                        select: { name: true, profile: { select: { displayName: true } } }
-                    });
-                    const reactorName = reactor?.profile?.displayName || reactor?.name || "Someone";
-
-                    await prisma.notification.create({
-                        data: {
-                            userId: post.userId,
-                            type: "REACTION",
-                            message: `${reactorName} reacted with ${type} to your post`,
-                            postId: postId,
-                        },
-                    });
-                }
+                await sendNotification(userId, postId, type);
             } catch (error: any) {
                 if (error.code === 'P2002') {
-                    // Race condition: It was created just now by another request.
-                    // We should update it to the requested type to be sure.
-                    const existing = await prisma.reaction.findUnique({
+                    // Race: It exists now.
+                    const raceExisting = await prisma.reaction.findUnique({
                         where: { userId_postId: { userId, postId } }
                     });
-                    if (existing) {
-                        if (existing.type === type) {
-                            // If it's the same type, and we were trying to create, we are good.
-                            // But maybe we wanted to toggle?
-                            // Since we thought it didn't exist, we intended to "Add".
-                            // If it exists now, "Adding" again ensures it's there.
-                            // However, if the user clicked fast to Toggle, we might want to delete.
-                            // But complying with the "Create" intent is safer for state convergence than guessing toggle.
+
+                    if (raceExisting) {
+                        if (raceExisting.type === type) {
+                            // If user clicked multiple times, maybe they wanted to toggle off?
+                            // But usually if we are here, we thought it didn't exist.
+                            // To be safe and avoid flip-flopping endlessly on spam clicks, we ensure it matches the requested state.
+                            // If it matches, we do nothing (it's already set).
+                            // Or we could delete if we strictly follow toggle logic?
+                            // Let's assume idempotency for "make it X" is safer for "Create" intent unless front-end explicitly sends "action: toggle".
+                            // But standard UI is "click to toggle".
+                            // Let's UPDATE to ensure it is the type we want. 
+
                         } else {
-                            // Update type
-                            await prisma.reaction.update({
-                                where: { id: existing.id },
-                                data: { type }
-                            });
+                            // Update to new type
+                            try {
+                                await prisma.reaction.update({
+                                    where: { id: raceExisting.id },
+                                    data: { type }
+                                });
+                            } catch (ign) { /* ignore P2025 here */ }
                         }
                     }
                 } else {
@@ -135,7 +121,7 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        // Get updated counts
+        // Get updated counts (this might be slightly stale if we just wrote, but usually fine)
         const reactions = await prisma.reaction.groupBy({
             by: ["type"],
             where: { postId },
@@ -144,7 +130,6 @@ export async function POST(req: NextRequest) {
             },
         });
 
-        // Format counts
         const counts = {
             W: 0,
             L: 0,
@@ -158,8 +143,8 @@ export async function POST(req: NextRequest) {
             }
         });
 
-        // Get user's current reaction
-        const currentReaction = await prisma.reaction.findUnique({
+        // Get current status
+        const current = await prisma.reaction.findUnique({
             where: { userId_postId: { userId, postId } },
             select: { type: true }
         });
@@ -167,11 +152,39 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({
             success: true,
             counts,
-            userReaction: currentReaction?.type || null
+            userReaction: current?.type || null
         });
 
     } catch (error: any) {
         console.error("Reaction error:", error);
         return NextResponse.json({ error: "Failed to react" }, { status: 500 });
+    }
+}
+
+async function sendNotification(userId: string, postId: string, type: string) {
+    try {
+        const post = await prisma.post.findUnique({
+            where: { id: postId },
+            select: { userId: true }
+        });
+
+        if (post && post.userId !== userId) {
+            const reactor = await prisma.user.findUnique({
+                where: { id: userId },
+                select: { name: true, profile: { select: { displayName: true } } }
+            });
+            const reactorName = reactor?.profile?.displayName || reactor?.name || "Someone";
+
+            await prisma.notification.create({
+                data: {
+                    userId: post.userId,
+                    type: "REACTION",
+                    message: `${reactorName} reacted with ${type} to your post`,
+                    postId: postId,
+                },
+            });
+        }
+    } catch (e) {
+        console.error("Failed to send reaction notification", e);
     }
 }

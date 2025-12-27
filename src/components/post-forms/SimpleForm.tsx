@@ -12,6 +12,10 @@ interface SimpleFormProps {
     initialData?: any;
 }
 
+import SlashInput from '@/components/post-forms/SlashInput';
+
+// ... (existing imports, keep SimpleFormProps)
+
 export default function SimpleForm({ onBack: propOnBack, initialData }: SimpleFormProps) {
     const { onBack: contextOnBack, initialData: contextInitialData } = useCreatePost() || {};
     const onBack = propOnBack || contextOnBack || (() => { });
@@ -23,28 +27,28 @@ export default function SimpleForm({ onBack: propOnBack, initialData }: SimpleFo
     const [content, setContent] = useState('');
     const [visibility, setVisibility] = useState('PUBLIC');
     const [mediaItems, setMediaItems] = useState<{ file: File; preview: string; type: 'IMAGE' | 'VIDEO' }[]>([]);
+    const [slashes, setSlashes] = useState<string[]>([]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        // ... (existing logic)
         if (e.target.files) {
             const newFiles = Array.from(e.target.files);
-
             if (mediaItems.length + newFiles.length > 8) {
                 setError('Maximum 8 items allowed');
                 return;
             }
-
             const newItems = newFiles.map(file => ({
                 file,
-                preview: URL.createObjectURL(file),
+                preview: URL.createObjectURL(file), // Note: ensure cleanup in production
                 type: file.type.startsWith('video/') ? 'VIDEO' as const : 'IMAGE' as const
             }));
-
             setMediaItems(prev => [...prev, ...newItems]);
             setError('');
         }
     };
 
     const removeMedia = (index: number) => {
+        // ... (existing logic)
         setMediaItems(prev => {
             const newItems = [...prev];
             URL.revokeObjectURL(newItems[index].preview);
@@ -63,7 +67,8 @@ export default function SimpleForm({ onBack: propOnBack, initialData }: SimpleFo
                 throw new Error('Please add at least one photo or video');
             }
 
-            // Upload all files
+            // Upload files logic (simulated or real depends on existing /api/upload)
+            // Assuming existing upload logic works as shown in previous file view
             const uploadPromises = mediaItems.map(async (item) => {
                 const formData = new FormData();
                 formData.append('file', item.file);
@@ -73,7 +78,6 @@ export default function SimpleForm({ onBack: propOnBack, initialData }: SimpleFo
                     method: 'POST',
                     body: formData,
                 });
-
                 if (!res.ok) throw new Error('Upload failed');
                 return res.json();
             });
@@ -82,7 +86,6 @@ export default function SimpleForm({ onBack: propOnBack, initialData }: SimpleFo
             const mediaUrls = uploadedFiles.map(f => f.url);
             const mediaTypes = mediaItems.map(i => i.type);
 
-            // Create post
             const res = await fetch('/api/posts/simple', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -92,6 +95,7 @@ export default function SimpleForm({ onBack: propOnBack, initialData }: SimpleFo
                     mediaUrls,
                     mediaTypes,
                     status,
+                    slashes // New: Pass slashes to API
                 }),
             });
 
@@ -111,33 +115,36 @@ export default function SimpleForm({ onBack: propOnBack, initialData }: SimpleFo
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6">
-                <h3 className="text-xl font-bold mb-4">Create New Data</h3>
+            <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+                <h3 className="text-xl font-bold mb-4 text-white">Create New Data</h3>
 
-                <div className="space-y-4">
+                <div className="space-y-6">
                     <div>
                         <textarea
                             value={content}
                             onChange={(e) => setContent(e.target.value)}
                             placeholder="Write a caption..."
                             rows={3}
-                            className="w-full px-4 py-3 bg-black/20 border border-white/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-white/50 text-white placeholder-white/40 resize-none"
+                            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:ring-1 focus:ring-white/30 text-white placeholder-white/30 resize-none transition-all"
                         />
                     </div>
+
+                    {/* Slash Input */}
+                    <SlashInput slashes={slashes} onChange={setSlashes} />
 
                     {/* Media Grid */}
                     <div className="grid grid-cols-4 gap-2">
                         {mediaItems.map((item, index) => (
-                            <div key={index} className="relative aspect-square rounded-lg overflow-hidden bg-black/40 group">
+                            <div key={index} className="relative aspect-square rounded-lg overflow-hidden bg-white/5 group border border-white/5">
                                 {item.type === 'VIDEO' ? (
-                                    <video src={item.preview} className="w-full h-full object-cover" />
+                                    <video src={item.preview} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
                                 ) : (
-                                    <img src={item.preview} alt="preview" className="w-full h-full object-cover" />
+                                    <img src={item.preview} alt="preview" className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
                                 )}
                                 <button
                                     type="button"
                                     onClick={() => removeMedia(index)}
-                                    className="absolute top-1 right-1 p-1 bg-black/50 rounded-full hover:bg-red-500/80 transition-colors opacity-0 group-hover:opacity-100"
+                                    className="absolute top-1 right-1 p-1 bg-black/60 rounded-full hover:bg-white text-white hover:text-black transition-colors opacity-0 group-hover:opacity-100"
                                 >
                                     <X size={12} />
                                 </button>
@@ -145,9 +152,9 @@ export default function SimpleForm({ onBack: propOnBack, initialData }: SimpleFo
                         ))}
 
                         {mediaItems.length < 8 && (
-                            <label className="aspect-square border-2 border-dashed border-white/20 rounded-lg hover:border-white/40 hover:bg-white/5 cursor-pointer transition-colors flex flex-col items-center justify-center gap-1 text-white/50 hover:text-white">
-                                <Upload size={20} />
-                                <span className="text-xs">Add</span>
+                            <label className="aspect-square border border-dashed border-white/20 rounded-lg hover:border-white/50 hover:bg-white/5 cursor-pointer transition-all flex flex-col items-center justify-center gap-2 text-white/40 hover:text-white group">
+                                <Upload size={20} className="group-hover:scale-110 transition-transform" />
+                                <span className="text-xs font-medium">Add Media</span>
                                 <input
                                     type="file"
                                     accept="image/*,video/*"
@@ -163,26 +170,27 @@ export default function SimpleForm({ onBack: propOnBack, initialData }: SimpleFo
                         <select
                             value={visibility}
                             onChange={(e) => setVisibility(e.target.value)}
-                            className="w-full px-4 py-3 bg-black/20 border border-white/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-white/50 text-white"
+                            className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:ring-1 focus:ring-white/30 text-white appearance-none cursor-pointer hover:bg-white/10 transition-colors"
                         >
-                            <option value="PUBLIC">Public</option>
-                            <option value="FRIENDS">Friends Only</option>
-                            <option value="PRIVATE">Private</option>
+                            <option value="PUBLIC" className="bg-black text-white">Public</option>
+                            <option value="FRIENDS" className="bg-black text-white">Friends Only</option>
+                            <option value="PRIVATE" className="bg-black text-white">Private</option>
                         </select>
                     </div>
                 </div>
 
                 {error && (
-                    <div className="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
+                    <div className="mt-4 p-3 bg-white/5 border border-white/20 rounded-lg text-white/80 text-sm flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
                         {error}
                     </div>
                 )}
 
-                <div className="flex gap-3 mt-6">
+                <div className="flex gap-3 mt-8 pt-4 border-t border-white/10">
                     <button
                         type="button"
                         onClick={onBack}
-                        className="flex-1 py-3 bg-white/10 hover:bg-white/20 rounded-xl font-medium transition-colors"
+                        className="flex-1 py-3 bg-transparent border border-white/20 hover:bg-white/10 rounded-xl font-medium text-white transition-all"
                     >
                         Back
                     </button>
@@ -190,14 +198,14 @@ export default function SimpleForm({ onBack: propOnBack, initialData }: SimpleFo
                         type="button"
                         onClick={(e) => handleSubmit(e, 'DRAFT')}
                         disabled={loading || mediaItems.length === 0}
-                        className="flex-1 py-3 bg-yellow-500/20 text-yellow-500 border border-yellow-500/50 rounded-xl font-bold hover:bg-yellow-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        className="flex-1 py-3 bg-transparent border border-white/20 hover:bg-white/10 text-white rounded-xl font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
-                        {loading ? <Loader2 className="animate-spin" size={20} /> : 'Save Draft'}
+                        {loading ? <Loader2 className="animate-spin" size={20} /> : 'Draft'}
                     </button>
                     <button
                         type="submit"
                         disabled={loading || mediaItems.length === 0}
-                        className="flex-1 py-3 bg-white text-black rounded-xl font-bold hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        className="flex-1 py-3 bg-white text-black border border-white rounded-xl font-bold hover:bg-gray-200 transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(255,255,255,0.1)] hover:shadow-[0_0_20px_rgba(255,255,255,0.3)]"
                     >
                         {loading ? <Loader2 className="animate-spin" size={20} /> : 'Post'}
                     </button>
@@ -206,3 +214,4 @@ export default function SimpleForm({ onBack: propOnBack, initialData }: SimpleFo
         </form>
     );
 }
+
