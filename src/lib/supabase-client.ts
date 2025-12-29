@@ -11,6 +11,9 @@ if (!url || !anonKey) {
 export const supabase = createBrowserClient(url, anonKey, {
   auth: {
     flowType: 'pkce',
+  },
+  cookieOptions: {
+    name: 'sb-auth-token',
   }
 });
 

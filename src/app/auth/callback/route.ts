@@ -38,6 +38,9 @@ export async function GET(request: NextRequest) {
                         }
                     },
                 },
+                cookieOptions: {
+                    name: 'sb-auth-token',
+                }
             }
         );
 
