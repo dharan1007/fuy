@@ -85,5 +85,7 @@ export async function GET(request: NextRequest) {
         }
     }
 
-    return NextResponse.redirect(`${redirectOrigin}/join?error=Could not authenticate user`);
+    const errorMessage = error?.message || "Could not authenticate user";
+    const errorCode = error?.code || "unknown_error";
+    return NextResponse.redirect(`${redirectOrigin}/join?error=${encodeURIComponent(errorMessage)}&code=${encodeURIComponent(errorCode)}`);
 }
