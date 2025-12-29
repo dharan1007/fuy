@@ -24,43 +24,71 @@ function VerifyContent() {
     const [errorMessage, setErrorMessage] = useState("");
 
     useEffect(() => {
+        // Handle Implicit Flow (Hash Fragment)
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const accessToken = hashParams.get("access_token");
+        const refreshToken = hashParams.get("refresh_token");
+        const errorDescHash = hashParams.get("error_description");
+
+        // Handle PKCE Flow (Query Params) - Fallback/Legacy
         const code = searchParams.get("code");
         const errorParam = searchParams.get("error");
-        const errorDesc = searchParams.get("error_description");
+        const errorDescQuery = searchParams.get("error_description");
 
-        if (errorParam) {
-            setStatus("error");
-            setErrorMessage(errorDesc || errorParam);
-            return;
-        }
+        const errorMsg = errorDescHash || errorDescQuery || errorParam;
 
-        if (!code) {
+        if (errorMsg) {
             setStatus("error");
-            setErrorMessage("No verification code found.");
+            setErrorMessage(errorMsg);
             return;
         }
 
         const verify = async () => {
-            try {
-                const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+            // 1. Try Implicit Flow (Access Token)
+            if (accessToken && refreshToken) {
+                try {
+                    const { data, error } = await supabase.auth.setSession({
+                        access_token: accessToken,
+                        refresh_token: refreshToken,
+                    });
 
-                if (error) {
-                    console.error("Verification failed:", error);
+                    if (error) {
+                        console.error("Implicit verification failed:", error);
+                        setStatus("error");
+                        setErrorMessage(error.message);
+                    } else {
+                        console.log("Implicit verification success:", data.user?.email);
+                        setStatus("success");
+                        setTimeout(() => router.push("/profile/setup"), 1500);
+                    }
+                } catch (err: any) {
                     setStatus("error");
-                    setErrorMessage(error.message);
-                } else {
-                    console.log("Verification success:", data.user?.email);
-                    setStatus("success");
-                    // Add a small delay so user sees "Success" before redirect
-                    setTimeout(() => {
-                        router.push("/profile/setup");
-                    }, 1500);
+                    setErrorMessage(err.message);
                 }
-            } catch (err: any) {
-                console.error("Unexpected error:", err);
-                setStatus("error");
-                setErrorMessage(err.message || "An unexpected error occurred.");
+                return;
             }
+
+            // 2. Try PKCE Flow (Code)
+            if (code) {
+                try {
+                    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+                    if (error) {
+                        setStatus("error");
+                        setErrorMessage(error.message);
+                    } else {
+                        setStatus("success");
+                        setTimeout(() => router.push("/profile/setup"), 1500);
+                    }
+                } catch (err: any) {
+                    setStatus("error");
+                    setErrorMessage(err.message);
+                }
+                return;
+            }
+
+            // 3. No credentials found
+            setStatus("error");
+            setErrorMessage("No verification credentials found. Please try signing up again.");
         };
 
         verify();
