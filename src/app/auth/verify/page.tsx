@@ -104,6 +104,12 @@ function VerifyContent() {
                         <p className="text-red-400 bg-red-500/10 p-3 rounded-lg text-sm font-mono border border-red-500/20 break-words">
                             {errorMessage}
                         </p>
+                        <div className="text-xs text-left w-full bg-black/50 p-2 rounded border border-white/5 overflow-hidden">
+                            <p className="mb-1 text-zinc-500">Debug Info:</p>
+                            <code className="block break-all text-zinc-600">
+                                Cookies: {typeof document !== 'undefined' ? document.cookie : 'N/A'}
+                            </code>
+                        </div>
                         <button
                             onClick={() => router.push("/join")}
                             className="px-6 py-2 bg-white text-black font-medium rounded-full hover:bg-zinc-200 transition-colors"
