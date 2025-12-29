@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
                     // 3. If user exists AND profile exists -> home (/)
 
                     if (!dbUser || !dbUser.profile) {
-                        targetUrl = "/setup-profile";
+                        targetUrl = "/profile/setup";
                     } else {
                         targetUrl = "/";
                     }
