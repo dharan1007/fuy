@@ -67,7 +67,7 @@ export default function SignupPage() {
             name: formData.name,
             displayName: formData.name,
           },
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: `${window.location.origin}/auth/verify`,
         },
       });
 
