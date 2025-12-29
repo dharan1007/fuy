@@ -36,7 +36,7 @@ export function useSession() {
     return { data, status };
 }
 
-export const signIn = async (provider?: string, options?: any) => {
+export const signIn = async (provider?: string, options?: any): Promise<{ ok: boolean; error?: string | null } | undefined> => {
     // Redirect to join page for now, or handle credentials if needed
     if (provider === 'credentials' && options?.loginToken) {
         // This is a shim for the passkey flow. 
