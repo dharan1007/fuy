@@ -14,6 +14,8 @@ export const supabase = createBrowserClient(url, anonKey, {
   },
   cookieOptions: {
     name: 'sb-auth-token',
+    sameSite: 'lax',
+    path: '/',
   }
 });
 
