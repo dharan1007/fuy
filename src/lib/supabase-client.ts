@@ -18,6 +18,7 @@ function getSupabaseClient() {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
+        flowType: 'pkce',
       },
       realtime: {
         params: {
