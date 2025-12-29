@@ -247,11 +247,11 @@ export function useMessaging() {
                 let senderAvatar = undefined;
 
                 if (newMsg.senderId === conv.userA?.id) {
-                  senderName = conv.userA.name || conv.userA.profile?.displayName || 'User';
-                  senderAvatar = conv.userA.profile?.avatarUrl;
+                  senderName = conv.userA?.name || conv.userA?.profile?.displayName || 'User';
+                  senderAvatar = conv.userA?.profile?.avatarUrl;
                 } else if (newMsg.senderId === conv.userB?.id) {
-                  senderName = conv.userB.name || conv.userB.profile?.displayName || 'User';
-                  senderAvatar = conv.userB.profile?.avatarUrl;
+                  senderName = conv.userB?.name || conv.userB?.profile?.displayName || 'User';
+                  senderAvatar = conv.userB?.profile?.avatarUrl;
                 }
 
                 const formatted: Message = {
