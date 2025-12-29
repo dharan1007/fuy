@@ -3,7 +3,6 @@ import { logger } from "@/lib/logger";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "../../../../lib/session";
-import { sendMail } from "../../../../lib/mailer";
 import { absoluteUrl } from "../../../../lib/base-url";
 
 export const runtime = "nodejs";
@@ -69,21 +68,9 @@ export async function POST(req: Request) {
     const link = absoluteUrl(req, `/join?token=${token}`);
 
     if (email) {
-      const subject = "You've been invited to Fuy";
-      const text = `You've been invited to join Fuy.\n\nAccept invite: ${link}\n\nThis link expires in 48 hours.`;
-      const html = `
-        <div style="font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111">
-          <p>You've been invited to join <strong>Fuy</strong>.</p>
-          <p><a href="${link}">Accept your invitation</a></p>
-          <p style="color:#555;font-size:12px">This link expires in 48 hours.</p>
-        </div>
-      `;
-      try {
-        await sendMail({ to: email, subject, html, text });
-      } catch (emailError: any) {
-        logger.error("Failed to send invite email:", emailError?.message);
-        // Continue anyway - invite is created, user can use the link
-      }
+      // Email sending removed (Mailer deprecated). 
+      // In production, integrate with Supabase Edge Functions or a transactional email service directly.
+      logger.info(`Inviting ${email} with link: ${link}`);
     }
 
     return new NextResponse(null, { status: 204 });

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useSession } from 'next-auth/react';
+import { useSession } from '@/hooks/use-session';
 import { Heart, MessageCircle, Share2, MoreVertical, Play, Pause, Circle as DotIcon, X, Search, ChevronLeft, Bell, Video as VideoIcon, User as UserIcon } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import LandingPage from '@/components/LandingPage/LandingPage';

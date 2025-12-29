@@ -1,12 +1,10 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
-import { pusherServer } from '@/lib/pusher';
+import { auth } from '@/lib/auth';
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
     try {
-        const session = await getServerSession(authOptions);
+        const session = await auth();
         if (!session?.user?.email) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
@@ -33,11 +31,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
             },
         });
 
-        // Emit Pusher event
-        await pusherServer.trigger(`conversation-${conversationId}`, 'message:read', {
-            userId: user.id,
-            messageIds,
-        });
+        // Emit Supabase Broadcast for read receipts (Server-side broadcast)
+        // Or cleaner: Client simply listens to DB changes on Message table (UPDATE readAt)
+        // But updates are chatty. Let's rely on DB changes for 'postgres_changes' UPDATE event.
 
         return NextResponse.json({ success: true });
     } catch (error) {

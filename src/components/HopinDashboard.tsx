@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/hooks/use-session";
 import { Calendar, MapPin, Users, QrCode, MessageSquare, Check, X, Edit, Trash2 } from "lucide-react";
 import Link from "next/link";
 import CreatePlanModal from "./CreatePlanModal";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/hooks/use-session";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase-client"; // Import existing client
 import { useCollaboration } from "@/hooks/useCollaboration";

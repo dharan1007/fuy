@@ -1,7 +1,7 @@
 
 
 import { useState, useRef, useEffect } from "react";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/hooks/use-session";
 import { Camera, X, Trash2, Check, RefreshCw, Play, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 

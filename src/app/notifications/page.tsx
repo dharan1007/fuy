@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/hooks/use-session";
 import { useRouter } from "next/navigation";
 import AppHeader from "@/components/AppHeader";
 import LoadingSpinner from "@/components/LoadingSpinner";

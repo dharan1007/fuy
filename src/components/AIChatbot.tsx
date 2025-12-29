@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useSession } from 'next-auth/react';
+import { useSession } from '@/hooks/use-session';
 import { useRouter } from 'next/navigation';
 import CharmCard from './CharmCard';
 import { PersonaType } from '@/lib/ai-service';

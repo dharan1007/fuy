@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { Plus, X, Upload, Clock, Globe, Users } from "lucide-react";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/hooks/use-session";
 import StoryCircle from "@/components/Feed/StoryCircle";
 import { createPortal } from "react-dom";
 

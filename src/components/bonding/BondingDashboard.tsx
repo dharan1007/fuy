@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useSession } from 'next-auth/react';
+import { useSession } from '@/hooks/use-session';
 // Icons replaced with inline SVGs
 import styles from './BondingDashboard.module.css';
 

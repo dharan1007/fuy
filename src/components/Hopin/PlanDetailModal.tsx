@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { X, Calendar, MapPin, Globe, Users, CheckCircle, Clock } from 'lucide-react';
-import { useSession } from 'next-auth/react';
+import { useSession } from '@/hooks/use-session';
 
 interface PlanDetailModalProps {
     plan: any;

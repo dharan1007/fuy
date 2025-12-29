@@ -1,6 +1,6 @@
 // web/src/hooks/useMessaging.ts
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useSession } from 'next-auth/react';
+import { useSession } from '@/hooks/use-session';
 import { supabase } from '@/lib/supabase-client';
 
 interface Message {
@@ -151,11 +151,10 @@ export function useMessaging() {
       console.error('Failed to delete conversation:', err);
       // 3. Rollback on error
       setConversations(previousConversations);
-      // TODO: Show error toast
     }
   }, [conversations]);
 
-  // Subscribe to conversation channels using Supabase Realtime (Broadcast + Presence)
+  // Subscribe to conversation channels using Supabase Realtime
   useEffect(() => {
     if (!session?.user || conversations.length === 0) return;
 
@@ -169,8 +168,6 @@ export function useMessaging() {
         const onlineIds = new Set<string>();
 
         Object.keys(newState).forEach(key => {
-          // Presence key is usually userId if we set it that way, or we inspect the payload
-          // Assuming we track by userId
           newState[key].forEach((presence: any) => {
             if (presence.userId) onlineIds.add(presence.userId);
           });
@@ -186,7 +183,7 @@ export function useMessaging() {
 
     channels.push(globalChannel);
 
-    // 2. Conversation Channels for Messages (Broadcast)
+    // 2. Conversation Channels
     conversations.forEach((conv) => {
       const channelId = `conversation:${conv.id}`;
 
@@ -195,81 +192,101 @@ export function useMessaging() {
 
         const channel = supabase
           .channel(channelId)
+          // A. Listen for DB inserts (New Messages)
           .on(
-            'broadcast',
-            { event: 'message:new' },
-            (payload: any) => {
-              const newMessage = payload.payload; // Broadcast payload is wrapped
+            'postgres_changes',
+            {
+              event: 'INSERT',
+              schema: 'public',
+              table: 'Message',
+              filter: `conversationId=eq.${conv.id}`
+            },
+            async (payload) => {
+              const newMsg = payload.new as any; // Raw DB record
+
+              // We need sender profile info which isn't in the raw payload. 
+              // We can fetch it or trust optimistic/context methods.
+              // For speed, let's assume we fetch or map it.
+              // Ideally, we'd trigger a fetch, or valid payload.
+              // Actually, simply refetching the single message with include is safer.
+
+              // OPTION: Fetch formatted message to match types
+              // For now, let's construct it best effort or trigger specific fetch
+              // Let's refetch active conv messages just to be safe and get relations? 
+              // Or append if we have sender info.
+
+              const isMe = newMsg.senderId === userId;
+
+              // Skip if it's my own message (already optimistic), unless verifying ID match.
+              // Note: Postgres trigger might be slower than optimistic render.
 
               setMessages((prev) => {
-                const currentMessages = prev[newMessage.conversationId] || [];
+                const currentMessages = prev[newMsg.conversationId] || [];
+                if (currentMessages.some(m => m.id === newMsg.id)) return prev;
 
-                // Check for duplicate by ID
-                if (currentMessages.some(m => m.id === newMessage.id)) {
-                  return prev;
-                }
-
-                // Check for duplicate by content + timestamp (approximate for optimistic)
-                // If we find a message with same content sent by me within last 2 seconds, assume it's the one we just sent
-                const isMe = newMessage.senderId === userId;
+                // Check optimistic match
                 if (isMe) {
                   const recentOptimistic = currentMessages.find(m =>
                     m.senderId === userId &&
-                    m.content === newMessage.content &&
-                    Math.abs(m.timestamp - newMessage.timestamp) < 2000
+                    m.content === newMsg.content &&
+                    Math.abs(m.timestamp - new Date(newMsg.createdAt).getTime()) < 5000
                   );
-
                   if (recentOptimistic) {
-                    // Replace optimistic with real one (updates ID)
                     return {
                       ...prev,
-                      [newMessage.conversationId]: currentMessages.map(m =>
-                        m.id === recentOptimistic.id ? { ...newMessage, read: true } : m
+                      [newMsg.conversationId]: currentMessages.map(m =>
+                        m.id === recentOptimistic.id ? { ...m, id: newMsg.id, status: 'sent', read: newMsg.readAt ? true : false } : m
                       )
                     };
                   }
                 }
 
-                const formattedMessage: Message = {
-                  id: newMessage.id,
-                  conversationId: newMessage.conversationId,
-                  senderId: newMessage.senderId,
-                  senderName: newMessage.senderName,
-                  content: newMessage.content,
-                  timestamp: newMessage.timestamp,
-                  read: newMessage.read,
+                // Construct message from payload (Note: relations missing)
+                // We might need to look up sender name from conversation participants
+                let senderName = 'User';
+                let senderAvatar = undefined;
+
+                if (newMsg.senderId === conv.userA?.id) {
+                  senderName = conv.userA.name || conv.userA.profile?.displayName || 'User';
+                  senderAvatar = conv.userA.profile?.avatarUrl;
+                } else if (newMsg.senderId === conv.userB?.id) {
+                  senderName = conv.userB.name || conv.userB.profile?.displayName || 'User';
+                  senderAvatar = conv.userB.profile?.avatarUrl;
+                }
+
+                const formatted: Message = {
+                  id: newMsg.id,
+                  conversationId: newMsg.conversationId,
+                  senderId: newMsg.senderId,
+                  senderName,
+                  content: newMsg.content,
+                  timestamp: new Date(newMsg.createdAt).getTime(),
+                  read: newMsg.readAt ? true : false,
                 };
 
                 return {
                   ...prev,
-                  [newMessage.conversationId]: [...currentMessages, formattedMessage],
+                  [newMsg.conversationId]: [...currentMessages, formatted]
                 };
               });
 
-              // Update conversation last message
+              // Update conversation list last message
               setConversations((prev) =>
                 prev.map(c =>
-                  c.id === newMessage.conversationId
-                    ? { ...c, lastMessage: newMessage.content, lastMessageTime: newMessage.timestamp }
+                  c.id === newMsg.conversationId
+                    ? { ...c, lastMessage: newMsg.content, lastMessageTime: new Date(newMsg.createdAt).getTime() }
                     : c
                 )
               );
             }
           )
-          .on(
-            'broadcast',
-            { event: 'collaboration:started' },
-            (payload: any) => {
-              const { sessionId, featureType, conversationId } = payload.payload;
-              setActiveCollaboration({ sessionId, featureType, conversationId });
-            }
-          )
+          // B. Listen for Typing Broadcasts
           .on(
             'broadcast',
             { event: 'typing:start' },
             (payload: any) => {
-              const { userId, name } = payload.payload;
-              if (userId === (session?.user as any)?.id) return; // Ignore self
+              const { userId: typerId, name } = payload.payload;
+              if (typerId === userId) return;
 
               setTypingUsers((prev) => {
                 const current = prev[conv.id] || new Set();
@@ -278,7 +295,7 @@ export function useMessaging() {
                 return { ...prev, [conv.id]: next };
               });
 
-              // Auto-clear after 3 seconds
+              // Auto clear
               setTimeout(() => {
                 setTypingUsers((prev) => {
                   const current = prev[conv.id] || new Set();
@@ -293,8 +310,8 @@ export function useMessaging() {
             'broadcast',
             { event: 'typing:stop' },
             (payload: any) => {
-              const { userId, name } = payload.payload;
-              if (userId === (session?.user as any)?.id) return;
+              const { userId: typerId, name } = payload.payload;
+              if (typerId === userId) return;
 
               setTypingUsers((prev) => {
                 const current = prev[conv.id] || new Set();
@@ -311,11 +328,10 @@ export function useMessaging() {
     });
 
     return () => {
-      // Cleanup
       channels.forEach(channel => supabase.removeChannel(channel));
       subscribedChannels.current.clear();
     };
-  }, [conversations, session?.user, addOptimisticMessage]);
+  }, [conversations, session?.user]);
 
   // Fetch initial data
   useEffect(() => {

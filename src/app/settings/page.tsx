@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useSession, signOut } from 'next-auth/react';
+import { useSession, signOut } from '@/hooks/use-session';
 import DeleteAccountModal from '@/components/DeleteAccountModal';
 import GhostedRequestsSection from '@/components/GhostedRequestsSection';
 import HiddenPostsManager from '@/components/settings/HiddenPostsManager';

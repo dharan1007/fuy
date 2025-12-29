@@ -5,7 +5,7 @@ import {
   startRegistration,
   startAuthentication,
 } from "@simplewebauthn/browser";
-import { signIn } from "next-auth/react";
+import { signIn } from "@/hooks/use-session";
 import ScrollStarfield from "@/components/ScrollStarfield";
 import Link from "next/link";
 

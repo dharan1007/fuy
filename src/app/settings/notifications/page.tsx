@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import AppHeader from "@/components/AppHeader";
 import { SpaceBackground } from "@/components/SpaceBackground";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/hooks/use-session";
 import Switch from "@/components/ui/switch";
 
 // Notification Categories

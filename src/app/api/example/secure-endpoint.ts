@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
+import { getServerSession } from '@/lib/auth';
 import { z } from 'zod';
 import { validateRequest, schemas, sanitize } from '@/lib/validation';
 import { rateLimit } from '@/lib/rate-limit';

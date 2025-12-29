@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { signOut } from 'next-auth/react';
+import { signOut } from '@/hooks/use-session';
 import styles from './DeleteAccountModal.module.css';
 
 interface DeleteAccountModalProps {

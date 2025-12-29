@@ -1,5 +1,5 @@
 import { logger } from "@/lib/logger";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+
 // src/app/api/chat/messages/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
@@ -184,26 +184,8 @@ export async function POST(req: Request) {
       });
     }
 
-    // Trigger Pusher event
-    // Trigger Supabase Broadcast event
-    const channel = supabaseAdmin.channel(`conversation:${conversationId}`);
-    await channel.send({
-      type: 'broadcast',
-      event: 'message:new',
-      payload: {
-        id: message.id,
-        conversationId,
-        senderId: userId,
-        senderName: message.sender.name,
-        senderAvatar: message.sender.profile?.avatarUrl,
-        content: message.content,
-        timestamp: message.createdAt.getTime(),
-        read: false,
-      },
-    });
-
-    // Clean up channel (optional but good practice if persistent)
-    supabaseAdmin.removeChannel(channel);
+    // Supabase Realtime automatically handles 'INSERT' events on the Message table.
+    // Use 'postgres_changes' on certain tables in your client to listen.
 
     return NextResponse.json({ message }, { status: 201 });
   } catch (error: any) {

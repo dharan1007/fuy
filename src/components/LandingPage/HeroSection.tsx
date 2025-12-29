@@ -40,12 +40,7 @@ export default function HeroSection() {
           >
             Get Started
           </Link>
-          <Link
-            href="/explore"
-            className="px-8 py-4 bg-white/10 backdrop-blur-md border border-white/20 text-white font-bold rounded-full hover:bg-white/20 transition-all hover:scale-105"
-          >
-            Explore
-          </Link>
+
         </motion.div>
       </div>
 

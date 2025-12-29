@@ -1,7 +1,7 @@
 import React from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Stars } from '@react-three/drei';
-import { useSession } from 'next-auth/react';
+import { useSession } from '@/hooks/use-session';
 import { GlobeContent } from './GlobeContent';
 import PudGrid from './PudGrid';
 import ChanCarousel from './ChanCarousel';

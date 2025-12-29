@@ -1,5 +1,5 @@
 
-import { getServerSession } from "next-auth";
+import { getServerSession } from "@/lib/auth";
 import { authOptions } from "@/lib/auth";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";

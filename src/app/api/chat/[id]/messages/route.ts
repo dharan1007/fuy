@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth';
+import { getServerSession } from '@/lib/auth';
 import { authOptions } from '@/lib/auth';
-import { pusherServer } from '@/lib/pusher';
 
 // GET: Fetch messages
 export async function GET(req: Request, { params }: { params: { id: string } }) {
@@ -71,11 +70,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
             },
         });
 
-        // Emit Pusher event
-        await pusherServer.trigger(`conversation-${conversationId}`, 'message:new', {
-            ...message,
-            timestamp: message.createdAt.getTime(),
-        });
+        // Emit Pusher event - REMOVED for Supabase Realtime
+        // Supabase will automatically broadcast the INSERT via postgres_changes
 
         return NextResponse.json({ message });
     } catch (error) {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/hooks/use-session";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -183,8 +183,8 @@ export default function BrandDashboardPage() {
                       <td className="px-4 py-4 text-sm">
                         <span
                           className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${product.status === "ACTIVE"
-                              ? "bg-blue-500/20 text-blue-300"
-                              : "bg-gray-500/20 text-gray-300"
+                            ? "bg-blue-500/20 text-blue-300"
+                            : "bg-gray-500/20 text-gray-300"
                             }`}
                         >
                           {product.status}

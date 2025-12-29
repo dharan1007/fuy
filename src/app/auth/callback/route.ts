@@ -1,42 +1,89 @@
-import { createClient } from "@supabase/supabase-js";
-import { NextResponse } from "next/server";
-import { NextRequest } from "next/server";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { type NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
-    const requestUrl = new URL(request.url);
-    const code = requestUrl.searchParams.get("code");
-    const next = requestUrl.searchParams.get("next") || "/";
+    const { searchParams, origin } = new URL(request.url);
+    const code = searchParams.get("code");
+    const next = searchParams.get("next") ?? "/";
+
+    // Ensure we redirect to localhost if on 0.0.0.0 to avoid cookie issues
+    const redirectOrigin = origin.replace('0.0.0.0', 'localhost');
 
     if (code) {
-        // Create a Supabase client for the server-side exchange
-        const supabase = createClient(
+        const cookieStore = cookies();
+
+        const supabase = createServerClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
             process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
             {
-                auth: {
-                    flowType: 'pkce',
-                    autoRefreshToken: false,
-                    persistSession: false,
-                    detectSessionInUrl: false
-                }
+                cookies: {
+                    getAll() {
+                        return cookieStore.getAll();
+                    },
+                    setAll(cookiesToSet) {
+                        try {
+                            cookiesToSet.forEach(({ name, value, options }) =>
+                                cookieStore.set(name, value, options)
+                            );
+                        } catch {
+                            // The `setAll` method was called from a Server Component.
+                            // This can be ignored if you have middleware refreshing
+                            // user sessions.
+                        }
+                    },
+                },
             }
         );
 
-        // Exchange the code for a session
-        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
-        if (!error) {
-            // Successful authentication
-            // In a more complex app using NextAuth alongside, we might sign them in there too
-            // For now, redirect to the requested page
-            return NextResponse.redirect(`${requestUrl.origin}${next}`);
+        if (error) {
+            console.error("Auth Callback Error: Exchange failed. Code:", code);
+            console.error("Supabase Error Details:", error);
+        } else {
+            console.log("Auth Callback Success. User:", data?.session?.user?.email);
+        }
+
+        if (!error && data?.session?.user) {
+
+            // Default redirect
+            let targetUrl = next;
+
+            try {
+                // Check if user has a profile in our DB
+                const userEmail = data.session.user.email;
+                if (userEmail) {
+                    // Check for user AND profile
+                    const dbUser = await prisma.user.findUnique({
+                        where: { email: userEmail },
+                        include: { profile: true }
+                    });
+
+                    // If user logic:
+                    // 1. If user doesn't exist in Prisma, they are technically new -> setup-profile
+                    // 2. If user exists but no profile -> setup-profile
+                    // 3. If user exists AND profile exists -> home (/)
+
+                    if (!dbUser || !dbUser.profile) {
+                        targetUrl = "/setup-profile";
+                    } else {
+                        targetUrl = "/";
+                    }
+                }
+            } catch (err) {
+                console.error("Error querying user profile in callback:", err);
+                // Fallback to home/next if DB query fails, don't block auth
+            }
+
+            return NextResponse.redirect(`${redirectOrigin}${targetUrl}`);
         } else {
             console.error("Supabase Auth Code Exchange Error:", error);
         }
     }
 
-    // Return the user to an error page with some instructions
-    return NextResponse.redirect(`${requestUrl.origin}/join?error=Could not authenticate user`);
+    return NextResponse.redirect(`${redirectOrigin}/join?error=Could not authenticate user`);
 }

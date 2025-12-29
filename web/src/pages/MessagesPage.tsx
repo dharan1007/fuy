@@ -6,8 +6,7 @@
 import { ArrowLeft, Flag, MoreVertical, Edit2, Check, X, Search, Paperclip, Smile } from 'lucide-react';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useSession } from 'next-auth/react';
-import AIChatbot from '@/components/AIChatbot';
+import { useSession } from '@/hooks/use-session';
 import { useMessaging } from '../hooks/useMessaging';
 import styles from './MessagesPage.module.css';
 import { SpaceBackground } from '@/components/SpaceBackground';
@@ -78,7 +77,6 @@ function MessagesPageContent() {
   } = useMessaging();
 
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
-  const [showAIChat, setShowAIChat] = useState(false);
   const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
   const initialUserId = searchParams?.get('userId');
 
@@ -350,11 +348,7 @@ function MessagesPageContent() {
   };
 
   const handleSelectConversation = (id: string) => {
-    if (id === 'ai-assistant') {
-      setShowAIChat(true);
-    } else {
-      setSelectedConversationId(id);
-    }
+    setSelectedConversationId(id);
     // Close mobile sidebar when conversation is selected
     setShowMobileSidebar(false);
   };
@@ -599,29 +593,6 @@ function MessagesPageContent() {
         </div>
 
         <div className={styles.conversationsList}>
-          {/* dbot - Always at top */}
-          <div
-            className={`${styles.conversationItem} ${showAIChat ? styles.active : ''
-              }`}
-            onClick={() => handleSelectConversation('ai-assistant')}
-          >
-            <div className={styles.avatarAI}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 2a3 3 0 0 0-3 3v4a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
-                <path d="M9 9h6" />
-                <path d="M9 13h6" />
-                <path d="M9 17h6" />
-              </svg>
-            </div>
-            <div className={styles.conversationInfo}>
-              <div className={styles.nameRow}>
-                <span className={styles.name}>dbot</span>
-              </div>
-              <span className={styles.preview}>
-                Hi! I'm here to help...
-              </span>
-            </div>
-          </div>
 
           {/* Regular Conversations */}
           {filteredConversations.map((conv) => (
@@ -748,9 +719,7 @@ function MessagesPageContent() {
       {/* Main Content Area */}
       <div className={styles.mainContent}>
         {
-          showAIChat ? (
-            <AIChatbot className="h-full w-full border-none shadow-none rounded-none bg-transparent" />
-          ) : !userId || loading ? (
+          !userId || loading ? (
             <div className={styles.emptyState}>
               {!userId ? (
                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>

@@ -1,4 +1,4 @@
-Ôªø"use client";
+"use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -392,7 +392,7 @@ export default function StressMapAdvanced() {
         </div>
         <div className="flex items-center gap-2">
           <Segmented options={[{ key: "front", label: "Front" }, { key: "back", label: "Back" }]} value={side} onChange={(v) => setSide(v as Side)} />
-          <Button onClick={saveSession} disabled={!markers.length || saving}>{saving ? "Saving‚Ä¶" : "Save"}</Button>
+          <Button onClick={saveSession} disabled={!markers.length || saving}>{saving ? "SavingÖ" : "Save"}</Button>
         </div>
       </div>
 
@@ -403,9 +403,9 @@ export default function StressMapAdvanced() {
           <div className="flex items-center justify-between mb-3">
             <div className="text-sm text-neutral-600">{coach}</div>
             <div className="flex items-center gap-2">
-              <IconButton title="Undo" onClick={undo}>‚Ü©</IconButton>
-              <IconButton title="Export PNG" onClick={exportPNG}>üì∑</IconButton>
-              <IconButton title="Export JSON" onClick={exportJSON}>üíæ</IconButton>
+              <IconButton title="Undo" onClick={undo}>?</IconButton>
+              <IconButton title="Export PNG" onClick={exportPNG}>??</IconButton>
+              <IconButton title="Export JSON" onClick={exportJSON}>??</IconButton>
             </div>
           </div>
 
@@ -465,7 +465,7 @@ export default function StressMapAdvanced() {
                   boxShadow: selected?.id === m.id ? "0 0 0 3px rgba(0,0,0,0.1)" : "none"
                 }}
                 aria-label={`${regionLabel[m.region]} ${m.quality} ${m.intensity}/10`}
-                title={`${regionLabel[m.region]} ‚Ä¢ ${m.quality} ‚Ä¢ ${m.intensity}/10 - Drag to move`}
+                title={`${regionLabel[m.region]} ï ${m.quality} ï ${m.intensity}/10 - Drag to move`}
               />
             ))}
 
@@ -482,8 +482,8 @@ export default function StressMapAdvanced() {
                 <IconButton title="Less intense" onClick={() => updateSelected({ intensity: clamp(selected.intensity - 1, 1, 10) })}>-</IconButton>
                 <span className="text-xs text-neutral-700">{selected.intensity}/10</span>
                 <IconButton title="More intense" onClick={() => updateSelected({ intensity: clamp(selected.intensity + 1, 1, 10) })}>+</IconButton>
-                <IconButton title="Cycle quality" onClick={() => updateSelected({ quality: nextQuality(selected.quality) })}>üîÑ</IconButton>
-                <IconButton title="Delete" onClick={removeSelected}>üóëÔ∏è</IconButton>
+                <IconButton title="Cycle quality" onClick={() => updateSelected({ quality: nextQuality(selected.quality) })}>??</IconButton>
+                <IconButton title="Delete" onClick={removeSelected}>???</IconButton>
               </div>
             )}
           </div>
@@ -540,8 +540,8 @@ export default function StressMapAdvanced() {
 
             {/* Symmetry + Bias dials */}
             <div className="mt-3 grid grid-cols-2 gap-3">
-              <Dial title="Left ‚Üî Right" left={insights.asymmetry.left} right={insights.asymmetry.right} bias={insights.asymmetry.bias} />
-              <Dial title="Front ‚Üî Back" left={insights.frontBack.front} right={insights.frontBack.back} bias={insights.frontBack.bias} />
+              <Dial title="Left ? Right" left={insights.asymmetry.left} right={insights.asymmetry.right} bias={insights.asymmetry.bias} />
+              <Dial title="Front ? Back" left={insights.frontBack.front} right={insights.frontBack.back} bias={insights.frontBack.bias} />
             </div>
 
             {/* Top regions */}
@@ -550,10 +550,10 @@ export default function StressMapAdvanced() {
               <div className="mt-1 flex flex-wrap gap-1">
                 {insights.topRegions.slice(0, 4).map(t => (
                   <span key={t.region} className="px-2 py-1 rounded-full bg-neutral-100 text-neutral-800 border">
-                    {regionLabel[t.region]} ¬∑ {t.count} ({t.avg.toFixed(1)})
+                    {regionLabel[t.region]} ∑ {t.count} ({t.avg.toFixed(1)})
                   </span>
                 ))}
-                {insights.topRegions.length === 0 && <span className="text-neutral-500">‚Äî</span>}
+                {insights.topRegions.length === 0 && <span className="text-neutral-500">ó</span>}
               </div>
             </div>
 
@@ -575,7 +575,7 @@ export default function StressMapAdvanced() {
             <div className="font-semibold mb-2">Notes & tags</div>
             <textarea
               className="w-full border rounded-xl px-3 py-2 h-20"
-              placeholder="Optional note (context, triggers, wins)‚Ä¶"
+              placeholder="Optional note (context, triggers, wins)Ö"
               value={note}
               onChange={(e) => setNote(e.target.value)}
             />
@@ -654,7 +654,7 @@ function RegionProtocol({ region, quality }: { region: RegionId; quality: Qualit
       <div className="flex items-center justify-between">
         <div className="font-semibold">Quick release</div>
         {phase === "idle" ? <Button tone="ghost" onClick={start}>Start</Button>
-          : phase === "done" ? <span className="text-green-700">Done ‚úì</span>
+          : phase === "done" ? <span className="text-green-700">Done ?</span>
             : <span className="text-neutral-600">{t}s</span>}
       </div>
       <ul className="list-disc ml-4 mt-2 space-y-1">
@@ -664,7 +664,7 @@ function RegionProtocol({ region, quality }: { region: RegionId; quality: Qualit
       </ul>
       {phase !== "idle" && phase !== "done" && (
         <div className="mt-2 text-neutral-600">
-          {phase === "hold" ? "Hold‚Ä¶" : phase === "glide" ? "Glide‚Ä¶" : "Move‚Ä¶"}
+          {phase === "hold" ? "HoldÖ" : phase === "glide" ? "GlideÖ" : "MoveÖ"}
         </div>
       )}
     </div>
@@ -673,24 +673,24 @@ function RegionProtocol({ region, quality }: { region: RegionId; quality: Qualit
 
 function makeProtocol(region: RegionId, q: Quality) {
   const byRegion: Record<RegionId, { hold: string; glide: string; move: string }> = {
-    head: { hold: "Jaw gentle clench 5s √ó3", glide: "Eye saccades: left/right √ó10", move: "Neck C-trace √ó5" },
-    neck: { hold: "Palm into forehead 10s", glide: "Chin glide in/out √ó8", move: "Look L/R in slow arc √ó6" },
-    shouldersL: { hold: "Elbow to wall press 10s", glide: "Scap slide up/down √ó8", move: "Arm circles small‚Üíbig √ó6" },
-    shouldersR: { hold: "Elbow to wall press 10s", glide: "Scap slide up/down √ó8", move: "Arm circles small‚Üíbig √ó6" },
-    chest: { hold: "Hands push together 10s", glide: "Doorway pec micro-glide √ó8", move: "Reach across body √ó6" },
-    upperBack: { hold: "Forearms press 10s", glide: "Scap glide L/R √ó8", move: "Cat-camel small arc √ó8" },
-    armsL: { hold: "Squeeze fist 5s", glide: "Wrist flex-extend √ó8", move: "Reach-and-open √ó6" },
-    armsR: { hold: "Squeeze fist 5s", glide: "Wrist flex-extend √ó8", move: "Reach-and-open √ó6" },
-    forearmsL: { hold: "Palm vs palm 8s", glide: "Pronate/supinate √ó10", move: "Shake loose √ó8" },
-    forearmsR: { hold: "Palm vs palm 8s", glide: "Pronate/supinate √ó10", move: "Shake loose √ó8" },
-    abdomen: { hold: "Light brace 5s", glide: "Pelvic tilt small √ó8", move: "Side reach arc √ó6" },
-    lowerBack: { hold: "Hip hinge set 8s", glide: "Pelvic tilts √ó10", move: "Alt knee-to-chest √ó8" },
-    hipsL: { hold: "Glute squeeze 8s", glide: "Figure-4 micro-glide √ó8", move: "Step-back reach √ó6" },
-    hipsR: { hold: "Glute squeeze 8s", glide: "Figure-4 micro-glide √ó8", move: "Step-back reach √ó6" },
-    thighsL: { hold: "Quad set 8s", glide: "Heel slides √ó8", move: "Mini squat √ó8" },
-    thighsR: { hold: "Quad set 8s", glide: "Heel slides √ó8", move: "Mini squat √ó8" },
-    calvesL: { hold: "Toe press 8s", glide: "Ankle pumps √ó12", move: "Calf roll-through √ó8" },
-    calvesR: { hold: "Toe press 8s", glide: "Ankle pumps √ó12", move: "Calf roll-through √ó8" },
+    head: { hold: "Jaw gentle clench 5s ◊3", glide: "Eye saccades: left/right ◊10", move: "Neck C-trace ◊5" },
+    neck: { hold: "Palm into forehead 10s", glide: "Chin glide in/out ◊8", move: "Look L/R in slow arc ◊6" },
+    shouldersL: { hold: "Elbow to wall press 10s", glide: "Scap slide up/down ◊8", move: "Arm circles small?big ◊6" },
+    shouldersR: { hold: "Elbow to wall press 10s", glide: "Scap slide up/down ◊8", move: "Arm circles small?big ◊6" },
+    chest: { hold: "Hands push together 10s", glide: "Doorway pec micro-glide ◊8", move: "Reach across body ◊6" },
+    upperBack: { hold: "Forearms press 10s", glide: "Scap glide L/R ◊8", move: "Cat-camel small arc ◊8" },
+    armsL: { hold: "Squeeze fist 5s", glide: "Wrist flex-extend ◊8", move: "Reach-and-open ◊6" },
+    armsR: { hold: "Squeeze fist 5s", glide: "Wrist flex-extend ◊8", move: "Reach-and-open ◊6" },
+    forearmsL: { hold: "Palm vs palm 8s", glide: "Pronate/supinate ◊10", move: "Shake loose ◊8" },
+    forearmsR: { hold: "Palm vs palm 8s", glide: "Pronate/supinate ◊10", move: "Shake loose ◊8" },
+    abdomen: { hold: "Light brace 5s", glide: "Pelvic tilt small ◊8", move: "Side reach arc ◊6" },
+    lowerBack: { hold: "Hip hinge set 8s", glide: "Pelvic tilts ◊10", move: "Alt knee-to-chest ◊8" },
+    hipsL: { hold: "Glute squeeze 8s", glide: "Figure-4 micro-glide ◊8", move: "Step-back reach ◊6" },
+    hipsR: { hold: "Glute squeeze 8s", glide: "Figure-4 micro-glide ◊8", move: "Step-back reach ◊6" },
+    thighsL: { hold: "Quad set 8s", glide: "Heel slides ◊8", move: "Mini squat ◊8" },
+    thighsR: { hold: "Quad set 8s", glide: "Heel slides ◊8", move: "Mini squat ◊8" },
+    calvesL: { hold: "Toe press 8s", glide: "Ankle pumps ◊12", move: "Calf roll-through ◊8" },
+    calvesR: { hold: "Toe press 8s", glide: "Ankle pumps ◊12", move: "Calf roll-through ◊8" },
   };
   const base = byRegion[region];
   const mod = (s: string) => {
@@ -758,14 +758,14 @@ function Dial({ title, left, right, bias }: { title: string; left: number; right
       <div className="w-full h-2 rounded-full overflow-hidden bg-neutral-100">
         <div className="h-2 bg-neutral-900" style={{ width: `${pctLeft}%` }} />
       </div>
-      <div className="mt-1 text-xs text-neutral-600">{left} / {right} ‚Äî bias: <span className="capitalize">{bias}</span></div>
+      <div className="mt-1 text-xs text-neutral-600">{left} / {right} ó bias: <span className="capitalize">{bias}</span></div>
     </div>
   );
 }
 
 function Stat({ label, value, delta }: { label: string; value: string; delta?: number }) {
   const color = delta === undefined ? "" : delta > 0 ? "text-rose-600" : delta < 0 ? "text-green-600" : "text-neutral-600";
-  const arrow = delta === undefined ? "" : delta > 0 ? "‚Üë" : delta < 0 ? "‚Üì" : "‚Ä¢";
+  const arrow = delta === undefined ? "" : delta > 0 ? "?" : delta < 0 ? "?" : "ï";
   return (
     <div className="rounded-xl border p-3">
       <div className="text-xs text-neutral-600">{label}</div>
@@ -890,11 +890,11 @@ function computeInsights(markers: Marker[]): Insights {
 function sessionToText(s: Session) {
   const i = s.insights;
   const lines = [
-    `Stress Map Œì√á√∂ ${new Date(s.ts).toLocaleString()}`,
-    `Points: ${i.count} ‚î¨‚ïñ Avg intensity: ${i.avgIntensity.toFixed(1)}/10`,
+    `Stress Map G«ˆ ${new Date(s.ts).toLocaleString()}`,
+    `Points: ${i.count} -+ Avg intensity: ${i.avgIntensity.toFixed(1)}/10`,
     `Left vs Right: ${i.asymmetry.left}L / ${i.asymmetry.right}R (${i.asymmetry.bias})`,
     `Front vs Back: ${i.frontBack.front}F / ${i.frontBack.back}B (${i.frontBack.bias})`,
-    `Top regions: ${i.topRegions.slice(0, 5).map(t => `${regionLabel[t.region]}(${t.count})`).join(", ") || "Œì√á√∂"}`,
+    `Top regions: ${i.topRegions.slice(0, 5).map(t => `${regionLabel[t.region]}(${t.count})`).join(", ") || "G«ˆ"}`,
     s.tags?.length ? `Tags: ${s.tags.join(", ")}` : "",
     s.note ? `Note: ${s.note}` : "",
   ].filter(Boolean);

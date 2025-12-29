@@ -1,6 +1,6 @@
 'use client';
 
-import { useSession } from 'next-auth/react';
+import { useSession } from '@/hooks/use-session';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Shield, AlertTriangle, CheckCircle, XCircle, MessageSquare, Trash2, ExternalLink } from 'lucide-react';

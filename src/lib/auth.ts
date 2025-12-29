@@ -1,99 +1,45 @@
-// src/lib/auth.ts
-import { getServerSession, type NextAuthOptions } from "next-auth";
-import Credentials from "next-auth/providers/credentials";
-import { prisma } from "@/lib/prisma";
-import { jwtVerify } from "jose";
-import bcrypt from "bcryptjs";
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 
-const secret = process.env.NEXTAUTH_SECRET!;
-const enc = new TextEncoder();
+// Dummy authOptions to satisfy imports
+export const authOptions = {};
 
-export const authOptions: NextAuthOptions = {
-  session: { strategy: "jwt" },
-  secret,
-  pages: {
-    signIn: "/join",
-  },
-  providers: [
-    // EmailProvider removed in favor of Supabase Magic Link
+export async function getServerSession(...args: any[]) {
+  const cookieStore = cookies();
 
-
-    // Email/Password credentials
-    Credentials({
-      id: "credentials",
-      name: "Email and Password",
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value;
+        },
+        set(name: string, value: string, options: CookieOptions) {
+          // Note: Server Actions/Route Handlers can set cookies
+          // but getServerSideProps/Server Components (read-only) cannot
+        },
+        remove(name: string, options: CookieOptions) {
+        },
       },
-      async authorize(creds) {
-        if (!creds?.email || !creds?.password) return null;
+    }
+  );
 
-        const user = await prisma.user.findUnique({
-          where: { email: creds.email.toLowerCase() },
-        });
+  const { data: { session } } = await supabase.auth.getSession();
 
-        if (!user || !user.password) return null;
+  if (!session) return null;
 
-        const isValid = await bcrypt.compare(creds.password, user.password);
-        if (!isValid) return null;
-
-        return user;
-      },
-    }),
-    // Passkey credentials
-    Credentials({
-      id: "passkey",
-      name: "Passkey",
-      credentials: {
-        loginToken: { label: "loginToken", type: "text" },
-      },
-      async authorize(creds) {
-        const loginToken = creds?.loginToken as string | undefined;
-        if (!loginToken) return null;
-
-        try {
-          const { payload } = await jwtVerify(loginToken, enc.encode(secret), {
-            issuer: "fuy",
-            audience: "fuy",
-          });
-          const uid = payload?.uid as string | undefined;
-          if (!uid) return null;
-
-          const user = await prisma.user.findUnique({ where: { id: uid } });
-          return user ?? null;
-        } catch {
-          return null;
-        }
-      },
-    }),
-  ],
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id;
-        if (user.name) token.name = user.name;
-        if (user.email) token.email = user.email;
-      }
-      return token;
+  // Map to NextAuth session shape
+  return {
+    user: {
+      name: session.user.user_metadata?.name || session.user.email,
+      email: session.user.email,
+      image: session.user.user_metadata?.avatar_url,
+      id: session.user.id
     },
-    async session({ session, token }) {
-      if (session.user && token?.id) {
-        (session.user as any).id = token.id as string;
-      }
-      return session;
-    },
-  },
-  events: {
-    async createUser({ user }) {
-      // Ensure profile exists
-      try {
-        await prisma.profile.create({
-          data: { userId: user.id, displayName: user.name ?? null },
-        });
-      } catch { /* ignore if exists */ }
-    },
-  },
-};
+    expires: new Date(session.expires_at! * 1000).toISOString()
+  };
+}
 
-export const auth = () => getServerSession(authOptions);
+// Helper for 'auth()' style calls if used
+export const auth = getServerSession;

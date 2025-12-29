@@ -1,7 +1,7 @@
 // src/app/login/page.tsx
 "use client";
 
-import { signIn } from "next-auth/react";
+import { signIn } from "@/hooks/use-session";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
