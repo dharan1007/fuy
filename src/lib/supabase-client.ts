@@ -1,5 +1,6 @@
 // src/lib/supabase-client.ts
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
+import { type SupabaseClient } from "@supabase/supabase-js";
 
 let supabaseClient: SupabaseClient | null = null;
 
@@ -14,10 +15,8 @@ function getSupabaseClient() {
       throw new Error('Missing Supabase environment variables');
     }
 
-    supabaseClient = createClient(url, anonKey, {
+    supabaseClient = createBrowserClient(url, anonKey, {
       auth: {
-        persistSession: true,
-        autoRefreshToken: true,
         flowType: 'pkce',
       },
       realtime: {
