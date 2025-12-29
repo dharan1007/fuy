@@ -13,6 +13,8 @@ export async function GET(request: NextRequest) {
     // Ensure we redirect to localhost if on 0.0.0.0 to avoid cookie issues
     const redirectOrigin = origin.replace('0.0.0.0', 'localhost');
 
+    let error: any = null;
+
     if (code) {
         const cookieStore = cookies();
 
@@ -39,7 +41,9 @@ export async function GET(request: NextRequest) {
             }
         );
 
-        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+        const response = await supabase.auth.exchangeCodeForSession(code);
+        const data = response.data;
+        error = response.error;
 
         if (error) {
             console.error("Auth Callback Error: Exchange failed. Code:", code);
