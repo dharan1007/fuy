@@ -97,7 +97,7 @@ export default function SignupPage() {
           // Actually, simplest is to redirect to login with a message?
           // Or better:
           alert("Account created! Please check your email to confirm.");
-          router.push("/join");
+          router.push("/login");
         }
       }
 

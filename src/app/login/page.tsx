@@ -1,7 +1,7 @@
 // src/app/login/page.tsx
 "use client";
 
-import { signIn } from "@/hooks/use-session";
+import { supabase } from "@/lib/supabase-client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -32,26 +32,27 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const res = await signIn("credentials", {
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
-        redirect: false,
       });
 
-      if (res?.error) {
-        setError("Invalid email or password");
+      if (error) {
+        setError(error.message || "Invalid email or password");
         setLoading(false);
-      } else if (res?.ok) {
+      } else if (data.session) {
         // Short delay to ensure session is established, then redirect
         await new Promise(resolve => setTimeout(resolve, 300));
         router.push("/");
+        router.refresh();
       } else {
+        // Should not happen on successful password login but good fallback
         setError("Failed to sign in. Please try again.");
         setLoading(false);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Login error:", err);
-      setError("Something went wrong. Please try again.");
+      setError(err?.message || "Something went wrong. Please try again.");
       setLoading(false);
     }
   }
