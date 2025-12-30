@@ -55,7 +55,7 @@ export async function GET(request: Request) {
         // Format: [{ tag: 'tech', count: 10 }]
         const formatted = slashes.map(s => ({
             tag: s.tag,
-            count: s._count.tag,
+            count: (s as any)._count?.tag || 0,
         }));
 
         return NextResponse.json(formatted);
