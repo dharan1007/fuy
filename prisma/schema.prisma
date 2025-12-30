@@ -1326,7 +1326,7 @@ model Message {
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender       User         @relation("MessagesSent", fields: [senderId], references: [id], onDelete: Cascade)
-  tags         MessageTag[]
+  tags         String[]  @default([])
 
   @@index([conversationId])
   @@index([senderId])
@@ -1459,46 +1459,7 @@ model CollaborationUpdate {
   @@index([userId])
 }
 
-// ------------------------
-// Bonding & Message Tagging
-// ------------------------
 
-// Message tagging for bonding lockers (blacklist, happy, fact)
-model MessageTag {
-  id            String   @id @default(cuid())
-  messageId     String
-  userId        String // User who created the tag
-  profileId     String // Profile being analyzed (the other person in convo)
-  tagType       String // BLACKLIST | ANGRY | SAD | HAPPY | JOY | FUNNY | FACT
-  taggedContent String? // Partial text if only a word/phrase was selected
-  note          String? // Optional note (mainly for facts)
-  createdAt     DateTime @default(now())
-
-  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([profileId])
-  @@index([messageId])
-  @@index([tagType])
-  @@index([userId, profileId, tagType])
-}
-
-// Fact locker warnings - keywords that trigger warnings when sending messages
-model FactWarning {
-  id          String   @id @default(cuid())
-  userId      String // User who created the warning
-  profileId   String // Profile this fact is about
-  keyword     String // Keyword/phrase to match
-  warningText String // Warning message to show
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@index([userId])
-  @@index([profileId])
-  @@index([userId, profileId])
-  @@index([keyword])
-}
 
 // ------------------------
 // Wrex (Grounding) Features

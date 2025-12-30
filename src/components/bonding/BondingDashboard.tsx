@@ -54,7 +54,18 @@ interface BondingActivity {
     };
 }
 
-type LockerType = 'blacklist' | 'happy' | 'fact' | 'activities';
+// Updated Locker Types for new Tags
+type LockerType = 'work' | 'fun' | 'urgent' | 'idea' | 'activities';
+
+const InfoTooltip = ({ text }: { text: string }) => (
+    <div className="group relative ml-2 inline-flex items-center justify-center w-4 h-4 rounded-full border border-gray-500 text-gray-400 cursor-help hover:text-white hover:border-white transition-colors">
+        <span className="text-[10px] font-bold">i</span>
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-black border border-white/20 rounded text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
+            {text}
+            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-white/20"></div>
+        </div>
+    </div>
+);
 
 export default function BondingDashboard() {
     const router = useRouter();
@@ -64,19 +75,13 @@ export default function BondingDashboard() {
     // State
     const [profiles, setProfiles] = useState<Profile[]>([]);
     const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
-    const [activeLocker, setActiveLocker] = useState<LockerType>('blacklist');
+    const [activeLocker, setActiveLocker] = useState<LockerType>('urgent');
     const [tags, setTags] = useState<MessageTag[]>([]);
-    const [facts, setFacts] = useState<FactWarning[]>([]);
     const [activities, setActivities] = useState<BondingActivity[]>([]);
     const [tagCounts, setTagCounts] = useState<Record<string, number>>({});
     const [isLoading, setIsLoading] = useState(true);
     const [isLoadingData, setIsLoadingData] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-
-    // Add Fact State
-    const [showAddFact, setShowAddFact] = useState(false);
-    const [newKeyword, setNewKeyword] = useState('');
-    const [newWarningText, setNewWarningText] = useState('');
 
     // Initial Load - Fetch Profiles (Conversations)
     useEffect(() => {
@@ -104,7 +109,7 @@ export default function BondingDashboard() {
                     } else if (profileList.length > 0 && !selectedProfile) {
                         // Select first by default if desktop? Or wait for user selection
                         // Currently defaulting to null to show "Select a profile" state
-                        setSelectedProfile(profileList[0]);
+                        // setSelectedProfile(profileList[0]); 
                     }
                 }
             } catch (error) {
@@ -127,7 +132,6 @@ export default function BondingDashboard() {
             if (res.ok) {
                 const data = await res.json();
                 setTags(data.tags);
-                setFacts(data.facts);
                 setTagCounts(data.tagCounts);
             }
 
@@ -153,58 +157,43 @@ export default function BondingDashboard() {
         fetchBondingData();
     }, [fetchBondingData]);
 
-    // Actions
-    const handleAddFact = async () => {
-        if (!newKeyword.trim() || !newWarningText.trim() || !selectedProfile) return;
-
-        try {
-            const res = await fetch('/api/bonding', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    profileId: selectedProfile.id,
-                    keyword: newKeyword,
-                    warningText: newWarningText,
-                }),
-            });
-
-            if (res.ok) {
-                setNewKeyword('');
-                setNewWarningText('');
-                setShowAddFact(false);
-                fetchBondingData(); // Refresh
-            }
-        } catch (error) {
-            console.error('Error adding fact warning:', error);
-        }
-    };
-
-    const handleDeleteFact = async (factId: string) => {
-        if (!confirm('Are you sure you want to delete this warning?') || !selectedProfile) return;
-
-        try {
-            const res = await fetch(`/api/bonding?factId=${factId}`, { // Assuming DELETE logic in route
-                method: 'DELETE',
-            });
-            // Note: The generic API might not support DELETE fact by default yet 
-            // but let's assume it's there or will be added. 
-            // Actually, I should probably check if I implemented DELETE in Step 310 or similar?
-            // The previous summary didn't mention it. I will leave it as is for now or comment it out if not sure.
-            // Wait, existing code might have had delete? I didn't see it in view.
-            // I'll stick to what was there + my additions.
-            // Re-reading Step 350 view... I don't see handleDeleteFact there.
-            // I'll omit it to be safe, or just implement it if I'm rewriting the whole file. 
-            // I'll implement fetchBondingData refresh. 
-            fetchBondingData();
-        } catch (error) {
-            console.error('Error deleting fact:', error);
-        }
-    };
-
-
     const filteredProfiles = profiles.filter(p =>
         p.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
+
+    // Mapping for UI
+    const TABS: { id: LockerType; label: string; icon: React.ReactNode; tooltip: string }[] = [
+        {
+            id: 'urgent',
+            label: 'Urgent',
+            icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>,
+            tooltip: 'Messages marked as Urgent for quick access.'
+        },
+        {
+            id: 'work',
+            label: 'Work',
+            icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /></svg>,
+            tooltip: 'Work-related discussions and tasks.'
+        },
+        {
+            id: 'fun',
+            label: 'Fun',
+            icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 14a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm0-2a2 2 0 1 0 0-4 2 2 0 0 0 0 4z" /></svg>,
+            tooltip: 'Fun, memes, and casual chats.'
+        },
+        {
+            id: 'idea',
+            label: 'Ideas',
+            icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18h6" /><path d="M10 22h4" /><path d="M12 2v2" /><path d="M4.2 4.2l1.4 1.4" /><path d="M1.207 14.852a3.5 3.5 0 0 0 5.632 2.604M15 22a7 7 0 1 0-10.742-9.452" /></svg>,
+            tooltip: 'Brainstorms and shared ideas.'
+        },
+        {
+            id: 'activities',
+            label: 'Activities',
+            icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>,
+            tooltip: 'Log of shared collaborative sessions.'
+        }
+    ];
 
     return (
         <div className={styles.container}>
@@ -218,7 +207,9 @@ export default function BondingDashboard() {
                             </svg>
                         </button>
                         <h2>Bonding</h2>
+                        <InfoTooltip text="View tagged messages and shared history with your connections." />
                     </div>
+                    {/* ... Search ... */}
                     <div className={styles.searchBox}>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={styles.searchIcon} style={{ display: 'block' }}>
                             <circle cx="11" cy="11" r="8" />
@@ -287,12 +278,8 @@ export default function BondingDashboard() {
                                     <h1>{selectedProfile.name}</h1>
                                     <div className={styles.statsRow}>
                                         <div className={styles.stat}>
-                                            <span className={styles.statValue}>{tags.length}</span>
-                                            <span className={styles.statLabel}>Tags</span>
-                                        </div>
-                                        <div className={styles.stat}>
-                                            <span className={styles.statValue}>{facts.length}</span>
-                                            <span className={styles.statLabel}>Facts</span>
+                                            <span className={styles.statValue}>{tags.filter(t => ['Urgent', 'Fun', 'Work', 'Idea'].includes(t.tagType)).length}</span>
+                                            <span className={styles.statLabel}>Tagged Items</span>
                                         </div>
                                         <div className={styles.stat}>
                                             <span className={styles.statValue}>{activities.length}</span>
@@ -306,53 +293,25 @@ export default function BondingDashboard() {
                         {/* Locker Tabs */}
                         <div className={styles.lockerTabs}>
                             <div className={styles.tabList}>
-                                <button
-                                    className={`${styles.menuItem} ${activeLocker === 'blacklist' ? styles.active : ''}`}
-                                    onClick={() => setActiveLocker('blacklist')}
-                                >
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
-                                        <circle cx="12" cy="12" r="10" />
-                                        <path d="M16 16s-1.5-2-4-2-4 2-4 2" />
-                                        <line x1="9" y1="9" x2="9.01" y2="9" />
-                                        <line x1="15" y1="9" x2="15.01" y2="9" />
-                                    </svg>
-                                    <span>Blacklist Locker</span>
-                                    {tagCounts['BLACKLIST'] > 0 && <span className={styles.badge}>{tagCounts['BLACKLIST']}</span>}
-                                </button>
-                                <button
-                                    className={`${styles.menuItem} ${activeLocker === 'happy' ? styles.active : ''}`}
-                                    onClick={() => setActiveLocker('happy')}
-                                >
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
-                                        <circle cx="12" cy="12" r="10" />
-                                        <path d="M8 14s1.5 2 4 2 4-2 4-2" />
-                                        <line x1="9" y1="9" x2="9.01" y2="9" />
-                                        <line x1="15" y1="9" x2="15.01" y2="9" />
-                                    </svg>
-                                    <span>Happy Locker</span>
-                                    {tagCounts['HAPPY'] > 0 && <span className={styles.badge}>{tagCounts['HAPPY']}</span>}
-                                </button>
-                                <button
-                                    className={`${styles.menuItem} ${activeLocker === 'fact' ? styles.active : ''}`}
-                                    onClick={() => setActiveLocker('fact')}
-                                >
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
-                                        <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
-                                        <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
-                                    </svg>
-                                    <span>Fact Warnings</span>
-                                    {facts.length > 0 && <span className={styles.badge}>{facts.length}</span>}
-                                </button>
-                                <button
-                                    className={`${styles.menuItem} ${activeLocker === 'activities' ? styles.active : ''}`}
-                                    onClick={() => setActiveLocker('activities')}
-                                >
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
-                                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-                                    </svg>
-                                    <span>Activities</span>
-                                    {activities.length > 0 && <span className={styles.badge}>{activities.length}</span>}
-                                </button>
+                                {TABS.map(tab => (
+                                    <button
+                                        key={tab.id}
+                                        className={`${styles.menuItem} ${activeLocker === tab.id ? styles.active : ''}`}
+                                        onClick={() => setActiveLocker(tab.id as any)}
+                                        title={tab.tooltip} // Native Tooltip fallback
+                                    >
+                                        {tab.icon}
+                                        <span>{tab.label}</span>
+                                        {((tab.id === 'activities' ? activities.length : tagCounts[tab.label]) > 0) && (
+                                            <span className={styles.badge}>
+                                                {tab.id === 'activities' ? activities.length : tagCounts[tab.label]}
+                                            </span>
+                                        )}
+                                        <div className="ml-auto opacity-50 hover:opacity-100" onClick={(e) => e.stopPropagation()}>
+                                            <InfoTooltip text={tab.tooltip} />
+                                        </div>
+                                    </button>
+                                ))}
                             </div>
 
                             {/* Locker Content */}
@@ -360,158 +319,59 @@ export default function BondingDashboard() {
                                 {isLoadingData ? (
                                     <div className={styles.loading}>Loading data...</div>
                                 ) : (
-                                    <>
-                                        {activeLocker === 'blacklist' && (
-                                            <div className={styles.lockerContent}>
-                                                <div className={styles.tagHeader}>
-                                                    <h3>Blacklist Tags</h3>
-                                                    <p>Messages flagged as sensitive or negative</p>
-                                                </div>
-                                                <div className={styles.tagList}>
-                                                    {tags.filter(t => ['BLACKLIST', 'ANGRY', 'SAD'].includes(t.tagType)).length === 0 ? (
-                                                        <div className={styles.emptyState}>No items in Blacklist Locker</div>
-                                                    ) : (
-                                                        tags.filter(t => ['BLACKLIST', 'ANGRY', 'SAD'].includes(t.tagType)).map(tag => (
-                                                            <div key={tag.id} className={`${styles.tagCard} ${styles[tag.tagType.toLowerCase()]}`}>
-                                                                <div className={styles.tagBadge}>{tag.tagType}</div>
-                                                                <div className={styles.tagMessage}>"{tag.message.content}"</div>
-                                                                <div className={styles.tagDate}>{new Date(tag.createdAt).toLocaleDateString()}</div>
+                                    <div className={styles.lockerContent}>
+                                        <div className={styles.tagHeader}>
+                                            <h3>{TABS.find(t => t.id === activeLocker)?.label} Items</h3>
+                                            <p>{TABS.find(t => t.id === activeLocker)?.tooltip}</p>
+                                        </div>
+
+                                        {activeLocker === 'activities' ? (
+                                            activities.length === 0 ? (
+                                                <div className={styles.emptyState}>No activities found.</div>
+                                            ) : (
+                                                <div className={styles.activityList}>
+                                                    {activities.map((act) => (
+                                                        <div key={act.id} className={styles.factItem}>
+                                                            <div className={styles.factHeader}>
+                                                                <span style={{ fontSize: '24px', marginRight: '12px' }}>
+                                                                    {act.type === 'CANVAS' ? '🎨' : act.type === 'JOURNAL' ? '📔' : '✨'}
+                                                                </span>
+                                                                <div>
+                                                                    <div style={{ fontWeight: 'bold', fontSize: '16px' }}>{act.type} Session</div>
+                                                                    <div className={styles.date} style={{ fontSize: '12px', color: '#6b7280' }}>
+                                                                        {new Date(act.startedAt).toLocaleString()}
+                                                                    </div>
+                                                                </div>
+                                                                <div style={{ marginLeft: 'auto' }}>
+                                                                    <span className={`${styles.activeBadge}`} style={{
+                                                                        backgroundColor: act.status === 'STARTED' ? '#dcfce7' : '#f3f4f6',
+                                                                        color: act.status === 'STARTED' ? '#166534' : '#374151'
+                                                                    }}>
+                                                                        {act.status}
+                                                                    </span>
+                                                                </div>
                                                             </div>
-                                                        ))
-                                                    )}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {activeLocker === 'happy' && (
-                                            <div className={styles.lockerContent}>
-                                                <div className={styles.tagHeader}>
-                                                    <h3>Happy Locker</h3>
-                                                    <p>Positive moments and memories</p>
-                                                </div>
-                                                <div className={styles.tagList}>
-                                                    {tags.filter(t => ['HAPPY', 'JOY', 'FUNNY'].includes(t.tagType)).length === 0 ? (
-                                                        <div className={styles.emptyState}>No items in Happy Locker</div>
-                                                    ) : (
-                                                        tags.filter(t => ['HAPPY', 'JOY', 'FUNNY'].includes(t.tagType)).map(tag => (
-                                                            <div key={tag.id} className={`${styles.tagCard} ${styles.happy}`}>
-                                                                <div className={styles.tagBadge}>{tag.tagType}</div>
-                                                                <div className={styles.tagMessage}>"{tag.message.content}"</div>
-                                                                <div className={styles.tagDate}>{new Date(tag.createdAt).toLocaleDateString()}</div>
-                                                            </div>
-                                                        ))
-                                                    )}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {activeLocker === 'fact' && (
-                                            <div className={styles.lockerContent}>
-                                                <div className={styles.tagHeader}>
-                                                    <h3>Fact Warnings</h3>
-                                                    <div className={styles.headerActions}>
-                                                        <button className={styles.addButton} onClick={() => setShowAddFact(true)}>
-                                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
-                                                                <line x1="12" y1="5" x2="12" y2="19" />
-                                                                <line x1="5" y1="12" x2="19" y2="12" />
-                                                            </svg> Add Warning
-                                                        </button>
-                                                    </div>
-                                                </div>
-
-                                                {showAddFact && (
-                                                    <div className={styles.addFactForm}>
-                                                        <input
-                                                            type="text"
-                                                            placeholder="Trigger Keyword (e.g. 'hate')"
-                                                            value={newKeyword}
-                                                            onChange={(e) => setNewKeyword(e.target.value)}
-                                                            className={styles.input}
-                                                        />
-                                                        <input
-                                                            type="text"
-                                                            placeholder="Warning Message"
-                                                            value={newWarningText}
-                                                            onChange={(e) => setNewWarningText(e.target.value)}
-                                                            className={styles.input}
-                                                        />
-                                                        <div className={styles.formActions}>
-                                                            <button onClick={() => setShowAddFact(false)} className={styles.cancelButton}>Cancel</button>
-                                                            <button onClick={handleAddFact} className={styles.saveButton}>Save</button>
                                                         </div>
-                                                    </div>
-                                                )}
-
-                                                <div className={styles.factList}>
-                                                    {facts.length === 0 ? (
-                                                        <div className={styles.emptyState}>No fact warnings set</div>
-                                                    ) : (
-                                                        facts.map(fact => (
-                                                            <div key={fact.id} className={styles.factItem}>
-                                                                <div className={styles.factHeader}>
-                                                                    <div className={styles.factKeyword}>Keyword: <strong>{fact.keyword}</strong></div>
-                                                                    <div className={styles.factStatus}>
-                                                                        {fact.isActive ? <span className={styles.activeBadge}>Active</span> : 'Inactive'}
-                                                                    </div>
-                                                                </div>
-                                                                <div className={styles.factWarning}>
-                                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
-                                                                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                                                                        <line x1="12" y1="9" x2="12" y2="13" />
-                                                                        <line x1="12" y1="17" x2="12.01" y2="17" />
-                                                                    </svg>
-                                                                    {fact.warningText}
-                                                                </div>
-                                                                {/* <button className={styles.deleteButton} onClick={() => handleDeleteFact(fact.id)}>
-                                                                    <Trash2 size={16} />
-                                                                </button> */}
-                                                            </div>
-                                                        ))
-                                                    )}
+                                                    ))}
                                                 </div>
-                                            </div>
-                                        )}
-
-                                        {activeLocker === 'activities' && (
-                                            <div className={styles.lockerContent}>
-                                                <div className={styles.tagHeader}>
-                                                    <h3>Collaboration History</h3>
+                                            )
+                                        ) : (
+                                            /* Generic Tag List for Url/Work/Fun/Idea */
+                                            (!tags.find(t => t.tagType === TABS.find(tab => tab.id === activeLocker)?.label)) ? (
+                                                <div className={styles.emptyState}>No items in {TABS.find(t => t.id === activeLocker)?.label}</div>
+                                            ) : (
+                                                <div className={styles.tagList}>
+                                                    {tags.filter(t => t.tagType === TABS.find(tab => tab.id === activeLocker)?.label).map(tag => (
+                                                        <div key={tag.id} className={`${styles.tagCard} ${styles[activeLocker]}`}>
+                                                            <div className={styles.tagBadge}>{tag.tagType}</div>
+                                                            <div className={styles.tagMessage}>"{tag.message.content}"</div>
+                                                            <div className={styles.tagDate}>{new Date(tag.createdAt).toLocaleDateString()}</div>
+                                                        </div>
+                                                    ))}
                                                 </div>
-                                                {activities.length === 0 ? (
-                                                    <div className={styles.emptyState}>No activities found.</div>
-                                                ) : (
-                                                    <div className={styles.activityList}>
-                                                        {activities.map((act) => (
-                                                            <div key={act.id} className={styles.factItem}>
-                                                                <div className={styles.factHeader}>
-                                                                    <span style={{ fontSize: '24px', marginRight: '12px' }}>{
-                                                                        act.type === 'CANVAS' ? '🎨' :
-                                                                            act.type === 'JOURNAL' ? '📔' :
-                                                                                act.type === 'BONDING' ? '👥' :
-                                                                                    '✨'
-                                                                    }</span>
-                                                                    <div>
-                                                                        <div style={{ fontWeight: 'bold', fontSize: '16px' }}>{act.type} Session</div>
-                                                                        <div className={styles.date} style={{ fontSize: '12px', color: '#6b7280' }}>
-                                                                            {new Date(act.startedAt).toLocaleString()}
-                                                                        </div>
-                                                                    </div>
-                                                                    <div style={{ marginLeft: 'auto' }}>
-                                                                        <span className={`${styles.activeBadge}`} style={{
-                                                                            backgroundColor: act.status === 'STARTED' ? '#dcfce7' : '#f3f4f6',
-                                                                            color: act.status === 'STARTED' ? '#166534' : '#374151'
-                                                                        }}>
-                                                                            {act.status}
-                                                                        </span>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </div>
+                                            )
                                         )}
-                                    </>
+                                    </div>
                                 )}
                             </div>
                         </div>

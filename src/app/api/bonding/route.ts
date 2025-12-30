@@ -1,70 +1,93 @@
+
 import { NextResponse } from 'next/server';
-import { getServerSession } from '@/lib/auth';
-import { authOptions } from '@/lib/auth';
+import { getServerSession } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 
 export async function GET(request: Request) {
     try {
-        const session = await getServerSession(authOptions);
+        const session = await getServerSession();
         if (!session?.user?.email) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
         const { searchParams } = new URL(request.url);
         const profileId = searchParams.get('profileId');
+
         const user = await prisma.user.findUnique({
             where: { email: session.user.email },
-            select: { id: true },
+            select: { id: true }
         });
 
         if (!user) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
 
-        // If no profileId, we could return list of bonded profiles (using conversations)
-        // But for now, the UI will likely direct here with a profileId
         if (!profileId) {
             return NextResponse.json({ error: 'Profile ID is required' }, { status: 400 });
         }
 
-        // 1. Fetch Tags
-        const tags = await prisma.messageTag.findMany({
+        // Fetch Messages with non-empty tags in conversation with this profile
+        // We find the conversation first or query messages directly
+        const conversation = await prisma.conversation.findFirst({
             where: {
-                userId: user.id,
-                profileId: profileId,
-            },
-            include: {
-                message: {
-                    select: {
-                        id: true,
-                        content: true,
-                        createdAt: true,
-                        sender: {
-                            select: {
-                                name: true,
-                                profile: { select: { displayName: true, avatarUrl: true } },
-                            },
-                        },
-                    },
+                OR: [
+                    { participantA: user.id, participantB: profileId },
+                    { participantA: profileId, participantB: user.id }
+                ]
+            }
+        });
+
+        let tags: any[] = [];
+        let tagCounts: Record<string, number> = {};
+
+        if (conversation) {
+            const messages = await prisma.message.findMany({
+                where: {
+                    conversationId: conversation.id,
+                    NOT: { tags: { equals: [] } } // Only messages with tags
                 },
-            },
-            orderBy: { createdAt: 'desc' },
-        });
+                include: {
+                    sender: {
+                        select: {
+                            name: true,
+                            profile: { select: { displayName: true, avatarUrl: true } }
+                        }
+                    }
+                },
+                orderBy: { createdAt: 'desc' }
+            });
 
-        // 2. Fetch Facts
-        const facts = await prisma.factWarning.findMany({
-            where: {
-                userId: user.id,
-                profileId: profileId,
-            },
-            orderBy: { createdAt: 'desc' },
-        });
+            // Transform to expected shape
+            tags = messages.flatMap(msg => {
+                // msg.tags is String[]
+                return msg.tags.map(tag => ({
+                    id: `${msg.id}-${tag}`,
+                    messageId: msg.id,
+                    userId: msg.senderId,
+                    profileId: profileId, // Contextual
+                    tagType: tag, // "Urgent", "Fun", etc.
+                    taggedContent: null,
+                    note: null,
+                    createdAt: msg.createdAt,
+                    message: {
+                        id: msg.id,
+                        content: msg.content,
+                        createdAt: msg.createdAt,
+                        sender: msg.sender
+                    }
+                }));
+            });
 
-        // 3. Calculate Counts
-        const tagCounts = tags.reduce((acc, tag) => {
-            acc[tag.tagType] = (acc[tag.tagType] || 0) + 1;
-            return acc;
-        }, {} as Record<string, number>);
+            // Filter tags if needed (e.g. only "Urgent" goes to Blacklist? No, matching logic in UI)
+            // UI expects tagCounts
+            tagCounts = tags.reduce((acc, tag) => {
+                acc[tag.tagType] = (acc[tag.tagType] || 0) + 1;
+                return acc;
+            }, {} as Record<string, number>);
+        }
+
+        // Return empty facts as feature is removed
+        const facts: any[] = [];
 
         return NextResponse.json({
             tags,
@@ -79,41 +102,6 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-    try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user?.email) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-
-        const user = await prisma.user.findUnique({
-            where: { email: session.user.email },
-            select: { id: true },
-        });
-
-        if (!user) {
-            return NextResponse.json({ error: 'User not found' }, { status: 404 });
-        }
-
-        const body = await request.json();
-        const { profileId, keyword, warningText } = body;
-
-        if (!profileId || !keyword || !warningText) {
-            return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
-        }
-
-        const fact = await prisma.factWarning.create({
-            data: {
-                userId: user.id,
-                profileId,
-                keyword: keyword.toLowerCase().trim(),
-                warningText: warningText.trim(),
-            },
-        });
-
-        return NextResponse.json(fact);
-
-    } catch (error) {
-        console.error('Error creating fact warning:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
-    }
+    // Feature disabled/removed
+    return NextResponse.json({ error: 'Feature disabled' }, { status: 501 });
 }
