@@ -9,6 +9,10 @@ export async function middleware(request: NextRequest) {
     },
   })
 
+  // Create an unmodified response object to ensure we don't accidentally
+  // strip cookies if the middleware logic gets complex.
+  // We will copy cookies to this response.
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -24,17 +28,16 @@ export async function middleware(request: NextRequest) {
           })
         },
       },
-      // cookieOptions: {
-      //   name: 'sb-auth-token',
-      //   sameSite: 'lax',
-      //   path: '/',
-      // }
     }
   )
 
   // This refreshes the session if expired - required for Server Components
   // https://supabase.com/docs/guides/auth/server-side/nextjs
-  await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  // If the user is signed in and the current path is / or /login or /signup,
+  // we might want to redirect them to /dashboard or similar?
+  // But for now, let's just focus on session persistence.
 
   // ===== SECURITY HEADERS =====
   // Content Security Policy - Prevent XSS attacks

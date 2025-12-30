@@ -95,7 +95,13 @@ export async function GET() {
       headers: { "Cache-Control": "no-store, max-age=0" },
     });
   } catch (e: any) {
-    if (e?.message === "UNAUTHENTICATED" || e?.message === "USER_NOT_FOUND") {
+    console.error(`[PROFILE_DEBUG] Error fetching profile:`, e);
+    if (e?.message === "UNAUTHENTICATED") {
+      console.error("[PROFILE_DEBUG] Unauthenticated: No valid session found.");
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+    if (e?.message === "USER_NOT_FOUND") {
+      console.error("[PROFILE_DEBUG] User Not Found: Session exists but user not in DB.");
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
     return NextResponse.json({ error: e?.message ?? "Failed to load profile" }, { status: 500, headers: { "Cache-Control": "no-store, max-age=0" } });

@@ -6,6 +6,11 @@ import { prisma } from "@/lib/prisma";
 
 export async function getSessionUser() {
   const session = await getServerSession(authOptions);
+  if (!session?.user) {
+    console.log("[SESSION_DEBUG] getSessionUser: No session returned from getServerSession");
+  } else {
+    console.log(`[SESSION_DEBUG] getSessionUser: Found user ${session.user.email} (${session.user.id})`);
+  }
   return session?.user ?? null;
 }
 

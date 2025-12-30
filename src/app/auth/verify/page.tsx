@@ -24,26 +24,37 @@ function VerifyContent() {
     const [errorMessage, setErrorMessage] = useState("");
 
     useEffect(() => {
-        // Handle Implicit Flow (Hash Fragment)
-        const hashParams = new URLSearchParams(window.location.hash.substring(1));
-        const accessToken = hashParams.get("access_token");
-        const refreshToken = hashParams.get("refresh_token");
-        const errorDescHash = hashParams.get("error_description");
-
-        // Handle PKCE Flow (Query Params) - Fallback/Legacy
-        const code = searchParams.get("code");
-        const errorParam = searchParams.get("error");
-        const errorDescQuery = searchParams.get("error_description");
-
-        const errorMsg = errorDescHash || errorDescQuery || errorParam;
-
-        if (errorMsg) {
-            setStatus("error");
-            setErrorMessage(errorMsg);
-            return;
-        }
-
         const checkSessionAndVerify = async () => {
+            // 0. Check if we are already authenticated (maybe middleware handled it)
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                console.log("Already authenticated, redirecting...");
+                setStatus("success");
+                setTimeout(() => window.location.href = "/profile/setup", 1000);
+                return;
+            }
+
+            // Handle Implicit Flow (Hash Fragment)
+            const hashParams = new URLSearchParams(window.location.hash.substring(1));
+            const accessToken = hashParams.get("access_token");
+            const refreshToken = hashParams.get("refresh_token");
+            const Type = hashParams.get("type");
+            const errorDescHash = hashParams.get("error_description");
+
+            // Handle PKCE Flow (Query Params)
+            const code = searchParams.get("code");
+            const errorParam = searchParams.get("error");
+            const errorDescQuery = searchParams.get("error_description");
+
+            const errorMsg = errorDescHash || errorDescQuery || errorParam;
+
+            if (errorMsg) {
+                console.error("Auth error params:", errorMsg);
+                setStatus("error");
+                setErrorMessage(errorMsg);
+                return;
+            }
+
             // 1. Try Implicit Flow (Access Token)
             if (accessToken && refreshToken) {
                 try {
@@ -73,6 +84,15 @@ function VerifyContent() {
                 try {
                     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
                     if (error) {
+                        // Double check if session was actually established despite error (can happen with race conditions)
+                        const { data: { session: newSession } } = await supabase.auth.getSession();
+                        if (newSession) {
+                            setStatus("success");
+                            setTimeout(() => window.location.href = "/profile/setup", 1500);
+                            return;
+                        }
+
+                        console.error("PKCE check failed:", error);
                         setStatus("error");
                         setErrorMessage(error.message);
                     } else {
@@ -87,8 +107,17 @@ function VerifyContent() {
             }
 
             // 3. No credentials found
-            setStatus("error");
-            setErrorMessage("No verification credentials found. Please try signing up again.");
+            // Wait a moment to see if session propagates
+            setTimeout(async () => {
+                const { data: { session: retrySession } } = await supabase.auth.getSession();
+                if (retrySession) {
+                    setStatus("success");
+                    setTimeout(() => window.location.href = "/profile/setup", 1000);
+                } else {
+                    setStatus("error");
+                    setErrorMessage("No verification credentials found. Please try logging in again.");
+                }
+            }, 2000);
         };
 
         checkSessionAndVerify();
