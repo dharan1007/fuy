@@ -53,6 +53,7 @@ export async function GET(request: NextRequest) {
         if (error) {
             console.error("Auth Callback Error: Exchange failed. Code:", code);
             console.error("Supabase Error Details:", error);
+            console.error("DEBUG: Available Cookies:", cookieStore.getAll().map(c => c.name).join(', '));
         } else {
             console.log("Auth Callback Success. User:", data?.session?.user?.email);
         }

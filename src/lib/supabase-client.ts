@@ -9,9 +9,9 @@ if (!url || !anonKey) {
 }
 
 export const supabase = createBrowserClient(url, anonKey, {
-  auth: {
-    flowType: 'implicit',
-  },
+  // auth: {
+  //   flowType: 'implicit',
+  // },
   cookieOptions: {
     name: 'sb-auth-token',
     sameSite: 'lax',
