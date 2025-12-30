@@ -11,10 +11,12 @@ import { SpaceBackground } from '@/components/SpaceBackground';
 import AppHeader from '@/components/AppHeader';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { ChevronDown, ChevronRight, Activity, Bell, Lock, Shield, UserX, Ghost, LogOut, Trash2 } from 'lucide-react';
+import BloomSettingsSection from '@/components/settings/BloomSettingsSection';
 
 interface UserSettings {
   autoAcceptFollows: boolean;
   defaultPostVisibility: string;
+  bloomSlashes?: string[];
 }
 
 export default function SettingsPage() {
@@ -48,14 +50,22 @@ export default function SettingsPage() {
     }
   }, [status]);
 
+
   const fetchSettings = async () => {
     try {
-      const res = await fetch('/api/profile');
-      const data = await res.json();
+      const [profileRes, bloomRes] = await Promise.all([
+        fetch('/api/profile'),
+        fetch('/api/settings/bloom')
+      ]);
+
+      const data = await profileRes.json();
+      const bloomData = await bloomRes.json();
+
       if (data) {
         setSettings({
           autoAcceptFollows: data.autoAcceptFollows || false,
-          defaultPostVisibility: data.defaultPostVisibility || 'PUBLIC'
+          defaultPostVisibility: data.defaultPostVisibility || 'PUBLIC',
+          bloomSlashes: bloomData.slashes || []
         });
         if (data.createdAt) {
           setAccountCreated(new Date(data.createdAt).toLocaleDateString(undefined, {
@@ -96,6 +106,21 @@ export default function SettingsPage() {
     } catch (e) {
       console.error('Failed to update setting', e);
       fetchSettings(); // Revert on error
+    }
+  };
+
+  const updateBloomSlashes = async (newSlashes: string[]) => {
+    // Optimistic
+    setSettings(prev => ({ ...prev, bloomSlashes: newSlashes }));
+    try {
+      await fetch('/api/settings/bloom', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slashes: newSlashes })
+      });
+    } catch (e) {
+      console.error("Failed to update bloom slashes", e);
+      fetchSettings();
     }
   };
 
@@ -157,7 +182,15 @@ export default function SettingsPage() {
       <SpaceBackground />
       <AppHeader title="Settings" showBackButton showSettingsAndLogout={false} />
 
+
       <div className="max-w-2xl mx-auto px-6 py-8 relative z-10">
+
+        {/* Bloom Settings (New) */}
+        <BloomSettingsSection
+          slashes={settings.bloomSlashes || []}
+          onUpdate={updateBloomSlashes}
+          loading={loadingSettings}
+        />
 
         {/* Activity & History */}
         <section className="bg-black/40 backdrop-blur-md rounded-xl border border-white/10 shadow-lg p-6 mb-6">

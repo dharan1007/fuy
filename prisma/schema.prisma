@@ -170,6 +170,9 @@ model User {
   nutritionLogs    NutritionLog[]
   savedFoods       SavedFood[]
   todos            Todo[]
+
+  // --- Bloom Feature ---
+  bloomSlashes String[] @default([])
 }
 
 model Todo {
@@ -1458,7 +1461,6 @@ model CollaborationUpdate {
   @@index([sessionId])
   @@index([userId])
 }
-
 
 
 // ------------------------

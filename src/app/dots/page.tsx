@@ -67,55 +67,51 @@ export default function DotsPage() {
     const fetchDots = useCallback(async () => {
         setLoading(true);
         try {
-            let typeParam = '';
-            const categoryToPostType: Record<string, string> = {
-                lills: 'LILL',
-                fills: 'FILL',
-                auds: 'AUD',
-            };
+            let url = '/api/posts'; // Default fallback (e.g. for fills or generic)
 
-            let scope = 'public';
             if (activeCategory === 'bloom') {
-                scope = 'bloom';
-            } else if (categoryToPostType[activeCategory]) {
-                typeParam = `&type=${categoryToPostType[activeCategory]}`;
+                url = '/api/dots/bloom';
+            } else if (activeCategory === 'lills') {
+                url = '/api/dots/lills';
+            } else if (activeCategory === 'auds') {
+                url = '/api/dots/auds';
+            } else if (activeCategory === 'fills') {
+                url = '/api/posts?type=FILL&scope=public';
             }
 
-            const res = await fetch(`/api/posts?scope=${scope}${typeParam}`);
+            const res = await fetch(url);
             if (!res.ok) throw new Error('Failed to fetch posts');
             const data = await res.json();
 
-            const formattedDots: DotData[] = data.map((post: any) => {
+            // Handle different response structures
+            const rawPosts = data.posts || data;
+
+            const formattedDots: DotData[] = rawPosts.map((post: any) => {
                 let mediaUrl = '';
                 let mediaType: 'video' | 'image' | 'audio' = 'image';
 
-                if (post.lillData?.videoUrl) {
+                // Prioritize Media Relation (consistently R2/Cloudflare)
+                if (post.media && post.media.length > 0) {
+                    mediaUrl = post.media[0].url;
+                    const type = post.media[0].type;
+                    if (type === 'VIDEO') mediaType = 'video';
+                    else if (type === 'AUDIO') mediaType = 'audio';
+                    else mediaType = 'image';
+                }
+                // Fallbacks for legacy/specific data structures
+                else if (post.lillData?.videoUrl) {
                     mediaUrl = post.lillData.videoUrl;
                     mediaType = 'video';
                 } else if (post.fillData?.videoUrl) {
                     mediaUrl = post.fillData.videoUrl;
                     mediaType = 'video';
-                } else if (post.xrayData?.topLayerUrl) {
-                    mediaUrl = post.xrayData.topLayerUrl;
-                    mediaType = 'image';
                 } else if (post.audData?.audioUrl) {
-                    mediaUrl = post.audData.coverImageUrl || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800';
+                    mediaUrl = post.audData.audioUrl; // Fix: was coverImageUrl
                     mediaType = 'audio';
-                } else if (post.simpleData?.mediaUrls) {
-                    try {
-                        const urls = JSON.parse(post.simpleData.mediaUrls);
-                        const types = JSON.parse(post.simpleData.mediaTypes);
-                        if (urls && urls.length > 0) {
-                            mediaUrl = urls[0];
-                            mediaType = types[0] === 'VIDEO' ? 'video' : 'image';
-                        }
-                    } catch (e) { }
-                } else if (post.media?.[0]?.url) {
-                    mediaUrl = post.media[0].url;
-                    mediaType = post.media[0].type === 'VIDEO' ? 'video' : 'image';
                 }
 
                 if (!mediaUrl) {
+                    // Placeholder if absolutely nothing found
                     mediaUrl = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800';
                 }
 
@@ -129,8 +125,8 @@ export default function DotsPage() {
                     userId: post.user?.id,
                     avatar: post.user?.profile?.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${post.user?.id}`,
                     description: post.content || '',
-                    likes: post.likes || 0,
-                    comments: post.comments || 0,
+                    likes: post._count?.likes ?? post.likes ?? 0,
+                    comments: post._count?.comments ?? post.comments ?? 0,
                     mediaUrl,
                     mediaType,
                     category: (post.postType || 'MIX').toLowerCase(),
@@ -144,6 +140,7 @@ export default function DotsPage() {
             setDots(formattedDots);
         } catch (error) {
             console.error('Error loading dots:', error);
+            setDots([]);
         } finally {
             setLoading(false);
         }
@@ -276,12 +273,7 @@ export default function DotsPage() {
                         </div>
 
                         <div className="flex items-center gap-2">
-                            <button className="p-2 hover:bg-white/10 rounded-full transition-colors">
-                                <VideoIcon size={24} />
-                            </button>
-                            <button className="p-2 hover:bg-white/10 rounded-full transition-colors">
-                                <Bell size={24} />
-                            </button>
+                            {/* Icons removed as requested */}
                             <button className="p-1 ml-2">
                                 <img src={session?.user?.image || "https://github.com/shadcn.png"} className="w-8 h-8 rounded-full" />
                             </button>
@@ -299,9 +291,7 @@ export default function DotsPage() {
                                 </button>
                                 <h1 className="text-2xl font-bold">Dots</h1>
                             </div>
-                            <button onClick={() => setShowCategories(!showCategories)} className="p-2 bg-white/10 rounded-full">
-                                {showCategories ? <X size={20} /> : <DotIcon size={20} />}
-                            </button>
+                            {/* Categories Toggle Removed */}
                         </div>
                     </div>
                 )}

@@ -2,10 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import GalaxyScene from '@/components/Explore/GalaxyScene';
 import { SearchOverlay } from '@/components/Explore/SearchOverlay';
 import { PostDetailModal } from '@/components/Explore/PostDetailModal';
+import SlashesTab from '@/components/Explore/SlashesTab';
 import { DUMMY_PUDS, DUMMY_CHANS } from './dummyData';
 
 interface Post {
@@ -142,11 +144,11 @@ export default function ExplorePage() {
       </div>
 
       {/* Search Overlay */}
-      <SearchOverlay />
+      {activeGlobe !== 'Slashes' && <SearchOverlay />}
 
       {/* Globe Selector Tabs */}
       <div className="absolute top-24 left-1/2 transform -translate-x-1/2 z-20 flex gap-2 overflow-x-auto max-w-full px-4 pb-2 no-scrollbar">
-        {['Posts', 'Chans', 'Auds', 'Chaptes', 'X Rays', 'Puds'].map((tab) => (
+        {['Posts', 'Slashes', 'Chans', 'Auds', 'Chaptes', 'X Rays', 'Puds'].map((tab) => (
           <button
             key={tab}
             onClick={() => { setActiveGlobe(tab); setSelectedPost(null); }}
@@ -160,23 +162,27 @@ export default function ExplorePage() {
         ))}
       </div>
 
-      {/* Galaxy Scene (Single Globe View) */}
-      <GalaxyScene
-        activeGlobe={activeGlobe}
-        posts={posts}
-        chans={chans}
-        lils={lils}
-        fills={fills}
-        auds={auds}
-        chaptes={chaptes}
-        xrays={xrays}
-        puds={puds}
-        onPostClick={handlePostClick}
-        showLines={showLines}
-      />
+      {/* Galaxy Scene or Slashes Tab */}
+      {activeGlobe === 'Slashes' ? (
+        <SlashesTab />
+      ) : (
+        <GalaxyScene
+          activeGlobe={activeGlobe}
+          posts={posts}
+          chans={chans}
+          lils={lils}
+          fills={fills}
+          auds={auds}
+          chaptes={chaptes}
+          xrays={xrays}
+          puds={puds}
+          onPostClick={handlePostClick}
+          showLines={showLines}
+        />
+      )}
 
-      {/* Controls - Hide for Chans, Fills, Puds */}
-      {!['Chans', 'Puds'].includes(activeGlobe) && (
+      {/* Controls - Hide for Chans, Fills, Puds, Slashes */}
+      {!['Chans', 'Puds', 'Slashes'].includes(activeGlobe) && (
         <div className="absolute bottom-8 right-8 z-10 flex flex-col gap-4">
           <button
             onClick={() => setShowLines(!showLines)}
