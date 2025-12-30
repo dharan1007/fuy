@@ -84,6 +84,8 @@ const DUMMY_CHANS = [
 ];
 
 export default function ChanCarousel({ chans, onPostClick }: ChanCarouselProps) {
+    const [activeIndex, setActiveIndex] = useState(0);
+    const [activeFilter, setActiveFilter] = useState('all');
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
     // Only use chans that actually have chanData
