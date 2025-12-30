@@ -105,9 +105,13 @@ export default function SignupPage() {
       });
 
       if (signInError) {
-        // Should verify infrequent, but if it happens, redirect to login
-        router.push("/login?message=Account created. Please log in.");
+        console.error("Auto sign-in error:", signInError);
+        setError("Account created! But auto-login failed: " + signInError.message + ". Please try signing in manually.");
+        setLoading(false);
       } else {
+        // Wait for session to propagate
+        await new Promise(resolve => setTimeout(resolve, 500));
+        router.refresh();
         router.push("/profile/setup");
       }
 

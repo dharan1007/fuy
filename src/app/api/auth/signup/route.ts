@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { prisma } from "@/lib/prisma";
 import CryptoJS from "crypto-js";
 
 const SECRET = process.env.SUPABASE_SERVICE_ROLE || "fallback-secret-key-change-this-in-prod";
@@ -57,8 +58,7 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Incorrect CAPTCHA code" }, { status: 400 });
         }
 
-        // 5. Create User
-        // Using admin to auto-confirm email if desired, or standard signup with admin perms
+        // 5. Create User in Supabase
         const { data, error } = await supabaseAdmin.auth.admin.createUser({
             email,
             password,
@@ -74,7 +74,50 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: error.message }, { status: 400 });
         }
 
+        // 6. Create User in Prisma (Sync DB)
+        try {
+            await prisma.user.create({
+                data: {
+                    id: data.user.id,
+                    email: data.user.email!,
+                    name: name
+                }
+            });
+            console.log(`[AUTH_SIGNUP] Prisma User created: ${data.user.id}`);
+        } catch (dbError: any) {
+            console.error("[AUTH_SIGNUP] Prisma creation failed:", dbError);
+
+            // Handle "Zombie User" scenario: Email exists in Prisma but not Supabase (since we just created it there)
+            if (dbError.code === 'P2002' && dbError.meta?.target?.includes('email')) {
+                console.warn(`[AUTH_SIGNUP] Zombie user detected for email ${email}. Cleaning up...`);
+                try {
+                    // Delete the old record causing the conflict
+                    await prisma.user.delete({ where: { email } });
+
+                    // Retry creation with new ID
+                    await prisma.user.create({
+                        data: {
+                            id: data.user.id,
+                            email: data.user.email!,
+                            name: name
+                        }
+                    });
+                    console.log(`[AUTH_SIGNUP] Prisma User created after cleanup: ${data.user.id}`);
+                } catch (retryError) {
+                    console.error("[AUTH_SIGNUP] Failed to cleanup/retry user creation:", retryError);
+                }
+            }
+        }
+
+
+
         // Successful creation
+        console.log(`[AUTH_SIGNUP] User created: ${data.user.id} | Confirmed: ${data.user.email_confirmed_at}`);
+
+        if (!data.user.email_confirmed_at) {
+            console.warn("[AUTH_SIGNUP] WARNING: User created but NOT confirmed despite email_confirm: true");
+        }
+
         return NextResponse.json({
             success: true,
             user: { email: data.user.email, id: data.user.id }

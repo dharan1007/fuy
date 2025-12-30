@@ -33,7 +33,8 @@ export default function AppHeader({ title, showBackButton = false, showSettingsA
 
       if (res.status === 401) {
         // Session is invalid (e.g. user deleted from DB), log out to fix state
-        await signOut({ callbackUrl: "/login" });
+        console.warn("AppHeader: 401 from notifications, but NOT signing out to avoid loops.");
+        // await signOut({ callbackUrl: "/login" });
         return;
       }
 

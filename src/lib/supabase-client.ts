@@ -9,14 +9,12 @@ if (!url || !anonKey) {
 }
 
 export const supabase = createBrowserClient(url, anonKey, {
-  // auth: {
-  //   flowType: 'implicit',
-  // },
-  // cookieOptions: {
-  //   name: 'sb-auth-token',
-  //   sameSite: 'lax',
-  //   path: '/',
-  // }
+  auth: {
+    flowType: 'pkce',
+    detectSessionInUrl: true,
+    persistSession: true,
+    autoRefreshToken: true,
+  },
 });
 
 export type RealtimeChannel = ReturnType<typeof supabase.channel>;

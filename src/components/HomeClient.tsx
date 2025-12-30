@@ -106,8 +106,9 @@ export default function HomeClient({ isAdmin = false }: { isAdmin?: boolean }) {
         try {
             const response = await fetch('/api/profile');
             if (response.status === 401) {
-                await signOut({ callbackUrl: '/login' });
-                return;
+                console.error("HomeClient: 401 from profile, but NOT signing out for debug.");
+                // await signOut({ callbackUrl: '/login' });
+                // return;
             }
             if (response.status === 404) {
                 // Profile not found - redirect to setup
