@@ -109,6 +109,11 @@ export default function HomeClient({ isAdmin = false }: { isAdmin?: boolean }) {
                 await signOut({ callbackUrl: '/login' });
                 return;
             }
+            if (response.status === 404) {
+                // Profile not found - redirect to setup
+                window.location.href = '/profile/setup';
+                return;
+            }
             if (response.ok) {
                 const data = await response.json();
                 setUserProfile(data);

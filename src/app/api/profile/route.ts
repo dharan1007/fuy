@@ -102,7 +102,7 @@ export async function GET() {
     }
     if (e?.message === "USER_NOT_FOUND") {
       console.error("[PROFILE_DEBUG] User Not Found: Session exists but user not in DB.");
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+      return NextResponse.json({ error: "Profile not found", code: "PROFILE_NOT_FOUND" }, { status: 404 });
     }
     return NextResponse.json({ error: e?.message ?? "Failed to load profile" }, { status: 500, headers: { "Cache-Control": "no-store, max-age=0" } });
   }
