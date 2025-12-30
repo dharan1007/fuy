@@ -14,11 +14,16 @@ async function uploadToStorage(userId: string, kind: "avatar" | "cover" | "stalk
   const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
   const path = `${userId}/${kind}-${Date.now()}.${ext}`;
 
+  console.log(`[PROFILE_PUT] Uploading file to ${path} (User: ${userId})`);
   const { error } = await supabaseAdmin.storage.from(BUCKET).upload(path, bytes, {
     contentType: file.type,
     upsert: true,
   });
-  if (error) throw new Error(`Upload failed: ${error.message}`);
+  if (error) {
+    console.error(`[PROFILE_PUT] Upload failed for ${path}:`, error);
+    throw new Error(`Upload failed: ${error.message}`);
+  }
+  console.log(`[PROFILE_PUT] Upload success: ${path}`);
 
   return supabaseAdmin.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
 }

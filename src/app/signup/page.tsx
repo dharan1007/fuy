@@ -17,18 +17,32 @@ export default function SignupPage() {
     email: "",
     password: "",
     confirmPassword: "",
+    captchaAnswer: "",
+    _gotcha: "", // Honeypot
   });
+  const [captchaData, setCaptchaData] = useState<{ image: string, token: string } | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [loadingMessage, setLoadingMessage] = useState("Creating your account...");
-  const [success, setSuccess] = useState(false);
 
-  // Force black background for starfield
+  const refreshCaptcha = async () => {
+    try {
+      const res = await fetch("/api/auth/captcha");
+      if (res.ok) {
+        const data = await res.json();
+        setCaptchaData(data);
+      }
+    } catch (e) {
+      console.error("Failed to load captcha", e);
+    }
+  };
+
   useEffect(() => {
     const originalBg = document.body.style.background;
     document.body.style.background = '#000000';
+    refreshCaptcha();
     return () => {
       document.body.style.background = originalBg;
     };
@@ -54,57 +68,54 @@ export default function SignupPage() {
       return;
     }
 
+    if (!formData.captchaAnswer) {
+      setError("Please enter the security code");
+      return;
+    }
+
     setLoading(true);
-    setLoadingMessage("Creating your account...");
+    setLoadingMessage("Verifying security...");
 
     try {
-      // Create supabase account
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email: formData.email.toLowerCase(),
-        password: formData.password,
-        options: {
-          data: {
-            name: formData.name,
-            displayName: formData.name,
-          },
-          emailRedirectTo: `${window.location.origin}/auth/verify`,
-        },
+      // 1. Create Account via Server API (Verify CAPTCHA)
+      const res = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+          captchaAnswer: formData.captchaAnswer,
+          captchaToken: captchaData?.token,
+          _gotcha: formData._gotcha
+        })
       });
 
-      if (signUpError) {
-        setError(signUpError.message);
-        setLoading(false);
-        return;
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Signup failed");
       }
 
-      if (data.user) {
-        // Check if session exists (auto-confirm enabled) or if email confirmation is required
-        if (data.session) {
-          // User is signed in
-          setLoadingMessage("Signing you in...");
-          router.push("/profile/setup");
-        } else {
-          // Email confirmation required
-          // We can redirect to a "check email" page or show a success state
-          // For now, let's reuse the loading/error state to show success message or simple alert
-          setLoading(false);
-          // Use a specific "success" blocking state if desired, or just alert?
-          // Let's replace the form with a success message similar to JoinPage
-          setError(""); // Clear error
-          // We'll treat this state as "sent"
-          // But this component logic structure is a bit rigid. 
-          // Let's just alert for now or redirect to join/verify?
-          // Actually, simplest is to redirect to login with a message?
-          // Or better:
-          alert("Account created! Please check your email to confirm.");
-          router.push("/login");
-        }
+      // 2. Account created successfully. Now sign in automatically.
+      setLoadingMessage(" signing you in...");
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password,
+      });
+
+      if (signInError) {
+        // Should verify infrequent, but if it happens, redirect to login
+        router.push("/login?message=Account created. Please log in.");
+      } else {
+        router.push("/profile/setup");
       }
 
     } catch (err: any) {
       console.error("Signup error:", err);
-      setError("Something went wrong. Please try again.");
+      setError(err.message || "Something went wrong. Please try again.");
       setLoading(false);
+      refreshCaptcha(); // Refresh on error so token timestamp stays fresh/valid for next try
     }
   }
 
@@ -311,6 +322,53 @@ export default function SignupPage() {
                       >
                         {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                       </button>
+                    </div>
+                  </div>
+
+                  {/* Honeypot Field (Hidden) */}
+                  <div style={{ display: 'none', position: 'absolute', left: '-9999px' }}>
+                    <label htmlFor="_gotcha">Do not fill this field</label>
+                    <input
+                      type="text"
+                      id="_gotcha"
+                      name="_gotcha"
+                      tabIndex={-1}
+                      autoComplete="off"
+                      value={formData._gotcha}
+                      onChange={(e) => setFormData({ ...formData, _gotcha: e.target.value })}
+                    />
+                  </div>
+
+                  {/* CAPTCHA Section */}
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-200">
+                      Security Check
+                    </label>
+                    <div className="bg-black/30 border border-white/10 rounded-lg p-3 flex flex-col gap-3">
+                      {captchaData ? (
+                        <div className="relative w-full h-20 bg-[#111] rounded overflow-hidden select-none flex items-center justify-center">
+                          <img src={captchaData.image} alt="Security Code" className="w-full h-full object-contain pointer-events-none" />
+                          <button
+                            type="button"
+                            onClick={refreshCaptcha}
+                            className="absolute right-2 top-2 text-white/50 hover:text-white p-1 rounded-full bg-black/50"
+                            title="Refresh Image"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="w-full h-20 bg-white/5 animate-pulse rounded"></div>
+                      )}
+                      <input
+                        type="text"
+                        required
+                        value={formData.captchaAnswer}
+                        onChange={(e) => setFormData({ ...formData, captchaAnswer: e.target.value })}
+                        className="w-full px-4 py-2 bg-white/10 border border-white/20 text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-gray-500 focus:outline-none font-mono tracking-widest text-center uppercase"
+                        placeholder="ENTER CODE"
+                        autoComplete="off"
+                      />
                     </div>
                   </div>
 
