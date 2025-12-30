@@ -468,19 +468,82 @@ export default function JournalEditor() {
   };
 
   const saveEntry = async () => {
+    // SYNC TODOs
+    const currentBlocks = [...sheets[0]?.blocks || []]; // Currently only syncing first sheet for simplicity/safety
+    let blocksUpdated = false;
+
+    // We iterate backwards or just loop safely. We're modifying objects in place if we're careful, or replacing.
+    // Let's create a deep clone or just be careful. 
+    // Actually `blocks` is state, so we should treat it immutable if we call setSheets, 
+    // but here we are preparing data for the Save Payload first. But we ALSO want to update the local state with the new todoIds.
+
+    for (const b of currentBlocks) {
+      if (b.type === "CHECKLIST" && b.checklist) {
+        const newItems = [...b.checklist];
+        let itemChanged = false;
+
+        for (let i = 0; i < newItems.length; i++) {
+          const item = newItems[i];
+          if (!item.text.trim()) continue;
+
+          if (!item.todoId) {
+            // Create new Todo
+            try {
+              const res = await fetch('/api/todos', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: item.text, priority: 'MEDIUM' })
+              });
+              if (res.ok) {
+                const todo = await res.json();
+                newItems[i] = { ...item, todoId: todo.id };
+                itemChanged = true;
+                blocksUpdated = true;
+              }
+            } catch (e) {
+              console.error("Sync create failed", e);
+            }
+          } else {
+            // Update existing Todo
+            try {
+              await fetch('/api/todos', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  id: item.todoId,
+                  status: item.done ? 'COMPLETED' : 'PENDING',
+                  title: item.text
+                })
+              });
+            } catch (e) {
+              console.error("Sync update failed", e);
+            }
+          }
+        }
+        if (itemChanged) {
+          b.checklist = newItems;
+        }
+      }
+    }
+
+    // If we got new IDs, update the local state so the visible UI has them too (and future saves use them)
+    if (blocksUpdated) {
+      updateBlocks(currentBlocks);
+    }
+
     const id = uid(); // Always create new snapshot for now to match previous behavior
     const dateISO = selectedDate.toISOString();
-    const computed = analyzeEntryForTags(pickSummary(blocks));
+    const computed = analyzeEntryForTags(pickSummary(currentBlocks));
 
     const entryData = {
       id,
       title,
       dateISO,
-      coverUrl: blocks.find((b) => b.type === "IMAGE")?.url,
+      coverUrl: currentBlocks.find((b) => b.type === "IMAGE")?.url,
       mood,
       tags: Array.from(new Set([...(tags ?? []), ...(computed.tags ?? [])])).slice(0, 12),
-      sheets,
-      blocks: sheets[0]?.blocks || [], // Fallback for schema
+      sheets: [{ ...sheets[0], blocks: currentBlocks }, ...sheets.slice(1)], // Update first sheet blocks
+      blocks: currentBlocks, // Fallback for schema
       summary: computed.summary,
       sensations: [],
     };
@@ -499,7 +562,9 @@ export default function JournalEditor() {
           const listData = await listRes.json();
           setEntries(listData.entries);
         }
-        alert("Saved");
+        // Refresh sidebar todos
+        fetchTodos();
+        alert("Saved & Synced");
       }
     } catch (e) {
       console.error("Failed to save", e);

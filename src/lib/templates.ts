@@ -16,7 +16,7 @@ export type Block = {
   w: number;
   h: number;
   editor?: EditorKind;
-  checklist?: { id: string; text: string; done: boolean }[];
+  checklist?: { id: string; text: string; done: boolean; todoId?: string }[];
   drawing?: {
     paths: { points: [number, number][]; stroke?: string; strokeWidth?: number }[];
     stroke: string;

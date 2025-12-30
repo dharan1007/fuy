@@ -176,9 +176,29 @@ function MessagesPageContent() {
         }
     }, [conversations, createOrGetConversation, fetchMessages]);
 
+    const [customTagInput, setCustomTagInput] = useState('');
+    const [warningTag, setWarningTag] = useState<{ tag: string, snippet: string } | null>(null);
+
     const handleMessageInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
         setMessageInput(value);
+
+        // Smart Warning Logic
+        if (value.trim().length > 5 && selectedConversationId && messages[selectedConversationId]) {
+            const relevantMsg = messages[selectedConversationId].find(m =>
+                m.tags && m.tags.length > 0 &&
+                (m.content.toLowerCase().includes(value.toLowerCase()) || value.toLowerCase().includes(m.content.toLowerCase())) &&
+                Math.abs(m.content.length - value.length) < 50 // Simple proximity check to avoid matching everything if user types "the"
+            );
+
+            if (relevantMsg && relevantMsg.tags) {
+                setWarningTag({ tag: relevantMsg.tags[0], snippet: relevantMsg.content.substring(0, 20) + '...' });
+            } else {
+                setWarningTag(null);
+            }
+        } else {
+            setWarningTag(null);
+        }
 
         if (value.trim().length > 0 && selectedConversationId) {
             startTyping(selectedConversationId);
@@ -189,7 +209,7 @@ function MessagesPageContent() {
             if (typingTimeout) clearTimeout(typingTimeout);
             if (selectedConversationId) stopTyping(selectedConversationId);
         }
-    }, [selectedConversationId, startTyping, stopTyping, typingTimeout]);
+    }, [selectedConversationId, startTyping, stopTyping, typingTimeout, messages]);
 
     const selectedConversation = conversations.find((c) => c.id === selectedConversationId);
 
@@ -352,66 +372,113 @@ function MessagesPageContent() {
                         <div className={styles.messagesList} style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                             {(messages[selectedConversationId!] || []).map((msg, i) => {
                                 const isMe = msg.senderId === userId;
-                                const showAvatar = !isMe && (i === 0 || (messages[selectedConversationId!] || [])[i - 1].senderId !== msg.senderId);
+                                // Always show avatar for other person if it exists, or improve logic (User requested: "profile circle icons should be shown")
+                                // Let's show it always for clarity or if it's the start of a block.
+                                // The user said "profile circle icons should be shown in the message page side of the users" - likely meaning standard chat UI.
+                                // We will show it if !isMe.
+                                const showAvatar = !isMe;
                                 const isMenuOpen = activeMessageMenuId === msg.id;
+                                const tagColorClass = msg.tags?.[0] ? getTagColor(msg.tags[0]) : '';
 
                                 return (
                                     <div
                                         key={msg.id}
                                         className={`flex ${isMe ? 'justify-end' : 'justify-start'} items-end gap-2 group relative`}
-                                        onContextMenu={(e) => {
-                                            e.preventDefault();
-                                            setActiveMessageMenuId(msg.id);
-                                        }}
+                                        onMouseLeave={() => isMenuOpen && setActiveMessageMenuId(null)} // Auto close if mouse leaves the whole block? Maybe just leaving the menu area.
                                     >
                                         {!isMe && (
-                                            <div className="w-8 h-8 rounded-full bg-gray-700 flex-shrink-0 overflow-hidden">
-                                                {showAvatar && (selectedConversation.avatar ? <img src={selectedConversation.avatar} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-xs">{selectedConversation.participantName[0]}</div>)}
-                                            </div>
-                                        )}
-                                        <div
-                                            className={`max-w-[70%] p-3 rounded-2xl text-sm relative ${isMe
-                                                ? 'bg-blue-600 text-white rounded-tr-none'
-                                                : `text-white rounded-tl-none border ${getTagColor(msg.tags?.[0] || 'default')}`
-                                                } transition-all duration-200 cursor-pointer`}
-                                            onClick={() => setActiveMessageMenuId(null)}
-                                        >
-                                            {msg.content}
-                                            <div className="text-[10px] opacity-50 text-right mt-1 flex gap-1 justify-end items-center">
-                                                {formatTime(msg.timestamp)}
-                                                {isMe && (
-                                                    <span>{msg.status === 'sending' ? '🕒' : msg.read ? '✓✓' : '✓'}</span>
+                                            <div className="w-8 h-8 rounded-full bg-gray-700 flex-shrink-0 overflow-hidden mb-1">
+                                                {selectedConversation.avatar ? (
+                                                    <img src={selectedConversation.avatar} className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center text-xs">
+                                                        {selectedConversation.participantName[0]}
+                                                    </div>
                                                 )}
                                             </div>
-                                            {/* Tag visual indicator */}
-                                            {msg.tags && msg.tags.length > 0 && (
-                                                <div className="absolute -top-2 right-2 px-1.5 py-0.5 bg-black/60 rounded text-[9px] uppercase tracking-wider border border-white/20 shadow-sm backdrop-blur-sm">
-                                                    {msg.tags[0]}
+                                        )}
+
+                                        {/* Message Bubble Container */}
+                                        <div className="relative group/bubble flex items-center gap-2 max-w-[70%]">
+                                            {/* 3 Dots Menu Trigger (Left for Me, Right for Others) */}
+                                            {isMe && (
+                                                <button
+                                                    className="opacity-0 group-hover/bubble:opacity-100 p-1 text-white/50 hover:text-white transition-opacity"
+                                                    onClick={(e) => { e.stopPropagation(); setActiveMessageMenuId(activeMessageMenuId === msg.id ? null : msg.id); }}
+                                                >
+                                                    <MoreVertical size={16} />
+                                                </button>
+                                            )}
+
+                                            <div
+                                                className={`p-3 rounded-2xl text-sm relative ${tagColorClass || (isMe ? 'bg-blue-600 text-white rounded-tr-none' : 'text-white rounded-tl-none border bg-white/10 border-white/20')
+                                                    } transition-all duration-200 cursor-pointer shadow-sm`}
+                                            // Removed global onClick clear
+                                            >
+                                                {msg.content}
+                                                <div className={`text-[10px] opacity-60 text-right mt-1 flex gap-1 justify-end items-center ${tagColorClass && tagColorClass.includes('text-black') ? 'text-black/60' : ''}`}>
+                                                    {formatTime(msg.timestamp)}
+                                                    {isMe && (
+                                                        <span>{msg.status === 'sending' ? '🕒' : msg.read ? '✓✓' : '✓'}</span>
+                                                    )}
                                                 </div>
+                                            </div>
+
+                                            {/* 3 Dots Menu Trigger (Right for Others) */}
+                                            {!isMe && (
+                                                <button
+                                                    className="opacity-0 group-hover/bubble:opacity-100 p-1 text-white/50 hover:text-white transition-opacity"
+                                                    onClick={(e) => { e.stopPropagation(); setActiveMessageMenuId(activeMessageMenuId === msg.id ? null : msg.id); }}
+                                                >
+                                                    <MoreVertical size={16} />
+                                                </button>
                                             )}
                                         </div>
 
                                         {/* Message Context Menu */}
                                         {isMenuOpen && (
                                             <div
-                                                className="absolute z-50 bg-black/90 border border-white/10 rounded-lg shadow-xl p-1 min-w-[120px] backdrop-blur-md"
-                                                style={{ top: '100%', [isMe ? 'right' : 'left']: 0 }}
-                                                onClick={(e) => e.stopPropagation()}
+                                                className="absolute z-50 bg-black/95 border border-white/20 rounded-lg shadow-xl p-1 min-w-[140px] backdrop-blur-md"
+                                                style={{
+                                                    bottom: '100%',
+                                                    [isMe ? 'right' : 'left']: '40px',
+                                                    marginBottom: '5px'
+                                                }}
+                                                onMouseLeave={() => setActiveMessageMenuId(null)}
                                             >
-                                                <div className="text-[10px] uppercase text-white/50 px-2 py-1 font-bold">Tag Message</div>
-                                                {['Urgent', 'Fun', 'Work', 'Idea'].map(tag => (
+                                                <div className="text-[10px] uppercase text-white/50 px-2 py-1 font-bold border-b border-white/10 mb-1">Tag As</div>
+                                                {['Angry', 'Sad', 'Joy', 'Surprised', 'Reminders'].map(tag => (
                                                     <button
                                                         key={tag}
-                                                        onClick={() => {
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
                                                             handleTagMessage(msg.id, tag);
                                                             setActiveMessageMenuId(null);
                                                         }}
                                                         className="w-full text-left px-2 py-1.5 text-xs text-white hover:bg-white/10 rounded flex items-center gap-2"
                                                     >
-                                                        <div className={`w-2 h-2 rounded-full ${getTagColor(tag).split(' ')[0].replace('/20', '')}`} />
+                                                        {/* Color Dot */}
+                                                        <div className={`w-2 h-2 rounded-full ${getTagColor(tag).split(' ')[0]}`} />
                                                         {tag}
                                                     </button>
                                                 ))}
+                                                {/* Custom Tag Input */}
+                                                <div className="px-2 py-1 border-t border-white/10 mt-1">
+                                                    <input
+                                                        className="w-full bg-white/5 border border-white/10 rounded px-1 py-0.5 text-xs text-white placeholder-white/30 mb-1"
+                                                        placeholder="Custom..."
+                                                        value={customTagInput}
+                                                        onClick={(e) => e.stopPropagation()}
+                                                        onChange={(e) => setCustomTagInput(e.target.value)}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter' && customTagInput.trim()) {
+                                                                handleTagMessage(msg.id, customTagInput.trim());
+                                                                setCustomTagInput('');
+                                                                setActiveMessageMenuId(null);
+                                                            }
+                                                        }}
+                                                    />
+                                                </div>
                                             </div>
                                         )}
                                     </div>
@@ -432,8 +499,15 @@ function MessagesPageContent() {
                             <div ref={messagesEndRef} />
                         </div>
 
-                        {/* Input */}
-                        <div className={styles.inputArea}>
+                        {/* Input Area with Warning */}
+                        <div className={styles.inputArea} style={{ position: 'relative' }}>
+                            {/* Smart Warning Popover */}
+                            {warningTag && (
+                                <div className="absolute bottom-full left-4 mb-2 bg-yellow-500/10 border border-yellow-500/50 text-yellow-200 px-3 py-1.5 rounded-lg text-xs flex items-center gap-2 animate-in slide-in-from-bottom-2 fade-in">
+                                    <span>⚠️ Similar to <b>{warningTag.tag}</b> message: "{warningTag.snippet}"</span>
+                                    <button onClick={() => setWarningTag(null)} className="ml-2 opacity-50 hover:opacity-100">×</button>
+                                </div>
+                            )}
                             <input
                                 value={messageInput}
                                 onChange={handleMessageInputChange}

@@ -84,8 +84,7 @@ const DUMMY_CHANS = [
 ];
 
 export default function ChanCarousel({ chans, onPostClick }: ChanCarouselProps) {
-    const [activeIndex, setActiveIndex] = useState(0);
-    const [activeFilter, setActiveFilter] = useState('all');
+    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
     // Only use chans that actually have chanData
     const incomingChans = chans.filter(p => p.chanData || p.feature === 'CHAN');
@@ -109,15 +108,25 @@ export default function ChanCarousel({ chans, onPostClick }: ChanCarouselProps) 
 
     return (
         <div className="absolute inset-0 z-10 flex pointer-events-auto">
+            {/* Sidebar Toggle Button */}
+            <button
+                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                className={`absolute top-32 left-8 z-50 p-2 rounded-full backdrop-blur-md border border-white/20 text-white hover:bg-white/10 transition-all duration-300 ${isSidebarOpen ? 'bg-white/10' : 'bg-black/50'}`}
+                title={isSidebarOpen ? "Collapse Sidebar" : "Expand Sidebar"}
+            >
+                {isSidebarOpen ? <ChevronLeft className="w-5 h-5" /> : <div className="w-5 h-5 flex flex-col justify-center gap-1"><div className="h-0.5 bg-white w-full" /><div className="h-0.5 bg-white w-full" /><div className="h-0.5 bg-white w-full" /></div>}
+            </button>
+
             {/* Left Sidebar - Filters */}
-            <div className="w-64 h-full pt-48 pb-8 pl-8 flex flex-col z-20 overflow-y-auto no-scrollbar hidden xl:flex">
-                <h3 className="text-white/40 text-xs font-bold uppercase tracking-wider mb-6 pl-4">Discover</h3>
-                <div className="flex flex-col gap-2">
+            <div className={`h-full pt-48 pb-8 pl-8 flex flex-col z-20 overflow-y-auto no-scrollbar hidden xl:flex transition-all duration-300 ease-in-out ${isSidebarOpen ? 'w-64 opacity-100 translate-x-0' : 'w-0 opacity-0 -translate-x-10 pointer-events-none'
+                }`}>
+                <h3 className="text-white/40 text-xs font-bold uppercase tracking-wider mb-6 pl-4 whitespace-nowrap">Discover</h3>
+                <div className="flex flex-col gap-2 min-w-[200px]">
                     {FILTERS.map(filter => (
                         <button
                             key={filter.id}
                             onClick={() => setActiveFilter(filter.id)}
-                            className={`px-4 py-3 rounded-xl text-left text-sm font-medium transition-all duration-300 flex items-center justify-between group ${activeFilter === filter.id
+                            className={`px-4 py-3 rounded-xl text-left text-sm font-medium transition-all duration-300 flex items-center justify-between group whitespace-nowrap ${activeFilter === filter.id
                                 ? 'bg-white text-black shadow-lg shadow-white/10 scale-105'
                                 : 'text-white/60 hover:bg-white/5 hover:text-white'
                                 }`}
