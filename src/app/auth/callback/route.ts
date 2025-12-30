@@ -38,11 +38,11 @@ export async function GET(request: NextRequest) {
                         }
                     },
                 },
-                cookieOptions: {
-                    name: 'sb-auth-token',
-                    sameSite: 'lax',
-                    path: '/',
-                }
+                // cookieOptions: {
+                //     name: 'sb-auth-token',
+                //     sameSite: 'lax',
+                //     path: '/',
+                // }
             }
         );
 
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
         if (error) {
             console.error("Auth Callback Error: Exchange failed. Code:", code);
             console.error("Supabase Error Details:", error);
-            console.error("DEBUG: Available Cookies:", cookieStore.getAll().map(c => c.name).join(', '));
+            console.error("DEBUG: Available Cookies:", request.cookies.getAll().map(c => c.name).join(', '));
         } else {
             console.log("Auth Callback Success. User:", data?.session?.user?.email);
         }

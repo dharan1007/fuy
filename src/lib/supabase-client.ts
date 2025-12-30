@@ -12,11 +12,11 @@ export const supabase = createBrowserClient(url, anonKey, {
   // auth: {
   //   flowType: 'implicit',
   // },
-  cookieOptions: {
-    name: 'sb-auth-token',
-    sameSite: 'lax',
-    path: '/',
-  }
+  // cookieOptions: {
+  //   name: 'sb-auth-token',
+  //   sameSite: 'lax',
+  //   path: '/',
+  // }
 });
 
 export type RealtimeChannel = ReturnType<typeof supabase.channel>;

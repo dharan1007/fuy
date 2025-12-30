@@ -24,11 +24,11 @@ export async function middleware(request: NextRequest) {
           })
         },
       },
-      cookieOptions: {
-        name: 'sb-auth-token',
-        sameSite: 'lax',
-        path: '/',
-      }
+      // cookieOptions: {
+      //   name: 'sb-auth-token',
+      //   sameSite: 'lax',
+      //   path: '/',
+      // }
     }
   )
 
