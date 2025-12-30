@@ -2,20 +2,29 @@
 "use client";
 
 import { supabase } from "@/lib/supabase-client";
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import ScrollStarfield from "@/components/ScrollStarfield";
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+
+  useEffect(() => {
+    const msg = searchParams.get("message");
+    if (msg) {
+      setSuccessMessage(msg);
+    }
+  }, [searchParams]);
 
   // Force black background for starfield
   useEffect(() => {
@@ -29,6 +38,7 @@ export default function LoginPage() {
   async function handlePasswordLogin(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    setSuccessMessage("");
     setLoading(true);
 
     try {
@@ -121,6 +131,12 @@ export default function LoginPage() {
                 </div>
               )}
 
+              {successMessage && (
+                <div className="bg-green-500/10 border border-green-500/30 text-green-200 px-4 py-3 rounded-lg text-sm backdrop-blur-sm">
+                  {successMessage}
+                </div>
+              )}
+
               <button
                 type="submit"
                 disabled={loading}
@@ -162,4 +178,13 @@ export default function LoginPage() {
       </div>
     </ScrollStarfield>
   );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoadingSpinner />}>
+      <LoginContent />
+    </Suspense>
+  )
+}
 }
