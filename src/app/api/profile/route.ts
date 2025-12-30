@@ -104,14 +104,34 @@ export async function GET() {
       console.error("[PROFILE_DEBUG] User Not Found: Session exists but user not in DB.");
       return NextResponse.json({ error: "Profile not found", code: "PROFILE_NOT_FOUND" }, { status: 404 });
     }
-    return NextResponse.json({ error: e?.message ?? "Failed to load profile" }, { status: 500, headers: { "Cache-Control": "no-store, max-age=0" } });
+    return NextResponse.json({ error: e?.message ?? "Failed to load profile", details: String(e) }, { status: 500, headers: { "Cache-Control": "no-store, max-age=0" } });
   }
 }
 
 // PUT /api/profile (multipart form: text + files)
 export async function PUT(req: Request) {
   try {
-    const userId = await requireUserId();
+    // 1. Get Session User directly (bypass DB check)
+    const sessionUser = await getSessionUser();
+    if (!sessionUser?.id) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    const userId = sessionUser.id;
+    const userEmail = sessionUser.email;
+
+    // 2. Ensure User exists in DB
+    const existingUser = await prisma.user.findUnique({ where: { id: userId } });
+    if (!existingUser) {
+      console.log(`[PROFILE_PUT] Creating new user record for ${userId}`);
+      if (!userEmail) {
+        return NextResponse.json({ error: "Email is required for new users" }, { status: 400 });
+      }
+      await prisma.user.create({
+        data: {
+          id: userId,
+          email: userEmail,
+          name: "New User", // Will be updated below
+        }
+      });
+    }
 
     const ct = req.headers.get("content-type") || "";
     if (!ct.includes("multipart/form-data")) {
