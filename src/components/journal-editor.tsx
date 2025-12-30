@@ -104,6 +104,59 @@ export default function JournalEditor() {
     fetchEntries();
   }, []);
 
+
+
+  // Todo State
+  const [todos, setTodos] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetchTodos();
+  }, []);
+
+  const fetchTodos = async () => {
+    try {
+      const res = await fetch('/api/todos');
+      if (res.ok) {
+        const data = await res.json();
+        setTodos(data.todos || []);
+      }
+    } catch (e) { console.error("Failed to load todos", e); }
+  };
+
+  const handleAddTodo = async (title: string) => {
+    try {
+      const res = await fetch('/api/todos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title })
+      });
+      if (res.ok) fetchTodos();
+    } catch (e) { console.error("Failed to add todo", e); }
+  };
+
+  const handleToggleTodo = async (id: string, status: string) => {
+    const newStatus = status === 'COMPLETED' ? 'PENDING' : 'COMPLETED';
+    setTodos(prev => prev.map(t => t.id === id ? { ...t, status: newStatus } : t));
+    try {
+      await fetch('/api/todos', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status: newStatus })
+      });
+    } catch (e) { console.error("Failed to toggle todo", e); }
+  };
+
+  const deleteTodo = async (id: string) => {
+    setTodos(prev => prev.filter(t => t.id !== id));
+    try {
+      await fetch('/api/todos', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+    } catch (e) { console.error("Failed to delete todo", e); }
+  };
+
   // Helper to get current sheet's blocks
   const currentSheet = sheets.find(s => s.id === activeSheetId) || sheets[0];
   const blocks = currentSheet?.blocks || [];
@@ -784,6 +837,49 @@ export default function JournalEditor() {
             placeholder="Search entries or tags…"
             className="w-full rounded-xl border border-black/20 bg-white px-3 py-2 text-sm outline-none"
           />
+        </div>
+
+        {/* TODO LIST PANEL */}
+        <div className="mx-3 mb-3 p-3 rounded-2xl border border-black/15 bg-white">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold text-black/70">TASKS</span>
+            <span className="text-[10px] text-black/50">Synced</span>
+          </div>
+          <div className="space-y-2 max-h-40 overflow-y-auto">
+            {/* @ts-ignore */}
+            {todos.map((todo) => (
+              <div key={todo.id} className="flex items-center gap-2 group cursor-pointer" onClick={() => handleToggleTodo(todo.id, todo.status)}>
+                <div className={`w-3 h-3 rounded-full border border-black/30 flex items-center justify-center ${todo.status === 'COMPLETED' ? 'bg-green-500 border-green-500' : ''}`}>
+                  {todo.status === 'COMPLETED' && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
+                </div>
+                <span className={`text-xs truncate transition-all ${todo.status === 'COMPLETED' ? 'text-black/40 line-through' : 'text-black/80 group-hover:text-black'}`}>
+                  {todo.title}
+                </span>
+                <button
+                  onClick={(e) => { e.stopPropagation(); deleteTodo(todo.id); }}
+                  className="ml-auto opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="mt-2 flex gap-1">
+            <input
+              className="flex-1 text-xs border-b border-black/20 focus:border-black outline-none bg-transparent"
+              placeholder="Add task..."
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  const val = (e.currentTarget as HTMLInputElement).value;
+                  if (val.trim()) {
+                    handleAddTodo(val);
+                    (e.currentTarget as HTMLInputElement).value = '';
+                  }
+                }
+              }}
+            />
+            <button className="text-black/50 hover:text-black"><Plus className="w-3 h-3" /></button>
+          </div>
         </div>
 
         {/* entries */}

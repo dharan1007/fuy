@@ -98,10 +98,31 @@ export default function HomeSidebarProfile({
 
   const fetchTodos = async () => {
     try {
-      // Placeholder for actual todos endpoint
-      setTodos([]);
+      const res = await fetch('/api/todos');
+      if (res.ok) {
+        const data = await res.json();
+        setTodos(data.todos || []);
+      }
     } catch (error) {
       console.error('Error fetching todos:', error);
+    }
+  };
+
+  const handleToggleTodo = async (id: string, currentStatus: string) => {
+    try {
+      const newStatus = currentStatus === 'COMPLETED' ? 'PENDING' : 'COMPLETED';
+      // Optimistic update
+      setTodos(prev => prev.map(t => t.id === id ? { ...t, status: newStatus } : t));
+
+      await fetch('/api/todos', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status: newStatus })
+      });
+    } catch (error) {
+      console.error('Error toggling todo:', error);
+      // Revert on error
+      fetchTodos();
     }
   };
 
@@ -188,33 +209,22 @@ export default function HomeSidebarProfile({
               <span className="text-xs font-bold text-white">TODO</span>
               <h4 className="font-semibold text-white text-sm">Tasks</h4>
             </div>
-            <div className="flex gap-1 flex-wrap justify-end max-w-[50%]">
-              <button
-                onClick={() => setTimePeriod('day')}
-                className={`px-1.5 py-0.5 text-[10px] rounded border ${timePeriod === 'day' ? 'bg-white/10 border-white text-white' : 'bg-transparent border-white/20 text-white/70 hover:bg-white/5'}`}
-              >
-                Day
-              </button>
-              <button
-                onClick={() => setTimePeriod('week')}
-                className={`px-1.5 py-0.5 text-[10px] rounded border ${timePeriod === 'week' ? 'bg-white/10 border-white text-white' : 'bg-transparent border-white/20 text-white/70 hover:bg-white/5'}`}
-              >
-                Week
-              </button>
-              <button
-                onClick={() => setTimePeriod('month')}
-                className={`px-1.5 py-0.5 text-[10px] rounded border ${timePeriod === 'month' ? 'bg-white/10 border-white text-white' : 'bg-transparent border-white/20 text-white/70 hover:bg-white/5'}`}
-              >
-                Month
-              </button>
-            </div>
+
           </div>
           {todos.length > 0 ? (
             <div className="space-y-2">
-              {todos.slice(0, 4).map((todo, i) => (
-                <div key={`${todo.id}-${i}`} className="text-xs text-white/80 truncate hover:text-white flex items-center gap-2">
-                  <span className="text-white/60">•</span>
-                  <span>{todo.title}</span>
+              {todos.slice(0, 5).map((todo, i) => (
+                <div
+                  key={`${todo.id}-${i}`}
+                  className="flex items-center gap-2 group cursor-pointer"
+                  onClick={() => handleToggleTodo(todo.id, todo.status)}
+                >
+                  <div className={`w-3 h-3 rounded-full border border-white/60 flex items-center justify-center ${todo.status === 'COMPLETED' ? 'bg-green-500 border-green-500' : ''}`}>
+                    {todo.status === 'COMPLETED' && <div className="w-1.5 h-1.5 bg-black rounded-full" />}
+                  </div>
+                  <span className={`text-xs truncate transition-all ${todo.status === 'COMPLETED' ? 'text-white/40 line-through' : 'text-white/80 group-hover:text-white'}`}>
+                    {todo.title}
+                  </span>
                 </div>
               ))}
             </div>
