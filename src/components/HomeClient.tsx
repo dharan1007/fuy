@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useSession, signOut } from '@/hooks/use-session';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Palette, Rocket, ShoppingBag, LayoutDashboard, Menu } from 'lucide-react';
+import { Palette, Rocket, ShoppingBag, LayoutDashboard, Menu, Globe } from 'lucide-react';
 import SearchModal from '@/components/SearchModal';
 
 import UserListModal from '@/components/UserListModal';
@@ -541,6 +541,16 @@ export default function HomeClient({ isAdmin = false }: { isAdmin?: boolean }) {
                     </Link>
 
 
+
+
+                    {/* Explore */}
+                    <Link
+                        href="/explore"
+                        className="text-white/80 hover:text-white transition-colors hover:scale-110 transform duration-200"
+                        title="Explore"
+                    >
+                        <Globe className="w-5 h-5" />
+                    </Link>
 
                     {/* Dots Feed */}
                     <Link
