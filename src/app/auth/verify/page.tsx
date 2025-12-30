@@ -59,7 +59,7 @@ function VerifyContent() {
                     } else {
                         console.log("Implicit verification success:", data.user?.email);
                         setStatus("success");
-                        setTimeout(() => router.push("/profile/setup"), 1500);
+                        setTimeout(() => window.location.href = "/profile/setup", 1500);
                     }
                 } catch (err: any) {
                     setStatus("error");
@@ -77,7 +77,7 @@ function VerifyContent() {
                         setErrorMessage(error.message);
                     } else {
                         setStatus("success");
-                        setTimeout(() => router.push("/profile/setup"), 1500);
+                        setTimeout(() => window.location.href = "/profile/setup", 1500);
                     }
                 } catch (err: any) {
                     setStatus("error");
