@@ -98,6 +98,12 @@ export default function HomeClient({ isAdmin = false }: { isAdmin?: boolean }) {
     const [followersError, setFollowersError] = useState<string | null>(null);
     const [followingError, setFollowingError] = useState<string | null>(null);
 
+    const [userRanks, setUserRanks] = useState<any[]>([]);
+    const [hopinPlans, setHopinPlans] = useState<any[]>([]);
+    const [todos, setTodos] = useState<any[]>([]);
+    const [suggestedUsers, setSuggestedUsers] = useState<any[]>([]);
+    const [suggestedPlans, setSuggestedPlans] = useState<any[]>([]);
+
     const features = ['JOURNAL', 'JOY', 'AWE', 'BONDS', 'SERENDIPITY', 'CHECKIN', 'PROGRESS', 'OTHER'];
     const visibilities = ['PUBLIC', 'FRIENDS', 'PRIVATE'];
 
@@ -161,6 +167,57 @@ export default function HomeClient({ isAdmin = false }: { isAdmin?: boolean }) {
         } catch (err) {
             console.error('Error fetching unread messages:', err);
         }
+    };
+
+    // Consolidated Sidebar Fetches
+    const fetchUserRanks = async () => {
+        try {
+            const res = await fetch('/api/rankings/user');
+            if (res.ok) {
+                const data = await res.json();
+                setUserRanks(data.ranks || []);
+            }
+        } catch (err) { console.error('Error fetching ranks:', err); }
+    };
+
+    const fetchHopinPlans = async () => {
+        try {
+            const res = await fetch('/api/hopin/my-plans');
+            if (res.ok) {
+                const data = await res.json();
+                setHopinPlans(data.plans || []);
+            }
+        } catch (err) { console.error('Error fetching hopin plans:', err); }
+    };
+
+    const fetchTodos = async () => {
+        try {
+            const res = await fetch('/api/todos');
+            if (res.ok) {
+                const data = await res.json();
+                setTodos(data.todos || []);
+            }
+        } catch (err) { console.error('Error fetching todos:', err); }
+    };
+
+    const fetchSuggestedUsers = async () => {
+        try {
+            const res = await fetch('/api/suggestions/users');
+            if (res.ok) {
+                const data = await res.json();
+                setSuggestedUsers(data.users || []);
+            }
+        } catch (err) { console.error('Error fetching suggested users:', err); }
+    };
+
+    const fetchSuggestedPlans = async () => {
+        try {
+            const res = await fetch('/api/suggestions/plans');
+            if (res.ok) {
+                const data = await res.json();
+                setSuggestedPlans(data.plans || []);
+            }
+        } catch (err) { console.error('Error fetching suggested plans:', err); }
     };
 
     // Fetch followers
@@ -300,6 +357,11 @@ export default function HomeClient({ isAdmin = false }: { isAdmin?: boolean }) {
                 fetchPosts(),
                 fetchUnreadCount(),
                 fetchUnreadMessages(),
+                fetchUserRanks(),
+                fetchHopinPlans(),
+                fetchTodos(),
+                fetchSuggestedUsers(),
+                fetchSuggestedPlans(),
             ]).finally(() => {
                 setLoading(false);
             });
@@ -431,14 +493,21 @@ export default function HomeClient({ isAdmin = false }: { isAdmin?: boolean }) {
                             userId={session?.user?.id}
                             onFetchFollowers={fetchFollowers}
                             onFetchFollowing={fetchFollowing}
+                            // Optimized props
+                            initialRanks={userRanks}
+                            initialPlans={hopinPlans}
+                            initialTodos={todos}
                         />
-                        <HomeSidebarSuggestions />
+                        <HomeSidebarSuggestions
+                            initialUsers={suggestedUsers}
+                            initialPlans={suggestedPlans}
+                        />
                     </div>
 
                     {/* Center Feed */}
                     <div className="space-y-6 px-3 sm:px-4 lg:px-8">
                         {/* Stories Rail */}
-                        <StoriesRail />
+                        <StoriesRail initialProfile={userProfile} />
 
                         {/* Posts Feed */}
                         {/* Hybrid Grid Feed */}

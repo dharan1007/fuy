@@ -221,17 +221,26 @@ interface StoryGroup {
     latestCreatedAt: string;
 }
 
-export default function StoriesRail() {
+interface StoriesRailProps {
+    initialProfile?: any;
+}
+
+export default function StoriesRail({ initialProfile }: StoriesRailProps) {
     const { data: session } = useSession();
     const [stories, setStories] = useState<StoryGroup[]>([]);
     const [loading, setLoading] = useState(true);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
-    const [myProfile, setMyProfile] = useState<any>(null);
+    const [myProfile, setMyProfile] = useState<any>(initialProfile || null);
+
+    useEffect(() => {
+        if (initialProfile) setMyProfile(initialProfile);
+    }, [initialProfile]);
 
     useEffect(() => {
         if (session?.user) {
             fetchStories();
-            fetchMyProfile();
+            // Only fetch if initialProfile was not provided
+            if (!initialProfile) fetchMyProfile();
         }
     }, [session]);
 

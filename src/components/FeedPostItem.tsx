@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import SimplePostCard from '@/components/post-cards/SimplePostCard';
 import ChapterCard from '@/components/post-cards/ChapterCard';
 import XrayCard from '@/components/post-cards/XrayCard';
@@ -19,7 +19,7 @@ interface FeedPostItemProps {
     isProfileView?: boolean; // To pass specific props if needed
 }
 
-export default function FeedPostItem({ post, currentUserId, className, isProfileView }: FeedPostItemProps) {
+function FeedPostItem({ post, currentUserId, className, isProfileView }: FeedPostItemProps) {
     const [isHidden, setIsHidden] = useState(false);
     const { onRefresh } = useFeedRefresh() || { onRefresh: () => { } };
 
@@ -79,3 +79,5 @@ export default function FeedPostItem({ post, currentUserId, className, isProfile
         </FeedItemProvider>
     );
 }
+
+export default memo(FeedPostItem);

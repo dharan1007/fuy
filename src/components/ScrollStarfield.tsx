@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, Suspense, useEffect, useState } from 'react';
+import React, { useRef, Suspense, useEffect, useState, memo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Stars, ScrollControls, Scroll, useScroll } from '@react-three/drei';
 import * as THREE from 'three';
@@ -51,7 +51,7 @@ interface ScrollStarfieldProps {
     variant?: 'default' | 'landing';
 }
 
-export default function ScrollStarfield({ children, variant = 'default' }: ScrollStarfieldProps) {
+function ScrollStarfield({ children, variant = 'default' }: ScrollStarfieldProps) {
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
@@ -111,3 +111,5 @@ export default function ScrollStarfield({ children, variant = 'default' }: Scrol
         </>
     );
 }
+
+export default memo(ScrollStarfield);

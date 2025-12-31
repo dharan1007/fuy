@@ -377,17 +377,11 @@ export async function GET(req: NextRequest) {
       },
       pullUpDownData: {
         include: {
-          options: true, // Need all options for stats in detail view
-          votes: {
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  profile: { select: { displayName: true, avatarUrl: true } }
-                }
-              }
-            }
-          }
+          options: true,
+          votes: userId ? {
+            where: { userId },
+            select: { vote: true }
+          } : false
         },
       },
       _count: {

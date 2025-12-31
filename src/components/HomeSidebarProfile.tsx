@@ -47,6 +47,9 @@ interface HomeSidebarProfileProps {
   userId?: string; // Added userId prop
   onFetchFollowers: () => void;
   onFetchFollowing: () => void;
+  initialRanks?: Rank[];
+  initialPlans?: HopinPlan[];
+  initialTodos?: TodoItem[];
 }
 
 /* eslint-disable @next/next/no-img-element */
@@ -58,19 +61,29 @@ export default function HomeSidebarProfile({
   displayName,
   userId,
   onFetchFollowers,
-  onFetchFollowing
+  onFetchFollowing,
+  initialRanks = [],
+  initialPlans = [],
+  initialTodos = []
 }: HomeSidebarProfileProps) {
   const router = useRouter();
-  const [userRanks, setUserRanks] = useState<Rank[]>([]);
-  const [hopinPlans, setHopinPlans] = useState<HopinPlan[]>([]);
-  const [todos, setTodos] = useState<TodoItem[]>([]);
+  const [userRanks, setUserRanks] = useState<Rank[]>(initialRanks);
+  const [hopinPlans, setHopinPlans] = useState<HopinPlan[]>(initialPlans);
+  const [todos, setTodos] = useState<TodoItem[]>(initialTodos);
   const [timePeriod, setTimePeriod] = useState<'day' | 'week' | 'month'>('week');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    fetchUserRanks();
-    fetchHopinPlans();
-    fetchTodos();
+    if (initialRanks.length > 0) setUserRanks(initialRanks);
+    if (initialPlans.length > 0) setHopinPlans(initialPlans);
+    if (initialTodos.length > 0) setTodos(initialTodos);
+  }, [initialRanks, initialPlans, initialTodos]);
+
+  useEffect(() => {
+    // Only fetch if we don't have initial data or if timePeriod changes
+    if (userRanks.length === 0) fetchUserRanks();
+    if (hopinPlans.length === 0) fetchHopinPlans();
+    if (todos.length === 0) fetchTodos();
   }, [timePeriod]);
 
   const fetchUserRanks = async () => {

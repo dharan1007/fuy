@@ -27,14 +27,25 @@ interface SuggestedPlan {
   description?: string;
 }
 
-export default function HomeSidebarSuggestions() {
-  const [suggestedUsers, setSuggestedUsers] = useState<SuggestedUser[]>([]);
+interface HomeSidebarSuggestionsProps {
+  initialUsers?: SuggestedUser[];
+  initialPlans?: SuggestedPlan[];
+}
 
-  const [suggestedPlans, setSuggestedPlans] = useState<SuggestedPlan[]>([]);
+export default function HomeSidebarSuggestions({ initialUsers = [], initialPlans = [] }: HomeSidebarSuggestionsProps) {
+  const [suggestedUsers, setSuggestedUsers] = useState<SuggestedUser[]>(initialUsers);
+  const [suggestedPlans, setSuggestedPlans] = useState<SuggestedPlan[]>(initialPlans);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    fetchSuggestions();
+    if (initialUsers.length > 0) setSuggestedUsers(initialUsers);
+    if (initialPlans.length > 0) setSuggestedPlans(initialPlans);
+  }, [initialUsers, initialPlans]);
+
+  useEffect(() => {
+    if (suggestedUsers.length === 0 && suggestedPlans.length === 0) {
+      fetchSuggestions();
+    }
   }, []);
 
   const fetchSuggestions = async () => {
