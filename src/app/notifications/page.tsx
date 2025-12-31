@@ -286,6 +286,13 @@ export default function NotificationsPage() {
     }
   }, [filter, status]);
 
+  // Auto mark all as read when opening page
+  useEffect(() => {
+    if (!loading && notifications.some(n => !n.read)) {
+      markAllAsRead();
+    }
+  }, [loading, notifications]);
+
   if (status === 'loading') {
     return <LoadingSpinner message="Syncing with the cosmos..." />;
   }

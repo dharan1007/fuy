@@ -19,6 +19,7 @@ export default function AppHeader({ title, showBackButton = false, showSettingsA
   const pathname = usePathname();
   const { data: session } = useSession();
   const [unreadCount, setUnreadCount] = useState(0);
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   useEffect(() => {
     if (session) {
       loadUnreadCount();
@@ -30,19 +31,26 @@ export default function AppHeader({ title, showBackButton = false, showSettingsA
 
   async function loadUnreadCount() {
     try {
-      const res = await fetch("/api/notifications?unreadOnly=true");
+      const [notifRes, chatRes] = await Promise.all([
+        fetch("/api/notifications?unreadOnly=true"),
+        fetch("/api/chat/unread")
+      ]);
 
-      if (res.status === 401) {
-        // Session is invalid (e.g. user deleted from DB), log out to fix state
-        console.warn("AppHeader: 401 from notifications. Session invalid. Signing out.");
+      if (notifRes.status === 401 || chatRes.status === 401) {
+        console.warn("AppHeader: 401. Session invalid. Signing out.");
         await signOut({ callbackUrl: "/login" });
         return;
       }
 
-      const data = await res.json();
-      setUnreadCount(data.notifications?.length || 0);
+      const [notifData, chatData] = await Promise.all([
+        notifRes.json(),
+        chatRes.json()
+      ]);
+
+      setUnreadCount(notifData.notifications?.length || 0);
+      setUnreadMessageCount(chatData.count || 0);
     } catch (error) {
-      console.error("Failed to load unread count:", error);
+      console.error("Failed to load unread counts:", error);
     }
   }
 
@@ -176,9 +184,10 @@ export default function AppHeader({ title, showBackButton = false, showSettingsA
                 <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                 </svg>
-                {unreadCount > 0 && (
+                {/* Combined Badge: Notifications + Unread Messages */}
+                {(unreadCount + unreadMessageCount) > 0 && (
                   <span className="absolute -top-0.5 -right-0.5 sm:-top-1 sm:-right-1 bg-red-500 text-white text-[10px] sm:text-xs rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center font-medium">
-                    {unreadCount > 9 ? "9+" : unreadCount}
+                    {(unreadCount + unreadMessageCount) > 9 ? "9+" : (unreadCount + unreadMessageCount)}
                   </span>
                 )}
               </Link>
