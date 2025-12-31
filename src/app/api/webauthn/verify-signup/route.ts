@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { SignJWT } from "jose";
 import { sanitizeInput } from "@/lib/security";
 import { securityLogger, SecurityEventType } from "@/lib/security-logger";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 
 const ORIGIN = process.env.NEXT_PUBLIC_ORIGIN || "http://localhost:3000";
 const RP_ID = process.env.NEXT_PUBLIC_RP_ID || new URL(ORIGIN).hostname;
@@ -59,6 +60,27 @@ export async function POST(req: Request) {
             );
         }
 
+        // 0. Create User in Supabase (Service Role)
+        const { data: sbData, error: sbError } = await supabaseAdmin.auth.admin.createUser({
+            email: email.toLowerCase(),
+            email_confirm: true,
+            user_metadata: {
+                display_name: name,
+                name: name,
+                auth_method: 'passkey'
+            }
+        });
+
+        if (sbError) {
+            console.error("[PASSKEY_SIGNUP] Supabase error:", sbError);
+            if (sbError.message.includes("already registered")) {
+                return NextResponse.json({ error: "An account with this email already exists" }, { status: 409 });
+            }
+            return NextResponse.json({ error: sbError.message }, { status: 400 });
+        }
+
+        const sbUser = sbData.user;
+
         const {
             credentialID,
             credentialPublicKey,
@@ -72,10 +94,11 @@ export async function POST(req: Request) {
         const sanitizedName = sanitizeInput(name);
 
         // Create user, profile, and passkey credential in a transaction
-        const result = await prisma.$transaction(async (tx) => {
+        await prisma.$transaction(async (tx) => {
             // Create user (no password for passkey-only signup)
-            const user = await tx.user.create({
+            await tx.user.create({
                 data: {
+                    id: sbUser.id, // Use Supabase ID
                     email: email.toLowerCase(),
                     password: null, // No password for passkey-only users
                     name: sanitizedName,
@@ -86,7 +109,7 @@ export async function POST(req: Request) {
             // Create profile
             await tx.profile.create({
                 data: {
-                    userId: user.id,
+                    userId: sbUser.id,
                     displayName: sanitizedName,
                 },
             });
@@ -94,7 +117,7 @@ export async function POST(req: Request) {
             // Create passkey credential
             await tx.passkeyCredential.create({
                 data: {
-                    userId: user.id,
+                    userId: sbUser.id,
                     credentialID: u8ToB64url(credentialID),
                     credentialPublicKey: u8ToB64url(credentialPublicKey),
                     counter,
@@ -102,8 +125,6 @@ export async function POST(req: Request) {
                     transports: null,
                 },
             });
-
-            return user;
         });
 
         // Log successful signup
@@ -111,23 +132,29 @@ export async function POST(req: Request) {
             type: SecurityEventType.AUTH_SUCCESS,
             severity: "low",
             path: "/api/webauthn/verify-signup",
-            userId: result.id,
+            userId: sbUser.id,
             ip: clientIp,
             details: { action: "passkey_signup", deviceType: credentialDeviceType },
         });
 
-        // Generate login token for auto-signin
-        const loginToken = await new SignJWT({ uid: result.id })
-            .setProtectedHeader({ alg: "HS256" })
-            .setIssuer("fuy")
-            .setAudience("fuy")
-            .setExpirationTime("10m")
-            .sign(enc.encode(NEXTAUTH_SECRET));
+        // Generate a standard Supabase Magic Link but use it immediately
+        const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+            type: 'magiclink',
+            email: sbUser.email!,
+            options: {
+                redirectTo: '/profile/setup'
+            }
+        });
+
+        if (linkError) {
+            console.error("[PASSKEY_SIGNUP] Link generation error:", linkError);
+            return NextResponse.json({ error: "Failed to generate session link" }, { status: 500 });
+        }
 
         return NextResponse.json({
             ok: true,
-            loginToken,
-            userId: result.id,
+            loginUrl: linkData.properties.action_link,
+            userId: sbUser.id,
             deviceType: credentialDeviceType,
             backedUp: credentialBackedUp,
         });

@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import { verifyAuthenticationResponse } from "@simplewebauthn/server";
 import { prisma } from "@/lib/prisma";
-import { SignJWT } from "jose";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 
 const ORIGIN = process.env.NEXT_PUBLIC_ORIGIN || "http://localhost:3000";
 const RP_ID = process.env.NEXT_PUBLIC_RP_ID || new URL(ORIGIN).hostname;
@@ -52,14 +52,34 @@ export async function POST(req: Request) {
       data: { counter: authenticationInfo.newCounter },
     });
 
-    const loginToken = await new SignJWT({ uid: cred.userId })
-      .setProtectedHeader({ alg: "HS256" })
-      .setIssuer("fuy")
-      .setAudience("fuy")
-      .setExpirationTime("10m")
-      .sign(enc.encode(NEXTAUTH_SECRET));
+    // Get user email to generate magic link
+    const user = await prisma.user.findUnique({
+      where: { id: cred.userId },
+      select: { email: true }
+    });
 
-    return NextResponse.json({ ok: true, loginToken });
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    // Generate a standard Supabase Magic Link but use it immediately
+    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+      type: 'magiclink',
+      email: user.email,
+      options: {
+        redirectTo: '/'
+      }
+    });
+
+    if (linkError) {
+      console.error("[PASSKEY_AUTH] Link generation error:", linkError);
+      return NextResponse.json({ error: "Failed to generate session link" }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      ok: true,
+      loginUrl: linkData.properties.action_link
+    });
   } catch (e: any) {
     const msg = e?.message || "Failed to verify authentication";
     return NextResponse.json({ error: msg }, { status: 500 });

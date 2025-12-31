@@ -11,9 +11,10 @@ interface AppHeaderProps {
   showBackButton?: boolean;
   showSettingsAndLogout?: boolean;
   hideShopAndCart?: boolean;
+  hideNavigation?: boolean;
 }
 
-export default function AppHeader({ title, showBackButton = false, showSettingsAndLogout = false, hideShopAndCart = false }: AppHeaderProps) {
+export default function AppHeader({ title, showBackButton = false, showSettingsAndLogout = false, hideShopAndCart = false, hideNavigation = false }: AppHeaderProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { data: session } = useSession();
@@ -87,7 +88,7 @@ export default function AppHeader({ title, showBackButton = false, showSettingsA
           {/* Right side - Navigation and Actions */}
           <div className="flex items-center gap-1 sm:gap-2">
             {/* Home button */}
-            {pathname !== "/" && (
+            {!hideNavigation && pathname !== "/" && (
               <Link
                 href="/"
                 className="p-1.5 sm:p-2 rounded-lg hover:bg-white/10 transition-colors text-white"
@@ -100,7 +101,7 @@ export default function AppHeader({ title, showBackButton = false, showSettingsA
             )}
 
             {/* Explore button */}
-            {pathname !== "/explore" && (
+            {!hideNavigation && pathname !== "/explore" && (
               <Link
                 href="/explore"
                 className="p-1.5 sm:p-2 rounded-lg hover:bg-white/10 transition-colors text-white"
@@ -152,7 +153,7 @@ export default function AppHeader({ title, showBackButton = false, showSettingsA
             )}
 
             {/* Dashboard button */}
-            {session && pathname !== "/dashboard" && (
+            {!hideNavigation && session && pathname !== "/dashboard" && (
               <Link
                 href="/dashboard"
                 className="p-1.5 sm:p-2 rounded-lg hover:bg-white/10 transition-colors text-white"

@@ -2,5 +2,5 @@
 import FullPageLayout from "@/components/FullPageLayout";
 
 export default function PasskeysLayout({ children }: { children: React.ReactNode }) {
-  return <FullPageLayout>{children}</FullPageLayout>;
+  return <FullPageLayout hideNavigation={true}>{children}</FullPageLayout>;
 }

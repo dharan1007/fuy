@@ -10,9 +10,16 @@ export async function POST(req: Request) {
         const body = await req.json();
         const { email, password, name, captchaAnswer, captchaToken, _gotcha } = body;
 
+        // 0. Email Normalization
+        const normalizedEmail = email?.toLowerCase().trim();
+
+        if (!normalizedEmail) {
+            return NextResponse.json({ error: "Email is required" }, { status: 400 });
+        }
+
         // 1. HONEYPOT check
         if (_gotcha && _gotcha.trim() !== "") {
-            console.warn(`[AUTH_SIGNUP] Bot detected via honeypot. Email: ${email}`);
+            console.warn(`[AUTH_SIGNUP] Bot detected via honeypot. Email: ${normalizedEmail}`);
             // Return fake success to confuse bot
             return NextResponse.json({ success: true, fake: true });
         }
@@ -58,9 +65,18 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Incorrect CAPTCHA code" }, { status: 400 });
         }
 
+        // 4.5 Check if user already exists in Prisma
+        const existingUser = await prisma.user.findUnique({
+            where: { email: normalizedEmail }
+        });
+
+        if (existingUser) {
+            return NextResponse.json({ error: "An account with this email already exists" }, { status: 409 });
+        }
+
         // 5. Create User in Supabase
         const { data, error } = await supabaseAdmin.auth.admin.createUser({
-            email,
+            email: normalizedEmail,
             password,
             email_confirm: true, // Auto-confirm email since we did CAPTCHA check
             user_metadata: {
@@ -71,6 +87,10 @@ export async function POST(req: Request) {
 
         if (error) {
             console.error("[AUTH_SIGNUP] Supabase error:", error);
+            // If Supabase says user already exists, return friendly error
+            if (error.message.includes("already registered") || error.status === 422) {
+                return NextResponse.json({ error: "An account with this email already exists" }, { status: 409 });
+            }
             return NextResponse.json({ error: error.message }, { status: 400 });
         }
 
@@ -86,37 +106,14 @@ export async function POST(req: Request) {
             console.log(`[AUTH_SIGNUP] Prisma User created: ${data.user.id}`);
         } catch (dbError: any) {
             console.error("[AUTH_SIGNUP] Prisma creation failed:", dbError);
-
-            // Handle "Zombie User" scenario: Email exists in Prisma but not Supabase (since we just created it there)
-            if (dbError.code === 'P2002' && dbError.meta?.target?.includes('email')) {
-                console.warn(`[AUTH_SIGNUP] Zombie user detected for email ${email}. Cleaning up...`);
-                try {
-                    // Delete the old record causing the conflict
-                    await prisma.user.delete({ where: { email } });
-
-                    // Retry creation with new ID
-                    await prisma.user.create({
-                        data: {
-                            id: data.user.id,
-                            email: data.user.email!,
-                            name: name
-                        }
-                    });
-                    console.log(`[AUTH_SIGNUP] Prisma User created after cleanup: ${data.user.id}`);
-                } catch (retryError) {
-                    console.error("[AUTH_SIGNUP] Failed to cleanup/retry user creation:", retryError);
-                }
-            }
+            // If prisma creation fails, we technically have a "zombie" user in Supabase
+            // but we don't delete the existing Prisma record anymore.
+            // We just return error. 
+            return NextResponse.json({ error: "Failed to sync user data. Please contact support." }, { status: 500 });
         }
-
-
 
         // Successful creation
         console.log(`[AUTH_SIGNUP] User created: ${data.user.id} | Confirmed: ${data.user.email_confirmed_at}`);
-
-        if (!data.user.email_confirmed_at) {
-            console.warn("[AUTH_SIGNUP] WARNING: User created but NOT confirmed despite email_confirm: true");
-        }
 
         return NextResponse.json({
             success: true,

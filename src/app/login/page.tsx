@@ -2,6 +2,7 @@
 "use client";
 
 import { supabase } from "@/lib/supabase-client";
+import { useSession } from "@/hooks/use-session";
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -12,12 +13,19 @@ import ScrollStarfield from "@/components/ScrollStarfield";
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { data: session, status: sessionStatus } = useSession();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+
+  useEffect(() => {
+    if (sessionStatus === "authenticated") {
+      router.push("/");
+    }
+  }, [sessionStatus, router]);
 
   useEffect(() => {
     const msg = searchParams.get("message");
@@ -42,8 +50,9 @@ function LoginContent() {
     setLoading(true);
 
     try {
+      const normalizedEmail = email.toLowerCase().trim();
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: normalizedEmail,
         password,
       });
 

@@ -5,7 +5,6 @@ import {
   startRegistration,
   startAuthentication,
 } from "@simplewebauthn/browser";
-import { signIn } from "@/hooks/use-session";
 import ScrollStarfield from "@/components/ScrollStarfield";
 import Link from "next/link";
 
@@ -72,16 +71,13 @@ export default function PasskeysPage() {
       });
 
       if (!res.ok) throw new Error(await res.text());
-      const { loginToken } = await res.json();
+      const { loginUrl } = await res.json();
 
-      setStatus("Creating session…");
-      const result = await signIn("credentials", {
-        loginToken,
-        redirect: true,
-        callbackUrl: "/",
-      });
-      if (result?.error) {
-        setStatus(`❌ ${result.error}`);
+      setStatus("Finalizing session...");
+      if (loginUrl) {
+        window.location.href = loginUrl;
+      } else {
+        throw new Error("Failed to generate session link");
       }
     } catch (e: any) {
       setStatus(`❌ ${e?.message ?? e}`);

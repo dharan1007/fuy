@@ -1,6 +1,6 @@
 "use client";
 
-import { signIn } from "@/hooks/use-session";
+import { signIn, useSession } from "@/hooks/use-session";
 import { supabase } from "@/lib/supabase-client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -27,6 +27,8 @@ export default function SignupPage() {
   const [error, setError] = useState("");
   const [loadingMessage, setLoadingMessage] = useState("Creating your account...");
 
+  const { data: session, status: sessionStatus } = useSession();
+
   const refreshCaptcha = async () => {
     try {
       const res = await fetch("/api/auth/captcha");
@@ -38,6 +40,12 @@ export default function SignupPage() {
       console.error("Failed to load captcha", e);
     }
   };
+
+  useEffect(() => {
+    if (sessionStatus === "authenticated") {
+      router.push("/");
+    }
+  }, [sessionStatus, router]);
 
   useEffect(() => {
     const originalBg = document.body.style.background;
@@ -76,6 +84,8 @@ export default function SignupPage() {
     setLoading(true);
     setLoadingMessage("Verifying security...");
 
+    const normalizedEmail = formData.email.toLowerCase().trim();
+
     try {
       // 1. Create Account via Server API (Verify CAPTCHA)
       const res = await fetch("/api/auth/signup", {
@@ -83,7 +93,7 @@ export default function SignupPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: formData.name,
-          email: formData.email,
+          email: normalizedEmail,
           password: formData.password,
           captchaAnswer: formData.captchaAnswer,
           captchaToken: captchaData?.token,
@@ -100,7 +110,7 @@ export default function SignupPage() {
       // 2. Account created successfully. Now sign in automatically.
       setLoadingMessage(" signing you in...");
       const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: formData.email,
+        email: normalizedEmail,
         password: formData.password,
       });
 
@@ -181,20 +191,14 @@ export default function SignupPage() {
         return;
       }
 
-      const { loginToken } = await verifyRes.json();
+      const { loginUrl } = await verifyRes.json();
 
-      // Auto sign in with the login token
-      setLoadingMessage("Signing you in...");
-      const signInRes = await signIn("credentials", {
-        loginToken,
-        redirect: false,
-      });
-
-      if (signInRes?.ok) {
-        await new Promise(resolve => setTimeout(resolve, 300));
-        router.push("/profile/setup");
+      // Auto sign in by navigating to the magic link
+      setLoadingMessage("Securing your session...");
+      if (loginUrl) {
+        window.location.href = loginUrl;
       } else {
-        setError("Account created but failed to sign in. Please try logging in.");
+        setError("Account created but failed to generate sign-in link. Please try logging in manually.");
         setLoading(false);
       }
     } catch (err: any) {
@@ -374,17 +378,6 @@ export default function SignupPage() {
 
             <div className="space-y-2">
               <button
-                onClick={() => router.push("/join")}
-                className="w-full border border-white/20 hover:bg-white/10 text-white py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
-              >
-
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-                Magic Link
-              </button>
-
-              <button
                 onClick={handlePasskeySignup}
                 disabled={loading}
                 className="w-full border border-white/20 hover:bg-white/10 text-white py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -392,7 +385,7 @@ export default function SignupPage() {
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                 </svg>
-                Passkey
+                Sign up with Passkey
               </button>
             </div>
 

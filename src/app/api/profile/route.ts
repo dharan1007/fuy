@@ -129,10 +129,21 @@ export async function PUT(req: Request) {
       if (!userEmail) {
         return NextResponse.json({ error: "Email is required for new users" }, { status: 400 });
       }
+      const normalizedEmail = userEmail.toLowerCase().trim();
+
+      // Check for conflict with existing email in Prisma (in case of ID mismatch/zombie)
+      const emailConflict = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+      if (emailConflict) {
+        // If the email exists but IDs don't match, we have a mess. 
+        // For now, let's just log it and return error to prevent logic errors.
+        console.error(`[PROFILE_PUT] Email conflict for ${normalizedEmail}. Existing ID: ${emailConflict.id}, New ID: ${userId}`);
+        return NextResponse.json({ error: "Email already in use by another account." }, { status: 409 });
+      }
+
       await prisma.user.create({
         data: {
           id: userId,
-          email: userEmail,
+          email: normalizedEmail,
           name: "New User", // Will be updated below
         }
       });
