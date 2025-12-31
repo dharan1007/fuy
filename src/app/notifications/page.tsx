@@ -339,6 +339,9 @@ export default function NotificationsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ markAllRead: true }),
       });
+
+      // Synchronize across components
+      window.dispatchEvent(new CustomEvent('notifications-read'));
     } catch (error) {
       console.error("Mark all as read error:", error);
       loadNotifications();
