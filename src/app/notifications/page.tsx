@@ -23,7 +23,7 @@ const CONFIG = {
   starColors: ["#ffffff", "#e0f2fe", "#f0f9ff", "#bfdbfe"], // Cool whites/blues
   nebulaColors: [
     "rgba(29, 78, 216, 0.03)",  // Faint Deep Blue
-    "rgba(124, 58, 237, 0.02)", // Faint Deep Purple
+    "rgba(30, 41, 59, 0.02)",   // Dark Slate
     "rgba(59, 130, 246, 0.02)", // Blue
   ],
 };

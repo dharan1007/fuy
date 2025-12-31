@@ -10,7 +10,7 @@ const CONFIG = {
     starColors: ["#ffffff", "#e0f2fe", "#f0f9ff", "#bfdbfe"],
     nebulaColors: [
         "rgba(29, 78, 216, 0.03)",
-        "rgba(124, 58, 237, 0.02)",
+        "rgba(30, 41, 59, 0.02)",
         "rgba(59, 130, 246, 0.02)",
     ],
 };

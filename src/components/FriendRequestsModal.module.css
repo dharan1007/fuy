@@ -246,12 +246,12 @@
   font-weight: 600;
   transition: all 0.2s ease;
   white-space: nowrap;
-  background: #8b5cf6;
+  background: #3b82f6;
   color: white;
 }
 
 .unghostBtn:hover:not(:disabled) {
-  background: #7c3aed;
+  background: #2563eb;
 }
 
 .unghostBtn:disabled {
