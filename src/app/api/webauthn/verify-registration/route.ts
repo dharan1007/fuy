@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 // src/app/api/webauthn/verify-registration/route.ts
 import { NextResponse } from "next/server";
 import { verifyRegistrationResponse } from "@simplewebauthn/server";
@@ -64,3 +65,4 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: msg }, { status: msg === "UNAUTHENTICATED" ? 401 : 500 });
   }
 }
+

@@ -206,6 +206,8 @@ function CreateStoryModal({ isOpen, onClose, onCreated }: CreateStoryModalProps)
 // ------------------------------------
 interface StoryUser {
     id: string;
+    name?: string | null;
+    email?: string | null;
     profile?: {
         displayName: string | null;
         avatarUrl: string | null;
@@ -224,12 +226,26 @@ export default function StoriesRail() {
     const [stories, setStories] = useState<StoryGroup[]>([]);
     const [loading, setLoading] = useState(true);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
+    const [myProfile, setMyProfile] = useState<any>(null);
 
     useEffect(() => {
         if (session?.user) {
             fetchStories();
+            fetchMyProfile();
         }
     }, [session]);
+
+    const fetchMyProfile = async () => {
+        try {
+            const res = await fetch("/api/profile");
+            if (res.ok) {
+                const data = await res.json();
+                setMyProfile(data);
+            }
+        } catch (e) {
+            console.error("Failed to fetch profile", e);
+        }
+    };
 
     const fetchStories = async () => {
         try {
@@ -258,7 +274,7 @@ export default function StoriesRail() {
                         <div className={`w-16 h-16 rounded-full p-[2px] mb-1 transition-all ${userHasStory ? "bg-white shadow-[0_0_10px_rgba(255,255,255,0.3)]" : "bg-transparent border border-white/20"}`}>
                             <div className="w-full h-full rounded-full border-2 border-black overflow-hidden relative bg-black">
                                 <img
-                                    src={currentUser?.image || `https://api.dicebear.com/7.x/initials/svg?seed=${currentUser?.email}`}
+                                    src={myProfile?.profile?.avatarUrl || currentUser?.image || `https://api.dicebear.com/7.x/initials/svg?seed=${currentUser?.email}`}
                                     alt="My Clock"
                                     className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
                                 />

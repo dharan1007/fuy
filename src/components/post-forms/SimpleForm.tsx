@@ -4,6 +4,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Upload, X, Loader2 } from 'lucide-react';
+import { uploadFileClientSide } from '@/lib/upload-helper';
 
 import { useCreatePost } from '@/context/CreatePostContext';
 
@@ -22,6 +23,7 @@ export default function SimpleForm({ onBack: propOnBack, initialData }: SimpleFo
     const data = initialData || contextInitialData;
     const router = useRouter();
     const [loading, setLoading] = useState(false);
+    const [loadingMessage, setLoadingMessage] = useState('Posting...');
     const [error, setError] = useState('');
 
     const [content, setContent] = useState('');
@@ -69,21 +71,18 @@ export default function SimpleForm({ onBack: propOnBack, initialData }: SimpleFo
 
             // Upload files logic (simulated or real depends on existing /api/upload)
             // Assuming existing upload logic works as shown in previous file view
-            const uploadPromises = mediaItems.map(async (item) => {
-                const formData = new FormData();
-                formData.append('file', item.file);
-                formData.append('type', item.type === 'VIDEO' ? 'video' : 'image');
-
-                const res = await fetch('/api/upload', {
-                    method: 'POST',
-                    body: formData,
-                });
-                if (!res.ok) throw new Error('Upload failed');
-                return res.json();
+            // Upload files logic using client-side helper to bypass Vercel limits
+            setLoadingMessage('Uploading media...');
+            const uploadPromises = mediaItems.map(async (item, index) => {
+                try {
+                    return await uploadFileClientSide(item.file, 'posts');
+                } catch (err: any) {
+                    throw new Error(`Failed to upload file ${index + 1}: ${err.message}`);
+                }
             });
 
-            const uploadedFiles = await Promise.all(uploadPromises);
-            const mediaUrls = uploadedFiles.map(f => f.url);
+            const mediaUrls = await Promise.all(uploadPromises);
+            setLoadingMessage('Creating post...');
             const mediaTypes = mediaItems.map(i => i.type);
 
             const res = await fetch('/api/posts/simple', {
@@ -207,7 +206,7 @@ export default function SimpleForm({ onBack: propOnBack, initialData }: SimpleFo
                         disabled={loading || mediaItems.length === 0}
                         className="flex-1 py-3 bg-white text-black border border-white rounded-xl font-bold hover:bg-gray-200 transition-all disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(255,255,255,0.1)] hover:shadow-[0_0_20px_rgba(255,255,255,0.3)]"
                     >
-                        {loading ? <Loader2 className="animate-spin" size={20} /> : 'Post'}
+                        {loading ? <><Loader2 className="animate-spin" size={20} /> {loadingMessage}</> : 'Post'}
                     </button>
                 </div>
             </div>

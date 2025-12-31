@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
@@ -58,3 +59,4 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Failed to create plan" }, { status: 500 });
     }
 }
+

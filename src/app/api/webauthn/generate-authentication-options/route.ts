@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 // src/app/api/webauthn/generate-authentication-options/route.ts
 import { NextResponse } from "next/server";
 import { generateAuthenticationOptions } from "@simplewebauthn/server";
@@ -42,3 +43,4 @@ export async function GET() {
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
+

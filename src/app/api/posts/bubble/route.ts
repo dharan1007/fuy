@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
@@ -124,3 +125,4 @@ export async function DELETE(req: NextRequest) {
         return NextResponse.json({ error: "Failed to delete bubble" }, { status: 500 });
     }
 }
+

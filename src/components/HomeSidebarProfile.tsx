@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Pencil } from 'lucide-react';
 
 interface UserProfile {
   name: string | null;
@@ -206,9 +207,15 @@ export default function HomeSidebarProfile({
         <div className="rounded-2xl p-4 bg-transparent backdrop-blur-md border border-white/20 hover:border-white/40 transition-all">
           <div className="flex items-center gap-2 mb-4 justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-white">TODO</span>
               <h4 className="font-semibold text-white text-sm">Tasks</h4>
             </div>
+            <button
+              onClick={() => router.push('/journal')}
+              className="text-[10px] font-bold text-white/50 hover:text-white transition-colors flex items-center gap-1 group"
+            >
+              <Pencil size={12} className="group-hover:scale-110 transition-transform" />
+              EDIT
+            </button>
 
           </div>
           {todos.length > 0 ? (

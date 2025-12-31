@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Upload, Loader2 } from 'lucide-react';
+import { supabase } from '@/lib/supabase-client';
 
 import { useCreatePost } from '@/context/CreatePostContext';
 
@@ -17,6 +18,7 @@ export default function AudForm({ onBack: propOnBack, initialData }: AudFormProp
     const data = initialData || contextInitialData;
     const router = useRouter();
     const [loading, setLoading] = useState(false);
+    const [loadingMessage, setLoadingMessage] = useState('Creating audio...');
     const [error, setError] = useState('');
 
     const [title, setTitle] = useState('');
@@ -48,17 +50,29 @@ export default function AudForm({ onBack: propOnBack, initialData }: AudFormProp
         try {
             if (!audioFile) throw new Error('Please select an audio file');
 
-            const formData = new FormData();
-            formData.append('file', audioFile);
-            formData.append('type', 'audio');
+            const timestamp = Date.now();
+            const randomStr = Math.random().toString(36).substring(7);
+            const ext = audioFile.name.split('.').pop();
+            const filename = `audios/${timestamp}-${randomStr}.${ext}`;
 
-            const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData });
-            if (!uploadRes.ok) {
-                const errorData = await uploadRes.json();
-                throw new Error(errorData.error || 'Audio upload failed');
+            setLoadingMessage("Uploading audio...");
+
+            // Direct upload to Supabase to bypass Vercel 4.5MB limit
+            const { data: uploadData, error: uploadError } = await supabase.storage
+                .from('media')
+                .upload(filename, audioFile, {
+                    cacheControl: '3600',
+                    upsert: false
+                });
+
+            if (uploadError) {
+                console.error("Direct upload error:", uploadError);
+                throw new Error("Audio upload failed: " + uploadError.message);
             }
 
-            const uploadData = await uploadRes.json();
+            const { data: { publicUrl } } = supabase.storage
+                .from('media')
+                .getPublicUrl(filename);
 
             const res = await fetch('/api/posts/auds', {
                 method: 'POST',
@@ -66,7 +80,7 @@ export default function AudForm({ onBack: propOnBack, initialData }: AudFormProp
                 body: JSON.stringify({
                     content: title,
                     visibility,
-                    audioUrl: uploadData.url,
+                    audioUrl: publicUrl,
                     duration,
                     title,
                     artist,
@@ -170,6 +184,7 @@ export default function AudForm({ onBack: propOnBack, initialData }: AudFormProp
                     <button
                         type="button"
                         onClick={onBack}
+                        disabled={loading}
                         className="flex-1 py-3 bg-white/10 hover:bg-white/20 rounded-xl font-medium transition-colors"
                     >
                         Back
@@ -187,7 +202,7 @@ export default function AudForm({ onBack: propOnBack, initialData }: AudFormProp
                         disabled={loading || !audioFile}
                         className="flex-1 py-3 bg-white text-black rounded-xl font-bold hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
-                        {loading ? <Loader2 className="animate-spin" size={20} /> : 'Create Audio'}
+                        {loading ? <><Loader2 className="animate-spin" size={20} /> {loadingMessage}</> : 'Create Audio'}
                     </button>
                 </div>
             </div>

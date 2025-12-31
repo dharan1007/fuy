@@ -269,6 +269,8 @@ type Notification = {
     };
   };
   _actionTaken?: "ACCEPT" | "REJECT" | "GHOST" | "UNDO";
+  friendshipStatus?: string;
+  isGhosted?: boolean;
 };
 
 export default function NotificationsPage() {
@@ -551,19 +553,21 @@ export default function NotificationsPage() {
                           {/* Actions */}
                           {notif.type === "FRIEND_REQUEST" && notif.sender && (
                             <div className="flex gap-2">
-                              {notif._actionTaken ? (
+                              {(notif._actionTaken || (notif.friendshipStatus && notif.friendshipStatus !== 'PENDING') || notif.isGhosted) ? (
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     if (notif.friendshipId) handleFriendAction(notif.friendshipId, "UNDO");
                                   }}
-                                  className={`text-[9px] font-black px-3 py-1 rounded border tracking-widest uppercase transition-colors hover:opacity-80 ${notif._actionTaken === 'ACCEPT' ? 'border-green-500/30 text-green-400 bg-green-900/10' :
-                                    notif._actionTaken === 'REJECT' ? 'border-red-500/30 text-red-400 bg-red-900/10' :
+                                  className={`text-[9px] font-black px-3 py-1 rounded border tracking-widest uppercase transition-colors hover:opacity-80 ${(notif._actionTaken === 'ACCEPT' || notif.friendshipStatus === 'ACCEPTED') ? 'border-green-500/30 text-green-400 bg-green-900/10' :
+                                    (notif._actionTaken === 'REJECT' || notif.friendshipStatus === 'REJECTED') ? 'border-red-500/30 text-red-400 bg-red-900/10' :
                                       'border-gray-500/30 text-gray-400 bg-gray-900/10'
                                     }`}
                                   title="Click to Undo"
                                 >
-                                  {notif._actionTaken === 'ACCEPT' ? 'ACCEPTED' : notif._actionTaken === 'REJECT' ? 'DECLINED' : notif._actionTaken}
+                                  {notif._actionTaken === 'ACCEPT' || notif.friendshipStatus === 'ACCEPTED' ? 'ACCEPTED' :
+                                    notif._actionTaken === 'REJECT' || notif.friendshipStatus === 'REJECTED' ? 'DECLINED' :
+                                      notif.isGhosted ? 'GHOSTED' : notif._actionTaken || 'PROCESSED'}
                                 </button>
                               ) : (
                                 <div className="flex items-center gap-2">

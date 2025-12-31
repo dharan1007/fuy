@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 // src/app/api/diagnostics/fix-counts/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
@@ -59,3 +60,4 @@ export async function POST(req: Request) {
     );
   }
 }
+

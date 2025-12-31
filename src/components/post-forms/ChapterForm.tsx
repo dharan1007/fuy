@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Upload, X, Plus, Search, Link as LinkIcon, Lock, Loader2 } from 'lucide-react';
 import Image from 'next/image';
+import { uploadFileClientSide } from '@/lib/upload-helper';
 
 import { useCreatePost } from '@/context/CreatePostContext';
 
@@ -29,6 +30,7 @@ export default function ChapterForm({ onBack: propOnBack, initialData }: Chapter
     const data = initialData || contextInitialData;
     const router = useRouter();
     const [loading, setLoading] = useState(false);
+    const [loadingMessage, setLoadingMessage] = useState('Creating chapter...');
     const [error, setError] = useState('');
 
     const [title, setTitle] = useState('');
@@ -82,24 +84,14 @@ export default function ChapterForm({ onBack: propOnBack, initialData }: Chapter
         try {
             // Upload all media files first
             const urls: string[] = [];
-            for (const file of mediaFiles) {
-                const formData = new FormData();
-                formData.append('file', file);
-                formData.append('type', file.type.startsWith('video') ? 'video' : file.type.startsWith('audio') ? 'audio' : 'image');
-
-                const uploadRes = await fetch('/api/upload', {
-                    method: 'POST',
-                    body: formData,
-                });
-
-                if (!uploadRes.ok) {
-                    const errorData = await uploadRes.json();
-                    throw new Error(errorData.error || 'File upload failed');
-                }
-
-                const uploadData = await uploadRes.json();
-                urls.push(uploadData.url);
+            setLoadingMessage('Uploading files...');
+            for (let i = 0; i < mediaFiles.length; i++) {
+                const file = mediaFiles[i];
+                setLoadingMessage(`Uploading file ${i + 1} of ${mediaFiles.length}...`);
+                const url = await uploadFileClientSide(file, 'chapters');
+                urls.push(url);
             }
+            setLoadingMessage('Creating chapter...');
 
             // Create chapter post
             const res = await fetch('/api/posts/chapters', {
@@ -264,9 +256,9 @@ export default function ChapterForm({ onBack: propOnBack, initialData }: Chapter
                     <button
                         type="submit"
                         disabled={loading || mediaFiles.length === 0}
-                        className="flex-1 py-3 bg-white text-black rounded-xl font-bold hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex-1 py-3 bg-white text-black rounded-xl font-bold hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
-                        {loading ? 'Creating...' : 'Create Chapter'}
+                        {loading ? <><Loader2 className="animate-spin" size={20} /> {loadingMessage}</> : 'Create Chapter'}
                     </button>
                 </div>
             </div>

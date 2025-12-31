@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 // src/app/api/webauthn/verify-authentication/route.ts
 import { NextResponse } from "next/server";
 import { verifyAuthenticationResponse } from "@simplewebauthn/server";
@@ -85,3 +86,4 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
+

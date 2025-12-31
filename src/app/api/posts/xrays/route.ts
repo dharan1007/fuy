@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 // src/app/api/posts/xrays/route.ts
 export const runtime = 'nodejs';
 
@@ -68,3 +69,4 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+

@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 // src/app/api/posts/pullupdown/route.ts
 export const runtime = 'nodejs';
 
@@ -238,3 +239,4 @@ export async function PATCH(req: NextRequest) {
         );
     }
 }
+

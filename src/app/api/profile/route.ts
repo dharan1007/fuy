@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 // src/app/api/profile/route.ts
 export const runtime = "nodejs";
 export const revalidate = 0; // Disable static generation for this route
@@ -365,3 +366,4 @@ export async function PUT(req: Request) {
     return NextResponse.json({ error: errorMessage, details: String(e) }, { status: 500 });
   }
 }
+

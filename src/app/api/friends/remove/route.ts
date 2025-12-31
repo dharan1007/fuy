@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 // src/app/api/friends/remove/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
@@ -70,3 +71,4 @@ export async function DELETE(req: Request) {
     );
   }
 }
+

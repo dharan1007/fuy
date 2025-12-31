@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 // src/app/api/search/groups/route.ts
 export const runtime = "nodejs";
 
@@ -27,3 +28,4 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json(groups);
 }
+

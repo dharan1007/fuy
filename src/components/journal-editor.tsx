@@ -33,7 +33,7 @@ import TemplatePreview from "./TemplatePreview";
 import generatePlan, { AIPlan, AIBlockPlan, AIOptions } from "@/lib/ai";
 import DbotModal from "./DbotModal";
 import { SuggestionsResponse } from "@/lib/ai-suggestions";
-import { Plus, Trash2, Bot } from "lucide-react";
+import { Plus, Trash2, Bot, Pencil } from "lucide-react";
 
 export default function JournalEditor() {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
@@ -108,6 +108,8 @@ export default function JournalEditor() {
 
   // Todo State
   const [todos, setTodos] = useState<any[]>([]);
+  const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
+  const [editingTodoText, setEditingTodoText] = useState("");
 
   useEffect(() => {
     fetchTodos();
@@ -144,6 +146,21 @@ export default function JournalEditor() {
         body: JSON.stringify({ id, status: newStatus })
       });
     } catch (e) { console.error("Failed to toggle todo", e); }
+  };
+
+  const handleUpdateTodoText = async (id: string) => {
+    if (!editingTodoText.trim()) return;
+    try {
+      const res = await fetch('/api/todos', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, title: editingTodoText })
+      });
+      if (res.ok) {
+        setEditingTodoId(null);
+        fetchTodos();
+      }
+    } catch (e) { console.error("Failed to update todo", e); }
   };
 
   const deleteTodo = async (id: string) => {
@@ -913,25 +930,59 @@ export default function JournalEditor() {
           <div className="space-y-2 max-h-40 overflow-y-auto">
             {/* @ts-ignore */}
             {todos.map((todo) => (
-              <div key={todo.id} className="flex items-center gap-2 group cursor-pointer" onClick={() => handleToggleTodo(todo.id, todo.status)}>
-                <div className={`w-3 h-3 rounded-full border border-black/30 flex items-center justify-center ${todo.status === 'COMPLETED' ? 'bg-green-500 border-green-500' : ''}`}>
-                  {todo.status === 'COMPLETED' && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
-                </div>
-                <span className={`text-xs truncate transition-all ${todo.status === 'COMPLETED' ? 'text-black/40 line-through' : 'text-black/80 group-hover:text-black'}`}>
-                  {todo.title}
-                </span>
-                <button
-                  onClick={(e) => { e.stopPropagation(); deleteTodo(todo.id); }}
-                  className="ml-auto opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700"
-                >
-                  <Trash2 className="w-3 h-3" />
-                </button>
+              <div key={todo.id} className="flex flex-col gap-1 border-b border-black/5 pb-2 last:border-0 group">
+                {editingTodoId === todo.id ? (
+                  <div className="flex gap-1 items-center">
+                    <input
+                      autoFocus
+                      className="flex-1 text-xs border-b border-black/20 focus:border-black outline-none bg-transparent py-1 text-black"
+                      value={editingTodoText}
+                      onChange={(e) => setEditingTodoText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleUpdateTodoText(todo.id);
+                        if (e.key === 'Escape') setEditingTodoId(null);
+                      }}
+                    />
+                    <button onClick={() => handleUpdateTodoText(todo.id)} className="text-[10px] font-bold text-green-600">SAVE</button>
+                    <button onClick={() => setEditingTodoId(null)} className="text-[10px] font-bold text-black/40">ESC</button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 cursor-pointer" onClick={() => handleToggleTodo(todo.id, todo.status)}>
+                    <div className={`w-3 h-3 rounded-full border border-black/30 flex items-center justify-center shrink-0 ${todo.status === 'COMPLETED' ? 'bg-green-500 border-green-500' : ''}`}>
+                      {todo.status === 'COMPLETED' && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
+                    </div>
+                    <span className={`text-xs truncate transition-all flex-1 ${todo.status === 'COMPLETED' ? 'text-black/40 line-through' : 'text-black/80 group-hover:text-black'}`}>
+                      {todo.title}
+                    </span>
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingTodoId(todo.id);
+                          setEditingTodoText(todo.title);
+                        }}
+                        className="text-black/40 hover:text-black"
+                        title="Edit task"
+                      >
+                        <Pencil size={12} />
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); deleteTodo(todo.id); }}
+                        className="text-red-400 hover:text-red-600"
+                        title="Delete task"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
-          <div className="mt-2 flex gap-1">
+          <div className="mt-2 flex gap-1 items-center">
             <input
-              className="flex-1 text-xs border-b border-black/20 focus:border-black outline-none bg-transparent"
+              id="new-todo-input"
+              className="flex-1 text-xs border-b border-black/20 focus:border-black outline-none bg-transparent py-1 text-black"
               placeholder="Add task..."
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
@@ -943,7 +994,18 @@ export default function JournalEditor() {
                 }
               }}
             />
-            <button className="text-black/50 hover:text-black"><Plus className="w-3 h-3" /></button>
+            <button
+              className="text-black/40 hover:text-black transition-colors"
+              onClick={() => {
+                const input = document.getElementById('new-todo-input') as HTMLInputElement;
+                if (input && input.value.trim()) {
+                  handleAddTodo(input.value);
+                  input.value = '';
+                }
+              }}
+            >
+              <Plus className="w-4 h-4" />
+            </button>
           </div>
         </div>
 

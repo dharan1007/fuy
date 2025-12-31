@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 // src/app/api/followers/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
@@ -63,3 +64,4 @@ export async function GET(req: Request) {
     );
   }
 }
+

@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 // src/app/api/posts/auds/route.ts
 export const runtime = 'nodejs';
 
@@ -72,3 +73,4 @@ export async function POST(req: NextRequest) {
         );
     }
 }
+

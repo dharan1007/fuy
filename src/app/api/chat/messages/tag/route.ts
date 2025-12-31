@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from '@/lib/auth';
@@ -69,3 +70,4 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }
+

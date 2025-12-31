@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
@@ -89,3 +90,4 @@ export async function DELETE(req: Request) {
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
 }
+

@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { logger } from "@/lib/logger";
 
 // src/app/api/chat/messages/route.ts
@@ -199,3 +200,4 @@ export async function POST(req: Request) {
     );
   }
 }
+

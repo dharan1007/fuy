@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Upload, Loader2 } from 'lucide-react';
+import { uploadFileClientSide } from '@/lib/upload-helper';
 
 import { useCreatePost } from '@/context/CreatePostContext';
 
@@ -17,6 +18,7 @@ export default function FillForm({ onBack: propOnBack, initialData }: FillFormPr
     const data = initialData || contextInitialData;
     const router = useRouter();
     const [loading, setLoading] = useState(false);
+    const [loadingMessage, setLoadingMessage] = useState('Creating fill...');
     const [error, setError] = useState('');
 
     const [content, setContent] = useState('');
@@ -47,17 +49,8 @@ export default function FillForm({ onBack: propOnBack, initialData }: FillFormPr
         try {
             if (!videoFile) throw new Error('Please select a video');
 
-            const formData = new FormData();
-            formData.append('file', videoFile);
-            formData.append('type', 'video');
-
-            const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData });
-            if (!uploadRes.ok) {
-                const errorData = await uploadRes.json();
-                throw new Error(errorData.error || 'Video upload failed');
-            }
-
-            const uploadData = await uploadRes.json();
+            setLoadingMessage("Uploading video...");
+            const publicUrl = await uploadFileClientSide(videoFile, 'fills');
 
             const res = await fetch('/api/posts/fills', {
                 method: 'POST',
@@ -65,7 +58,7 @@ export default function FillForm({ onBack: propOnBack, initialData }: FillFormPr
                 body: JSON.stringify({
                     content,
                     visibility,
-                    videoUrl: uploadData.url,
+                    videoUrl: publicUrl,
                     duration,
                     status,
                 }),
@@ -156,6 +149,7 @@ export default function FillForm({ onBack: propOnBack, initialData }: FillFormPr
                     <button
                         type="button"
                         onClick={onBack}
+                        disabled={loading}
                         className="flex-1 py-3 bg-white/10 hover:bg-white/20 rounded-xl font-medium transition-colors"
                     >
                         Back
@@ -173,7 +167,7 @@ export default function FillForm({ onBack: propOnBack, initialData }: FillFormPr
                         disabled={loading || !videoFile}
                         className="flex-1 py-3 bg-white text-black rounded-xl font-bold hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
-                        {loading ? <Loader2 className="animate-spin" size={20} /> : 'Create Fill'}
+                        {loading ? <><Loader2 className="animate-spin" size={20} /> {loadingMessage}</> : 'Create Fill'}
                     </button>
                 </div>
             </div>

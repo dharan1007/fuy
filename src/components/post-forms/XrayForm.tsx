@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Upload, Loader2 } from 'lucide-react';
+import { uploadFileClientSide } from '@/lib/upload-helper';
 
 import { useCreatePost } from '@/context/CreatePostContext';
 
@@ -17,6 +18,7 @@ export default function XrayForm({ onBack: propOnBack, initialData }: XrayFormPr
     const data = initialData || contextInitialData;
     const router = useRouter();
     const [loading, setLoading] = useState(false);
+    const [loadingMessage, setLoadingMessage] = useState('Creating xray...');
     const [error, setError] = useState('');
 
     const [content, setContent] = useState('');
@@ -34,24 +36,12 @@ export default function XrayForm({ onBack: propOnBack, initialData }: XrayFormPr
                 throw new Error('Both layers are required');
             }
 
-            // Upload both layers
-            const uploadLayer = async (file: File) => {
-                const formData = new FormData();
-                formData.append('file', file);
-                formData.append('type', file.type.startsWith('video') ? 'video' : 'image');
-
-                const res = await fetch('/api/upload', { method: 'POST', body: formData });
-                if (!res.ok) {
-                    const errorData = await res.json();
-                    throw new Error(errorData.error || 'Upload failed');
-                }
-                return await res.json();
-            };
-
-            const [topData, bottomData] = await Promise.all([
-                uploadLayer(topLayerFile),
-                uploadLayer(bottomLayerFile),
+            setLoadingMessage('Uploading layers...');
+            const [topUrl, bottomUrl] = await Promise.all([
+                uploadFileClientSide(topLayerFile, 'xrays'),
+                uploadFileClientSide(bottomLayerFile, 'xrays'),
             ]);
+            setLoadingMessage('Creating xray...');
 
             // Create xray post
             const res = await fetch('/api/posts/xrays', {
@@ -60,9 +50,9 @@ export default function XrayForm({ onBack: propOnBack, initialData }: XrayFormPr
                 body: JSON.stringify({
                     content: content || 'Scratch to reveal!',
                     visibility,
-                    topLayerUrl: topData.url,
+                    topLayerUrl: topUrl,
                     topLayerType: topLayerFile.type.startsWith('video') ? 'VIDEO' : 'IMAGE',
-                    bottomLayerUrl: bottomData.url,
+                    bottomLayerUrl: bottomUrl,
                     bottomLayerType: bottomLayerFile.type.startsWith('video') ? 'VIDEO' : 'IMAGE',
                     status,
                 }),
@@ -196,7 +186,7 @@ export default function XrayForm({ onBack: propOnBack, initialData }: XrayFormPr
                         disabled={loading || !topLayerFile || !bottomLayerFile}
                         className="flex-1 py-3 bg-white text-black rounded-xl font-bold hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
-                        {loading ? <Loader2 className="animate-spin" size={20} /> : 'Create Xray'}
+                        {loading ? <><Loader2 className="animate-spin" size={20} /> {loadingMessage}</> : 'Create Xray'}
                     </button>
                 </div>
             </div>

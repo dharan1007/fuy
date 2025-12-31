@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 // src/app/api/upload/route.ts
 export const runtime = 'nodejs';
 
@@ -192,3 +193,4 @@ export async function DELETE(req: NextRequest) {
     );
   }
 }
+

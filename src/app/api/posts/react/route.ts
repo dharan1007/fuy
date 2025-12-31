@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
@@ -188,3 +189,4 @@ async function sendNotification(userId: string, postId: string, type: string) {
         console.error("Failed to send reaction notification", e);
     }
 }
+

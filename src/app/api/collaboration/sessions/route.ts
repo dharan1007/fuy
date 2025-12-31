@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { logger } from "@/lib/logger";
 // src/app/api/collaboration/sessions/route.ts
 import { NextResponse } from "next/server";
@@ -134,3 +135,4 @@ export async function POST(req: Request) {
     );
   }
 }
+

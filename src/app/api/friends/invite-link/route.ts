@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 // src/app/api/friends/invite-link/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
@@ -26,3 +27,4 @@ export async function GET(req: Request) {
     );
   }
 }
+

@@ -9,6 +9,8 @@ interface StoryUser {
         displayName: string | null;
         avatarUrl: string | null;
     };
+    name?: string | null;
+    email?: string | null;
 }
 
 interface StoryGroup {
@@ -52,8 +54,8 @@ export default function StoryCircle({ group }: { group: StoryGroup }) {
                 <div className={`w-16 h-16 rounded-full p-[2px] mb-1 transition-all ${isUnseen ? "bg-white shadow-[0_0_10px_rgba(255,255,255,0.3)]" : "bg-black border border-white/10"}`}>
                     <div className="w-full h-full rounded-full border-2 border-black overflow-hidden relative bg-black">
                         <img
-                            src={group.user.profile?.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${group.user.profile?.displayName}`}
-                            alt={group.user.profile?.displayName || "User"}
+                            src={group.user.profile?.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${group.user.email || group.user.profile?.displayName || group.user.name || "User"}`}
+                            alt={group.user.profile?.displayName || group.user.name || "User"}
                             className="w-full h-full object-cover"
                         />
                     </div>

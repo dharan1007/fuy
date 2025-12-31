@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
@@ -33,25 +34,25 @@ export async function GET(req: NextRequest) {
             userId: { in: [...followingIds, user.id] },
             OR: [
                 { visibility: "PUBLIC" },
-                { visibility: "FRIENDS" }, // TODO: Add friend check logic closer to query or filter in memory
-                { visibility: "SPECIFIC" }, // TODO: Handle specific logic
-                // For MVP: Simplification - if I follow them, I see their stories unless private logic prevents it.
-                // Assuming SUBSCRIPTION implies access for now for "following".
+                { visibility: "FRIENDS" },
+                { visibility: "SPECIFIC" },
             ]
         },
         include: {
             user: {
                 select: {
                     id: true,
+                    name: true,
+                    email: true,
                     profile: { select: { displayName: true, avatarUrl: true } }
                 }
             },
             // @ts-ignore
             storyData: true,
             media: true,
-            reactions: true, // For seeing who liked/reacted
+            reactions: true,
         },
-        orderBy: { createdAt: 'asc' } // Oldest first (chronological story view)
+        orderBy: { createdAt: 'asc' }
     });
 
     // 3. Group by User
@@ -126,3 +127,4 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Failed to create story" }, { status: 500 });
     }
 }
+

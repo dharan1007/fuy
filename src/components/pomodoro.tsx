@@ -18,6 +18,7 @@ type Phase = "work" | "short" | "long";
 
 import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 import ScrollStarfield from "./ScrollStarfield";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 
 const STORE_KEY = "fuy.pomo.v1";
 const HIST_KEY = "fuy.pomo.history.v1";
@@ -52,7 +53,7 @@ type Session = {
   videoUrl?: string | null;
 };
 
-type Task = { id: string; text: string; done: boolean; created: string };
+type Task = { id: string; title: string; status: string; createdAt: string };
 
 /* ---------------- utilities ---------------- */
 
@@ -141,44 +142,94 @@ function useHistory() {
 
 function useTasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const raw = localStorage.getItem(TASK_KEY);
-      if (raw) setTasks(JSON.parse(raw));
-    } catch { }
-  }, []);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      localStorage.setItem(TASK_KEY, JSON.stringify(tasks));
-    } catch { }
-  }, [tasks]);
 
-  const addTask = (text: string) => {
+  const fetchTasks = async () => {
+    try {
+      const res = await fetch('/api/todos');
+      if (res.ok) {
+        const data = await res.json();
+        setTasks(data.todos || []);
+      }
+    } catch (e) {
+      console.error("Failed to fetch tasks", e);
+    }
+  };
+
+  useEffect(() => {
+    fetchTasks();
+  }, []);
+
+  const addTask = async (text: string) => {
     const t = text.trim();
     if (!t) return;
-    setTasks((prev) =>
-      [
-        {
-          id: crypto.randomUUID(),
-          text: t,
-          done: false,
-          created: new Date().toISOString(),
-        },
-        ...prev,
-      ].slice(0, 100)
-    );
+    try {
+      const res = await fetch('/api/todos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: t })
+      });
+      if (res.ok) fetchTasks();
+    } catch (e) {
+      console.error("Failed to add task", e);
+    }
   };
-  const toggleTask = (id: string) =>
-    setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t))
-    );
-  const removeTask = (id: string) =>
-    setTasks((prev) => prev.filter((t) => t.id !== id));
-  const clearDone = () => setTasks((prev) => prev.filter((t) => !t.done));
 
-  return { tasks, addTask, toggleTask, removeTask, clearDone };
+  const toggleTask = async (id: string) => {
+    const task = tasks.find(t => t.id === id);
+    if (!task) return;
+    const newStatus = task.status === 'COMPLETED' ? 'PENDING' : 'COMPLETED';
+
+    // Optimistic update
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, status: newStatus } : t));
+
+    try {
+      await fetch('/api/todos', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status: newStatus })
+      });
+    } catch (e) {
+      console.error("Failed to toggle task", e);
+      fetchTasks(); // Revert
+    }
+  };
+
+  const updateTaskText = async (id: string, newTitle: string) => {
+    try {
+      const res = await fetch('/api/todos', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, title: newTitle })
+      });
+      if (res.ok) fetchTasks();
+    } catch (e) {
+      console.error("Failed to update task", e);
+    }
+  };
+
+  const removeTask = async (id: string) => {
+    // Optimistic update
+    setTasks(prev => prev.filter(t => t.id !== id));
+    try {
+      await fetch('/api/todos', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
+    } catch (e) {
+      console.error("Failed to remove task", e);
+      fetchTasks(); // Revert
+    }
+  };
+
+  const clearDone = async () => {
+    const doneIds = tasks.filter(t => t.status === 'COMPLETED').map(t => t.id);
+    for (const id of doneIds) {
+      removeTask(id);
+    }
+  };
+
+  return { tasks, addTask, toggleTask, removeTask, clearDone, updateTaskText };
 }
 
 /* ---------------- camera hook ---------------- */
@@ -468,7 +519,9 @@ function useMotionAnalysis(stream: MediaStream | null, active: boolean) {
 export function PomodoroPro() {
   const { s, setS } = useStore();
   const { list, setList } = useHistory();
-  const { tasks, addTask, removeTask, toggleTask, clearDone } = useTasks();
+  const { tasks, addTask, removeTask, toggleTask, clearDone, updateTaskText } = useTasks();
+
+  const [showTasksPanel, setShowTasksPanel] = useState(true);
 
   const [phase, setPhase] = useState<Phase>("work");
   const [running, setRunning] = useState(false);
@@ -793,7 +846,7 @@ export function PomodoroPro() {
     }));
   }, [seconds, running]);
 
-  const nextTask = tasks.find((t) => !t.done);
+  const nextTask = tasks.find((t) => t.status !== 'COMPLETED');
 
   /* ---------------- layout ---------------- */
 
@@ -1077,7 +1130,7 @@ export function PomodoroPro() {
               <div className="rounded-3xl border border-white/50 bg-black/50 backdrop-blur-md shadow-sm p-4 text-white">
                 <div className="text-xs font-bold opacity-80 uppercase tracking-widest text-white/70">UPCOMING</div>
                 <div className="mt-2 text-xl font-bold text-white">
-                  {nextTask ? nextTask.text : intention || "No upcoming task"}
+                  {nextTask ? nextTask.title : intention || "No upcoming task"}
                 </div>
                 <div className="mt-1 text-sm font-bold text-white/80">
                   {endLabel} · Focus
@@ -1138,13 +1191,16 @@ export function PomodoroPro() {
               </div>
 
               {/* Tasks — glass */}
-              <TaskPanel
-                tasks={tasks}
-                addTask={addTask}
-                toggleTask={toggleTask}
-                removeTask={removeTask}
-                clearDone={clearDone}
-              />
+              {showTasksPanel && (
+                <TaskPanel
+                  tasks={tasks}
+                  addTask={addTask}
+                  toggleTask={toggleTask}
+                  removeTask={removeTask}
+                  clearDone={clearDone}
+                  updateTaskText={updateTaskText}
+                />
+              )}
 
               {/* Interruption ledger — glass */}
               <div className="rounded-3xl border border-white/50 bg-black/50 backdrop-blur-md shadow-sm p-4">
@@ -1285,6 +1341,8 @@ export function PomodoroPro() {
           onPause={pause}
           running={running}
           onReset={reset}
+          showTasksPanel={showTasksPanel}
+          setShowTasksPanel={setShowTasksPanel}
         />
 
         {/* Mini Widget */}
@@ -1517,6 +1575,7 @@ function TaskPanel({
   toggleTask,
   removeTask,
   clearDone,
+  updateTaskText,
   lightMode,
 }: {
   tasks: Task[];
@@ -1524,9 +1583,19 @@ function TaskPanel({
   toggleTask: (id: string) => void;
   removeTask: (id: string) => void;
   clearDone: () => void;
+  updateTaskText: (id: string, t: string) => void;
   lightMode?: boolean;
 }) {
   const [text, setText] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState("");
+
+  const handleSaveEdit = () => {
+    if (editingId) {
+      updateTaskText(editingId, editingText);
+      setEditingId(null);
+    }
+  };
   return (
     <div className={`rounded-3xl border p-4 shadow-sm border-white/50 bg-black/50 backdrop-blur-md`}>
       <div className="flex items-center justify-between mb-3">
@@ -1537,8 +1606,9 @@ function TaskPanel({
       </div>
       <div className="flex gap-2 mb-4">
         <input
-          className="input w-full bg-white/5 text-white border border-white/50 focus:border-white placeholder:text-white/50 rounded-xl h-10 font-medium"
+          className="input w-full bg-white text-black border border-white/50 focus:border-white placeholder:text-neutral-500 rounded-xl h-10 font-bold px-4"
           placeholder='Add a task (e.g., "Outline section 2")'
+          style={{ color: 'black' }}
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
@@ -1549,12 +1619,13 @@ function TaskPanel({
           }}
         />
         <button
-          className="btn-ghost font-bold text-white hover:bg-white/20 hover:text-white rounded-xl px-4 border border-white/30"
+          className="btn-ghost font-bold text-white hover:bg-white/20 hover:text-white rounded-xl px-4 border border-white/30 flex items-center gap-2"
           onClick={() => {
             addTask(text);
             setText("");
           }}
         >
+          <Plus size={16} />
           Add
         </button>
       </div>
@@ -1562,24 +1633,55 @@ function TaskPanel({
         {tasks.map((t) => (
           <li
             key={t.id}
-            className="rounded-xl border border-white/30 px-3 py-3 bg-white/10 flex items-center gap-3 transition-colors hover:border-white/50"
+            className="rounded-xl border border-white/20 px-3 py-3 bg-white/5 flex flex-col gap-2 transition-colors hover:border-white/40 group/item"
           >
-            <input
-              checked={t.done}
-              onChange={() => toggleTask(t.id)}
-              type="checkbox"
-              className="checkbox checkbox-sm checkbox-primary border-white/50"
-            />
-            <span className={`font-bold ${t.done ? "line-through text-white/40" : "text-white"}`}>
-              {t.text}
-            </span>
-            <button
-              className="btn-ghost btn-xs ml-auto text-white/50 hover:text-red-500"
-              onClick={() => removeTask(t.id)}
-              aria-label="Delete"
-            >
-              ✕
-            </button>
+            {editingId === t.id ? (
+              <div className="flex gap-2 w-full">
+                <input
+                  className="flex-1 bg-white text-black rounded-lg px-2 py-1 text-sm font-bold"
+                  value={editingText}
+                  onChange={(e) => setEditingText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSaveEdit();
+                    if (e.key === 'Escape') setEditingId(null);
+                  }}
+                  autoFocus
+                />
+                <button onClick={handleSaveEdit} className="text-xs font-bold text-emerald-400">SAVE</button>
+                <button onClick={() => setEditingId(null)} className="text-xs font-bold text-white/50">CANCEL</button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                <input
+                  checked={t.status === 'COMPLETED'}
+                  onChange={() => toggleTask(t.id)}
+                  type="checkbox"
+                  className="checkbox checkbox-xs checkbox-primary border-white/50"
+                />
+                <span className={`font-bold flex-1 ${t.status === 'COMPLETED' ? "line-through text-white/40" : "text-white"}`}>
+                  {t.title}
+                </span>
+                <div className="flex items-center gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity">
+                  <button
+                    className="p-1 text-white/50 hover:text-white"
+                    onClick={() => {
+                      setEditingId(t.id);
+                      setEditingText(t.title);
+                    }}
+                    title="Edit"
+                  >
+                    <Pencil size={12} />
+                  </button>
+                  <button
+                    className="p-1 text-white/50 hover:text-rose-500"
+                    onClick={() => removeTask(t.id)}
+                    title="Delete"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              </div>
+            )}
           </li>
         ))}
         {tasks.length === 0 && (
@@ -1596,19 +1698,28 @@ function BottomBar({
   onPause,
   running,
   onReset,
+  showTasksPanel,
+  setShowTasksPanel,
 }: {
   canStart: boolean;
   onStart: () => void;
   onPause: () => void;
   running: boolean;
   onReset: () => void;
+  showTasksPanel: boolean;
+  setShowTasksPanel: (v: boolean) => void;
   lightMode?: boolean; // deprecated prop, kept for interface compat but unused styles
 }) {
   return (
     <div className="fixed bottom-0 inset-x-0 z-50 pointer-events-none">
       <div className="w-full px-6 pb-5">
         <div className={`pointer-events-auto rounded-[22px] px-6 py-4 flex items-center justify-between border shadow-lg transition-all border-white/50 bg-black/60 backdrop-blur-xl text-white`}>
-          <button className={`btn-ghost font-bold text-white hover:bg-white/10 border border-white/20 rounded-xl px-4`} aria-label="Open tasks">
+          <button
+            className={`btn-ghost font-bold text-white hover:bg-white/10 border border-white/20 rounded-xl px-4 flex items-center gap-2`}
+            onClick={() => setShowTasksPanel(!showTasksPanel)}
+            aria-label="Toggle tasks"
+          >
+            <Plus size={14} className={`transition-transform duration-300 ${showTasksPanel ? 'rotate-45' : ''}`} />
             Tasks
           </button>
           <div className="flex items-center gap-4">

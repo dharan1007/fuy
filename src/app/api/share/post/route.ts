@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 // src/app/api/share/post/route.ts
 export const runtime = "nodejs";
 
@@ -47,3 +48,4 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ success: true });
 }
+

@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth";
 import { authOptions } from "@/lib/auth";
@@ -124,7 +125,6 @@ export async function PATCH(req: Request) {
     }
 
     if (action === "ACCEPT") {
-      // Transaction: Update status, increment counts, create subscription
       await prisma.$transaction(async (tx) => {
         // 1. Update Friendship
         await tx.friendship.update({
@@ -132,20 +132,12 @@ export async function PATCH(req: Request) {
           data: { status: "ACCEPTED" },
         });
 
-        // 2. Increment ACCEPTER's (Session User) follower count? 
-        // Wait, if I accept a request, the sender becomes my friend. In standard social models:
-        // If it's bidirectional (Friendship), usually both follow each other or it's just "Friends".
-        // The prompt says: "followers count of the person who accepted (Session User) should increase"
-        // "following count of the user who sent the request (Sender) should change"
-        // This implies the Sender is *following* the Accepter.
-
-        // 3. Create Subscription (Sender follows Accepter)
-        // Check if exists first to avoid unique constraint error
+        // 2. Create Subscription (Sender follows Accepter)
         const existingSub = await tx.subscription.findUnique({
           where: {
             subscriberId_subscribedToId: {
-              subscriberId: friendship.userId, // Sender
-              subscribedToId: session.user.id, // Accepter
+              subscriberId: friendship.userId,
+              subscribedToId: session.user.id,
             }
           }
         });
@@ -164,12 +156,23 @@ export async function PATCH(req: Request) {
           });
 
           await tx.user.update({
-            where: { id: friendship.userId }, // The sender
+            where: { id: friendship.userId },
             data: { followingCount: { increment: 1 } },
           });
         }
 
-        // Notify the sender
+        // 3. Mark the FRIEND_REQUEST notification as read for the accepter
+        await tx.notification.updateMany({
+          where: {
+            userId: session.user.id,
+            type: "FRIEND_REQUEST",
+            postId: friendship.userId,
+            read: false,
+          },
+          data: { read: true },
+        });
+
+        // 4. Notify the sender
         await tx.notification.create({
           data: {
             userId: friendship.userId,
@@ -181,31 +184,42 @@ export async function PATCH(req: Request) {
       });
 
     } else if (action === "REJECT") {
-      await prisma.friendship.update({
-        where: { id: friendshipId },
-        data: { status: "REJECTED" },
-      });
+      await prisma.$transaction([
+        prisma.friendship.update({
+          where: { id: friendshipId },
+          data: { status: "REJECTED" },
+        }),
+        prisma.notification.updateMany({
+          where: {
+            userId: session.user.id,
+            type: "FRIEND_REQUEST",
+            postId: friendship.userId,
+            read: false,
+          },
+          data: { read: true },
+        }),
+      ]);
 
     } else if (action === "GHOST") {
-      await prisma.friendship.update({
-        where: { id: friendshipId },
-        data: { isGhosted: true, ghostedBy: session.user.id },
-      });
+      await prisma.$transaction([
+        prisma.friendship.update({
+          where: { id: friendshipId },
+          data: { isGhosted: true, ghostedBy: session.user.id },
+        }),
+        prisma.notification.updateMany({
+          where: {
+            userId: session.user.id,
+            type: "FRIEND_REQUEST",
+            postId: friendship.userId,
+            read: false,
+          },
+          data: { read: true },
+        }),
+      ]);
 
     } else if (action === "UNDO") {
-      // UNDO Logic
       await prisma.$transaction(async (tx) => {
-        // We need to know what the previous state was to undo correctly.
-        // If it was ACCEPTED, we decrement.
-        // If it was REJECTED, we just set to PENDING.
-        // If it was GHOSTED, we set ghosted to false.
-
-        // We use the current state of 'friendship' fetched above, but be careful of race conditions.
-        // Ideally we fetch inside transaction or check logic.
-        // For simplicity, we check the current status.
-
         if (friendship.status === "ACCEPTED") {
-          // Revert counts
           await tx.user.update({
             where: { id: session.user.id },
             data: { followersCount: { decrement: 1 } },
@@ -216,7 +230,6 @@ export async function PATCH(req: Request) {
             data: { followingCount: { decrement: 1 } },
           });
 
-          // Remove Subscription
           try {
             await tx.subscription.delete({
               where: {
@@ -226,12 +239,9 @@ export async function PATCH(req: Request) {
                 }
               }
             });
-          } catch (e) {
-            // Subscription might not exist or already deleted, ignore
-          }
+          } catch (e) { }
         }
 
-        // Reset to PENDING
         await tx.friendship.update({
           where: { id: friendshipId },
           data: {
@@ -239,6 +249,15 @@ export async function PATCH(req: Request) {
             isGhosted: false,
             ghostedBy: null
           },
+        });
+
+        await tx.notification.updateMany({
+          where: {
+            userId: session.user.id,
+            type: "FRIEND_REQUEST",
+            postId: friendship.userId,
+          },
+          data: { read: false },
         });
       });
     }
@@ -249,6 +268,8 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
+
+
 
 export async function DELETE(req: Request) {
   try {
@@ -285,3 +306,4 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
+

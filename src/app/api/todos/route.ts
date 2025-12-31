@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth";
 import { authOptions } from "@/lib/auth";
@@ -118,3 +119,4 @@ export async function DELETE(req: Request) {
         return NextResponse.json({ error: "Failed to delete todo" }, { status: 500 });
     }
 }
+

@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth";
@@ -83,3 +84,4 @@ export async function DELETE(req: NextRequest) {
         return new NextResponse("Internal Error", { status: 500 });
     }
 }
+

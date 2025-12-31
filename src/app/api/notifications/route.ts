@@ -44,7 +44,7 @@ export async function GET(req: Request) {
         ...(unreadOnly ? { read: false } : {}),
       },
       orderBy: { createdAt: "desc" },
-      take: 100,
+      take: 200, // Show more history
     });
 
     // Fetch sender info for friend request notifications
@@ -82,6 +82,8 @@ export async function GET(req: Request) {
             ...notif,
             sender,
             friendshipId: friendship?.id,
+            friendshipStatus: friendship?.status,
+            isGhosted: friendship?.isGhosted,
           };
         }
 

@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 // src/app/api/payment/status/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/session";
@@ -208,3 +209,4 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+

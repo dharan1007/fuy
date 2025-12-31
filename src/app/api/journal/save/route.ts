@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
@@ -41,3 +42,4 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Failed to save entry" }, { status: 500 });
     }
 }
+

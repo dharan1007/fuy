@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 // src/app/api/webauthn/generate-registration-options/route.ts
 import { NextResponse } from "next/server";
 import { generateRegistrationOptions } from "@simplewebauthn/server";
@@ -50,3 +51,4 @@ export async function GET() {
     return NextResponse.json({ error: msg }, { status: msg === "UNAUTHENTICATED" ? 401 : 500 });
   }
 }
+

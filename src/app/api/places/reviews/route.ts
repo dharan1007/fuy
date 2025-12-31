@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { logger } from "@/lib/logger";
 import { getServerSession } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
@@ -97,3 +98,4 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+

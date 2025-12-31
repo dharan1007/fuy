@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 // src/app/api/journal/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
@@ -22,3 +23,4 @@ export async function POST(req: Request) {
 
   return NextResponse.json(post, { status: 201 });
 }
+
