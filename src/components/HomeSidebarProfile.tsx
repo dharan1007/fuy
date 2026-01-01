@@ -27,6 +27,7 @@ interface Rank {
   score: number;
 }
 
+
 interface HopinPlan {
   id: string;
   title: string;
@@ -85,6 +86,7 @@ export default function HomeSidebarProfile({
     if (hopinPlans.length === 0) fetchHopinPlans();
     if (todos.length === 0) fetchTodos();
   }, [timePeriod]);
+
 
   const fetchUserRanks = async () => {
     try {

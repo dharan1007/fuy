@@ -127,6 +127,7 @@ model User {
   planMemberships PlanMember[]
   moderationLogs  ModerationLog[]
   reportsMade     Report[]         @relation("Reporter")
+  reportsReceived Report[]         @relation("ReportedUser") // New relation
   reactions       Reaction[]
   reactionBubbles ReactionBubble[]
 
@@ -163,6 +164,8 @@ model User {
   hiddenPosts      HiddenPost[]
   mutedUsers       MutedUser[]       @relation("Muter")
   mutedBy          MutedUser[]       @relation("MutedUser")
+  blockedUsers     BlockedUser[]     @relation("Blocker")
+  blockedBy        BlockedUser[]     @relation("Blocked")
   stressMapEntries StressMapEntry[]
   healthConditions HealthCondition[]
   dietPlans        DietPlan[]
@@ -601,6 +604,10 @@ model Report {
   order        Order?        @relation(fields: [orderId], references: [id], onDelete: SetNull)
   conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
 
+  // New: Reported User
+  reportedUserId String?
+  reportedUser   User?   @relation("ReportedUser", fields: [reportedUserId], references: [id], onDelete: SetNull)
+
   @@index([postId])
   @@index([reporterId])
   @@index([status])
@@ -809,6 +816,8 @@ model Chan {
   liveUrl         String? // URL for live stream if active
   episodes        String? // JSON array of {title, url, thumbnail, duration} - DEPRECATED
   subscriberCount Int      @default(0)
+  watchingCount   Int      @default(0)
+  showOnProfile   Boolean  @default(false)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -1305,6 +1314,10 @@ model ConversationState {
   userId         String
   isDeleted      Boolean   @default(false)
   isMuted        Boolean   @default(false)
+  isGhosted      Boolean   @default(false)
+  isPinned       Boolean   @default(false)
+  pinnedAt       DateTime?
+  nickname       String?   // User-specific nickname for the other participant
   lastDeletedAt  DateTime? // To hide messages before this date if "deleted"
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
@@ -1315,6 +1328,20 @@ model ConversationState {
   @@unique([conversationId, userId])
   @@index([userId])
   @@index([conversationId])
+}
+
+model BlockedUser {
+  id          String   @id @default(cuid())
+  blockerId   String
+  blockedId   String
+  reason      String?
+  createdAt   DateTime @default(now())
+
+  blocker User @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked User @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId])
+  @@index([blockerId])
 }
 
 model Message {

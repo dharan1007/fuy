@@ -1,31 +1,32 @@
-export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getServerSession } from '@/lib/auth';
 import { authOptions } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+
 // GET: List conversations
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-    if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    const { id: userId } = session.user;
 
     const conversations = await prisma.conversation.findMany({
       where: {
         OR: [
-          { participantA: user.id },
-          { participantB: user.id },
+          { participantA: userId },
+          { participantB: userId },
         ],
         // Exclude conversations deleted by this user
         NOT: {
           states: {
             some: {
-              userId: user.id,
+              userId: userId,
               isDeleted: true
             }
           }
@@ -43,7 +44,7 @@ export async function GET(req: Request) {
           take: 1,
         },
         states: {
-          where: { userId: user.id }
+          where: { userId: userId }
         }
       },
       orderBy: { updatedAt: 'desc' },
@@ -51,13 +52,13 @@ export async function GET(req: Request) {
 
     // Format for frontend
     const formatted = conversations.map((c: any) => {
-      const otherUser = c.participantA === user.id ? c.userB : c.userA;
+      const otherUser = c.participantA === userId ? c.userB : c.userA;
       const lastMsg = c.messages?.[0];
       const userState = c.states?.[0]; // Should be only one for this user
 
       return {
         id: c.id,
-        participantName: otherUser?.name || 'Unknown User',
+        participantName: userState?.nickname || otherUser?.name || 'Unknown User',
         participantId: otherUser?.id,
         lastMessage: lastMsg?.content || 'Started a conversation',
         lastMessageTime: lastMsg ? new Date(lastMsg.createdAt).getTime() : new Date(c.createdAt).getTime(),
@@ -65,8 +66,19 @@ export async function GET(req: Request) {
         avatar: otherUser?.profile?.avatarUrl,
         userA: c.userA,
         userB: c.userB,
-        isMuted: userState?.isMuted || false
+        isMuted: userState?.isMuted || false,
+        isPinned: userState?.isPinned || false,
+        isGhosted: userState?.isGhosted || false,
+        nickname: userState?.nickname
       };
+    });
+
+    // Sort: Pinned first, then by updated/last message time
+    formatted.sort((a: any, b: any) => {
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+      // Then by time
+      return b.lastMessageTime - a.lastMessageTime;
     });
 
     return NextResponse.json({ conversations: formatted });
@@ -80,7 +92,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.email) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -89,15 +101,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Target user ID required' }, { status: 400 });
     }
 
-    const user = await prisma.user.findUnique({ where: { email: session.user.email } });
-    if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    const userId = session.user.id;
 
     // Check existing
     const existing = await prisma.conversation.findFirst({
       where: {
         OR: [
-          { participantA: user.id, participantB: targetUserId },
-          { participantA: targetUserId, participantB: user.id },
+          { participantA: userId, participantB: targetUserId },
+          { participantA: targetUserId, participantB: userId },
         ],
       },
     });
@@ -116,7 +127,7 @@ export async function POST(req: Request) {
     // Create new
     const newConv = await prisma.conversation.create({
       data: {
-        participantA: user.id,
+        participantA: userId,
         participantB: targetUserId,
       },
       include: {
@@ -131,4 +142,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
-

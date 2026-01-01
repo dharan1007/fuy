@@ -214,7 +214,7 @@ export async function GET(req: Request) {
         });
 
         const recentPosts = await prisma.post.findMany({
-            where: { userId },
+            where: { userId, postType: { not: 'CHAN' } },
             select: { id: true, createdAt: true, feature: true, postType: true },
             orderBy: { createdAt: 'desc' },
             take: 10
@@ -228,7 +228,7 @@ export async function GET(req: Request) {
         });
 
         const postsAnalytics = await prisma.post.findMany({
-            where: { userId, visibility: 'PUBLIC' },
+            where: { userId, visibility: 'PUBLIC', postType: { not: 'CHAN' } },
             select: {
                 id: true, content: true, createdAt: true, postType: true,
                 _count: { select: { reactions: true, comments: true } },
@@ -262,7 +262,7 @@ export async function GET(req: Request) {
 
         // --- RANKING BY TYPE (Lill, Fill, etc.) ---
         const allUserPosts = await prisma.post.findMany({
-            where: { userId },
+            where: { userId, postType: { not: 'CHAN' } },
             select: {
                 id: true,
                 content: true,
@@ -304,9 +304,6 @@ export async function GET(req: Request) {
             count: data.count,
             bestPost: data.bestPost
         })).sort((a, b) => (b.bestPost?.wCount || 0) - (a.bestPost?.wCount || 0));
-
-
-
         const mostLiked = [...processedPosts].sort((a, b) => b.breakdown.W - a.breakdown.W)[0];
         const mostDisliked = [...processedPosts].sort((a, b) => b.breakdown.L - a.breakdown.L)[0];
         const mostCapped = [...processedPosts].sort((a, b) => b.breakdown.CAP - a.breakdown.CAP)[0];

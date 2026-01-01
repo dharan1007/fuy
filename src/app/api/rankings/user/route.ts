@@ -9,9 +9,8 @@ export async function GET() {
     try {
         const session = await getServerSession(authOptions);
 
-        // Return default/empty ranks structure to satisfy the frontend contract
-        // Frontend expects: { ranks: [{ categoryId, rank, score }] }
-
+        // Return default/empty ranks structure or actual ranks if implemented
+        // For now, satisfy the frontend contract
         return NextResponse.json({
             ranks: [
                 {

@@ -42,7 +42,7 @@ function FeedPostItem({ post, currentUserId, className, isProfileView }: FeedPos
             <div className={`${className} flex flex-col relative`}>
                 {/* Badge */}
                 <div className="absolute top-3 left-3 z-30 bg-black text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider shadow-sm pointer-events-none">
-                    {post.postType || 'POST'}
+                    {(post.postType || post.feature) === 'CHAN' ? 'CHANNEL' : (post.postType || 'POST')}
                 </div>
 
                 {(() => {

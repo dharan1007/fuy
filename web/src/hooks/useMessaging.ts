@@ -1,6 +1,6 @@
 // web/src/hooks/useMessaging.ts
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useSession } from '@/hooks/use-session';
+import { useSession, signOut } from '@/hooks/use-session';
 import { supabase } from '@/lib/supabase-client';
 
 export interface Message {
@@ -26,6 +26,9 @@ export interface Conversation {
   userA?: { id: string; name: string; profile?: { displayName: string; avatarUrl: string } };
   userB?: { id: string; name: string; profile?: { displayName: string; avatarUrl: string } };
   isMuted?: boolean;
+  isPinned?: boolean;
+  isGhosted?: boolean;
+  nickname?: string;
 }
 
 export interface Friend {
@@ -71,6 +74,11 @@ export function useMessaging() {
     try {
       setLoading(true);
       const response = await fetch('/api/chat/conversations?page=1&limit=100');
+      if (response.status === 401) {
+        console.warn("Session expired (401) - Check auth cookies");
+        // signOut({ redirect: true }); // Disabled to prevent loop
+        return;
+      }
       if (response.ok) {
         const data = await response.json();
 
@@ -83,15 +91,18 @@ export function useMessaging() {
 
           return {
             id: conv.id,
-            participantName: otherUser.profile?.displayName || otherUser.name || 'Unknown User',
+            participantName: conv.nickname || otherUser.profile?.displayName || otherUser.name || 'Unknown User',
             participantId: otherUser.id,
-            lastMessage: conv.messages?.[0]?.content || '',
-            lastMessageTime: conv.messages?.[0]?.createdAt ? new Date(conv.messages[0].createdAt).getTime() : Date.now(),
+            lastMessage: conv.lastMessage || conv.messages?.[0]?.content || '',
+            lastMessageTime: conv.lastMessageTime || (conv.messages?.[0]?.createdAt ? new Date(conv.messages[0].createdAt).getTime() : Date.now()),
             unreadCount: 0,
             avatar: otherUser.profile?.avatarUrl,
             userA: conv.userA,
             userB: conv.userB,
-            isMuted: conv.isMuted
+            isMuted: conv.isMuted,
+            isPinned: conv.isPinned,
+            isGhosted: conv.isGhosted,
+            nickname: conv.nickname
           };
         }).filter(Boolean);
         setConversations(formattedConversations);
@@ -408,11 +419,12 @@ export function useMessaging() {
       [conversationId]: (prev[conversationId] || []).map(m => ({ ...m, read: true }))
     }));
     // Fire and forget
+    // Fire and forget with error handling to clean up logs
     fetch('/api/chat/read', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ conversationId })
-    });
+    }).catch(err => console.error("Failed to mark read:", err));
   }, []);
 
   const createOrGetConversation = useCallback(async (friendId: string) => {
@@ -423,6 +435,11 @@ export function useMessaging() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ targetUserId: friendId })
       });
+      if (res.status === 401) {
+        console.warn("Session expired (401) - Check auth cookies");
+        // signOut({ redirect: true });
+        return null;
+      }
       if (res.ok) {
         const data = await res.json();
         if (!conversations.find(c => c.id === data.conversation.id)) {

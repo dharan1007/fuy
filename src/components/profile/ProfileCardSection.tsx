@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Copy, Share2 } from "lucide-react";
+import { Copy, Share2, Tv, Play } from "lucide-react";
+import Link from 'next/link';
 import useSWR from "swr";
 
 type ProfileCardProps = {
@@ -26,7 +27,7 @@ export default function ProfileCardSection({ userId, uniqueCode, isOwnProfile }:
         return null;
     }
 
-    const { uniqueCode: code, content, user } = cardData;
+    const { uniqueCode: code, content, user, taggedChannel } = cardData;
     const sections = content.sections || [];
     const basicInfo = content.basicInfo || {};
 
@@ -123,6 +124,70 @@ export default function ProfileCardSection({ userId, uniqueCode, isOwnProfile }:
                         </div>
                     </div>
                 ))}
+
+                {/* Tagged Channel Card */}
+                {taggedChannel && (
+                    <div className="snap-center shrink-0 w-[85%] sm:w-[350px] h-[450px] rounded-3xl p-6 bg-black border border-white/20 shadow-2xl relative overflow-hidden flex flex-col group/chan">
+                        {/* Background Image / Blur */}
+                        {taggedChannel.coverImageUrl && (
+                            <div className="absolute inset-0 z-0 overflow-hidden">
+                                <img src={taggedChannel.coverImageUrl} className="w-full h-full object-cover opacity-40 group-hover/chan:scale-110 transition-transform duration-700" />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent" />
+                            </div>
+                        )}
+
+                        <div className="relative z-10 flex flex-col h-full">
+                            <div className="flex items-center gap-2 text-white/50 mb-4">
+                                <Tv className="w-4 h-4" />
+                                <span className="text-[10px] font-bold uppercase tracking-widest whitespace-nowrap overflow-hidden">Official Channel</span>
+                            </div>
+
+                            <h3 className="text-xl font-black text-white mb-2 leading-tight drop-shadow-lg">
+                                {taggedChannel.channelName}
+                            </h3>
+                            <p className="text-white/60 text-sm line-clamp-3 mb-6 font-medium">
+                                {taggedChannel.description}
+                            </p>
+
+                            <div className="mt-auto space-y-4">
+                                {/* Sample Show */}
+                                {taggedChannel.shows?.[0] && (
+                                    <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10">
+                                        <p className="text-white/40 text-[10px] uppercase font-bold tracking-wider mb-2">Featured Show</p>
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-12 h-12 rounded-lg bg-white/5 overflow-hidden flex-shrink-0">
+                                                {taggedChannel.shows[0].coverUrl ? (
+                                                    <img src={taggedChannel.shows[0].coverUrl} className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center text-white/20">
+                                                        <Play className="w-4 h-4" />
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="text-white font-bold text-sm truncate">{taggedChannel.shows[0].title}</p>
+                                                <p className="text-white/40 text-xs truncate">
+                                                    {taggedChannel.shows[0].episodes?.length || 0} Episodes
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <Link
+                                    href={`/chan/${taggedChannel.id}`}
+                                    className="block w-full py-3 bg-white text-black font-black uppercase text-center text-xs tracking-widest rounded-xl hover:bg-gray-200 transition-all shadow-[0_0_20px_rgba(255,255,255,0.2)]"
+                                >
+                                    Visit Channel
+                                </Link>
+                            </div>
+                        </div>
+
+                        <div className="absolute bottom-4 right-6 text-[10px] opacity-20 tracking-[0.2em] font-light text-right text-white">
+                            CHANNEL • TAGGED
+                        </div>
+                    </div>
+                )}
             </div>
             <p className="text-center text-xs text-gray-400 mt-2 sm:hidden">Swipe to see more</p>
         </div>

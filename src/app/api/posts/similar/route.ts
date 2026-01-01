@@ -43,7 +43,6 @@ export async function GET(req: NextRequest) {
         ];
 
         // 3. Find "Slash Twins" - Users who post with similar slashes
-        // This is a simplified version; for scale, use raw SQL or caching.
         const similarSlashPosts = await prisma.post.findMany({
             where: {
                 id: { not: postId },
@@ -65,6 +64,7 @@ export async function GET(req: NextRequest) {
             where: {
                 id: { not: postId }, // Exclude source
                 visibility: 'PUBLIC',
+                postType: { not: 'CHAN' },
                 OR: [
                     // A. Match Slashes
                     {
@@ -103,7 +103,7 @@ export async function GET(req: NextRequest) {
                     select: {
                         likes: true,
                         comments: true,
-                        shares: true, // Assuming relation exists, if not, use shareCount field
+                        shares: true,
                         reactions: true
                     }
                 }
@@ -138,7 +138,7 @@ export async function GET(req: NextRequest) {
                 // Flatten counts for UI
                 likesCount: post._count.likes,
                 commentsCount: post._count.comments,
-                sharesCount: post.shareCount || post._count.shares || 0, // Use cached or relation
+                sharesCount: post.shareCount || post._count.shares || 0,
                 impressions: post.impressions || 0,
                 // Add debug explanation
                 matchReason: slashOverlap > 0 ? 'Similar Vibe' : (interestOverlap > 0 ? 'Based on your interests' : 'Trending')
@@ -157,4 +157,3 @@ export async function GET(req: NextRequest) {
         return new NextResponse('Internal Error', { status: 500 });
     }
 }
-

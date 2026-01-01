@@ -8,6 +8,7 @@ import * as THREE from 'three';
 const FixedStarfieldScene = () => {
     const starsRef = useRef<THREE.Group>(null);
     useFrame((state, delta) => {
+        if (document.visibilityState === 'hidden') return;
         if (starsRef.current) {
             starsRef.current.rotation.y += delta * 0.02;
             starsRef.current.rotation.x += delta * 0.01;
@@ -16,7 +17,7 @@ const FixedStarfieldScene = () => {
 
     return (
         <group ref={starsRef}>
-            <Stars radius={80} depth={40} count={6000} factor={6} saturation={0} fade speed={1} />
+            <Stars radius={80} depth={40} count={1500} factor={6} saturation={0} fade speed={1} />
         </group>
     );
 };
@@ -26,6 +27,7 @@ const ScrollingStarfieldScene = () => {
     const scroll = useScroll();
 
     useFrame((state, delta) => {
+        if (document.visibilityState === 'hidden') return;
         if (starsRef.current && scroll) {
             const offset = scroll.offset;
 
@@ -41,7 +43,7 @@ const ScrollingStarfieldScene = () => {
 
     return (
         <group ref={starsRef}>
-            <Stars radius={80} depth={40} count={6000} factor={6} saturation={0} fade speed={1} />
+            <Stars radius={80} depth={40} count={1500} factor={6} saturation={0} fade speed={1} />
         </group>
     );
 };
@@ -67,7 +69,8 @@ function ScrollStarfield({ children, variant = 'default' }: ScrollStarfieldProps
             antialias: false,
             stencil: false,
             depth: false,
-            alpha: true
+            alpha: true,
+            powerPreference: 'low-power'
         } as any,
         dpr: [1, 2] as [number, number]
     };

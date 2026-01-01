@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { SpaceBackground } from "@/components/SpaceBackground";
-import { Plus, Video, Radio, Layers, ChevronRight, Settings, Edit } from "lucide-react";
+import { Plus, Video, Radio, Layers, ChevronRight, Settings, Edit, Tv } from "lucide-react";
 import Link from "next/link";
 
 export default function ChannelDashboardPage() {
@@ -133,10 +133,22 @@ export default function ChannelDashboardPage() {
                 </div>
                 {channel && (
                     <div className="flex items-center gap-3">
-                        <div className="px-3 py-1 bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-bold uppercase rounded-full animate-pulse">
-                            {channel.isLive ? "LIVE SIGNAL ACTIVE" : "OFFLINE"}
-                        </div>
-                        <button className="p-2 hover:bg-white/10 rounded-full transition-colors">
+                        {channel.isLive && (
+                            <div className="px-3 py-1 bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-bold uppercase rounded-full animate-pulse">
+                                LIVE SIGNAL ACTIVE
+                            </div>
+                        )}
+                        <button
+                            onClick={() => router.push(`/chan/${channel.id}`)}
+                            className="p-2 hover:bg-white/10 rounded-full transition-colors group relative"
+                            title="View Public Profile"
+                        >
+                            <Tv className="w-5 h-5 text-white/70 group-hover:text-white" />
+                        </button>
+                        <button
+                            onClick={() => router.push("/dashboard/channel/settings")}
+                            className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                        >
                             <Settings className="w-5 h-5 text-white/70" />
                         </button>
                     </div>
@@ -166,10 +178,19 @@ export default function ChannelDashboardPage() {
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                         {/* Main Stats / Overview */}
                         <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-                            <StatCard label="Subscribers" value={channel.subscriberCount || 0} />
-                            <StatCard label="Total Views" value="2.4M" />
-                            <StatCard label="Active Shows" value={channel.shows?.length || 0} />
-                            <StatCard label="Content Hours" value="142" />
+                            <StatCard
+                                label="Subscribers"
+                                value={channel.stats?.subscriberCount || 0}
+                                onClick={() => router.push('/dashboard/channel/subscribers')}
+                                isClickable
+                            />
+                            <StatCard
+                                label="Total Vibes"
+                                value={channel.stats?.vibes || 0}
+                                subtitle="Likes + Comments"
+                            />
+                            <StatCard label="Active Shows" value={channel.stats?.activeShows || 0} />
+                            <StatCard label="Content Hrs" value={channel.stats?.contentHours || '0.0'} />
                         </div>
 
                         {/* Actions */}
@@ -279,11 +300,17 @@ export default function ChannelDashboardPage() {
                                 <h3 className="font-bold mb-4 flex items-center gap-2">
                                     <Radio className="w-4 h-4 text-red-400" /> Live Control
                                 </h3>
-                                <button className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg mb-2 shadow-lg shadow-red-900/50">
+                                <button className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg mb-4 shadow-lg shadow-red-900/50 transition-all active:scale-95">
                                     GO LIVE
                                 </button>
+                                <button
+                                    onClick={() => router.push(`/chan/${channel.id}`)}
+                                    className="w-full py-3 bg-white/10 hover:bg-white text-white hover:text-black font-bold rounded-lg mb-2 transition-all flex items-center justify-center gap-2"
+                                >
+                                    <Tv className="w-4 h-4" /> VIEW PUBLIC PROFILE
+                                </button>
                                 <p className="text-xs text-white/40 text-center">
-                                    Stream directly from your dashboard or use external software via RTMP.
+                                    See how your audience sees your broadcast signature.
                                 </p>
                             </div>
                         </div>
@@ -316,11 +343,15 @@ export default function ChannelDashboardPage() {
     );
 }
 
-function StatCard({ label, value }: { label: string, value: string | number }) {
+function StatCard({ label, value, subtitle, onClick, isClickable }: { label: string, value: string | number, subtitle?: string, onClick?: () => void, isClickable?: boolean }) {
     return (
-        <div className="bg-white/5 border border-white/10 p-6 rounded-2xl">
+        <div
+            onClick={onClick}
+            className={`bg-white/5 border border-white/10 p-6 rounded-2xl ${isClickable ? 'cursor-pointer hover:bg-white/10 transition-colors' : ''}`}
+        >
             <p className="text-white/40 text-xs uppercase font-bold tracking-wider mb-1">{label}</p>
             <p className="text-3xl font-black">{value}</p>
+            {subtitle && <p className="text-white/20 text-[10px] mt-1 font-mono uppercase tracking-[0.1em]">{subtitle}</p>}
         </div>
     )
 }

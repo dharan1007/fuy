@@ -70,6 +70,7 @@ export default function HomeClient({ isAdmin = false }: { isAdmin?: boolean }) {
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
     const [posts, setPosts] = useState<PostData[]>([]);
     const [loading, setLoading] = useState(true);
+    const [userRanks, setUserRanks] = useState<any[]>([]);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
 
     const [unreadCount, setUnreadCount] = useState(0);
@@ -98,7 +99,6 @@ export default function HomeClient({ isAdmin = false }: { isAdmin?: boolean }) {
     const [followersError, setFollowersError] = useState<string | null>(null);
     const [followingError, setFollowingError] = useState<string | null>(null);
 
-    const [userRanks, setUserRanks] = useState<any[]>([]);
     const [hopinPlans, setHopinPlans] = useState<any[]>([]);
     const [todos, setTodos] = useState<any[]>([]);
     const [suggestedUsers, setSuggestedUsers] = useState<any[]>([]);
@@ -107,33 +107,35 @@ export default function HomeClient({ isAdmin = false }: { isAdmin?: boolean }) {
     const features = ['JOURNAL', 'JOY', 'AWE', 'BONDS', 'SERENDIPITY', 'CHECKIN', 'PROGRESS', 'OTHER'];
     const visibilities = ['PUBLIC', 'FRIENDS', 'PRIVATE'];
 
-    // Fetch user profile
-    const fetchUserProfile = async () => {
+    // Unified Summary Fetch
+    const fetchHomeSummary = async () => {
         try {
-            const response = await fetch('/api/profile');
+            const response = await fetch('/api/home/summary');
             if (response.status === 401) {
-                console.error("HomeClient: 401 from profile. Session invalid/zombie. Signing out.");
+                console.error("HomeClient: 401 from summary. Session invalid. Signing out.");
                 await signOut({ callbackUrl: '/login' });
-                return;
-            }
-            if (response.status === 404) {
-                // Profile not found - redirect to setup
-                window.location.href = '/profile/setup';
                 return;
             }
             if (response.ok) {
                 const data = await response.json();
-                setUserProfile(data);
+                setUserProfile(data.profile);
+                setUnreadCount(data.unreadCount);
+                setUnreadMessageCount(data.unreadMessageCount);
+                setUserRanks(data.ranks || []);
+                setHopinPlans(data.hopinPlans || []);
+                setTodos(data.todos || []);
+                setSuggestedUsers(data.suggestedUsers || []);
+                setSuggestedPlans(data.suggestedPlans || []);
             }
         } catch (err) {
-            console.error('Error fetching profile:', err);
+            console.error('Error fetching home summary:', err);
         }
     };
 
-    // Fetch posts
+    // Fetch posts (Optimized)
     const fetchPosts = async () => {
         try {
-            const response = await fetch('/api/posts?scope=public');
+            const response = await fetch('/api/posts?scope=public&limit=30');
             if (response.ok) {
                 const data = await response.json();
                 setPosts(data);
@@ -141,83 +143,6 @@ export default function HomeClient({ isAdmin = false }: { isAdmin?: boolean }) {
         } catch (err) {
             console.error('Error fetching posts:', err);
         }
-    };
-
-    // Fetch unread notifications
-    const fetchUnreadCount = async () => {
-        try {
-            const response = await fetch('/api/notifications?unreadOnly=true');
-            if (response.ok) {
-                const data = await response.json();
-                setUnreadCount(data.notifications?.length || 0);
-            }
-        } catch (err) {
-            console.error('Error fetching unread count:', err);
-        }
-    };
-
-    // Fetch unread messages
-    const fetchUnreadMessages = async () => {
-        try {
-            const response = await fetch('/api/chat/unread');
-            if (response.ok) {
-                const data = await response.json();
-                setUnreadMessageCount(data.count || 0);
-            }
-        } catch (err) {
-            console.error('Error fetching unread messages:', err);
-        }
-    };
-
-    // Consolidated Sidebar Fetches
-    const fetchUserRanks = async () => {
-        try {
-            const res = await fetch('/api/rankings/user');
-            if (res.ok) {
-                const data = await res.json();
-                setUserRanks(data.ranks || []);
-            }
-        } catch (err) { console.error('Error fetching ranks:', err); }
-    };
-
-    const fetchHopinPlans = async () => {
-        try {
-            const res = await fetch('/api/hopin/my-plans');
-            if (res.ok) {
-                const data = await res.json();
-                setHopinPlans(data.plans || []);
-            }
-        } catch (err) { console.error('Error fetching hopin plans:', err); }
-    };
-
-    const fetchTodos = async () => {
-        try {
-            const res = await fetch('/api/todos');
-            if (res.ok) {
-                const data = await res.json();
-                setTodos(data.todos || []);
-            }
-        } catch (err) { console.error('Error fetching todos:', err); }
-    };
-
-    const fetchSuggestedUsers = async () => {
-        try {
-            const res = await fetch('/api/suggestions/users');
-            if (res.ok) {
-                const data = await res.json();
-                setSuggestedUsers(data.users || []);
-            }
-        } catch (err) { console.error('Error fetching suggested users:', err); }
-    };
-
-    const fetchSuggestedPlans = async () => {
-        try {
-            const res = await fetch('/api/suggestions/plans');
-            if (res.ok) {
-                const data = await res.json();
-                setSuggestedPlans(data.plans || []);
-            }
-        } catch (err) { console.error('Error fetching suggested plans:', err); }
     };
 
     // Fetch followers
@@ -289,8 +214,8 @@ export default function HomeClient({ isAdmin = false }: { isAdmin?: boolean }) {
                 setFollowingList((prev) =>
                     prev.filter((f) => f.friendshipId !== friendshipId)
                 );
-                // Refresh user profile to update counts
-                await fetchUserProfile();
+                // Refresh user profile summary to update counts
+                await fetchHomeSummary();
             }
         } catch (err) {
             console.error('Error removing friend:', err);
@@ -336,8 +261,8 @@ export default function HomeClient({ isAdmin = false }: { isAdmin?: boolean }) {
             setPostVisibility('PUBLIC');
             setCreatePostTab('text');
 
-            // Refresh posts
-            await fetchPosts();
+            // Refresh posts and summary (for counts)
+            await Promise.all([fetchPosts(), fetchHomeSummary()]);
         } catch (err) {
             setPostError('Something went wrong. Please try again.');
             console.error(err);
@@ -351,17 +276,10 @@ export default function HomeClient({ isAdmin = false }: { isAdmin?: boolean }) {
         // Only load data if session is authenticated
         if (status === 'authenticated') {
             setLoading(true);
-            // Fetch all data in parallel instead of sequentially
+            // Fetch summary and posts in parallel
             Promise.all([
-                fetchUserProfile(),
+                fetchHomeSummary(),
                 fetchPosts(),
-                fetchUnreadCount(),
-                fetchUnreadMessages(),
-                fetchUserRanks(),
-                fetchHopinPlans(),
-                fetchTodos(),
-                fetchSuggestedUsers(),
-                fetchSuggestedPlans(),
             ]).finally(() => {
                 setLoading(false);
             });

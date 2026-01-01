@@ -26,8 +26,11 @@ const DUMMY_CHANS = [
         feature: 'CHAN',
         postType: 'CHAN',
         chanData: {
+            id: 'c1',
             channelName: 'Cosmic Vibes',
             coverImageUrl: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800&q=80',
+            isLive: true,
+            watchingCount: 12500,
             shows: [{ episodes: [{ videoUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4' }] }]
         },
         user: { profile: { displayName: 'Stella Star', avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100' } },
@@ -38,8 +41,11 @@ const DUMMY_CHANS = [
         feature: 'CHAN',
         postType: 'CHAN',
         chanData: {
+            id: 'c2',
             channelName: 'Tech Talk Live',
             coverImageUrl: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=800&q=80',
+            isLive: false,
+            watchingCount: 840,
             shows: [{ episodes: [{ videoUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4' }] }]
         },
         user: { profile: { displayName: 'Tech Guru', avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100' } },
@@ -50,38 +56,23 @@ const DUMMY_CHANS = [
         feature: 'CHAN',
         postType: 'CHAN',
         chanData: {
+            id: 'c3',
             channelName: 'Urban Beats',
             coverImageUrl: 'https://images.unsplash.com/photo-1514525253440-b3933325d7ca?w=800&q=80',
+            isLive: true,
+            watchingCount: 3200,
             shows: [{ episodes: [{ videoUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4' }] }]
         },
         user: { profile: { displayName: 'Beat Maker', avatarUrl: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100' } },
         content: 'Street rhythm and culture.'
-    },
-    {
-        id: 'd4',
-        feature: 'CHAN',
-        postType: 'CHAN',
-        chanData: {
-            channelName: 'Culinary Arts',
-            coverImageUrl: 'https://images.unsplash.com/photo-1556910103-1c02745a30bf?w=800&q=80',
-            shows: [{ episodes: [{ videoUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4' }] }]
-        },
-        user: { profile: { displayName: 'Chef Anna', avatarUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=100' } },
-        content: 'Mastering the art of cooking.'
-    },
-    {
-        id: 'd5',
-        feature: 'CHAN',
-        postType: 'CHAN',
-        chanData: {
-            channelName: 'Nature Unveiled',
-            coverImageUrl: 'https://images.unsplash.com/photo-1501854140884-074bf42cb21c?w=800&q=80',
-            shows: [{ episodes: [{ videoUrl: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4' }] }]
-        },
-        user: { profile: { displayName: 'Eco Walker', avatarUrl: 'https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=100' } },
-        content: 'The hidden beauty of our planet.'
-    },
+    }
 ];
+
+function formatCount(count: number) {
+    if (count >= 1000000) return (count / 1000000).toFixed(1) + 'M';
+    if (count >= 1000) return (count / 1000).toFixed(1) + 'K';
+    return count.toString();
+}
 
 export default function ChanCarousel({ chans, onPostClick }: ChanCarouselProps) {
     const [activeIndex, setActiveIndex] = useState(0);
@@ -258,11 +249,13 @@ export default function ChanCarousel({ chans, onPostClick }: ChanCarouselProps) 
                                             {/* Live Badge */}
                                             <div className="mb-auto mt-2 flex items-center justify-between w-full">
                                                 <div className="flex items-center gap-3">
-                                                    <span className="px-3 py-1 rounded-full bg-red-600/90 text-white text-[10px] font-bold uppercase tracking-wider animate-pulse shadow-lg shadow-red-900/50">
-                                                        Live
-                                                    </span>
+                                                    {item.chanData?.isLive && (
+                                                        <span className="px-3 py-1 rounded-full bg-red-600/90 text-white text-[10px] font-bold uppercase tracking-wider animate-pulse shadow-lg shadow-red-900/50">
+                                                            Live
+                                                        </span>
+                                                    )}
                                                     <div className="bg-black/60 backdrop-blur-md px-3 py-1 rounded-full border border-white/10 text-white/80 text-xs shadow-lg">
-                                                        1.2m watching
+                                                        {formatCount(item.chanData?.watchingCount || 0)} watching
                                                     </div>
                                                 </div>
                                             </div>
@@ -283,7 +276,7 @@ export default function ChanCarousel({ chans, onPostClick }: ChanCarouselProps) 
 
                                             <button className="flex items-center gap-3 px-8 py-3.5 rounded-full bg-white text-black font-bold hover:bg-gray-200 hover:scale-105 active:scale-95 transition-all shadow-xl shadow-white/10">
                                                 <Play className="w-5 h-5 fill-current" />
-                                                <span>Join with 12 credits</span>
+                                                <span>Watch</span>
                                             </button>
 
                                             <div className="mt-6 text-white/60 text-sm font-medium tracking-wide">
@@ -318,6 +311,8 @@ export default function ChanCarousel({ chans, onPostClick }: ChanCarouselProps) 
                                         {videoUrl ? (
                                             <video
                                                 src={videoUrl}
+                                                poster={chan.chanData?.coverImageUrl}
+                                                preload="none"
                                                 muted
                                                 loop
                                                 playsInline
@@ -360,11 +355,13 @@ export default function ChanCarousel({ chans, onPostClick }: ChanCarouselProps) 
                                                 </span>
                                             </div>
                                             <div className="flex items-center justify-between">
-                                                <span className="text-[10px] text-red-500 font-bold uppercase tracking-wider bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/20">
-                                                    Live
-                                                </span>
+                                                {chan.chanData?.isLive ? (
+                                                    <span className="text-[10px] text-red-500 font-bold uppercase tracking-wider bg-red-500/10 px-1.5 py-0.5 rounded border border-red-500/20">
+                                                        Live
+                                                    </span>
+                                                ) : <span />}
                                                 <span className="text-[10px] text-white/60 font-mono">
-                                                    {(Math.random() * 5 + 0.5).toFixed(1)}k
+                                                    {formatCount(chan.chanData?.watchingCount || 0)}
                                                 </span>
                                             </div>
                                         </div>
@@ -416,7 +413,7 @@ export default function ChanCarousel({ chans, onPostClick }: ChanCarouselProps) 
                                             {chan.user?.profile?.displayName}
                                         </p>
                                         <p className="text-white/40 text-[10px]">
-                                            15k watching • 5 hr ago
+                                            {chan.chanData?.watchingCount ? `${formatCount(chan.chanData.watchingCount)} watching` : 'Offline'} • {new Date(chan.createdAt).toLocaleDateString()}
                                         </p>
                                     </div>
                                 </div>

@@ -39,9 +39,11 @@ export default function SettingsPage() {
 
   // Relations State
   const [blockedUsers, setBlockedUsers] = useState<any[]>([]);
-  const [ghostedUsers, setGhostedUsers] = useState<any[]>([]);
+  const [ghostedRequests, setGhostedRequests] = useState<any[]>([]);
+  const [ghostedConversations, setGhostedConversations] = useState<any[]>([]);
   const [showBlocked, setShowBlocked] = useState(false);
-  const [showGhosted, setShowGhosted] = useState(false);
+  const [showGhostedRequests, setShowGhostedRequests] = useState(false);
+  const [showGhostedConversations, setShowGhostedConversations] = useState(false);
 
   useEffect(() => {
     if (status === 'authenticated') {
@@ -90,7 +92,14 @@ export default function SettingsPage() {
       const ghostedData = await ghostedRes.json();
 
       if (blockedData.relations) setBlockedUsers(blockedData.relations);
-      if (ghostedData.relations) setGhostedUsers(ghostedData.relations);
+      if (ghostedData.relations) setGhostedRequests(ghostedData.relations);
+
+      // Fetch Ghosted Conversations
+      const convRes = await fetch('/api/chat/conversations');
+      if (convRes.ok) {
+        const convs = await convRes.json();
+        setGhostedConversations(convs.filter((c: any) => c.isGhosted));
+      }
     } catch (e) {
       console.error('Failed to load relations', e);
     }
@@ -166,11 +175,24 @@ export default function SettingsPage() {
         if (action === 'UNBLOCK') {
           setBlockedUsers(prev => prev.filter(r => r.friend.id !== targetId));
         } else {
-          setGhostedUsers(prev => prev.filter(r => r.friend.id !== targetId));
+          setGhostedRequests(prev => prev.filter(r => r.friend.id !== targetId));
         }
       }
     } catch (e) {
       console.error(`Failed to ${action}`, e);
+    }
+  };
+
+  const handleUnGhostConversation = async (conversationId: string) => {
+    try {
+      await fetch('/api/chat/conversations/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversationId, action: 'GHOST', value: false })
+      });
+      setGhostedConversations(prev => prev.filter(c => c.id !== conversationId));
+    } catch (e) {
+      console.error("Failed to unghost chat", e);
     }
   };
 
@@ -389,21 +411,21 @@ export default function SettingsPage() {
 
         {/* Ghosted Users Manager (New feature) */}
         <section className="bg-black/40 backdrop-blur-md rounded-xl border border-white/10 shadow-lg p-6 mb-6">
-          <div className="flex items-center justify-between cursor-pointer" onClick={() => setShowGhosted(!showGhosted)}>
+          <div className="flex items-center justify-between cursor-pointer" onClick={() => setShowGhostedRequests(!showGhostedRequests)}>
             <div className="flex items-center gap-3">
               <Ghost className="w-5 h-5 text-white" />
-              <h2 className="text-xl font-bold text-white uppercase tracking-wider">Ghosted Users ({ghostedUsers.length})</h2>
+              <h2 className="text-xl font-bold text-white uppercase tracking-wider">Ghosted Requests ({ghostedRequests.length})</h2>
             </div>
-            {showGhosted ? <ChevronDown className="w-5 h-5 text-white" /> : <ChevronRight className="w-5 h-5 text-white" />}
+            {showGhostedRequests ? <ChevronDown className="w-5 h-5 text-white" /> : <ChevronRight className="w-5 h-5 text-white" />}
           </div>
 
-          {showGhosted && (
+          {showGhostedRequests && (
             <div className="mt-4 space-y-3 animate-in fade-in slide-in-from-top-2">
               <p className="text-xs text-gray-400 mb-2">Ghosted users are restricted. They can't see your interactions.</p>
-              {ghostedUsers.length === 0 ? (
+              {ghostedRequests.length === 0 ? (
                 <p className="text-gray-500 text-sm">No ghosted users.</p>
               ) : (
-                ghostedUsers.map((relation) => (
+                ghostedRequests.map((relation) => (
                   <div key={relation.friend.id} className="flex items-center justify-between bg-white/5 p-3 rounded-lg border border-white/10">
                     <span className="font-bold text-sm">{relation.friend.name}</span>
                     <button
@@ -411,6 +433,43 @@ export default function SettingsPage() {
                       className="text-xs border border-white/30 px-3 py-1 rounded hover:bg-white hover:text-black transition-colors"
                     >
                       UNGHOST
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </section>
+
+        {/* Ghosted Conversations (New feature) */}
+        <section className="bg-black/40 backdrop-blur-md rounded-xl border border-white/10 shadow-lg p-6 mb-6">
+          <div className="flex items-center justify-between cursor-pointer" onClick={() => setShowGhostedConversations(!showGhostedConversations)}>
+            <div className="flex items-center gap-3">
+              <Ghost className="w-5 h-5 text-red-400" />
+              <h2 className="text-xl font-bold text-white uppercase tracking-wider">Ghosted Chats ({ghostedConversations.length})</h2>
+            </div>
+            {showGhostedConversations ? <ChevronDown className="w-5 h-5 text-white" /> : <ChevronRight className="w-5 h-5 text-white" />}
+          </div>
+
+          {showGhostedConversations && (
+            <div className="mt-4 space-y-3 animate-in fade-in slide-in-from-top-2">
+              <p className="text-xs text-gray-400 mb-2">Chats you have ghosted (hidden from inbox).</p>
+              {ghostedConversations.length === 0 ? (
+                <p className="text-gray-500 text-sm">No ghosted chats.</p>
+              ) : (
+                ghostedConversations.map((conv) => (
+                  <div key={conv.id} className="flex items-center justify-between bg-white/5 p-3 rounded-lg border border-white/10">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-gray-700 overflow-hidden">
+                        {conv.avatar ? <img src={conv.avatar} className="w-full h-full object-cover" /> : <div className="flex items-center justify-center w-full h-full text-xs">{conv.participantName[0]}</div>}
+                      </div>
+                      <span className="font-bold text-sm">{conv.participantName}</span>
+                    </div>
+                    <button
+                      onClick={() => handleUnGhostConversation(conv.id)}
+                      className="text-xs border border-white/30 px-3 py-1 rounded hover:bg-white hover:text-black transition-colors"
+                    >
+                      RESTORE
                     </button>
                   </div>
                 ))

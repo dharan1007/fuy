@@ -440,7 +440,6 @@ export default function DashboardAnalytics() {
             {/* Top Lists Row */}
             <h3 className="text-xl font-bold text-white pt-4">Records</h3>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-
                 {/* Top Posts Rankings */}
                 <div className="bg-transparent p-6 rounded-2xl border border-white/20 col-span-2 backdrop-blur-sm">
                     <h3 className="text-sm font-bold text-white uppercase tracking-widest mb-4">Hall of Fame</h3>
@@ -537,6 +536,6 @@ export default function DashboardAnalytics() {
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

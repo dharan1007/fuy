@@ -80,6 +80,26 @@ export async function GET(req: Request) {
 
         const content = typeof card.content === 'string' ? JSON.parse(card.content) : card.content;
 
+        // Check for tagged channel
+        const taggedChannel = await prisma.chan.findFirst({
+            where: {
+                post: { userId: card.userId },
+                showOnProfile: true
+            } as any,
+            include: {
+                post: {
+                    select: { id: true }
+                },
+                shows: {
+                    where: { isArchived: false },
+                    include: {
+                        episodes: { take: 1, orderBy: { createdAt: 'desc' } }
+                    },
+                    take: 3
+                }
+            }
+        });
+
         return NextResponse.json({
             userId: card.userId,
             uniqueCode: card.uniqueCode,
@@ -88,7 +108,8 @@ export async function GET(req: Request) {
             user: {
                 name: card.user.name,
                 profile: card.user.profile
-            }
+            },
+            taggedChannel
         });
 
     } catch (e: any) {

@@ -14,7 +14,6 @@ const NAV_LINKS = [
   { href: '/dashboard', label: 'Dashboard', icon: '📊' },
   { href: '/friends', label: 'Friends', icon: '👥' },
   { href: '/feed', label: 'Feed', icon: '📰' },
-  { href: '/rankings', label: 'Rankings', icon: '🏆' },
   { href: '/shop', label: 'Shop', icon: '🛍️' },
   { href: '/profile', label: 'Profile', icon: '👤' },
 ];

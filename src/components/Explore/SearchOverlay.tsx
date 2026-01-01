@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
-export function SearchOverlay() {
+export function SearchOverlay({ activeGlobe }: { activeGlobe?: string }) {
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
@@ -20,7 +20,7 @@ export function SearchOverlay() {
     }, []);
 
     useEffect(() => {
-        const searchUsers = async () => {
+        const performSearch = async () => {
             if (!query.trim()) {
                 setResults([]);
                 return;
@@ -28,10 +28,16 @@ export function SearchOverlay() {
 
             setLoading(true);
             try {
-                const res = await fetch(`/api/search/users?search=${encodeURIComponent(query)}`);
+                // If in Chans tab, search for channels/shows
+                const isChanSearch = activeGlobe === 'Chans';
+                const endpoint = isChanSearch
+                    ? `/api/search/chans?q=${encodeURIComponent(query)}`
+                    : `/api/search/users?search=${encodeURIComponent(query)}`;
+
+                const res = await fetch(endpoint);
                 if (res.ok) {
                     const data = await res.json();
-                    setResults(data.users || []);
+                    setResults(isChanSearch ? data.results : data.users || []);
                     setIsOpen(true);
                 }
             } catch (error) {
@@ -41,9 +47,9 @@ export function SearchOverlay() {
             }
         };
 
-        const timeoutId = setTimeout(searchUsers, 300);
+        const timeoutId = setTimeout(performSearch, 300);
         return () => clearTimeout(timeoutId);
-    }, [query]);
+    }, [query, activeGlobe]);
 
     return (
         <div className="absolute top-0 left-0 right-0 z-10 flex justify-center pt-8 px-4 pointer-events-none">
@@ -57,7 +63,7 @@ export function SearchOverlay() {
                     <input
                         type="text"
                         className="block w-full pl-10 pr-3 py-3 border border-white/10 rounded-xl leading-5 bg-black/40 backdrop-blur-xl text-white placeholder-gray-400 focus:outline-none focus:bg-black/60 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 sm:text-sm transition-all shadow-lg"
-                        placeholder="Search users..."
+                        placeholder={activeGlobe === 'Chans' ? "Search channels or shows..." : "Search users..."}
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                         onFocus={() => query && setIsOpen(true)}
@@ -70,33 +76,51 @@ export function SearchOverlay() {
                                 <div className="p-4 text-center text-gray-400 text-sm">Searching...</div>
                             ) : (
                                 <ul className="max-h-60 overflow-y-auto py-2">
-                                    {results.map((user) => (
-                                        <li key={user.id}>
-                                            <Link
-                                                href={`/profile/${user.id}`}
-                                                className="flex items-center px-4 py-3 hover:bg-white/10 transition-colors"
-                                                onClick={() => setIsOpen(false)}
-                                            >
-                                                {user.profile?.avatarUrl ? (
-                                                    <img
-                                                        src={user.profile.avatarUrl}
-                                                        alt=""
-                                                        className="h-8 w-8 rounded-full object-cover border border-white/20"
-                                                    />
-                                                ) : (
-                                                    <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold border border-white/20">
-                                                        {user.name?.[0] || 'U'}
+                                    {results.map((item) => {
+                                        const isUser = !!item.profile || !!item.handle;
+                                        const imageUrl = isUser
+                                            ? (item.profile?.avatarUrl || item.avatar)
+                                            : (item.coverImageUrl || item.coverUrl || item.thumbnail);
+                                        const title = isUser
+                                            ? (item.profile?.displayName || item.name)
+                                            : (item.channelName || item.title);
+                                        const subtitle = isUser
+                                            ? `@${item.username || item.handle || 'user'}`
+                                            : (item.type === 'SHOW' ? 'Show' : 'Channel');
+                                        const href = isUser
+                                            ? `/profile/${item.id}`
+                                            : item.type === 'CHAN'
+                                                ? `/chan/${item.id}`
+                                                : `/chan/${item.chanId}`;
+
+                                        return (
+                                            <li key={item.id}>
+                                                <Link
+                                                    href={href}
+                                                    className="flex items-center px-4 py-3 hover:bg-white/10 transition-colors"
+                                                    onClick={() => setIsOpen(false)}
+                                                >
+                                                    {imageUrl ? (
+                                                        <img
+                                                            src={imageUrl}
+                                                            alt=""
+                                                            className={`h-8 w-8 object-cover border border-white/20 ${isUser ? 'rounded-full' : 'rounded-md'}`}
+                                                        />
+                                                    ) : (
+                                                        <div className={`h-8 w-8 bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold border border-white/20 ${isUser ? 'rounded-full' : 'rounded-md'}`}>
+                                                            {title?.[0] || '?'}
+                                                        </div>
+                                                    )}
+                                                    <div className="ml-3">
+                                                        <p className="text-sm font-medium text-white truncate max-w-[200px]">
+                                                            {title}
+                                                        </p>
+                                                        <p className="text-xs text-gray-400 uppercase tracking-tighter">{subtitle}</p>
                                                     </div>
-                                                )}
-                                                <div className="ml-3">
-                                                    <p className="text-sm font-medium text-white">
-                                                        {user.profile?.displayName || user.name}
-                                                    </p>
-                                                    <p className="text-xs text-gray-400">@{user.username || 'user'}</p>
-                                                </div>
-                                            </Link>
-                                        </li>
-                                    ))}
+                                                </Link>
+                                            </li>
+                                        );
+                                    })}
                                 </ul>
                             )}
                         </div>

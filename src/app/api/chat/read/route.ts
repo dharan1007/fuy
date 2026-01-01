@@ -1,8 +1,10 @@
-export const dynamic = 'force-dynamic';
+
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getServerSession } from '@/lib/auth';
 import { authOptions } from '@/lib/auth';
+
+export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
     try {
@@ -11,7 +13,18 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { conversationId } = await req.json();
+        let conversationId;
+        try {
+            // Check if body is readable
+            if (!req.body) {
+                return NextResponse.json({ error: 'Empty body' }, { status: 400 });
+            }
+            const body = await req.json();
+            conversationId = body.conversationId;
+        } catch (e) {
+            return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+        }
+
         if (!conversationId) {
             return NextResponse.json({ error: 'Conversation ID required' }, { status: 400 });
         }
@@ -36,4 +49,3 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }
-

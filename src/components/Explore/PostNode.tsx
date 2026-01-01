@@ -42,6 +42,23 @@ export function PostNode({ post, position, onClick }: PostNodeProps) {
                                     {post.question || post.content}
                                 </span>
                             </div>
+                        ) : post.postType === 'CHAN' ? (
+                            // Channel Rendering
+                            <div className="w-full h-full relative">
+                                <img
+                                    src={post.media?.[0]?.url || post.chanData?.coverImageUrl}
+                                    className="w-full h-full object-cover opacity-90"
+                                    alt="Channel"
+                                />
+                                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/20 backdrop-blur-[1px]">
+                                    <div className="w-8 h-8 rounded-full bg-red-600 flex items-center justify-center border border-white/20 text-white shadow-lg mb-1">
+                                        <div className="w-0 h-0 border-t-[4px] border-t-transparent border-l-[8px] border-l-white border-b-[4px] border-b-transparent ml-0.5"></div>
+                                    </div>
+                                    <span className="bg-black/60 px-2 py-0.5 rounded text-[8px] font-bold text-white uppercase tracking-wider backdrop-blur-md">
+                                        Channel
+                                    </span>
+                                </div>
+                            </div>
                         ) : post.postType === 'AUD' ? (
                             // Audio Rendering
                             <div className="w-full h-full relative">
@@ -62,8 +79,8 @@ export function PostNode({ post, position, onClick }: PostNodeProps) {
                                     </div>
                                 </div>
                             </div>
-                        ) : post.postType === 'LILL' || (post.postType === 'SIMPLE' && !post.media?.length && !post.simpleData?.mediaUrls) ? (
-                            // Text / Lill Rendering
+                        ) : (post.postType === 'LILL' && !post.media?.length && !post.lillData?.videoUrl) || (post.postType === 'SIMPLE' && !post.media?.length && !post.simpleData?.mediaUrls) ? (
+                            // Text Only Rendering (No Media)
                             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900 p-4">
                                 <p className="text-xs text-white/90 font-serif italic text-center leading-relaxed line-clamp-5">
                                     "{post.content}"
@@ -75,7 +92,15 @@ export function PostNode({ post, position, onClick }: PostNodeProps) {
                                 {post.fillData?.thumbnailUrl ? (
                                     <img src={post.fillData.thumbnailUrl} className="w-full h-full object-cover" alt="Fill" />
                                 ) : post.media?.[0]?.url ? (
-                                    <video src={post.media[0].url} className="w-full h-full object-cover" muted />
+                                    <video
+                                        src={post.media[0].url}
+                                        className="w-full h-full object-cover"
+                                        muted
+                                        preload="none"
+                                        poster={post.media[0].thumbnailUrl}
+                                        onMouseOver={e => e.currentTarget.play().catch(() => { })}
+                                        onMouseOut={e => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }}
+                                    />
                                 ) : (
                                     <div className="w-full h-full flex items-center justify-center bg-gray-800">
                                         <span className="text-2xl">🎬</span>
@@ -116,6 +141,11 @@ export function PostNode({ post, position, onClick }: PostNodeProps) {
                                         <video
                                             src={post.media[0].url}
                                             className="w-full h-full object-cover"
+                                            muted
+                                            preload="none"
+                                            poster={post.media[0].thumbnailUrl || post.lillData?.thumbnailUrl}
+                                            onMouseOver={e => e.currentTarget.play().catch(() => { })}
+                                            onMouseOut={e => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }}
                                         />
                                     )
                                 ) : (

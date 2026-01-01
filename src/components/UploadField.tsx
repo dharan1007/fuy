@@ -53,11 +53,19 @@ export default function UploadField({ accept = "image/*,video/*,audio/*", channe
       setBusy(true);
       try {
         const serverUrl = await tryServerUpload(f);
-        const fallbackUrl = URL.createObjectURL(f);
-        const url = serverUrl || fallbackUrl;
-        const type = detectType(f);
 
-        const detail: Uploaded = { type, url, file: f };
+        let url = serverUrl;
+        if (!url) {
+          // Fallback to Base64 (Data URI) instead of Blob URL so it persists in DB
+          url = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(f);
+          });
+        }
+
+        const type = detectType(f);
+        const detail: Uploaded = { type, url: url!, file: f };
 
         // Dispatch event (legacy support)
         window.dispatchEvent(new CustomEvent(channel, { detail }));

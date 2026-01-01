@@ -28,6 +28,13 @@ export async function middleware(request: NextRequest) {
           })
         },
       },
+      cookieOptions: {
+        name: 'sb-auth-token',
+        maxAge: 60 * 60 * 24 * 7,
+        domain: '',
+        path: '/',
+        sameSite: 'lax',
+      },
     }
   )
 

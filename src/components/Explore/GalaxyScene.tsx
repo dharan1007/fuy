@@ -1,5 +1,5 @@
 import React from 'react';
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Stars } from '@react-three/drei';
 import { useSession } from '@/hooks/use-session';
 import { GlobeContent } from './GlobeContent';
@@ -19,6 +19,17 @@ interface GalaxySceneProps {
     showLines: boolean;
     activeGlobe: string;
 }
+
+const SceneThrottler = () => {
+    useFrame((state) => {
+        if (document.visibilityState === 'hidden') {
+            state.gl.setAnimationLoop(null);
+        } else {
+            // R3F handles resuming automatically if we just return or use standard loops
+        }
+    });
+    return null;
+};
 
 export default function GalaxyScene({
     posts,
@@ -54,11 +65,12 @@ export default function GalaxyScene({
 
     return (
         <div className="w-full h-screen absolute inset-0 z-0 bg-black">
-            <Canvas camera={{ position: [0, 0, 15], fov: 60 }}>
+            <Canvas camera={{ position: [0, 0, 15], fov: 60 }} gl={{ powerPreference: 'low-power' }}>
+                <SceneThrottler />
                 <fog attach="fog" args={['#000', 20, 50]} />
                 <ambientLight intensity={0.5} />
                 <pointLight position={[10, 10, 10]} intensity={1} />
-                <Stars radius={200} depth={50} count={7000} factor={4} saturation={0} fade speed={0.5} />
+                <Stars radius={200} depth={50} count={1500} factor={4} saturation={0} fade speed={0.5} />
 
                 {/* PUDs and Chans are 2D overlays, handled outside Canvas */
                     activeGlobe === 'Puds' || activeGlobe === 'Chans' ? null : (

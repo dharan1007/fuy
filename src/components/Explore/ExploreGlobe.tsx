@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Stars, Environment } from '@react-three/drei';
 import { PostNode } from './PostNode';
 import * as THREE from 'three';
@@ -41,15 +41,25 @@ function PostsSphere({ posts, onPostClick }: { posts: any[], onPostClick: (post:
     );
 }
 
+const SceneThrottler = () => {
+    useFrame((state) => {
+        if (document.visibilityState === 'hidden') {
+            state.gl.setAnimationLoop(null);
+        }
+    });
+    return null;
+};
+
 export default function ExploreGlobe({ posts, onPostClick, showLines }: ExploreGlobeProps) {
     return (
         <div className="w-full h-screen absolute inset-0 z-0">
-            <Canvas camera={{ position: [0, 0, 18], fov: 60 }}>
+            <Canvas camera={{ position: [0, 0, 18], fov: 60 }} gl={{ powerPreference: 'low-power' }}>
+                <SceneThrottler />
                 <fog attach="fog" args={['#000', 15, 25]} />
                 <ambientLight intensity={0.5} />
                 <pointLight position={[10, 10, 10]} intensity={1} />
 
-                <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
+                <Stars radius={100} depth={50} count={1500} factor={4} saturation={0} fade speed={1} />
 
                 {/* Central Sphere for reference */}
                 {showLines && (

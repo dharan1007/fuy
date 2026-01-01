@@ -41,6 +41,7 @@ export default function ReactionBubbleList({ postId, bubbles, totalBubbles, onAd
     const videoRef = useRef<HTMLVideoElement>(null);
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const chunksRef = useRef<Blob[]>([]);
+    const activeBlobUrlRef = useRef<string | null>(null);
 
     // Filter for latest 3 unique users
     const uniqueBubbles = bubbles.reduce((acc, curr) => {
@@ -92,9 +93,17 @@ export default function ReactionBubbleList({ postId, bubbles, totalBubbles, onAd
 
     const closeCameraModal = () => {
         stopCamera();
-        if (capturedMedia?.blobUrl && capturedMedia.type === "VIDEO") {
-            URL.revokeObjectURL(capturedMedia.blobUrl);
+
+        // Use the ref for strict cleanup
+        if (activeBlobUrlRef.current) {
+            // Find any elements using this URL and clear them first
+            const elements = document.querySelectorAll(`[src="${activeBlobUrlRef.current}"]`);
+            elements.forEach(el => el.setAttribute('src', ''));
+
+            URL.revokeObjectURL(activeBlobUrlRef.current);
+            activeBlobUrlRef.current = null;
         }
+
         setCapturedMedia(null);
         setIsCameraOpen(false);
         setIsRecording(false);
@@ -180,6 +189,7 @@ export default function ReactionBubbleList({ postId, bubbles, totalBubbles, onAd
             reader.readAsDataURL(blob);
             reader.onloadend = () => {
                 const base64data = reader.result as string;
+                activeBlobUrlRef.current = videoUrl; // Track in ref
                 setCapturedMedia({
                     blobUrl: videoUrl,
                     uploadDataUrl: base64data,
@@ -225,8 +235,9 @@ export default function ReactionBubbleList({ postId, bubbles, totalBubbles, onAd
     };
 
     const handleRedo = () => {
-        if (capturedMedia?.blobUrl && capturedMedia.type === "VIDEO") {
-            URL.revokeObjectURL(capturedMedia.blobUrl);
+        if (activeBlobUrlRef.current) {
+            URL.revokeObjectURL(activeBlobUrlRef.current);
+            activeBlobUrlRef.current = null;
         }
         setCapturedMedia(null);
         startCamera();
@@ -260,12 +271,13 @@ export default function ReactionBubbleList({ postId, bubbles, totalBubbles, onAd
         }
     };
 
-    // Cleanup blob URLs
+    // Final cleanup on unmount
     useEffect(() => {
         return () => {
             stopCamera();
-            if (capturedMedia?.blobUrl && capturedMedia.type === "VIDEO") {
-                URL.revokeObjectURL(capturedMedia.blobUrl);
+            if (activeBlobUrlRef.current) {
+                URL.revokeObjectURL(activeBlobUrlRef.current);
+                activeBlobUrlRef.current = null;
             }
         };
     }, []);

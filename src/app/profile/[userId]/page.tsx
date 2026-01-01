@@ -6,6 +6,8 @@ import ProfileActions from "@/components/ProfileActions";
 import AppHeader from "@/components/AppHeader";
 import ProfilePostsGrid from "@/components/profile/ProfilePostsGrid";
 import { SpaceBackground } from "@/components/SpaceBackground";
+import { Tv, ChevronRight, Play } from "lucide-react";
+import Link from 'next/link';
 
 // Type for the posts included in userData
 type Media = { type: "IMAGE" | "VIDEO" | "AUDIO"; url: string };
@@ -47,18 +49,53 @@ export default async function UserProfilePage({ params }: { params: { userId: st
         },
       },
       posts: {
-        where: isMe ? undefined : { status: "PUBLISHED" },
+        where: {
+          status: isMe ? undefined : "PUBLISHED",
+          postType: { not: "CHAN" }
+        },
         orderBy: { createdAt: 'desc' },
-        include: { media: true },
+        include: {
+          media: true,
+          user: {
+            select: {
+              id: true,
+              name: true,
+              profile: {
+                select: {
+                  displayName: true,
+                  avatarUrl: true
+                }
+              }
+            }
+          }
+        },
       },
       _count: {
         select: {
           friendshipsB: true, // Followers (inbound)
           friendshipsA: true, // Following (outbound)
-          posts: true,
+          posts: {
+            where: { postType: { not: "CHAN" } }
+          },
         }
       }
     },
+  });
+
+  const taggedChannel: any = await prisma.chan.findFirst({
+    where: {
+      post: { userId: params.userId },
+      showOnProfile: true
+    } as any,
+    include: {
+      shows: {
+        where: { isArchived: false },
+        include: {
+          episodes: { take: 1, orderBy: { createdAt: 'desc' } }
+        },
+        take: 1
+      }
+    }
   });
 
   if (!userData) {
@@ -143,8 +180,13 @@ export default async function UserProfilePage({ params }: { params: { userId: st
         {/* Actions & Name Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
               {userData.profile?.displayName || userData.name || "Unknown User"}
+              {taggedChannel && (
+                <span className="px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 text-[10px] font-black uppercase tracking-wider border border-red-500/20">
+                  Channel
+                </span>
+              )}
             </h1>
             {userData.profile?.location && (
               <p className="text-sm text-gray-500 dark:text-gray-400">📍 {userData.profile.location}</p>
@@ -192,6 +234,46 @@ export default async function UserProfilePage({ params }: { params: { userId: st
             <p className="text-gray-500 italic">No bio or tags yet.</p>
           )}
         </div>
+
+        {/* Pinned Channel */}
+        {taggedChannel && (
+          <div className="mb-8 group">
+            <h2 className="text-xs font-black uppercase tracking-widest text-white/30 mb-3 ml-1">Pinned Channel</h2>
+            <Link
+              href={`/chan/${taggedChannel.id}`}
+              className="block bg-gradient-to-br from-neutral-900 to-neutral-950 border border-white/10 rounded-2xl overflow-hidden hover:border-white/20 transition-all hover:scale-[1.01] active:scale-[0.99] shadow-2xl relative"
+            >
+              {taggedChannel.coverImageUrl && (
+                <div className="absolute inset-0 z-0 opacity-20">
+                  <img src={taggedChannel.coverImageUrl} className="w-full h-full object-cover grayscale brightness-50" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-black via-black/40 to-transparent" />
+                </div>
+              )}
+
+              <div className="relative z-10 p-5 flex items-center justify-between gap-6">
+                <div className="flex items-center gap-4 min-w-0">
+                  <div className="w-14 h-14 rounded-2xl bg-white/5 flex items-center justify-center border border-white/10 flex-shrink-0">
+                    <Tv className="w-7 h-7 text-white/70" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-xl font-black text-white truncate">{taggedChannel.channelName}</h3>
+                    <p className="text-white/40 text-xs line-clamp-1">{taggedChannel.description}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  {taggedChannel.shows?.[0] && (
+                    <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-full border border-white/10 max-w-[150px]">
+                      <Play className="w-3 h-3 text-white/50" />
+                      <span className="text-[10px] font-bold text-white/70 truncate">{taggedChannel.shows[0].title}</span>
+                    </div>
+                  )}
+                  <ChevronRight className="w-5 h-5 text-white/20 group-hover:text-white transition-colors" />
+                </div>
+              </div>
+            </Link>
+          </div>
+        )}
 
         {/* Private Account Message */}
         {!canViewContent && (

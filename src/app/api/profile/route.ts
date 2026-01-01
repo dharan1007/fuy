@@ -54,7 +54,7 @@ export async function GET() {
       prisma.friendship.count({
         where: { status: "ACCEPTED", OR: [{ userId: userId }, { friendId: userId }] },
       }),
-      prisma.post.count({ where: { userId: userId } }),
+      prisma.post.count({ where: { userId: userId, postType: { not: 'CHAN' } } }),
       prisma.friendship.count({
         where: { friendId: userId, status: "ACCEPTED" },
       }),
@@ -62,7 +62,7 @@ export async function GET() {
         where: { userId: userId, status: "ACCEPTED" },
       }),
       prisma.post.findMany({
-        where: { userId: userId },
+        where: { userId: userId, postType: { not: 'CHAN' } },
         orderBy: { createdAt: "desc" },
         take: 12,
         select: {
@@ -73,13 +73,6 @@ export async function GET() {
           createdAt: true,
           media: { select: { type: true, url: true } },
           status: true,
-          // Need to fetch user details for post card display? 
-          // HomeClient expects post.user structure. 
-          // But currently profile GET returns pure posts.
-          // Let's keep it as is, frontend might be handling it or these are just raw posts.
-          // Actually HomeClient map usually expects post.user.
-          // Let's check the old code... old code didn't select user for profile posts.
-          // Just keeps it same as before.
         },
       }),
     ]);

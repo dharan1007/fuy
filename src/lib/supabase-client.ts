@@ -15,6 +15,13 @@ export const supabase = createBrowserClient(url, anonKey, {
     persistSession: true,
     autoRefreshToken: true,
   },
+  cookieOptions: {
+    name: 'sb-auth-token',
+    maxAge: 60 * 60 * 24 * 7,
+    domain: '',
+    path: '/',
+    sameSite: 'lax',
+  }
 });
 
 export type RealtimeChannel = ReturnType<typeof supabase.channel>;

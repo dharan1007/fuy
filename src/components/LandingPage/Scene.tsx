@@ -36,7 +36,7 @@ export default function Scene() {
       <Stars
         radius={100}
         depth={50}
-        count={7000}
+        count={1500}
         factor={4}
         saturation={0}
         fade

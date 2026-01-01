@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 
 const CONFIG = {
-    starCount: 600,
+    starCount: 200,
     nebulaCount: 8,
     cometChance: 0.005,
     baseSpeed: 0.05,
@@ -117,6 +117,11 @@ export const SpaceBackground = () => {
         window.addEventListener("resize", onResize);
         let animationFrameId: number;
         const render = () => {
+            // Stop animations when the document is hidden to save GPU and CPU resources.
+            if (document.visibilityState === 'hidden') {
+                animationFrameId = requestAnimationFrame(render);
+                return;
+            }
             ctx.fillStyle = "#000000"; ctx.fillRect(0, 0, width, height);
             nebulas.forEach(n => { n.update(width, height); n.draw(ctx); });
             stars.forEach(s => { s.update(width, height, CONFIG.baseSpeed); s.draw(ctx); });

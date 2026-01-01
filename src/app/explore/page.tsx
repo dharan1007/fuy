@@ -58,50 +58,22 @@ export default function ExplorePage() {
       try {
         setLoading(true);
 
-        const fetchType = async (type?: string, limit = 20) => {
-          try {
-            const url = type
-              ? `/api/posts?type=${type}&limit=${limit}`
-              : `/api/posts?limit=50`;
-            const res = await fetch(url);
-            if (res.ok) {
-              const data = await res.json();
-              if (Array.isArray(data)) return data;
-              // Fallback for { posts: [] } structure if changed, though currently API returns array
-              return data.posts || [];
-            }
-          } catch (e) {
-            console.error(`Error fetching ${type || 'main'}:`, e);
-          }
-          return [];
-        };
+        const res = await fetch('/api/explore/summary');
+        if (res.ok) {
+          const data = await res.json();
 
-        // Parallel fetch for all globes
-        const results = await Promise.all([
-          fetchType(),           // Main mixed
-          fetchType('CHAN'),
-          fetchType('LILL'),
-          fetchType('FILL'),
-          fetchType('AUD'),
-          fetchType('CHAPTER'),
-          fetchType('XRAY'),
-          fetchType('PULLUPDOWN'),
-        ]);
+          // Filter out Chans from main mixed posts
+          const filteredMain = (data.main || []).filter((post: any) => post.postType !== 'CHAN' && post.feature !== 'CHAN');
 
-        const [mainData, chanData, lillData, fillData, audData, chapterData, xrayData, pudData] = results;
-
-        // Filter out Chans from main posts
-        const filteredMainData = mainData.filter((post: any) => post.postType !== 'CHAN' && post.feature !== 'CHAN');
-
-        setPosts(filteredMainData);
-        setChans(chanData && chanData.length > 0 ? chanData : DUMMY_CHANS as unknown as Post[]);
-        setLils(lillData);
-        setFills(fillData);
-        setAuds(audData);
-        setChaptes(chapterData);
-        setXrays(xrayData);
-        setPuds(pudData && pudData.length > 0 ? pudData : DUMMY_PUDS as unknown as Post[]);
-
+          setPosts(filteredMain);
+          setChans(data.chans && data.chans.length > 0 ? [...data.chans, ...DUMMY_CHANS] : DUMMY_CHANS as unknown as Post[]);
+          setLils(data.lills || []);
+          setFills(data.fills || []);
+          setAuds(data.auds || []);
+          setChaptes(data.chapters || []);
+          setXrays(data.xrays || []);
+          setPuds(data.puds && data.puds.length > 0 ? [...data.puds, ...DUMMY_PUDS] : DUMMY_PUDS as unknown as Post[]);
+        }
       } catch (err) {
         console.error('Error fetching explore content:', err);
       } finally {
@@ -120,9 +92,12 @@ export default function ExplorePage() {
     );
   }
 
-  const handlePostClick = (post: Post) => {
+  const handlePostClick = (post: Post | any) => {
     if (activeGlobe === 'Posts') {
       router.push(`/explore/similar/${post.id}`);
+    } else if (activeGlobe === 'Chans' || post.postType === 'CHAN' || post.feature === 'CHAN') {
+      const chanId = post.chanData?.id || post.id;
+      router.push(`/chan/${chanId}`);
     } else {
       setSelectedPost(post);
     }
@@ -144,7 +119,7 @@ export default function ExplorePage() {
       </div>
 
       {/* Search Overlay */}
-      {activeGlobe !== 'Slashes' && <SearchOverlay />}
+      {activeGlobe !== 'Slashes' && <SearchOverlay activeGlobe={activeGlobe} />}
 
       {/* Globe Selector Tabs */}
       <div className="absolute top-24 left-1/2 transform -translate-x-1/2 z-20 flex gap-2 overflow-x-auto max-w-full px-4 pb-2 no-scrollbar">
