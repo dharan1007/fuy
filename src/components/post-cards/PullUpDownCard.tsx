@@ -101,25 +101,25 @@ export default function PullUpDownCard({ pullUpDown, userVote, onVote, isAuthent
             className="cursor-pointer bg-black/40 backdrop-blur-md border border-white rounded-3xl p-5 w-full hover:bg-black/60 transition-colors"
         >
             {/* User Header */}
-            <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-full bg-neutral-800 overflow-hidden border border-white/20">
+            <div className="flex items-center gap-3 mb-5">
+                <div className="w-12 h-12 rounded-full bg-neutral-800 overflow-hidden border border-white/20">
                     {(pullUpDown as any).user?.profile?.avatarUrl ? (
                         <img src={(pullUpDown as any).user.profile.avatarUrl} alt="" className="w-full h-full object-cover" />
                     ) : (
                         <div className="w-full h-full flex items-center justify-center">
-                            <User className="w-5 h-5 text-white/50" />
+                            <User className="w-6 h-6 text-white/50" />
                         </div>
                     )}
                 </div>
                 <div>
-                    <h4 className="font-bold text-white text-sm">{(pullUpDown as any).user?.profile?.displayName || 'Anonymous'}</h4>
-                    <p className="text-white/40 text-xs">Posted a PUD</p>
+                    <h4 className="font-bold text-white text-base">{(pullUpDown as any).user?.profile?.displayName || 'Anonymous'}</h4>
+                    <p className="text-white/50 text-sm">Posted a PUD</p>
                 </div>
             </div>
 
-            <h3 className="text-xl font-bold mb-6 text-white leading-tight">{data.question || data.content}</h3>
+            <h3 className="text-2xl font-bold mb-6 text-white leading-tight">{data.question || data.content}</h3>
 
-            <div className="space-y-3">
+            <div className="space-y-4">
                 {options.map((option) => {
                     const percent = totalVotes > 0 ? (option.voteCount / totalVotes) * 100 : 0;
                     const isSelected = localVote === option.id;
@@ -132,7 +132,7 @@ export default function PullUpDownCard({ pullUpDown, userVote, onVote, isAuthent
                                 handleVote(option.id);
                             }}
                             disabled={!!localVote || voting}
-                            className={`w-full group relative overflow-hidden rounded-xl border transition-all duration-300 text-left h-12 flex items-center ${isSelected
+                            className={`w-full group relative overflow-hidden rounded-xl border transition-all duration-300 text-left h-14 flex items-center ${isSelected
                                 ? 'border-white bg-white text-black'
                                 : 'border-white text-white hover:bg-white/10'
                                 }`}
@@ -144,18 +144,18 @@ export default function PullUpDownCard({ pullUpDown, userVote, onVote, isAuthent
                                 style={{ width: `${percent}%`, opacity: isSelected ? 0 : 0.2 }}
                             />
 
-                            <div className="relative z-10 w-full px-4 flex justify-between items-center">
-                                <span className={`font-medium ${isSelected ? 'text-black' : 'text-white'}`}>{option.text}</span>
+                            <div className="relative z-10 w-full px-5 flex justify-between items-center">
+                                <span className={`font-medium text-lg ${isSelected ? 'text-black' : 'text-white'}`}>{option.text}</span>
 
-                                {isSelected && <Check className="w-5 h-5" />}
-                                {!isSelected && <span className="text-sm opacity-60">{Math.round(percent)}%</span>}
+                                {isSelected && <Check className="w-6 h-6" />}
+                                {!isSelected && <span className="text-base opacity-60">{Math.round(percent)}%</span>}
                             </div>
                         </button>
                     );
                 })}
             </div>
 
-            <div className="mt-4 flex items-center justify-between text-xs text-white/40">
+            <div className="mt-5 flex items-center justify-between text-sm text-white/50">
                 <span>{totalVotes} votes</span>
                 {isDummy && <span className="text-white/60">Demo</span>}
             </div>

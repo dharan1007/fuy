@@ -90,7 +90,7 @@ export default function XrayCard({ xray, currentUserId, onPostHidden, onRefresh 
                     onTouchMove={scratch}
                 />
 
-                <div className="absolute top-2 left-2 px-3 py-1 bg-black/70 rounded-full text-xs pointer-events-none">
+                <div className="absolute top-3 left-3 px-4 py-1.5 bg-black/70 rounded-full text-sm pointer-events-none font-medium">
                     🔍 Scratch to reveal
                 </div>
 

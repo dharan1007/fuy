@@ -153,44 +153,44 @@ export default function HomeSidebarProfile({
             <img
               src={avatarUrl}
               alt={displayName}
-              className="w-16 h-16 rounded-full mx-auto mb-3"
+              className="w-20 h-20 rounded-full mx-auto mb-4"
             />
-            <h3 className="font-semibold text-lg text-white">{displayName}</h3>
-            <p className="text-sm text-white/80 mt-1">{userProfile.profile?.bio || 'No bio yet'}</p>
+            <h3 className="font-bold text-2xl text-white">{displayName}</h3>
+            <p className="text-base text-white/80 mt-2">{userProfile.profile?.bio || 'No bio yet'}</p>
             {userProfile.profile?.location && (
-              <p className="text-xs text-white/70 mt-2">{userProfile.profile.location}</p>
+              <p className="text-sm text-white/70 mt-2">{userProfile.profile.location}</p>
             )}
           </div>
 
           {/* Stats Grid */}
           <div className="grid grid-cols-2 gap-4 pt-6 border-t border-white/20">
             <div className="text-center">
-              <div className="font-bold text-lg text-white">{userProfile.stats.posts}</div>
-              <div className="text-xs text-white/70 font-medium">Posts</div>
+              <div className="font-bold text-xl text-white">{userProfile.stats.posts}</div>
+              <div className="text-sm text-white/70 font-medium pt-1">Posts</div>
             </div>
             <div className="text-center">
-              <div className="font-bold text-lg text-white">{userProfile.stats.friends}</div>
-              <div className="text-xs text-white/70 font-medium">Friends</div>
+              <div className="font-bold text-xl text-white">{userProfile.stats.friends}</div>
+              <div className="text-sm text-white/70 font-medium pt-1">Friends</div>
             </div>
             <button
               onClick={onFetchFollowers}
               className="text-center hover:opacity-75 transition-opacity cursor-pointer"
             >
-              <div className="font-bold text-lg text-white">{userProfile.stats.followers}</div>
-              <div className="text-xs text-white/70 font-medium">Followers</div>
+              <div className="font-bold text-xl text-white">{userProfile.stats.followers}</div>
+              <div className="text-sm text-white/70 font-medium pt-1">Followers</div>
             </button>
             <button
               onClick={onFetchFollowing}
               className="text-center hover:opacity-75 transition-opacity cursor-pointer"
             >
-              <div className="font-bold text-lg text-white">{userProfile.stats.following}</div>
-              <div className="text-xs text-white/70 font-medium">Following</div>
+              <div className="font-bold text-xl text-white">{userProfile.stats.following}</div>
+              <div className="text-sm text-white/70 font-medium pt-1">Following</div>
             </button>
           </div>
 
           <Link
             href="/profile"
-            className="mt-4 w-full block text-center py-2.5 bg-transparent border border-white/20 text-white rounded-lg font-medium text-sm hover:bg-white/10 transition-colors"
+            className="mt-6 w-full block text-center py-3 bg-transparent border border-white/20 text-white rounded-lg font-bold text-base hover:bg-white/10 transition-colors"
           >
             View Profile
           </Link>
@@ -200,17 +200,17 @@ export default function HomeSidebarProfile({
 
         {/* Hopin Plans Card - Liquid Glass */}
         {hopinPlans.length > 0 && (
-          <div className="rounded-2xl p-4 bg-transparent backdrop-blur-md border border-white/20 hover:border-white/40 transition-all">
+          <div className="rounded-2xl p-6 bg-transparent backdrop-blur-md border border-white/20 hover:border-white/40 transition-all">
             <div className="flex items-center gap-2 mb-4">
-              <span className="text-xs font-bold text-white">PLANS</span>
-              <h4 className="font-semibold text-white text-sm">Active Plans</h4>
-              <Link href="/hopin" className="ml-auto text-blue-300 hover:text-blue-200 text-xs font-medium">
+              <span className="text-sm font-bold text-white">PLANS</span>
+              <h4 className="font-bold text-white text-lg">Active Plans</h4>
+              <Link href="/hopin" className="ml-auto text-blue-300 hover:text-blue-200 text-sm font-medium">
                 All
               </Link>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-3">
               {hopinPlans.slice(0, 3).map((plan, i) => (
-                <div key={`${plan.id}-${i}`} className="text-xs text-white/80 truncate hover:text-white">
+                <div key={`${plan.id}-${i}`} className="text-base text-white/80 truncate hover:text-white font-medium">
                   • {plan.title}
                 </div>
               ))}
@@ -219,43 +219,43 @@ export default function HomeSidebarProfile({
         )}
 
         {/* TODO List Card - Liquid Glass */}
-        <div className="rounded-2xl p-4 bg-transparent backdrop-blur-md border border-white/20 hover:border-white/40 transition-all">
-          <div className="flex items-center gap-2 mb-4 justify-between">
+        <div className="rounded-2xl p-6 bg-transparent backdrop-blur-md border border-white/20 hover:border-white/40 transition-all">
+          <div className="flex items-center gap-2 mb-5 justify-between">
             <div className="flex items-center gap-2">
-              <h4 className="font-semibold text-white text-sm">Tasks</h4>
+              <h4 className="font-bold text-white text-xl">Tasks</h4>
             </div>
             <button
               onClick={() => router.push('/journal')}
-              className="text-[10px] font-bold text-white/50 hover:text-white transition-colors flex items-center gap-1 group"
+              className="text-xs font-bold text-white/50 hover:text-white transition-colors flex items-center gap-1 group"
             >
-              <Pencil size={12} className="group-hover:scale-110 transition-transform" />
+              <Pencil size={14} className="group-hover:scale-110 transition-transform" />
               EDIT
             </button>
 
           </div>
           {todos.length > 0 ? (
-            <div className="space-y-2">
+            <div className="space-y-4">
               {todos.slice(0, 5).map((todo, i) => (
                 <div
                   key={`${todo.id}-${i}`}
-                  className="flex items-center gap-2 group cursor-pointer"
+                  className="flex items-center gap-3 group cursor-pointer"
                   onClick={() => handleToggleTodo(todo.id, todo.status)}
                 >
-                  <div className={`w-3 h-3 rounded-full border border-white/60 flex items-center justify-center ${todo.status === 'COMPLETED' ? 'bg-green-500 border-green-500' : ''}`}>
-                    {todo.status === 'COMPLETED' && <div className="w-1.5 h-1.5 bg-black rounded-full" />}
+                  <div className={`w-5 h-5 flex-shrink-0 rounded-full border-2 border-white/60 flex items-center justify-center ${todo.status === 'COMPLETED' ? 'bg-green-500 border-green-500' : ''}`}>
+                    {todo.status === 'COMPLETED' && <div className="w-2.5 h-2.5 bg-black rounded-full" />}
                   </div>
-                  <span className={`text-xs truncate transition-all ${todo.status === 'COMPLETED' ? 'text-white/40 line-through' : 'text-white/80 group-hover:text-white'}`}>
+                  <span className={`text-lg font-medium truncate transition-all ${todo.status === 'COMPLETED' ? 'text-white/40 line-through' : 'text-white/90 group-hover:text-white'}`}>
                     {todo.title}
                   </span>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="text-center py-3">
-              <p className="text-xs text-white/70 mb-3">No tasks yet</p>
+            <div className="text-center py-4">
+              <p className="text-base text-white/70 mb-4">No tasks yet</p>
               <button
                 onClick={() => router.push('/journal')}
-                className="w-full px-3 py-2 bg-transparent border border-white/20 text-white rounded text-xs font-medium hover:bg-white/10 transition-colors"
+                className="w-full px-4 py-3 bg-transparent border border-white/20 text-white rounded-lg text-sm font-bold hover:bg-white/10 transition-colors"
               >
                 Create New
               </button>

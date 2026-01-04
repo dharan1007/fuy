@@ -60,6 +60,24 @@ export async function GET(req: Request) {
             },
           },
         },
+
+        // @ts-ignore
+        sharedPost: {
+          select: {
+            id: true,
+            content: true,
+            postType: true,
+            mediaPreviews: true,
+            user: {
+              select: {
+                id: true,
+                name: true,
+                profile: { select: { displayName: true, avatarUrl: true } }
+              }
+            },
+            postMedia: { take: 1, include: { media: true } }
+          }
+        }
       },
       orderBy: { createdAt: "desc" },
       take: take,
@@ -141,7 +159,9 @@ export async function POST(req: Request) {
         conversationId,
         senderId: userId,
         content: content.trim(),
-      },
+        type: body.type || 'text',
+        sharedPostId: body.sharedPostId || null,
+      } as any, // Cast to any to bypass likely stale Prisma client types
       include: {
         sender: {
           select: {

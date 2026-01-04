@@ -89,8 +89,8 @@ export default function AudCard({ aud, user, post, currentUserId, onPostHidden, 
                     </button>
                 </div>
 
-                <h3 className="font-bold text-white text-sm truncate w-full">{aud.title || "Unknown Track"}</h3>
-                <p className="text-white/60 text-xs truncate w-full">{aud.artist || user?.profile?.displayName || "Unknown Artist"}</p>
+                <h3 className="font-bold text-white text-base truncate w-full">{aud.title || "Unknown Track"}</h3>
+                <p className="text-white/70 text-sm truncate w-full">{aud.artist || user?.profile?.displayName || "Unknown Artist"}</p>
             </div>
 
             {/* Progress Bar */}

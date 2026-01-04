@@ -508,6 +508,7 @@ model Post {
   comments PostComment[]
 
   shares PostShare[]
+  sharedInMessages Message[] @relation("SharedPost")
 
 
   reports Report[]
@@ -1439,6 +1440,10 @@ model Message {
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender       User         @relation("MessagesSent", fields: [senderId], references: [id], onDelete: Cascade)
   tags         String[]  @default([])
+
+  // Shared Post
+  sharedPostId String?
+  sharedPost   Post?     @relation("SharedPost", fields: [sharedPostId], references: [id], onDelete: SetNull)
 
   @@index([conversationId])
   @@index([senderId])

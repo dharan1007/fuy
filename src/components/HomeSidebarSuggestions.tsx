@@ -76,27 +76,27 @@ export default function HomeSidebarSuggestions({ initialUsers = [], initialPlans
     <div className="space-y-4">
       {/* Suggested Users - Liquid Glass */}
       {suggestedUsers.length > 0 && (
-        <div className="rounded-2xl p-4 bg-transparent backdrop-blur-md border border-white/20 hover:border-white/40 transition-all">
-          <h4 className="font-semibold text-white mb-4 flex items-center gap-2">
-            <span className="text-xs font-bold text-white">USERS</span>
+        <div className="rounded-2xl p-6 bg-transparent backdrop-blur-md border border-white/20 hover:border-white/40 transition-all">
+          <h4 className="font-semibold text-white mb-5 flex items-center gap-2">
+            <span className="text-sm font-bold text-white">USERS</span>
           </h4>
-          <div className="space-y-3">
+          <div className="space-y-4">
             {suggestedUsers.map((user) => (
               <Link
                 key={user.id}
                 href={`/profile/${user.id}`}
-                className="flex items-center gap-3 hover:opacity-75 transition-opacity"
+                className="flex items-center gap-4 hover:opacity-75 transition-opacity"
               >
                 <img
                   src={user.profile?.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${user.name}`}
                   alt={user.name}
-                  className="w-10 h-10 rounded-full border border-white/60"
+                  className="w-12 h-12 rounded-full border border-white/60"
                 />
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-sm text-white truncate">
+                  <div className="font-bold text-base text-white truncate">
                     {user.profile?.displayName || user.name}
                   </div>
-                  <div className="text-xs text-white/80">{user.followersCount} followers</div>
+                  <div className="text-sm text-white/80">{user.followersCount} followers</div>
                 </div>
               </Link>
             ))}
@@ -105,27 +105,27 @@ export default function HomeSidebarSuggestions({ initialUsers = [], initialPlans
       )}
 
       {/* Suggested Creators - Liquid Glass */}
-      <div className="rounded-2xl p-4 bg-transparent backdrop-blur-md border border-white/20 hover:border-white/40 transition-all">
-        <h4 className="font-semibold text-white mb-4 flex items-center gap-2">
-          <span className="text-xs font-bold text-white">CREATORS</span>
+      <div className="rounded-2xl p-6 bg-transparent backdrop-blur-md border border-white/20 hover:border-white/40 transition-all">
+        <h4 className="font-semibold text-white mb-5 flex items-center gap-2">
+          <span className="text-sm font-bold text-white">CREATORS</span>
         </h4>
-        <div className="space-y-3">
+        <div className="space-y-4">
           {suggestedUsers.slice(0, 3).map((user) => (
             <Link
               key={user.id}
               href={`/profile/${user.id}`}
-              className="flex items-center gap-3 hover:opacity-75 transition-opacity"
+              className="flex items-center gap-4 hover:opacity-75 transition-opacity"
             >
               <img
                 src={user.profile?.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${user.name}`}
                 alt={user.name}
-                className="w-10 h-10 rounded-full border border-white/60"
+                className="w-12 h-12 rounded-full border border-white/60"
               />
               <div className="flex-1 min-w-0">
-                <div className="font-medium text-sm text-white truncate">
+                <div className="font-bold text-base text-white truncate">
                   {user.profile?.displayName || user.name}
                 </div>
-                <div className="text-xs text-white/80 truncate">{user.profile?.bio || 'Creator'}</div>
+                <div className="text-sm text-white/80 truncate">{user.profile?.bio || 'Creator'}</div>
               </div>
             </Link>
           ))}
@@ -136,24 +136,24 @@ export default function HomeSidebarSuggestions({ initialUsers = [], initialPlans
 
       {/* Suggested Plans/Features - Liquid Glass */}
       {suggestedPlans.length > 0 && (
-        <div className="rounded-2xl p-4 bg-transparent backdrop-blur-md border border-white/20 hover:border-white/40 transition-all">
-          <h4 className="font-semibold text-white mb-4 flex items-center gap-2">
-            <span className="text-xs font-bold text-white">PLANS</span>
+        <div className="rounded-2xl p-6 bg-transparent backdrop-blur-md border border-white/20 hover:border-white/40 transition-all">
+          <h4 className="font-semibold text-white mb-5 flex items-center gap-2">
+            <span className="text-sm font-bold text-white">PLANS</span>
           </h4>
-          <div className="space-y-2">
+          <div className="space-y-3">
             {suggestedPlans.slice(0, 3).map((plan) => (
-              <div key={plan.id} className="text-sm text-white/80 hover:text-white transition-colors">
+              <div key={plan.id} className="text-base text-white/90 hover:text-white transition-colors">
                 <div className="flex items-start gap-2">
                   <span className="text-white/70">•</span>
                   <div>
-                    <div className="font-medium text-xs text-white">{plan.title}</div>
-                    {plan.description && <div className="text-xs text-white/80">{plan.description}</div>}
+                    <div className="font-bold text-sm text-white">{plan.title}</div>
+                    {plan.description && <div className="text-sm text-white/80">{plan.description}</div>}
                   </div>
                 </div>
               </div>
             ))}
           </div>
-          <Link href="/hopin" className="text-blue-300 hover:text-blue-200 text-xs font-medium mt-3 block">
+          <Link href="/hopin" className="text-blue-300 hover:text-blue-200 text-sm font-medium mt-4 block">
             Explore more plans →
           </Link>
         </div>

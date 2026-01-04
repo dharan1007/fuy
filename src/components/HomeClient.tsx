@@ -405,7 +405,7 @@ export default function HomeClient({ isAdmin = false }: { isAdmin?: boolean }) {
 
             {/* Main Content */}
             <main className="flex-1 w-full px-0 py-10 relative z-20">
-                <div className="grid grid-cols-1 md:grid-cols-[240px_1fr_280px] gap-0 h-full">
+                <div className="grid grid-cols-1 md:grid-cols-[420px_1fr_400px] gap-0 h-full">
                     {/* Left Sidebar - Extreme Left */}
                     <div className="px-3 sm:px-4 lg:px-6 flex flex-col gap-4">
                         <HomeSidebarProfile
@@ -433,7 +433,7 @@ export default function HomeClient({ isAdmin = false }: { isAdmin?: boolean }) {
 
                         {/* Posts Feed */}
                         {/* Hybrid Grid Feed */}
-                        <div className="flex flex-col gap-6 max-w-2xl mx-auto w-full">
+                        <div className="flex flex-col gap-6 max-w-3xl mx-auto w-full">
                             {posts.length === 0 ? (
                                 <div className="text-center py-12 border border-white/20 rounded-lg bg-transparent backdrop-blur-md">
                                     <p className="text-white/70">No posts yet. Be the first to share!</p>

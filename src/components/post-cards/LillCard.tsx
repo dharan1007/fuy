@@ -34,11 +34,11 @@ export default function LillCard({ lill, user, post, currentUserId, onPostHidden
                             <img
                                 src={user.profile?.avatarUrl || "https://api.dicebear.com/7.x/initials/svg?seed=User"}
                                 alt={user.profile?.displayName}
-                                className="w-8 h-8 rounded-full border border-white/20"
+                                className="w-10 h-10 rounded-full border border-white/20"
                             />
                         </Link>
                     )}
-                    <span className="text-white font-bold text-sm shadow-black drop-shadow-md">
+                    <span className="text-white font-bold text-base shadow-black drop-shadow-md">
                         {user?.profile?.displayName || 'User'}
                     </span>
                 </div>

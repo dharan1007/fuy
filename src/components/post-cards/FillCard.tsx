@@ -36,7 +36,7 @@ export default function FillCard({ fill, user, post, currentUserId, onPostHidden
                     controls
                     className="w-full h-full object-contain bg-black"
                 />
-                <div className="absolute bottom-2 right-2 px-2 py-1 bg-black/70 rounded text-xs">
+                <div className="absolute bottom-2 right-2 px-2 py-1 bg-black/70 rounded text-sm">
                     {formatDuration(fill.duration)}
                 </div>
                 <div className="absolute top-2 right-2 z-20">
@@ -61,9 +61,9 @@ export default function FillCard({ fill, user, post, currentUserId, onPostHidden
                     </Link>
                 )}
                 <div className="flex-1 min-w-0">
-                    <h3 className="text-white font-bold text-base leading-tight">Video Content</h3>
+                    <h3 className="text-white font-bold text-lg leading-tight">Video Content</h3>
                     {user && (
-                        <Link href={`/profile/${user.id}`} className="text-white/60 text-sm hover:text-white transition-colors block mt-1">
+                        <Link href={`/profile/${user.id}`} className="text-white/70 text-base hover:text-white transition-colors block mt-1">
                             {user.profile?.displayName || 'User'}
                         </Link>
                     )}

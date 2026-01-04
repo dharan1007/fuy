@@ -13,6 +13,21 @@ export interface Message {
   read: boolean;
   status?: 'sending' | 'sent' | 'failed';
   tags?: string[]; // New: Tags for message styling
+  type?: 'text' | 'post';
+  sharedPostId?: string;
+  sharedPost?: {
+    id: string;
+    content: string;
+    media: any[];
+    user: {
+      id: string;
+      name: string;
+      profile?: {
+        displayName: string;
+        avatarUrl: string;
+      };
+    };
+  };
 }
 
 export interface Conversation {
@@ -266,7 +281,10 @@ export function useMessaging() {
         content: newMsg.content,
         timestamp: new Date(newMsg.createdAt).getTime(),
         read: false, // Default false until seen
-        status: 'sent'
+        status: 'sent',
+        type: newMsg.type || 'text',
+        sharedPostId: newMsg.sharedPostId,
+        sharedPost: newMsg.sharedPost
       };
 
       return { ...prev, [conv.id]: [...currentMsgs, msg] };
@@ -391,7 +409,10 @@ export function useMessaging() {
           timestamp: new Date(msg.createdAt).getTime(),
           read: msg.readAt !== null,
           status: 'sent',
-          tags: [] // Todo match tags from DB if available
+          tags: [], // Todo match tags from DB if available
+          type: msg.type || 'text',
+          sharedPostId: msg.sharedPostId,
+          sharedPost: msg.sharedPost
         }));
 
         setMessages(prev => {

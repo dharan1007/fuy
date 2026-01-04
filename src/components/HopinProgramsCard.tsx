@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import SwipeableStack from './SwipeableStack';
-import styles from './HopinProgramsCard.module.css';
 import { MapPin, Calendar, User, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -57,18 +56,18 @@ export default function HopinProgramsCard() {
 
   if (loading) {
     return (
-      <div className={styles.container}>
-        <h3 className={styles.title}>Community Plans</h3>
-        <div className={styles.loadingState}>Loading plans...</div>
+      <div className="w-full mb-8">
+        <h3 className="font-bold text-2xl text-white mb-4 pb-3 border-b border-white/20">Community Plans</h3>
+        <div className="text-white/50 text-sm text-center py-10">Loading plans...</div>
       </div>
     );
   }
 
   if (error || plans.length === 0) {
     return (
-      <div className={styles.container}>
-        <h3 className={styles.title}>Community Plans</h3>
-        <div className={styles.emptyState}>
+      <div className="w-full mb-8">
+        <h3 className="font-bold text-2xl text-white mb-4 pb-3 border-b border-white/20">Community Plans</h3>
+        <div className="text-white/50 text-sm text-center py-10">
           {error ? `Error: ${error}` : 'No upcoming plans nearby.'}
         </div>
       </div>
@@ -76,60 +75,62 @@ export default function HopinProgramsCard() {
   }
 
   return (
-    <div className={styles.container}>
-      <div className="flex justify-between items-center mb-3 pb-2 border-b border-white/20">
-        <h3 className="font-bold text-lg text-white">Community Plans</h3>
-        <Link href="/hopin" className="text-xs text-neutral-400 hover:text-white flex items-center gap-1">
-          View All <ArrowRight size={12} />
+    <div className="w-full mb-8">
+      <div className="flex justify-between items-center mb-4 pb-3 border-b border-white/20">
+        <h3 className="font-bold text-2xl text-white">Community Plans</h3>
+        <Link href="/hopin" className="text-sm text-neutral-400 hover:text-white flex items-center gap-1">
+          View All <ArrowRight size={14} />
         </Link>
       </div>
 
       <SwipeableStack
         items={plans}
-        containerHeight="280px"
+        containerHeight="320px"
         onCardClick={(plan) => {
           router.push('/hopin');
         }}
       >
         {(plan: HopinPlan) => (
-          <div className={styles.programCard} style={{ cursor: 'pointer' }}>
-            <div className={styles.programHeader}>
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-red-500/20 to-purple-500/20 flex items-center justify-center border border-white/10 text-2xl">
+          <div className="flex flex-col h-full bg-black/40 backdrop-blur-md border border-white/20 rounded-2xl overflow-hidden shadow-xl p-5" style={{ cursor: 'pointer' }}>
+            <div className="flex gap-4 mb-4">
+              <div className="w-14 h-14 shrink-0 rounded-xl bg-gradient-to-br from-red-500/20 to-purple-500/20 flex items-center justify-center border border-white/10 text-3xl">
                 🚀
               </div>
-              <div className={styles.programMeta}>
-                <h4 className={styles.programTitle}>{plan.title}</h4>
-                <p className={styles.programDescription}>{plan.description}</p>
+              <div className="flex-1 min-w-0">
+                <h4 className="font-bold text-lg text-white mb-1 truncate">{plan.title}</h4>
+                <p className="text-sm text-white/70 line-clamp-2 leading-relaxed">{plan.description}</p>
               </div>
             </div>
 
-            <div className={styles.programDetails}>
-              <div className={styles.detailItem}>
-                <span className={styles.detailLabel}><MapPin size={10} className="inline mr-1" />Location</span>
-                <span className={styles.detailValue} style={{ fontSize: '0.8rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{plan.location}</span>
+            <div className="space-y-3 mb-4">
+              <div className="flex items-center text-sm text-white/80">
+                <MapPin size={16} className="text-white/60 mr-2 shrink-0" />
+                <span className="truncate">{plan.location}</span>
               </div>
-              <div className={styles.detailItem}>
-                <span className={styles.detailLabel}><Calendar size={10} className="inline mr-1" />When</span>
-                <span className={styles.detailValue} style={{ fontSize: '0.8rem' }}>
-                  {new Date(plan.date).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+              <div className="flex items-center text-sm text-white/80">
+                <Calendar size={16} className="text-white/60 mr-2 shrink-0" />
+                <span>
+                  {new Date(plan.date).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
                 </span>
               </div>
             </div>
 
-            <div className="flex items-center justify-between mt-auto pt-2">
-              <div className="flex -space-x-2">
+            <div className="flex items-center justify-between mt-auto border-t border-white/10 pt-3">
+              <div className="flex -space-x-3">
                 {plan.members?.slice(0, 3).map((m: any, i: number) => (
-                  <div key={i} className="w-6 h-6 rounded-full border border-black bg-neutral-800 overflow-hidden">
+                  <div key={i} className="w-8 h-8 rounded-full border-2 border-black bg-neutral-800 overflow-hidden">
                     {m.user.profile?.avatarUrl && <img src={m.user.profile.avatarUrl} className="w-full h-full object-cover" />}
                   </div>
                 ))}
                 {(plan._count?.members || 0) > 3 && (
-                  <div className="w-6 h-6 rounded-full border border-black bg-neutral-800 flex items-center justify-center text-[8px] text-white">
+                  <div className="w-8 h-8 rounded-full border-2 border-black bg-neutral-800 flex items-center justify-center text-[10px] font-bold text-white">
                     +{(plan._count?.members || 0) - 3}
                   </div>
                 )}
               </div>
-              <button className={styles.joinButton}>View</button>
+              <button className="px-4 py-2 bg-white text-black text-sm font-bold rounded-xl hover:bg-neutral-200 transition-colors">
+                View
+              </button>
             </div>
           </div>
         )}

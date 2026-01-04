@@ -3,9 +3,10 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Play, Tv, MessageSquare } from 'lucide-react';
+import { Play, Tv, MessageSquare, Send } from 'lucide-react';
 import PostActionMenu from '@/components/PostActionMenu';
 import CommentsModal from '@/components/CommentsModal';
+import ShareModal from '@/components/ShareModal';
 
 type ChanCardProps = {
     chan: {
@@ -57,6 +58,7 @@ export default function ChanCard({ chan, user, postId, post, currentUserId, onPo
 
     const [selectedEpisode, setSelectedEpisode] = useState(0);
     const [isCommentsOpen, setIsCommentsOpen] = useState(false);
+    const [isShareOpen, setIsShareOpen] = useState(false);
     const hasEpisodes = allEpisodes.length > 0;
     const currentEp = hasEpisodes ? allEpisodes[selectedEpisode] : null;
 
@@ -100,14 +102,14 @@ export default function ChanCard({ chan, user, postId, post, currentUserId, onPo
                     {/* Title and Controls Row */}
                     <div className="flex justify-between items-start">
                         <div>
-                            <h3 className="text-white font-bold text-base leading-tight line-clamp-2 md:line-clamp-1">
+                            <h3 className="text-white font-bold text-2xl leading-tight line-clamp-2 md:line-clamp-1 mb-1">
                                 {hasEpisodes ? currentEp.title : chan.channelName}
                             </h3>
-                            <div className="flex items-center gap-2 mt-1">
-                                <Link href={`/chan/${chan.id}`} className="text-white/60 text-sm hover:text-white transition-colors">
+                            <div className="flex items-center gap-2 mt-2">
+                                <Link href={`/chan/${chan.id}`} className="text-white/80 text-lg hover:text-white transition-colors font-medium">
                                     {chan.channelName}
                                 </Link>
-                                <span className="text-white/40 text-xs">• {allEpisodes.length} episodes</span>
+                                <span className="text-white/50 text-base">• {allEpisodes.length} episodes</span>
                             </div>
                         </div>
 
@@ -118,6 +120,13 @@ export default function ChanCard({ chan, user, postId, post, currentUserId, onPo
                                 title="Comments"
                             >
                                 <MessageSquare size={20} />
+                            </button>
+                            <button
+                                onClick={() => setIsShareOpen(true)}
+                                className="p-1.5 rounded-full hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+                                title="Share"
+                            >
+                                <Send size={20} />
                             </button>
                             <PostActionMenu
                                 post={post || { id: postId, user: user, userId: user?.id }}
@@ -136,6 +145,13 @@ export default function ChanCard({ chan, user, postId, post, currentUserId, onPo
                 postId={postId}
                 currentUserId={currentUserId}
                 onCommentAdded={onRefresh}
+            />
+
+            <ShareModal
+                isOpen={isShareOpen}
+                onClose={() => setIsShareOpen(false)}
+                postId={postId}
+                postSnippet={chan.channelName}
             />
         </div>
     );

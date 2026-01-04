@@ -862,7 +862,53 @@ function MessagesPageContent() {
                                                     </div>
                                                 )}
 
-                                                {msg.content}
+                                                {msg.sharedPost ? (
+                                                    <div className="flex flex-col gap-2 min-w-[200px]">
+                                                        {/* Shared Post Header */}
+                                                        <div className="flex items-center gap-2 mb-1 border-b border-white/20 pb-1.5">
+                                                            <div className="w-5 h-5 rounded-full overflow-hidden bg-white/10">
+                                                                {msg.sharedPost.user.profile?.avatarUrl ? (
+                                                                    <img src={msg.sharedPost.user.profile.avatarUrl} alt="" className="w-full h-full object-cover" />
+                                                                ) : (
+                                                                    <div className="w-full h-full flex items-center justify-center text-[10px] font-bold">
+                                                                        {msg.sharedPost.user.profile?.displayName?.[0] || '?'}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            <span className="font-bold text-xs opacity-90">{msg.sharedPost.user.profile?.displayName || 'Unknown User'}</span>
+                                                        </div>
+
+                                                        {/* Media Thumbnail */}
+                                                        {msg.sharedPost.media && msg.sharedPost.media.length > 0 && (
+                                                            <div className="rounded-lg overflow-hidden aspect-video bg-black/50 relative border border-white/10">
+                                                                {msg.sharedPost.media[0].type === 'VIDEO' ? (
+                                                                    <video src={msg.sharedPost.media[0].url} className="w-full h-full object-cover" />
+                                                                ) : (
+                                                                    <img src={msg.sharedPost.media[0].url} alt="Post content" className="w-full h-full object-cover" />
+                                                                )}
+                                                            </div>
+                                                        )}
+
+                                                        {/* Post Content */}
+                                                        {msg.sharedPost.content && (
+                                                            <p className="text-xs opacity-90 line-clamp-3 italic">"{msg.sharedPost.content}"</p>
+                                                        )}
+
+                                                        {/* View Link */}
+                                                        <a href={`/post/${msg.sharedPost.id}`} className="text-[10px] text-blue-300 hover:text-blue-200 hover:underline mt-0.5 block">
+                                                            View Full Post
+                                                        </a>
+
+                                                        {/* Attached User Message */}
+                                                        {msg.content && (
+                                                            <div className="text-sm border-t border-white/10 pt-2 mt-1">
+                                                                {msg.content}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    msg.content
+                                                )}
                                                 <div className={`text-[10px] opacity-60 text-right mt-1 flex gap-1 justify-end items-center ${tagColorClass && tagColorClass.includes('text-black') ? 'text-black/60' : ''}`}>
                                                     {formatTime(msg.timestamp)}
                                                     {isMe && (
