@@ -134,6 +134,7 @@ export default function ChanCard({ chan, user, postId, post, currentUserId, onPo
                 isOpen={isCommentsOpen}
                 onClose={() => setIsCommentsOpen(false)}
                 postId={postId}
+                currentUserId={currentUserId}
                 onCommentAdded={onRefresh}
             />
         </div>

@@ -4,7 +4,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Send, MoreVertical, Trash2, Flag, CornerDownRight } from 'lucide-react';
 import Link from 'next/link';
-import { useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
 
 interface Comment {
@@ -33,12 +32,12 @@ interface CommentsModalProps {
     onClose: () => void;
     postId: string;
     postOwnerId?: string; // Passed to allow post owner to delete comments
+    currentUserId?: string; // Add currentUserId prop
     onCommentAdded?: () => void;
 }
 
-export default function CommentsModal({ isOpen, onClose, postId, postOwnerId, onCommentAdded }: CommentsModalProps) {
-    const { data: session } = useSession();
-    const currentUserId = (session?.user as any)?.id;
+export default function CommentsModal({ isOpen, onClose, postId, postOwnerId, currentUserId, onCommentAdded }: CommentsModalProps) {
+    // Removed useSession hook
 
     const [comments, setComments] = useState<Comment[]>([]);
     const [loading, setLoading] = useState(false);

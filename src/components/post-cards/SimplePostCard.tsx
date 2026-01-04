@@ -187,6 +187,7 @@ export default function SimplePostCard({ post, currentUserId }: SimplePostCardPr
                 isOpen={isCommentsOpen}
                 onClose={() => setIsCommentsOpen(false)}
                 postId={post.id}
+                currentUserId={currentUserId}
                 onCommentAdded={onRefresh}
             />
         </div>
