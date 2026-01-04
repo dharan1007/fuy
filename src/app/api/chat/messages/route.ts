@@ -67,7 +67,6 @@ export async function GET(req: Request) {
             id: true,
             content: true,
             postType: true,
-            mediaPreviews: true,
             user: {
               select: {
                 id: true,
