@@ -49,7 +49,11 @@ export async function GET(req: NextRequest) {
             },
             // @ts-ignore
             storyData: true,
-            media: true,
+            postMedia: {
+                include: {
+                    media: true
+                }
+            },
             reactions: true,
         },
         orderBy: { createdAt: 'asc' }
@@ -110,14 +114,46 @@ export async function POST(req: NextRequest) {
                 content: "Story", // Default content for stories
                 visibility: visibility || "PUBLIC",
                 expiresAt,
-                media: {
+                postMedia: {
                     create: {
-                        type: mediaType || "IMAGE",
-                        url: mediaUrl,
-                        userId: user.id
+                        media: {
+                            create: {
+                                type: mediaType || "IMAGE",
+                                url: mediaUrl,
+                                userId: user.id
+                            }
+                        }
                     }
                 }
                 // Note: If Story model exists, we can add storyData here, but standard Post is sufficient for basic stories
+            },
+            include: {
+                user: { include: { profile: true } },
+                postMedia: { include: { media: true } }
+            }
+        });
+
+        // B. Create FeedItem (Denormalized) for fast-reads
+        const mediaPreviews = [{
+            type: mediaType || "IMAGE",
+            url: mediaUrl,
+            aspect: 1
+        }];
+
+        await prisma.feedItem.create({
+            data: {
+                userId: user.id,
+                postId: post.id,
+                authorName: post.user.profile?.displayName || 'User',
+                authorAvatarUrl: post.user.profile?.avatarUrl,
+                postType: "STORY",
+                feature: "OTHER",
+                contentSnippet: "Story",
+                mediaPreviews: JSON.stringify(mediaPreviews),
+                createdAt: post.createdAt,
+                likeCount: 0,
+                commentCount: 0,
+                shareCount: 0
             }
         });
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import { uploadFileClientSide } from "@/lib/upload-helper";
 
 export type UploadedType = "IMAGE" | "VIDEO" | "AUDIO";
 export type Uploaded = { type: UploadedType; url: string; file?: File };
@@ -32,18 +33,6 @@ export default function UploadField({ accept = "image/*,video/*,audio/*", channe
     return "IMAGE";
   }
 
-  async function tryServerUpload(file: File): Promise<string | null> {
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await fetch("/api/upload", { method: "POST", body: fd });
-      if (!res.ok) return null;
-      const json = await res.json();
-      return typeof json?.url === "string" && json.url ? json.url : null;
-    } catch {
-      return null;
-    }
-  }
 
   const handleFiles = useCallback((files: FileList | null) => {
     if (!files || !files.length) return;
@@ -52,19 +41,12 @@ export default function UploadField({ accept = "image/*,video/*,audio/*", channe
     (async () => {
       setBusy(true);
       try {
-        const serverUrl = await tryServerUpload(f);
-
-        let url = serverUrl;
-        if (!url) {
-          // Fallback to Base64 (Data URI) instead of Blob URL so it persists in DB
-          url = await new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.readAsDataURL(f);
-          });
-        }
-
         const type = detectType(f);
+        const url = await uploadFileClientSide(f, type);
+
+        if (!url) {
+          throw new Error("Upload failed - no URL returned");
+        }
         const detail: Uploaded = { type, url: url!, file: f };
 
         // Dispatch event (legacy support)

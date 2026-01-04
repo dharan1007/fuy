@@ -23,9 +23,9 @@ export async function GET(req: Request) {
                                 profile: { select: { displayName: true } }
                             }
                         },
-                        media: {
+                        postMedia: {
                             take: 1,
-                            select: { url: true, type: true }
+                            include: { media: true }
                         }
                     }
                 }
@@ -90,4 +90,3 @@ export async function DELETE(req: Request) {
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
 }
-

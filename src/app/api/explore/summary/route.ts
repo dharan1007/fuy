@@ -21,7 +21,11 @@ export async function GET() {
             where.visibility = 'PUBLIC';
 
             const include: any = {
-                media: true,
+                postMedia: {
+                    include: {
+                        media: true
+                    }
+                },
                 user: { select: { id: true, profile: { select: { displayName: true, avatarUrl: true } } } },
                 _count: { select: { likes: true, comments: true, reactionBubbles: true, shares: true } }
             };
@@ -59,7 +63,7 @@ export async function GET() {
 
             // Normalize media for specialized post types
             return posts.map((post: any) => {
-                const normalizedMedia = [...(post.media || [])];
+                const normalizedMedia = post.postMedia?.map((pm: any) => pm.media) || [];
 
                 // LILL: video
                 if (post.lillData?.videoUrl) {

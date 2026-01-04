@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 interface ProfileActionsProps {
     targetUserId: string;
-    initialStatus: "PENDING" | "ACCEPTED" | "NONE";
+    initialStatus: "PENDING" | "ACCEPTED" | "NONE" | "ME";
     isPrivate: boolean;
 }
 
@@ -14,6 +14,19 @@ export default function ProfileActions({ targetUserId, initialStatus, isPrivate 
     const [loading, setLoading] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const router = useRouter();
+
+    // Fetch actual status on mount (since page is cached public)
+    useEffect(() => {
+        // Only fetch if initial was NONE (default for public cache)
+        if (initialStatus === "NONE") {
+            fetch(`/api/friends/check?userId=${targetUserId}`).then(async res => {
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.status) setStatus(data.status);
+                }
+            }).catch(() => { });
+        }
+    }, [targetUserId, initialStatus]);
 
     async function handleFollow() {
         setLoading(true);
@@ -57,7 +70,14 @@ export default function ProfileActions({ targetUserId, initialStatus, isPrivate 
 
     return (
         <div className="flex items-center gap-2">
-            {status === "ACCEPTED" ? (
+            {status === "ME" ? (
+                <button
+                    onClick={() => router.push('/profile/edit')}
+                    className="px-6 py-2 bg-stone-900 hover:bg-stone-800 text-white rounded-lg font-bold transition-colors shadow-md border border-stone-800"
+                >
+                    Edit Profile
+                </button>
+            ) : status === "ACCEPTED" ? (
                 <button disabled className="px-4 py-2 bg-green-600 text-white rounded-lg font-medium opacity-90 cursor-default shadow-md">
                     Friends
                 </button>

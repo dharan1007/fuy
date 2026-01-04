@@ -50,15 +50,16 @@ export default function FillForm({ onBack: propOnBack, initialData }: FillFormPr
             if (!videoFile) throw new Error('Please select a video');
 
             setLoadingMessage("Uploading video...");
-            const publicUrl = await uploadFileClientSide(videoFile, 'fills');
+            const publicUrl = await uploadFileClientSide(videoFile, 'VIDEO');
 
-            const res = await fetch('/api/posts/fills', {
+            const res = await fetch('/api/posts', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    postType: 'FILL',
                     content,
                     visibility,
-                    videoUrl: publicUrl,
+                    media: [{ url: publicUrl, type: 'VIDEO' }],
                     duration,
                     status,
                 }),

@@ -5,6 +5,7 @@ import { Plus, X, Upload, Clock, Globe, Users } from "lucide-react";
 import { useSession } from "@/hooks/use-session";
 import StoryCircle from "@/components/Feed/StoryCircle";
 import { createPortal } from "react-dom";
+import { uploadFileClientSide } from "@/lib/upload-helper";
 
 // ------------------------------------
 // Internal CreateStoryModal Component
@@ -51,19 +52,11 @@ function CreateStoryModal({ isOpen, onClose, onCreated }: CreateStoryModalProps)
 
         setUploading(true);
         try {
-            // 1. Upload File
-            const formData = new FormData();
-            formData.append("file", file);
-            formData.append("type", file.type.startsWith("video") ? "video" : "image");
+            // 1. Upload File (Client-Side R2)
+            const type = file.type.startsWith("video") ? "VIDEO" : "IMAGE";
+            const fileUrl = await uploadFileClientSide(file, type);
 
-            const uploadRes = await fetch("/api/upload", {
-                method: "POST",
-                body: formData,
-            });
-
-            if (!uploadRes.ok) throw new Error("Upload failed");
-            const uploadData = await uploadRes.json();
-            const fileUrl = uploadData.url;
+            if (!fileUrl) throw new Error("Upload failed");
 
             // 2. Create Post (Clock/Story)
             const postRes = await fetch("/api/stories", {
@@ -283,7 +276,7 @@ export default function StoriesRail({ initialProfile }: StoriesRailProps) {
                         <div className={`w-16 h-16 rounded-full p-[2px] mb-1 transition-all ${userHasStory ? "bg-white shadow-[0_0_10px_rgba(255,255,255,0.3)]" : "bg-transparent border border-white/20"}`}>
                             <div className="w-full h-full rounded-full border-2 border-black overflow-hidden relative bg-black">
                                 <img
-                                    src={myProfile?.profile?.avatarUrl || currentUser?.image || `https://api.dicebear.com/7.x/initials/svg?seed=${currentUser?.email}`}
+                                    src={myProfile?.avatarUrl || myProfile?.profile?.avatarUrl || currentUser?.image || `https://api.dicebear.com/7.x/initials/svg?seed=${currentUser?.email}`}
                                     alt="My Clock"
                                     className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
                                 />

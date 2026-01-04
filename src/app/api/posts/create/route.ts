@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { userRateLimit } from '@/lib/rate-limit';
 
-export async function POST(request: NextRequest) {
+// Rate limit: 10 posts per hour
+const limiter = userRateLimit({
+    windowMs: 60 * 60 * 1000,
+    maxRequests: 10,
+    getUser: (req) => req.headers.get('x-user-id') // Or extract from session if needed, but here we strictly follow the wrapper pattern
+});
+
+async function createPostHandler(request: NextRequest) {
     try {
         const body = await request.json();
         const {
@@ -73,7 +81,7 @@ export async function POST(request: NextRequest) {
                     await prisma.lill.create({
                         data: {
                             postId: post.id,
-                            videoUrl: lillData.videoUrl,
+                            // videoUrl moved to PostMedia
                             duration: Math.min(lillData.duration || 60, 60), // Max 60 seconds
                             thumbnailUrl: lillData.thumbnailUrl || lillData.thumbnail,
                             aspectRatio: lillData.aspectRatio || '9:16',
@@ -90,7 +98,7 @@ export async function POST(request: NextRequest) {
                     await prisma.fill.create({
                         data: {
                             postId: post.id,
-                            videoUrl: fillData.videoUrl,
+                            // videoUrl moved to PostMedia
                             duration: Math.min(fillData.duration || 0, 18000), // Max 5 hours
                             thumbnailUrl: fillData.thumbnailUrl || fillData.thumbnail,
                             aspectRatio: fillData.aspectRatio || '16:9',
@@ -107,10 +115,8 @@ export async function POST(request: NextRequest) {
                     await prisma.xray.create({
                         data: {
                             postId: post.id,
-                            topLayerUrl: xrayData.topLayerUrl || xrayData.beforeUrl,
-                            topLayerType: xrayData.topLayerType || 'IMAGE',
-                            bottomLayerUrl: xrayData.bottomLayerUrl || xrayData.afterUrl,
-                            bottomLayerType: xrayData.bottomLayerType || 'IMAGE',
+                            // topLayerUrl/Type moved to PostMedia
+                            // bottomLayerUrl/Type moved to PostMedia
                             scratchPattern: xrayData.scratchPattern || xrayData.revealType || 'RANDOM',
                             revealPercent: xrayData.revealPercent || 0,
                         },
@@ -118,14 +124,12 @@ export async function POST(request: NextRequest) {
                 }
                 break;
 
-
-
             case 'AUD':
                 if (audData) {
                     await prisma.aud.create({
                         data: {
                             postId: post.id,
-                            audioUrl: audData.audioUrl,
+                            // audioUrl moved to PostMedia
                             duration: audData.duration || 0,
                             coverImageUrl: audData.coverImageUrl || audData.coverImage,
                             waveformData: audData.waveformData,
@@ -167,23 +171,11 @@ export async function POST(request: NextRequest) {
                             postId: post.id,
                             title: chapterData.title || 'Untitled',
                             description: chapterData.description || '',
-                            mediaUrls: JSON.stringify(mediaUrls || []),
-                            mediaTypes: JSON.stringify(mediaTypes || []),
                             linkedChapterId: chapterData.linkedChapterId,
                             linkedPostId: chapterData.linkedPostId,
                             orderIndex: chapterData.orderIndex || 0,
                         },
                     });
-                }
-                // Also handle media for chapters
-                if (mediaUrls && mediaUrls.length > 0) {
-                    const mediaToCreate = mediaUrls.slice(0, 10).map((url: string, i: number) => ({
-                        postId: post.id,
-                        userId,
-                        url,
-                        type: mediaTypes?.[i] || 'IMAGE',
-                    }));
-                    await prisma.media.createMany({ data: mediaToCreate });
                 }
                 break;
 
@@ -207,16 +199,29 @@ export async function POST(request: NextRequest) {
                 break;
 
             default:
-                // Standard post - just create media if provided
-                if (mediaUrls && mediaUrls.length > 0) {
-                    const mediaToCreate = mediaUrls.map((url: string, i: number) => ({
-                        postId: post.id,
-                        userId,
-                        url,
-                        type: mediaTypes?.[i] || 'IMAGE',
-                    }));
-                    await prisma.media.createMany({ data: mediaToCreate });
+                // Standard post - nothing special
+                break;
+        }
+
+        // UNIVERSAL MEDIA CREATION
+        // This ensures FeedItems get populated with media previews for ALL post types
+        if (mediaUrls && mediaUrls.length > 0) {
+            await prisma.post.update({
+                where: { id: post.id },
+                data: {
+                    postMedia: {
+                        create: mediaUrls.slice(0, 10).map((url: string, i: number) => ({
+                            media: {
+                                create: {
+                                    userId,
+                                    url,
+                                    type: mediaTypes?.[i] || 'IMAGE',
+                                }
+                            }
+                        }))
+                    }
                 }
+            });
         }
 
         // Fetch the complete post with relations
@@ -230,17 +235,47 @@ export async function POST(request: NextRequest) {
                         profile: { select: { avatarUrl: true } },
                     },
                 },
-                media: true,
+                postMedia: { include: { media: true } },
                 lillData: true,
                 fillData: true,
                 xrayData: true,
-
                 audData: true,
                 chanData: true,
                 chapterData: true,
                 pullUpDownData: true,
             },
-        });
+        }) as any;
+
+        if (completePost) {
+            completePost.media = completePost.postMedia?.map((pm: any) => pm.media) || [];
+
+            // B. Create FeedItem (Denormalized) for fast-reads
+            const mediaPreviews = (completePost.postMedia || []).map((pm: any) => ({
+                type: pm.media.type,
+                url: pm.media.url,
+                aspect: 1
+            }));
+
+            // If it's a LILL or FILL, we might want to ensure the video URL is in previews if not already in postMedia
+            // (Though in the current schema migration, they SHOULD be in postMedia now)
+
+            await prisma.feedItem.create({
+                data: {
+                    userId,
+                    postId: completePost.id,
+                    authorName: completePost.user.profile?.displayName || 'User',
+                    authorAvatarUrl: completePost.user.profile?.avatarUrl,
+                    postType: completePost.postType,
+                    feature: completePost.feature || 'OTHER',
+                    contentSnippet: (completePost.content || '').slice(0, 200),
+                    mediaPreviews: JSON.stringify(mediaPreviews),
+                    createdAt: completePost.createdAt,
+                    likeCount: 0,
+                    commentCount: 0,
+                    shareCount: 0
+                }
+            });
+        }
 
         return NextResponse.json({ success: true, post: completePost });
     } catch (error: any) {
@@ -248,6 +283,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: error.message || 'Failed to create post' }, { status: 500 });
     }
 }
+
+export const POST = limiter(createPostHandler);
 
 // GET all posts (for dots page)
 export async function GET(request: NextRequest) {
@@ -288,7 +325,7 @@ export async function GET(request: NextRequest) {
                         profile: { select: { avatarUrl: true } },
                     },
                 },
-                media: true,
+                postMedia: { include: { media: true } },
                 lillData: true,
                 fillData: true,
                 xrayData: true,
@@ -303,7 +340,12 @@ export async function GET(request: NextRequest) {
             },
         });
 
-        return NextResponse.json({ posts });
+        const formattedPosts = posts.map((p: any) => ({
+            ...p,
+            media: p.postMedia?.map((pm: any) => pm.media) || []
+        }));
+
+        return NextResponse.json({ posts: formattedPosts });
     } catch (error: any) {
         console.error('Get posts error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });

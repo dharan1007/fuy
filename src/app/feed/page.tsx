@@ -3,23 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import UploadField, { type Uploaded } from "../../components/UploadField";
 
-/**
- * Social timeline UI with:
- * - Working media attach (UploadField + window event)
- * - Like, Comment with optimistic updates
- * - Share: to system apps (Web Share API), clipboard fallback, or in-site share to users/groups via a modal
- * - Capture: in-browser photo/video/audio + mobile-friendly quick capture
- *
- * Expected backend endpoints (adapt names if different):
- * - GET  /api/posts?scope=public|friends|me&groupId=... -> Post[]
- * - POST /api/posts -> create post { content, feature, visibility, groupId, media:[{url,type}], ... }
- * - POST /api/posts/:id/like -> { like: boolean }
- * - POST /api/posts/:id/comments -> { content } returns created Comment
- * - POST /api/posts/:id/share -> optional analytics/log
- * - GET  /api/search/users?q=term -> { id, displayName, avatarUrl? }[]
- * - GET  /api/search/groups?q=term -> { id, name }[]
- * - POST /api/share/post -> { postId, toUserId? toGroupId? message? }  (server delivers/records share internally)
- */
+
 
 const CHANNEL = "feed-upload";
 
@@ -29,7 +13,6 @@ type Scope = "public" | "friends" | "me";
 type Feature =
   | "OTHER"
   | "JOURNAL"
-  | "JOY"
   | "AWE"
   | "BONDS"
   | "SERENDIPITY"
@@ -125,10 +108,10 @@ function Button({
     intent === "primary"
       ? "bg-stone-900 text-white hover:bg-stone-800 disabled:bg-stone-300"
       : intent === "danger"
-      ? "bg-red-100 text-red-700 hover:bg-red-200"
-      : intent === "ghost"
-      ? "bg-transparent text-stone-700 hover:bg-stone-100"
-      : "bg-stone-100 hover:bg-stone-200 text-stone-800";
+        ? "bg-red-100 text-red-700 hover:bg-red-200"
+        : intent === "ghost"
+          ? "bg-transparent text-stone-700 hover:bg-stone-100"
+          : "bg-stone-100 hover:bg-stone-200 text-stone-800";
   return (
     <button type={type} disabled={disabled} onClick={onClick} className={cx(base, color, className || "")}>
       {children}
@@ -345,8 +328,8 @@ function RecordingModal({
       const mime =
         kind === "video"
           ? (MediaRecorder.isTypeSupported("video/webm;codecs=vp9") && "video/webm;codecs=vp9") ||
-            (MediaRecorder.isTypeSupported("video/webm;codecs=vp8") && "video/webm;codecs=vp8") ||
-            "video/webm"
+          (MediaRecorder.isTypeSupported("video/webm;codecs=vp8") && "video/webm;codecs=vp8") ||
+          "video/webm"
           : "audio/webm";
       const rec = new MediaRecorder(streamRef.current, { mimeType: mime });
       recorderRef.current = rec;
@@ -417,7 +400,7 @@ async function apiToggleLike(postId: string, like: boolean) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ like }),
     });
-  } catch {}
+  } catch { }
 }
 async function apiCreateComment(postId: string, content: string) {
   try {
@@ -427,27 +410,27 @@ async function apiCreateComment(postId: string, content: string) {
       body: JSON.stringify({ content }),
     });
     if (res.ok) return (await res.json()) as Comment;
-  } catch {}
+  } catch { }
   return null;
 }
 async function apiShareLog(postId: string) {
   // Optional analytics/logging on your server
   try {
     await fetch(`/api/posts/${encodeURIComponent(postId)}/share`, { method: "POST" });
-  } catch {}
+  } catch { }
 }
 async function apiSearchUsers(q: string): Promise<Array<{ id: string; displayName: string; avatarUrl?: string }>> {
   try {
     const r = await fetch(`/api/search/users?q=${encodeURIComponent(q)}`);
     if (r.ok) return await r.json();
-  } catch {}
+  } catch { }
   return [];
 }
 async function apiSearchGroups(q: string): Promise<Group[]> {
   try {
     const r = await fetch(`/api/search/groups?q=${encodeURIComponent(q)}`);
     if (r.ok) return await r.json();
-  } catch {}
+  } catch { }
   return [];
 }
 async function apiShareInSite(payload: { postId: string; toUserId?: string; toGroupId?: string; message?: string }) {
@@ -457,7 +440,7 @@ async function apiShareInSite(payload: { postId: string; toUserId?: string; toGr
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-  } catch {}
+  } catch { }
 }
 
 // Share Modal: share to users/groups inside the site
@@ -717,7 +700,7 @@ function FeedItem({
             title="Comment"
           />
           <IconButton label={`↗ ${sharesCount || ""}`} onClick={handleShare} title="Share to apps or in-site" />
-          
+
         </div>
 
         {showCommentBox && (
@@ -861,7 +844,7 @@ function Composer({
         <div className="flex flex-wrap items-center gap-2 text-xs mt-2">
           <Select
             value={feature}
-            options={["OTHER", "JOURNAL", "JOY", "AWE", "BONDS", "SERENDIPITY", "CREATIVE"]}
+            options={["OTHER", "JOURNAL", "AWE", "BONDS", "SERENDIPITY", "CREATIVE"]}
             onChange={(v) => setFeature(v as Feature)}
             className="w-auto"
           />
@@ -987,7 +970,6 @@ export default function FeedPage() {
           groupId: groupId || null,
           media: media.map((m) => ({ url: m.url, type: m.type })),
           // scoring knobs retained
-          joyScore: 2,
           connectionScore: visibility !== "PRIVATE" ? 1 : 0,
           creativityScore: feature === "CREATIVE" ? 3 : 0,
         }),

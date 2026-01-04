@@ -41,7 +41,6 @@ export async function POST(req: NextRequest) {
                 status,
                 fillData: {
                     create: {
-                        videoUrl,
                         thumbnailUrl,
                         duration: duration || 0,
                         chapters: chapters ? JSON.stringify(chapters) : null,
@@ -49,17 +48,50 @@ export async function POST(req: NextRequest) {
                         quality,
                     },
                 },
+                // Add media record via PostMedia
+                postMedia: {
+                    create: {
+                        media: {
+                            create: {
+                                userId,
+                                url: videoUrl,
+                                type: 'VIDEO',
+                            }
+                        }
+                    }
+                }
             },
             include: {
                 fillData: true,
                 user: {
-                    select: {
-                        id: true,
-                        email: true,
-                        profile: { select: { displayName: true, avatarUrl: true } },
-                    },
+                    include: { profile: true },
                 },
+                postMedia: { include: { media: true } }
             },
+        });
+
+        // B. Create FeedItem (Denormalized) for fast-reads
+        const mediaPreviews = [{
+            type: 'VIDEO',
+            url: videoUrl,
+            aspect: 16 / 9
+        }];
+
+        await prisma.feedItem.create({
+            data: {
+                userId,
+                postId: post.id,
+                authorName: post.user.profile?.displayName || 'User',
+                authorAvatarUrl: post.user.profile?.avatarUrl,
+                postType: 'FILL',
+                feature: feature || 'OTHER',
+                contentSnippet: (post.content || '').slice(0, 200),
+                mediaPreviews: JSON.stringify(mediaPreviews),
+                createdAt: post.createdAt,
+                likeCount: 0,
+                commentCount: 0,
+                shareCount: 0
+            }
         });
 
         return NextResponse.json(post);
@@ -71,4 +103,3 @@ export async function POST(req: NextRequest) {
         );
     }
 }
-

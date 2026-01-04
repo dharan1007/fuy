@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import ScrollStarfield from "@/components/ScrollStarfield";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { cn } from "@/lib/utils";
+import { uploadFileClientSide } from "@/lib/upload-helper";
 
 // Types for our form data
 interface ProfileFormData {
@@ -53,9 +54,10 @@ interface ProfileFormData {
   interactionTopics: string[];
 
   // Media
-  stalkMeFiles: File[];
-  avatarFile: File | null;
-  coverFile: File | null;
+  stalkMe: string[]; // URLs
+  avatarUrl: string | null; // URL
+  coverUrl: string | null; // URL
+  coverType: "IMAGE" | "VIDEO" | null;
 }
 
 // Initial State
@@ -96,9 +98,10 @@ const initialData: ProfileFormData = {
   goals: "",
   lifestyle: "",
   interactionTopics: [],
-  stalkMeFiles: [],
-  avatarFile: null,
-  coverFile: null,
+  stalkMe: [],
+  avatarUrl: null,
+  coverUrl: null,
+  coverType: null,
 };
 
 export default function ProfileSetupPage() {
@@ -164,9 +167,27 @@ export default function ProfileSetupPage() {
               interactionTopics: p.interactionTopics || [],
               // Files can't be pre-filled as 'File' objects, we handle previews differently or just show current URL
             }));
-            if (p.avatarUrl) setAvatarPreview(p.avatarUrl);
-            if (p.coverVideoUrl) setCoverPreview(p.coverVideoUrl);
-            else if (p.coverImageUrl) setCoverPreview(p.coverImageUrl);
+            if (p.avatarUrl) {
+              setAvatarPreview(p.avatarUrl);
+              setData(prev => ({ ...prev, avatarUrl: p.avatarUrl }));
+            }
+            if (p.coverVideoUrl) {
+              setCoverPreview(p.coverVideoUrl);
+              setData(prev => ({ ...prev, coverUrl: p.coverVideoUrl, coverType: 'VIDEO' }));
+            } else if (p.coverImageUrl) {
+              setCoverPreview(p.coverImageUrl);
+              setData(prev => ({ ...prev, coverUrl: p.coverImageUrl, coverType: 'IMAGE' }));
+            }
+            if (p.stalkMe) {
+              const sm = typeof p.stalkMe === 'string' ? JSON.parse(p.stalkMe) : p.stalkMe;
+              if (Array.isArray(sm)) {
+                setData(prev => ({ ...prev, stalkMe: sm }));
+                // Update previews ensuring length 11
+                const previews = Array(11).fill("");
+                sm.forEach((url, i) => { if (i < 11) previews[i] = url });
+                setStalkMePreviews(previews);
+              }
+            }
           }
         }
       } catch (e) {
@@ -209,35 +230,47 @@ export default function ProfileSetupPage() {
   const handleBack = () => { if (step > 1) setStep(step - 1); };
   const handleSkip = () => { if (step < totalSteps) setStep(step + 1); };
 
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      setData({ ...data, avatarFile: file });
-      setAvatarPreview(URL.createObjectURL(file));
+      setAvatarPreview(URL.createObjectURL(file)); // Immediate preview
+      try {
+        const url = await uploadFileClientSide(file, 'IMAGE');
+        if (url) setData(prev => ({ ...prev, avatarUrl: url }));
+      } catch (err) { console.error(err); }
     }
   };
 
-  const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCoverChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      setData({ ...data, coverFile: file });
-      setCoverPreview(URL.createObjectURL(file));
+      setCoverPreview(URL.createObjectURL(file)); // Immediate preview
+      const type = file.type.startsWith('video') ? 'VIDEO' : 'IMAGE';
+      try {
+        const url = await uploadFileClientSide(file, type);
+        if (url) setData(prev => ({ ...prev, coverUrl: url, coverType: type }));
+      } catch (err) { console.error(err); }
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      const newFiles = [...data.stalkMeFiles];
-      newFiles[index] = file;
-
       const newPreviews = [...stalkMePreviews];
       newPreviews[index] = URL.createObjectURL(file);
       setStalkMePreviews(newPreviews);
 
-      const updatedFiles = [...data.stalkMeFiles];
-      updatedFiles[index] = file;
-      setData(prev => ({ ...prev, stalkMeFiles: updatedFiles }));
+      try {
+        const type = file.type.startsWith('video') ? 'VIDEO' : 'IMAGE';
+        const url = await uploadFileClientSide(file, type);
+        if (url) {
+          const newStalkMe = [...data.stalkMe];
+          // Ensure array is big enough
+          while (newStalkMe.length <= index) newStalkMe.push("");
+          newStalkMe[index] = url;
+          setData(prev => ({ ...prev, stalkMe: newStalkMe }));
+        }
+      } catch (err) { console.error(err); }
     }
   };
 
@@ -263,57 +296,66 @@ export default function ProfileSetupPage() {
   const handleSubmit = async () => {
     setLoading(true);
     try {
-      const formData = new FormData();
-      // Basics
-      formData.append("displayName", data.displayName);
-      formData.append("dob", data.dob);
-      formData.append("gender", data.gender);
-      formData.append("height", data.height);
-      formData.append("weight", data.weight);
-      formData.append("conversationStarter", data.conversationStarter);
+      // Construct JSON payload instead of FormData
+      // Determine cover video/image fields based on coverType
+      const coverImageUrl = data.coverType === 'IMAGE' ? data.coverUrl : (data.coverType === 'VIDEO' ? '' : undefined);
+      const coverVideoUrl = data.coverType === 'VIDEO' ? data.coverUrl : (data.coverType === 'IMAGE' ? '' : undefined);
 
-      // Professional
-      formData.append("achievements", data.achievements);
-      formData.append("workHistory", data.workHistory);
-      formData.append("education", data.education);
-      formData.append("skills", JSON.stringify(data.skills));
+      const payload = {
+        // Basics
+        displayName: data.displayName,
+        dob: data.dob,
+        gender: data.gender,
+        height: data.height,
+        weight: data.weight,
+        conversationStarter: data.conversationStarter,
 
-      // Vibe
-      formData.append("city", data.city);
-      formData.append("interactionMode", data.interactionMode);
-      formData.append("bestVibeTime", data.bestVibeTime);
-      formData.append("vibeWithPeople", data.vibeWithPeople);
-      formData.append("lifeIsLike", data.lifeIsLike);
+        // Professional
+        achievements: data.achievements,
+        workHistory: data.workHistory,
+        education: data.education,
+        skills: data.skills,
 
-      // Deep dive
-      formData.append("emotionalFit", data.emotionalFit);
-      formData.append("pleaseDont", data.pleaseDont);
-      formData.append("careAbout", data.careAbout);
-      formData.append("protectiveAbout", data.protectiveAbout);
-      formData.append("distanceMakers", data.distanceMakers);
-      formData.append("goals", data.goals);
-      formData.append("lifestyle", data.lifestyle);
+        // Vibe
+        city: data.city,
+        interactionMode: data.interactionMode,
+        bestVibeTime: data.bestVibeTime,
+        vibeWithPeople: data.vibeWithPeople,
+        lifeIsLike: data.lifeIsLike,
 
-      // Arrays
-      formData.append("values", JSON.stringify(data.values));
-      formData.append("hardNos", JSON.stringify(data.hardNos));
-      formData.append("topMovies", JSON.stringify(data.topMovies.filter(x => x)));
-      formData.append("topGenres", JSON.stringify(data.topGenres.filter(x => x)));
-      formData.append("topSongs", JSON.stringify(data.topSongs.filter(x => x)));
-      formData.append("topFoods", JSON.stringify(data.topFoods.filter(x => x)));
-      formData.append("topPlaces", JSON.stringify(data.topPlaces.filter(x => x)));
-      formData.append("topGames", JSON.stringify(data.topGames.filter(x => x)));
-      formData.append("currentlyInto", JSON.stringify(data.currentlyInto));
-      formData.append("dislikes", JSON.stringify(data.dislikes));
-      formData.append("icks", JSON.stringify(data.icks));
-      formData.append("interactionTopics", JSON.stringify(data.interactionTopics));
+        // Deep Dive
+        emotionalFit: data.emotionalFit,
+        pleaseDont: data.pleaseDont,
+        careAbout: data.careAbout,
+        protectiveAbout: data.protectiveAbout,
+        distanceMakers: data.distanceMakers,
+        goals: data.goals,
+        lifestyle: data.lifestyle,
 
-      if (data.avatarFile) formData.append("avatar", data.avatarFile);
-      if (data.coverFile) formData.append("cover", data.coverFile);
+        // Arrays
+        values: data.values,
+        hardNos: data.hardNos,
+        topMovies: data.topMovies.filter(x => x),
+        topGenres: data.topGenres.filter(x => x),
+        topSongs: data.topSongs.filter(x => x),
+        topFoods: data.topFoods.filter(x => x),
+        topPlaces: data.topPlaces.filter(x => x),
+        topGames: data.topGames.filter(x => x),
+        currentlyInto: data.currentlyInto,
+        dislikes: data.dislikes,
+        icks: data.icks,
+        interactionTopics: data.interactionTopics,
+
+        stalkMe: JSON.stringify(data.stalkMe), // Send as JSON string for compatibility
+        avatarUrl: data.avatarUrl,
+        coverImageUrl,
+        coverVideoUrl,
+      };
 
       const res = await fetch("/api/profile", {
         method: "PUT",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
 
       if (res.ok) {
@@ -359,7 +401,7 @@ export default function ProfileSetupPage() {
                 <label className="text-sm font-medium text-gray-300 block mb-2">Cover Media (Image/Video)</label>
                 <div className="w-full h-32 rounded-xl bg-white/10 overflow-hidden border border-white/20 relative group">
                   {coverPreview ? (
-                    (coverPreview.startsWith("blob:") && data.coverFile?.type.startsWith("video")) || coverPreview.endsWith(".mp4") || coverPreview.endsWith(".webm") ? (
+                    (coverPreview.startsWith("blob:") && data.coverType === 'VIDEO') || coverPreview.endsWith(".mp4") || coverPreview.endsWith(".webm") ? (
                       <video src={coverPreview} className="w-full h-full object-cover" autoPlay muted loop />
                     ) : (
                       <img src={coverPreview} className="w-full h-full object-cover" />

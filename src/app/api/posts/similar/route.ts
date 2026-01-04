@@ -97,7 +97,7 @@ export async function GET(req: NextRequest) {
                         }
                     }
                 },
-                media: true,
+                postMedia: { include: { media: true } },
                 slashes: true,
                 _count: {
                     select: {
@@ -129,12 +129,12 @@ export async function GET(req: NextRequest) {
             if (slashTwinUserIds.includes(post.userId)) score += 15;
 
             // Engagement Bonus
-            score += (post.joyScore || 0) * 0.5;
             score += (post.connectionScore || 0) * 0.5;
 
             // Format for Frontend
             const mappedPost = {
                 ...post,
+                media: post.postMedia?.map((pm: any) => pm.media) || [],
                 // Flatten counts for UI
                 likesCount: post._count.likes,
                 commentsCount: post._count.comments,

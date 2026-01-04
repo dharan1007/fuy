@@ -54,17 +54,52 @@ export async function POST(req: NextRequest) {
                         episodes: JSON.stringify(episodes),
                     },
                 },
+                // Add cover image as media if exists
+                ...(coverImageUrl ? {
+                    postMedia: {
+                        create: {
+                            media: {
+                                create: {
+                                    userId,
+                                    url: coverImageUrl,
+                                    type: 'IMAGE',
+                                }
+                            }
+                        }
+                    }
+                } : {})
             },
             include: {
                 chanData: true,
                 user: {
-                    select: {
-                        id: true,
-                        email: true,
-                        profile: { select: { displayName: true, avatarUrl: true } },
-                    },
+                    include: { profile: true },
                 },
+                postMedia: { include: { media: true } }
             },
+        });
+
+        // B. Create FeedItem (Denormalized)
+        const mediaPreviews = coverImageUrl ? [{
+            type: 'IMAGE',
+            url: coverImageUrl,
+            aspect: 16 / 9
+        }] : [];
+
+        await prisma.feedItem.create({
+            data: {
+                userId,
+                postId: post.id,
+                authorName: post.user.profile?.displayName || 'User',
+                authorAvatarUrl: post.user.profile?.avatarUrl,
+                postType: 'CHAN',
+                feature: feature || 'OTHER',
+                contentSnippet: (post.content || '').slice(0, 200),
+                mediaPreviews: JSON.stringify(mediaPreviews),
+                createdAt: post.createdAt,
+                likeCount: 0,
+                commentCount: 0,
+                shareCount: 0
+            }
         });
 
         return NextResponse.json(post);
@@ -76,4 +111,3 @@ export async function POST(req: NextRequest) {
         );
     }
 }
-

@@ -6,6 +6,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { X, Upload, ArrowLeft, Globe, Users, Lock, Play } from 'lucide-react-native';
 import { MediaUploadService } from '../../services/MediaUploadService';
+import { CompressionService } from '../../services/CompressionService';
 import { supabase } from '../../lib/supabase';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3000';
@@ -68,11 +69,22 @@ export default function LillForm({ onBack }: LillFormProps) {
             if (!userData?.id) throw new Error('User not found');
 
             // Upload video to Cloudflare R2
-            setUploadProgress(20);
+            setUploadProgress(10);
+
+            // Compress
+            let fileUri = video.uri;
+            try {
+                fileUri = await CompressionService.compressVideo(video.uri);
+            } catch (e) {
+                console.warn('Compression failed, using original');
+            }
+
+            setUploadProgress(30);
+
             const uploadResult = await MediaUploadService.uploadVideo(
-                video.uri,
+                fileUri,
                 `lill_${Date.now()}.mp4`,
-                (progress) => setUploadProgress(20 + progress.percentage * 0.6)
+                (progress) => setUploadProgress(30 + progress.percentage * 0.5)
             );
 
             setUploadProgress(80);

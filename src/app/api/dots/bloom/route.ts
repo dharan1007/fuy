@@ -52,7 +52,7 @@ export async function GET(request: Request) {
                         profile: { select: { displayName: true, avatarUrl: true } }
                     }
                 },
-                media: true,
+                postMedia: { include: { media: true } },
                 slashes: true, // Return tags to show them
                 _count: {
                     select: { likes: true, comments: true }
@@ -60,7 +60,12 @@ export async function GET(request: Request) {
             }
         });
 
-        return NextResponse.json({ posts, hasSlashes: true });
+        const formattedPosts = posts.map((p: any) => ({
+            ...p,
+            media: p.postMedia?.map((pm: any) => pm.media) || []
+        }));
+
+        return NextResponse.json({ posts: formattedPosts, hasSlashes: true });
 
     } catch (error) {
         console.error('Error fetching bloom feed:', error);

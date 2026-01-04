@@ -6,12 +6,17 @@ import { X, Upload, ArrowLeft, Globe, Users, Lock } from 'lucide-react-native';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3000';
 
+import { MediaUploadService } from '../../services/MediaUploadService';
+import { CompressionService } from '../../services/CompressionService';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
 interface ChapterFormProps {
     onBack: () => void;
 }
 
 export default function ChapterForm({ onBack }: ChapterFormProps) {
     const { colors, isDark } = useTheme();
+    const { session } = useAuth();
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [visibility, setVisibility] = useState('PUBLIC');
@@ -69,20 +74,67 @@ export default function ChapterForm({ onBack }: ChapterFormProps) {
 
         setLoading(true);
         try {
-            const uploadedUrls = await Promise.all(media.map(uploadFile));
+            // 1. Compress & Upload Media
+            const uploadPromises = media.map(async (asset) => {
+                const type = asset.type === 'video' ? 'VIDEO' : 'IMAGE';
+                let fileUri = asset.uri;
+
+                // Compress
+                try {
+                    if (type === 'VIDEO') {
+                        fileUri = await CompressionService.compressVideo(asset.uri);
+                    } else {
+                        fileUri = await CompressionService.compressImage(asset.uri);
+                    }
+                } catch (e) {
+                    console.warn(`Compression failed for ${asset.fileName}, using original.`);
+                }
+
+                const fileName = asset.fileName || `chapter_${type.toLowerCase()}_${Date.now()}.${type === 'VIDEO' ? 'mp4' : 'jpg'}`;
+                return MediaUploadService.uploadMedia(fileUri, type);
+            });
+
+            const uploadedResults = await Promise.all(uploadPromises);
+            const uploadedUrls = uploadedResults.map(r => r.url);
+            const uploadedTypes = uploadedResults.map(r => r.type);
+
+            // 2. Create Post via Unified API
             const payload = {
-                title,
-                description,
-                content: description,
+                userId: session?.user?.id, // Ensure we pass userId if API needs it from body, though usually session handles it? Mobile usually passes explicit userId or relies on header? 
+                // Context: The create route uses `userId` from body (Step 3530).
+                // We need to get userId. access `session.user.id` or similar.
+                // Mobile `useAuth` session usually has user object.
+                // Let's assume session.user.id is available as per LillForm.
+
+                postType: 'CHAPTER',
+                content: description || '',
                 visibility,
+
+                // Chapter Data
+                chapterData: {
+                    title,
+                    description,
+                    // mediaUrls/Types legacy fields removed from here
+                },
+
+                // Media for PostMedia
                 mediaUrls: uploadedUrls,
-                mediaTypes: media.map(m => m.type === 'video' ? 'VIDEO' : 'IMAGE'),
+                mediaTypes: uploadedTypes,
             };
 
-            const res = await fetch(`${API_URL}/api/posts/chapters`, {
+            // Need to get userId from AuthContext or Supabase
+            const { data: userData } = await supabase
+                .from('User')
+                .select('id')
+                .eq('email', session?.user?.email)
+                .single();
+
+            if (!userData?.id) throw new Error('User not found');
+
+            const res = await fetch(`${API_URL}/api/posts/create`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
+                body: JSON.stringify({ ...payload, userId: userData.id }),
             });
 
             if (!res.ok) {

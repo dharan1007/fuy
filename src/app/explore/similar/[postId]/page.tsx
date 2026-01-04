@@ -5,6 +5,8 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Loader2 } from 'lucide-react'; // Globe removed
 import ScrollStarfield from '@/components/ScrollStarfield';
+
+
 import FeedPostItem from '@/components/FeedPostItem';
 import { FeedItemProvider } from '@/context/FeedItemContext';
 import AppHeader from '@/components/AppHeader';

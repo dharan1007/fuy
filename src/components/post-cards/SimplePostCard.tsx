@@ -6,7 +6,7 @@ import { MoreVertical, Flag, ChevronLeft, ChevronRight } from 'lucide-react';
 import ReactionBubbleList from '@/components/ReactionBubbleList';
 import ReactionControl from '@/components/ReactionControl';
 import PostActionMenu from '@/components/PostActionMenu';
-
+import CommentsModal from '@/components/CommentsModal';
 import { useFeedItem } from '@/context/FeedItemContext';
 
 interface SimplePostCardProps {
@@ -21,6 +21,7 @@ export default function SimplePostCard({ post, currentUserId }: SimplePostCardPr
 
     const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
     const [isHidden, setIsHidden] = useState(false);
+    const [isCommentsOpen, setIsCommentsOpen] = useState(false);
 
     if (isHidden) return null;
 
@@ -175,12 +176,19 @@ export default function SimplePostCard({ post, currentUserId }: SimplePostCardPr
                             counts={post.reactionCounts}
                             onReact={() => onRefresh()}
                         />
-                        <div className="text-xs text-white/50">
+                        <div className="text-xs text-white/50 hover:text-white cursor-pointer transition-colors" onClick={() => setIsCommentsOpen(true)}>
                             {post.comments?.length || 0} comments
                         </div>
                     </div>
                 </div>
             </div>
+
+            <CommentsModal
+                isOpen={isCommentsOpen}
+                onClose={() => setIsCommentsOpen(false)}
+                postId={post.id}
+                onCommentAdded={onRefresh}
+            />
         </div>
     );
 }

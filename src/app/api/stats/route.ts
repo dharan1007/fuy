@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "../../../lib/session";
 
-type DayItem = { day: string; journal: number; joy: number; awe: number; bonds: number };
+type DayItem = { day: string; journal: number; awe: number; bonds: number };
 
 /* ------------------------- GET: keep your existing behavior ------------------------- */
 export async function GET() {
@@ -30,7 +30,7 @@ export async function GET() {
 
   const byDay: Record<string, DayItem> = {};
   for (const { key, label } of days) {
-    byDay[key] = { day: label, journal: 0, joy: 0, awe: 0, bonds: 0 };
+    byDay[key] = { day: label, journal: 0, awe: 0, bonds: 0 };
   }
 
   for (const p of posts) {
@@ -40,9 +40,6 @@ export async function GET() {
     switch (p.feature) {
       case "JOURNAL":
         row.journal += 1;
-        break;
-      case "JOY":
-        row.joy += 1;
         break;
       case "AWE":
         row.awe += 1;

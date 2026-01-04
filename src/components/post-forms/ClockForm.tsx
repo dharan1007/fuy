@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Upload, X, Clock, Loader2 } from 'lucide-react';
 
 import { useCreatePost } from '@/context/CreatePostContext';
+import { uploadFileClientSide } from '@/lib/upload-helper';
 
 type ClockFormProps = {
     onBack?: () => void;
@@ -38,30 +39,13 @@ export default function ClockForm({ onBack: propOnBack, initialData }: ClockForm
         reader.readAsDataURL(file);
 
         // Determine media type
-        if (file.type.startsWith('video/')) {
-            setMediaType('VIDEO');
-        } else {
-            setMediaType('IMAGE');
-        }
-
-        // Upload to local API (handles R2/Supabase split)
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('type', file.type.startsWith('video/') ? 'video' : 'image');
+        const type = file.type.startsWith('video/') ? 'VIDEO' : 'IMAGE';
+        setMediaType(type);
 
         try {
-            const res = await fetch('/api/upload', {
-                method: 'POST',
-                body: formData,
-            });
-
-            if (!res.ok) {
-                const errorData = await res.json();
-                throw new Error(errorData.error || 'Upload failed');
-            }
-
-            const data = await res.json();
-            setMediaUrl(data.url);
+            const url = await uploadFileClientSide(file, type);
+            if (!url) throw new Error('Upload failed - invalid URL returned');
+            setMediaUrl(url);
         } catch (err: any) {
             console.error('Upload error:', err);
             setError(err.message || 'Failed to upload file');

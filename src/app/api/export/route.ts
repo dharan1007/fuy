@@ -12,13 +12,18 @@ export async function GET() {
 
   const posts = await prisma.post.findMany({
     where: { userId },
-    include: { media: true },
+    include: { postMedia: { include: { media: true } } },
     orderBy: { createdAt: "asc" },
   });
 
-  type Post = (typeof posts)[number];
+  const formattedPosts = posts.map((p: any) => ({
+    ...p,
+    media: p.postMedia?.map((pm: any) => pm.media) || []
+  }));
 
-  const grouped = posts.reduce<Record<string, Post[]>>(
+  type Post = (typeof formattedPosts)[number];
+
+  const grouped = formattedPosts.reduce<Record<string, Post[]>>(
     (acc: Record<string, Post[]>, p: Post) => {
       (acc[p.feature] ??= []).push(p);
       return acc;

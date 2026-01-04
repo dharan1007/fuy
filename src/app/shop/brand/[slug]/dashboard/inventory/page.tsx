@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import SlashInput from "@/components/post-forms/SlashInput";
+import { uploadFileClientSide } from "@/lib/upload-helper";
 
 interface Product {
     id: string;
@@ -56,19 +57,28 @@ export default function InventoryPage() {
         }
     };
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const files = e.target.files;
-        if (files) {
-            Array.from(files).forEach(file => {
-                const reader = new FileReader();
-                reader.onloadend = () => {
-                    setNewProduct(prev => ({
-                        ...prev,
-                        mediaFiles: [...prev.mediaFiles, reader.result as string]
-                    }));
-                };
-                reader.readAsDataURL(file);
-            });
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = Array.from(e.target.files || []);
+        if (files.length > 0) {
+            setLoading(true); // Optimization: Use local loading state for uploads if preferred, but global loading works for now
+            try {
+                const uploadedUrls = await Promise.all(
+                    files.map(async (file) => {
+                        const type = file.type.startsWith('image') ? 'IMAGE' : 'VIDEO';
+                        return await uploadFileClientSide(file, type);
+                    })
+                );
+                const validUrls = uploadedUrls.filter((url): url is string => !!url);
+                setNewProduct(prev => ({
+                    ...prev,
+                    mediaFiles: [...prev.mediaFiles, ...validUrls]
+                }));
+            } catch (error) {
+                console.error("Upload failed", error);
+                alert("Failed to upload some files");
+            } finally {
+                setLoading(false);
+            }
         }
     };
 

@@ -69,32 +69,29 @@ export default function SimpleForm({ onBack: propOnBack, initialData }: SimpleFo
                 throw new Error('Please add at least one photo or video');
             }
 
-            // Upload files logic (simulated or real depends on existing /api/upload)
-            // Assuming existing upload logic works as shown in previous file view
-            // Upload files logic using client-side helper to bypass Vercel limits
             setLoadingMessage('Uploading media...');
             const uploadPromises = mediaItems.map(async (item, index) => {
                 try {
-                    return await uploadFileClientSide(item.file, 'posts');
+                    const url = await uploadFileClientSide(item.file, item.type);
+                    return { url, type: item.type };
                 } catch (err: any) {
                     throw new Error(`Failed to upload file ${index + 1}: ${err.message}`);
                 }
             });
 
-            const mediaUrls = await Promise.all(uploadPromises);
+            const uploadedMedia = await Promise.all(uploadPromises);
             setLoadingMessage('Creating post...');
-            const mediaTypes = mediaItems.map(i => i.type);
 
-            const res = await fetch('/api/posts/simple', {
+            const res = await fetch('/api/posts', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    postType: 'SIMPLE',
                     content,
                     visibility,
-                    mediaUrls,
-                    mediaTypes,
+                    media: uploadedMedia,
                     status,
-                    slashes // New: Pass slashes to API
+                    slashes
                 }),
             });
 

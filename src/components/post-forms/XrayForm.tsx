@@ -37,24 +37,30 @@ export default function XrayForm({ onBack: propOnBack, initialData }: XrayFormPr
             }
 
             setLoadingMessage('Uploading layers...');
+            const topType = topLayerFile.type.startsWith('video') ? 'VIDEO' : 'IMAGE';
+            const bottomType = bottomLayerFile.type.startsWith('video') ? 'VIDEO' : 'IMAGE';
+
             const [topUrl, bottomUrl] = await Promise.all([
-                uploadFileClientSide(topLayerFile, 'xrays'),
-                uploadFileClientSide(bottomLayerFile, 'xrays'),
+                uploadFileClientSide(topLayerFile, topType),
+                uploadFileClientSide(bottomLayerFile, bottomType),
             ]);
+
             setLoadingMessage('Creating xray...');
 
             // Create xray post
-            const res = await fetch('/api/posts/xrays', {
+            const res = await fetch('/api/posts', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    postType: 'XRAY',
                     content: content || 'Scratch to reveal!',
                     visibility,
-                    topLayerUrl: topUrl,
-                    topLayerType: topLayerFile.type.startsWith('video') ? 'VIDEO' : 'IMAGE',
-                    bottomLayerUrl: bottomUrl,
-                    bottomLayerType: bottomLayerFile.type.startsWith('video') ? 'VIDEO' : 'IMAGE',
-                    status,
+                    startus: status,
+                    media: [
+                        { url: topUrl, type: topType, variant: 'xray-top' },
+                        { url: bottomUrl, type: bottomType, variant: 'xray-bottom' }
+                    ],
+                    status
                 }),
             });
 

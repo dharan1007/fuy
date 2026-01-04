@@ -6,7 +6,7 @@ export const DUMMY_PUDS = [
         question: 'Which color is better?',
         feature: 'PULLUPDOWN',
         visibility: 'PUBLIC',
-        joyScore: 10,
+        
         connectionScore: 5,
         createdAt: new Date().toISOString(),
         user: {
@@ -42,7 +42,7 @@ export const DUMMY_PUDS = [
         content: 'Best weekend activity?',
         feature: 'PULLUPDOWN',
         visibility: 'PUBLIC',
-        joyScore: 45,
+        
         connectionScore: 12,
         createdAt: new Date().toISOString(),
         user: {
@@ -86,7 +86,7 @@ export const DUMMY_PUDS = [
         content: 'Who is the imposter?',
         feature: 'PULLUPDOWN',
         visibility: 'PUBLIC',
-        joyScore: 100,
+        
         connectionScore: 88,
         createdAt: new Date().toISOString(),
         user: {
@@ -128,7 +128,7 @@ export const DUMMY_PUDS = [
         content: 'Pizza Toppings',
         feature: 'PULLUPDOWN',
         visibility: 'PUBLIC',
-        joyScore: 55,
+        
         connectionScore: 20,
         createdAt: new Date().toISOString(),
         user: {
@@ -164,7 +164,7 @@ export const DUMMY_PUDS = [
         content: 'Study Spot',
         feature: 'PULLUPDOWN',
         visibility: 'PUBLIC',
-        joyScore: 12,
+        
         connectionScore: 8,
         createdAt: new Date().toISOString(),
         user: {
@@ -202,7 +202,7 @@ export const DUMMY_CHANS = [
         content: 'Exclusive concert backstage access',
         feature: 'CHAN',
         visibility: 'PUBLIC',
-        joyScore: 95,
+        
         connectionScore: 80,
         createdAt: new Date().toISOString(),
         user: {
@@ -224,7 +224,7 @@ export const DUMMY_CHANS = [
         content: 'Coding in the Wild: Rust Edition',
         feature: 'CHAN',
         visibility: 'PUBLIC',
-        joyScore: 88,
+        
         connectionScore: 40,
         createdAt: new Date().toISOString(),
         user: {
@@ -246,7 +246,7 @@ export const DUMMY_CHANS = [
         content: 'Summiting Everest: The Final Push',
         feature: 'CHAN',
         visibility: 'PUBLIC',
-        joyScore: 99,
+        
         connectionScore: 90,
         createdAt: new Date().toISOString(),
         user: {
@@ -268,7 +268,7 @@ export const DUMMY_CHANS = [
         content: 'Street Food Tour: Tokyo',
         feature: 'CHAN',
         visibility: 'PUBLIC',
-        joyScore: 92,
+        
         connectionScore: 70,
         createdAt: new Date().toISOString(),
         user: {
@@ -290,7 +290,7 @@ export const DUMMY_CHANS = [
         content: 'Galaxy S25 Ultra Review',
         feature: 'CHAN',
         visibility: 'PUBLIC',
-        joyScore: 75,
+        
         connectionScore: 30,
         createdAt: new Date().toISOString(),
         user: {
@@ -312,7 +312,7 @@ export const DUMMY_CHANS = [
         content: 'Yoga for Beginners',
         feature: 'CHAN',
         visibility: 'PUBLIC',
-        joyScore: 85,
+        
         connectionScore: 60,
         createdAt: new Date().toISOString(),
         user: {

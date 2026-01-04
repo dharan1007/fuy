@@ -57,16 +57,17 @@ export default function LillForm({ onBack: propOnBack, initialData }: LillFormPr
             }
 
             setLoadingMessage("Uploading video...");
-            const publicUrl = await uploadFileClientSide(videoFile, 'lills');
+            const publicUrl = await uploadFileClientSide(videoFile, 'VIDEO');
 
             // Create lill post
-            const res = await fetch('/api/posts/lills', {
+            const res = await fetch('/api/posts', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    postType: 'LILL',
                     content,
                     visibility,
-                    videoUrl: publicUrl,
+                    media: [{ url: publicUrl, type: 'VIDEO' }],
                     duration,
                     status,
                 }),

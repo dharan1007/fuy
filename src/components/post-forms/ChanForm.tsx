@@ -5,12 +5,14 @@ import { useRouter } from 'next/navigation';
 import { Plus, X, Upload, Loader2 } from 'lucide-react';
 import { useCreatePost } from '@/context/CreatePostContext';
 
+import { uploadFileClientSide } from '@/lib/upload-helper';
+
 interface ChanFormProps {
     onBack?: () => void;
     initialData?: any;
 }
 
-type Episode = { title: string; url: string; thumbnail?: string };
+type Episode = { title: string; url: string; file: File | null; thumbnail?: string };
 
 export default function ChanForm({ onBack: propOnBack, initialData }: ChanFormProps) {
     const { onBack: contextOnBack, initialData: contextInitialData } = useCreatePost() || {};
@@ -18,12 +20,14 @@ export default function ChanForm({ onBack: propOnBack, initialData }: ChanFormPr
     const data = initialData || contextInitialData;
     const router = useRouter();
     const [loading, setLoading] = useState(false);
+    const [loadingMessage, setLoadingMessage] = useState('');
     const [error, setError] = useState('');
 
     const [channelName, setChannelName] = useState('');
     const [description, setDescription] = useState('');
     const [visibility, setVisibility] = useState('PUBLIC');
-    const [episodes, setEpisodes] = useState<Episode[]>([{ title: '', url: '' }]);
+    const [coverFile, setCoverFile] = useState<File | null>(null);
+    const [episodes, setEpisodes] = useState<Episode[]>([{ title: '', url: '', file: null }]);
 
     const handleSubmit = async (e: React.FormEvent | React.MouseEvent, status: 'PUBLISHED' | 'DRAFT' = 'PUBLISHED') => {
         e.preventDefault();
@@ -33,20 +37,46 @@ export default function ChanForm({ onBack: propOnBack, initialData }: ChanFormPr
         try {
             if (!channelName) throw new Error('Channel name is required');
 
-            const validEpisodes = episodes.filter(ep => ep.title && ep.url);
+            const validEpisodes = episodes.filter(ep => ep.title && ep.file);
             if (validEpisodes.length === 0) {
-                throw new Error('At least one episode is required');
+                throw new Error('At least one episode with title and video is required');
             }
 
-            const res = await fetch('/api/posts/chans', {
+            setLoadingMessage('Uploading...');
+
+            // Upload Cover
+            let coverUrl = null;
+            if (coverFile) {
+                coverUrl = await uploadFileClientSide(coverFile, 'IMAGE');
+            }
+
+            // Upload Episodes
+            const uploadedEpisodes = await Promise.all(validEpisodes.map(async (ep) => {
+                if (!ep.file) throw new Error("File missing");
+                const url = await uploadFileClientSide(ep.file, 'VIDEO');
+                return { title: ep.title, url, type: 'VIDEO' };
+            }));
+
+            // Prepare Media for PostMedia (all episodes + cover?)
+            // We'll put cover as IMAGE and episodes as VIDEO in the media array
+            const mediaPayload: any[] = [];
+            if (coverUrl) mediaPayload.push({ url: coverUrl, type: 'IMAGE', variant: 'cover' });
+            uploadedEpisodes.forEach(ep => mediaPayload.push({ url: ep.url, type: 'VIDEO' }));
+
+            setLoadingMessage('Creating Channel...');
+
+            const res = await fetch('/api/posts', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    postType: 'CHAN',
                     channelName,
                     description,
                     content: description,
                     visibility,
-                    episodes: validEpisodes,
+                    media: mediaPayload, // For PostMedia
+                    coverImageUrl: coverUrl, // For Chan specific field
+                    episodes: uploadedEpisodes, // For Chan specific JSON
                     status,
                 }),
             });
@@ -94,9 +124,25 @@ export default function ChanForm({ onBack: propOnBack, initialData }: ChanFormPr
                     </div>
 
                     <div>
+                        <label className="block text-sm font-medium text-white/80 mb-2">Cover Image (Optional)</label>
+                        {coverFile ? (
+                            <div className="p-3 bg-black/20 border border-white/10 rounded-lg flex justify-between items-center">
+                                <span className="text-sm truncate">{coverFile.name}</span>
+                                <button type="button" onClick={() => setCoverFile(null)} className="text-red-400 text-xs">Remove</button>
+                            </div>
+                        ) : (
+                            <label className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-white/20 rounded-xl hover:bg-white/5 cursor-pointer">
+                                <Upload size={16} />
+                                <span className="text-sm">Upload Cover</span>
+                                <input type="file" accept="image/*" onChange={(e) => e.target.files && setCoverFile(e.target.files[0])} className="hidden" />
+                            </label>
+                        )}
+                    </div>
+
+                    <div>
                         <label className="block text-sm font-medium text-white/80 mb-2">Episodes</label>
                         {episodes.map((episode, i) => (
-                            <div key={i} className="flex gap-2 mb-2">
+                            <div key={i} className="flex gap-2 mb-2 items-start">
                                 <input
                                     type="text"
                                     placeholder="Episode title"
@@ -108,22 +154,35 @@ export default function ChanForm({ onBack: propOnBack, initialData }: ChanFormPr
                                     }}
                                     className="flex-1 px-3 py-2 bg-black/20 border border-white/20 rounded-lg text-sm text-white placeholder-white/40"
                                 />
-                                <input
-                                    type="url"
-                                    placeholder="Video URL"
-                                    value={episode.url}
-                                    onChange={(e) => {
-                                        const newEpisodes = [...episodes];
-                                        newEpisodes[i].url = e.target.value;
-                                        setEpisodes(newEpisodes);
-                                    }}
-                                    className="flex-1 px-3 py-2 bg-black/20 border border-white/20 rounded-lg text-sm text-white placeholder-white/40"
-                                />
+                                <div className="flex-1">
+                                    {episode.file ? (
+                                        <div className="px-3 py-2 bg-black/20 border border-white/20 rounded-lg text-sm text-white flex justify-between items-center">
+                                            <span className="truncate max-w-[100px]">{episode.file.name}</span>
+                                            <button type="button" onClick={() => {
+                                                const newEpisodes = [...episodes];
+                                                newEpisodes[i].file = null;
+                                                setEpisodes(newEpisodes);
+                                            }} className="text-xs text-red-400">X</button>
+                                        </div>
+                                    ) : (
+                                        <label className="flex items-center justify-center gap-2 px-3 py-2 border border-dashed border-white/20 rounded-lg hover:bg-white/5 cursor-pointer text-sm text-white/60">
+                                            <Upload size={14} /> <span>Video</span>
+                                            <input type="file" accept="video/*" className="hidden" onChange={(e) => {
+                                                if (e.target.files?.[0]) {
+                                                    const newEpisodes = [...episodes];
+                                                    newEpisodes[i].file = e.target.files[0];
+                                                    setEpisodes(newEpisodes);
+                                                }
+                                            }} />
+                                        </label>
+                                    )}
+                                </div>
+
                                 {i > 0 && (
                                     <button
                                         type="button"
                                         onClick={() => setEpisodes(episodes.filter((_, idx) => idx !== i))}
-                                        className="p-2 hover:bg-white/10 rounded"
+                                        className="p-2 hover:bg-white/10 rounded text-white/60"
                                     >
                                         <X className="w-4 h-4" />
                                     </button>
@@ -132,7 +191,7 @@ export default function ChanForm({ onBack: propOnBack, initialData }: ChanFormPr
                         ))}
                         <button
                             type="button"
-                            onClick={() => setEpisodes([...episodes, { title: '', url: '' }])}
+                            onClick={() => setEpisodes([...episodes, { title: '', url: '', file: null }])}
                             className="text-sm text-white/60 hover:text-white flex items-center gap-1"
                         >
                             <Plus className="w-4 h-4" /> Add Episode

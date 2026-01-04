@@ -1,13 +1,10 @@
 import * as FileSystem from 'expo-file-system';
-import { supabase } from '../lib/supabase';
-import { decode } from 'base64-arraybuffer';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3000';
 
 export interface UploadResult {
     url: string;
-    type: 'image' | 'video' | 'audio';
-    duration?: number;
+    type: 'IMAGE' | 'VIDEO' | 'AUDIO';
 }
 
 export interface UploadProgress {
@@ -18,161 +15,82 @@ export interface UploadProgress {
 
 export class MediaUploadService {
     /**
-     * Upload image to Supabase Storage
+     * Unified upload method for Image, Video, and Audio using R2 Presigned URLs
      */
-    static async uploadImage(
+    static async uploadMedia(
         uri: string,
-        fileName?: string,
+        type: 'IMAGE' | 'VIDEO' | 'AUDIO',
         onProgress?: (progress: UploadProgress) => void
     ): Promise<UploadResult> {
         try {
-            // Read file as base64
-            const base64 = await FileSystem.readAsStringAsync(uri, {
-                encoding: 'base64',
-            });
+            // 1. Get file info
+            const fileInfo = await FileSystem.getInfoAsync(uri);
+            if (!fileInfo.exists) throw new Error("File does not exist");
 
-            const finalFileName = fileName || `image_${Date.now()}.jpg`;
-            const filePath = `posts/${finalFileName}`;
+            const fileName = uri.split('/').pop() || `file_${Date.now()}`;
+            const ext = fileName.split('.').pop()?.toLowerCase();
 
-            // Upload to Supabase Storage
-            const { data, error } = await supabase.storage
-                .from('media')
-                .upload(filePath, decode(base64), {
-                    contentType: 'image/jpeg',
-                    upsert: true,
-                });
+            // Determine content type
+            let contentType = 'application/octet-stream';
+            if (type === 'IMAGE') contentType = `image/${ext || 'jpeg'}`;
+            if (type === 'VIDEO') contentType = `video/${ext || 'mp4'}`;
+            if (type === 'AUDIO') contentType = `audio/${ext || 'mpeg'}`;
 
-            if (error) throw error;
-
-            // Get public URL
-            const { data: urlData } = supabase.storage
-                .from('media')
-                .getPublicUrl(filePath);
-
-            onProgress?.({ loaded: 100, total: 100, percentage: 100 });
-
-            return {
-                url: urlData.publicUrl,
-                type: 'image',
-            };
-        } catch (error) {
-            console.error('Image upload error:', error);
-            throw error;
-        }
-    }
-
-    /**
-     * Upload video to Cloudflare R2 via API
-     */
-    static async uploadVideo(
-        uri: string,
-        fileName?: string,
-        onProgress?: (progress: UploadProgress) => void
-    ): Promise<UploadResult> {
-        try {
-            const formData = new FormData();
-            formData.append('file', {
-                uri,
-                name: fileName || `video_${Date.now()}.mp4`,
-                type: 'video/mp4',
-            } as any);
-            formData.append('type', 'video');
-
-            const response = await fetch(`${API_URL}/api/upload`, {
+            // 2. Get Presigned URL
+            const presignedRes = await fetch(`${API_URL}/api/upload/presigned`, {
                 method: 'POST',
-                body: formData,
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                },
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    filename: fileName,
+                    contentType,
+                    type
+                })
             });
 
-            if (!response.ok) {
-                const err = await response.json();
-                throw new Error(err.error || 'Video upload failed');
+            if (!presignedRes.ok) {
+                const err = await presignedRes.json();
+                throw new Error(err.error || 'Failed to get upload URL');
             }
 
-            const data = await response.json();
-            onProgress?.({ loaded: 100, total: 100, percentage: 100 });
+            const { signedUrl, publicUrl } = await presignedRes.json();
 
-            return {
-                url: data.url,
-                type: 'video',
-                duration: data.duration,
-            };
-        } catch (error) {
-            console.error('Video upload error:', error);
-            throw error;
-        }
-    }
-
-    /**
-     * Upload audio to Cloudflare R2 via API
-     */
-    static async uploadAudio(
-        uri: string,
-        fileName?: string,
-        onProgress?: (progress: UploadProgress) => void
-    ): Promise<UploadResult> {
-        try {
-            const formData = new FormData();
-            formData.append('file', {
-                uri,
-                name: fileName || `audio_${Date.now()}.mp3`,
-                type: 'audio/mpeg',
-            } as any);
-            formData.append('type', 'audio');
-
-            const response = await fetch(`${API_URL}/api/upload`, {
-                method: 'POST',
-                body: formData,
+            // 3. Upload directly to R2
+            const uploadRes = await FileSystem.uploadAsync(signedUrl, uri, {
+                httpMethod: 'PUT',
+                uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
                 headers: {
-                    'Content-Type': 'multipart/form-data',
-                },
+                    'Content-Type': contentType
+                }
             });
 
-            if (!response.ok) {
-                const err = await response.json();
-                throw new Error(err.error || 'Audio upload failed');
+            if (uploadRes.status !== 200) {
+                throw new Error(`Upload failed with status ${uploadRes.status}`);
             }
 
-            const data = await response.json();
             onProgress?.({ loaded: 100, total: 100, percentage: 100 });
 
             return {
-                url: data.url,
-                type: 'audio',
-                duration: data.duration,
+                url: publicUrl,
+                type,
             };
+
         } catch (error) {
-            console.error('Audio upload error:', error);
+            console.error('Media upload error:', error);
             throw error;
         }
     }
 
-    /**
-     * Get video duration from URI (in seconds)
-     */
-    static async getVideoDuration(uri: string): Promise<number> {
-        // This would need expo-av to get actual duration
-        // For now, return 0 and let the API calculate it
-        return 0;
+    // Compat wrappers
+    static async uploadImage(uri: string, fileName?: string, onProgress?: any) {
+        return this.uploadMedia(uri, 'IMAGE', onProgress);
     }
 
-    /**
-     * Validate video duration
-     */
-    static validateLillDuration(durationSeconds: number): boolean {
-        return durationSeconds <= 60; // Max 1 minute
+    static async uploadVideo(uri: string, fileName?: string, onProgress?: any) {
+        return this.uploadMedia(uri, 'VIDEO', onProgress);
     }
 
-    static validateFillDuration(durationSeconds: number): boolean {
-        return durationSeconds <= 18000; // Max 5 hours
-    }
-
-    /**
-     * Validate image count for multi-image posts
-     */
-    static validateImageCount(count: number, type: 'xray' | 'bts' | 'chapter'): boolean {
-        return count <= 10;
+    static async uploadAudio(uri: string, fileName?: string, onProgress?: any) {
+        return this.uploadMedia(uri, 'AUDIO', onProgress);
     }
 }
+

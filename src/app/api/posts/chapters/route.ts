@@ -58,23 +58,25 @@ export async function POST(req: NextRequest) {
                     create: {
                         title: title || 'Untitled Chapter',
                         description: description,
-                        mediaUrls: JSON.stringify(mediaUrls || []),
-                        mediaTypes: JSON.stringify(mediaTypes || []),
                         linkedPostId: linkedPostId || null,
-                        // If linking to a chapter, logic for linkedChapterId could be inferred, but requirements say connect to "post"
                     }
                 },
-                // Add media entries for standard compatibility
-                media: {
+                // Add media entries for standard compatibility via postMedia
+                postMedia: {
                     create: (mediaUrls || []).map((url: string, index: number) => ({
-                        url,
-                        type: (mediaTypes || [])[index] || 'IMAGE',
-                        userId: currentUser.id
+                        media: {
+                            create: {
+                                url,
+                                type: (mediaTypes || [])[index] || 'IMAGE',
+                                userId: currentUser.id
+                            }
+                        }
                     }))
                 }
             },
             include: {
-                chapterData: true
+                chapterData: true,
+                postMedia: { include: { media: true } }
             }
         });
 
@@ -85,4 +87,3 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }
-

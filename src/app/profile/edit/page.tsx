@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import useSWR, { mutate } from "swr";
 import AppHeader from "@/components/AppHeader";
 import { ChevronLeft, Plus, Trash2, Save, Upload, Video, Image as ImageIcon } from "lucide-react";
+import { uploadFileClientSide } from "@/lib/upload-helper";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -50,11 +51,40 @@ export default function EditProfilePage() {
         e.preventDefault();
         setSaving(true);
         const fd = new FormData(e.currentTarget);
-        if (localAvatar) fd.set("avatar", localAvatar);
-        if (localCover) fd.set("cover", localCover);
+
+        // Prepare payload object from FormData
+        const payload: any = {};
+        fd.forEach((value, key) => {
+            if (typeof value === 'string') {
+                payload[key] = value;
+            }
+        });
 
         try {
-            const res = await fetch("/api/profile", { method: "PUT", body: fd });
+            // Handle File Uploads
+            if (localAvatar) {
+                const url = await uploadFileClientSide(localAvatar, 'IMAGE');
+                if (url) payload.avatarUrl = url;
+            }
+            if (localCover) {
+                const type = localCover.type.startsWith('image') ? 'IMAGE' : 'VIDEO';
+                const url = await uploadFileClientSide(localCover, type);
+                if (url) {
+                    if (type === 'VIDEO') {
+                        payload.coverVideoUrl = url;
+                        payload.coverImageUrl = "";
+                    } else {
+                        payload.coverImageUrl = url;
+                        payload.coverVideoUrl = "";
+                    }
+                }
+            }
+
+            const res = await fetch("/api/profile", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
             if (!res.ok) throw new Error("Failed to save profile");
             mutate("/api/profile");
             alert("Profile saved!");

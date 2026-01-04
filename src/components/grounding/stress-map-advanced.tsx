@@ -326,7 +326,7 @@ export default function StressMapAdvanced() {
       feature: "CALM",
       visibility: "PRIVATE",
       content: human,
-      joyScore: 1, connectionScore: 0, creativityScore: 0,
+      connectionScore: 0, creativityScore: 0,
     });
     await postJSON("/api/stats", {
       type: "stress_avg_intensity", category: "CALM", value: insights.avgIntensity,

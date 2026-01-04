@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Upload, Loader2 } from 'lucide-react';
-import { supabase } from '@/lib/supabase-client';
+import { uploadFileClientSide } from '@/lib/upload-helper';
 
 import { useCreatePost } from '@/context/CreatePostContext';
 
@@ -50,37 +50,17 @@ export default function AudForm({ onBack: propOnBack, initialData }: AudFormProp
         try {
             if (!audioFile) throw new Error('Please select an audio file');
 
-            const timestamp = Date.now();
-            const randomStr = Math.random().toString(36).substring(7);
-            const ext = audioFile.name.split('.').pop();
-            const filename = `audios/${timestamp}-${randomStr}.${ext}`;
-
             setLoadingMessage("Uploading audio...");
+            const publicUrl = await uploadFileClientSide(audioFile, 'AUDIO');
 
-            // Direct upload to Supabase to bypass Vercel 4.5MB limit
-            const { data: uploadData, error: uploadError } = await supabase.storage
-                .from('media')
-                .upload(filename, audioFile, {
-                    cacheControl: '3600',
-                    upsert: false
-                });
-
-            if (uploadError) {
-                console.error("Direct upload error:", uploadError);
-                throw new Error("Audio upload failed: " + uploadError.message);
-            }
-
-            const { data: { publicUrl } } = supabase.storage
-                .from('media')
-                .getPublicUrl(filename);
-
-            const res = await fetch('/api/posts/auds', {
+            const res = await fetch('/api/posts', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
+                    postType: 'AUD',
                     content: title,
                     visibility,
-                    audioUrl: publicUrl,
+                    media: [{ url: publicUrl, type: 'AUDIO' }],
                     duration,
                     title,
                     artist,

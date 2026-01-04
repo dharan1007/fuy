@@ -1,9 +1,11 @@
-'use client';
+
+"use client";
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Play, Tv } from 'lucide-react';
+import { Play, Tv, MessageSquare } from 'lucide-react';
 import PostActionMenu from '@/components/PostActionMenu';
+import CommentsModal from '@/components/CommentsModal';
 
 type ChanCardProps = {
     chan: {
@@ -54,6 +56,7 @@ export default function ChanCard({ chan, user, postId, post, currentUserId, onPo
     allEpisodes.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
 
     const [selectedEpisode, setSelectedEpisode] = useState(0);
+    const [isCommentsOpen, setIsCommentsOpen] = useState(false);
     const hasEpisodes = allEpisodes.length > 0;
     const currentEp = hasEpisodes ? allEpisodes[selectedEpisode] : null;
 
@@ -94,7 +97,7 @@ export default function ChanCard({ chan, user, postId, post, currentUserId, onPo
                 </Link>
 
                 <div className="flex-1 min-w-0">
-                    {/* Title */}
+                    {/* Title and Controls Row */}
                     <div className="flex justify-between items-start">
                         <div>
                             <h3 className="text-white font-bold text-base leading-tight line-clamp-2 md:line-clamp-1">
@@ -107,23 +110,32 @@ export default function ChanCard({ chan, user, postId, post, currentUserId, onPo
                                 <span className="text-white/40 text-xs">• {allEpisodes.length} episodes</span>
                             </div>
                         </div>
-                        <div className="z-10">
+
+                        <div className="z-10 flex items-center gap-1">
+                            <button
+                                onClick={() => setIsCommentsOpen(true)}
+                                className="p-1.5 rounded-full hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+                                title="Comments"
+                            >
+                                <MessageSquare size={20} />
+                            </button>
                             <PostActionMenu
-                                post={post || { id: postId, user: user, userId: user?.id }} // Fallback if full post not passed, but we need full post for some actions. FeedPostItem passes it.
+                                post={post || { id: postId, user: user, userId: user?.id }}
                                 currentUserId={currentUserId}
                                 onPostHidden={onPostHidden}
                                 onRefresh={onRefresh}
                             />
                         </div>
                     </div>
-
-                    {/* Reactions Bar (Optional for Chans? User said "basic stuff") */}
-                    {/* Adding simplified reaction control */}
-                    <div className="mt-2 text-xs">
-                        {/* Assuming reaction props are passed down or fetched - simplified for layout now */}
-                    </div>
                 </div>
             </div>
+
+            <CommentsModal
+                isOpen={isCommentsOpen}
+                onClose={() => setIsCommentsOpen(false)}
+                postId={postId}
+                onCommentAdded={onRefresh}
+            />
         </div>
     );
 }

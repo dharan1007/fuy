@@ -30,10 +30,7 @@ import Btn from "./Btn";
 import CanvasArea from "./CanvasArea";
 import TemplateCard from "./TemplateCard";
 import TemplatePreview from "./TemplatePreview";
-import generatePlan, { AIPlan, AIBlockPlan, AIOptions } from "@/lib/ai";
-import DbotModal from "./DbotModal";
-import { SuggestionsResponse } from "@/lib/ai-suggestions";
-import { Plus, Trash2, Bot, Pencil } from "lucide-react";
+import { Plus, Trash2, Pencil } from "lucide-react";
 
 export default function JournalEditor() {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
@@ -65,20 +62,7 @@ export default function JournalEditor() {
   const [collaborationSessionId, setCollaborationSessionId] = useState<string | null>(null);
   const collaboration = useCollaboration(collaborationSessionId);
 
-  // dbot (combined AI + Suggestions)
-  const [dbotOpen, setDbotOpen] = useState(false);
-  const [dbotLoading, setDbotLoading] = useState(false);
-  const [suggestions, setSuggestions] = useState<SuggestionsResponse | null>(null);
-  const [dbotError, setDbotError] = useState<string | null>(null);
 
-  // sensible defaults; generator mainly relies on aiPrompt text
-  const aiOptRef = useRef<AIOptions>({
-    style: "reflective",
-    boostCreativity: true,
-    timeboxMinutes: 25,
-    include: { text: true, checklist: true, draw: true, image: true, audio: true, video: true },
-    mood: null,
-  });
 
   const pageRef = useRef<HTMLDivElement | null>(null);
   const fs = useFullscreen(pageRef);
@@ -244,19 +228,6 @@ export default function JournalEditor() {
     };
   }, [offset.x, offset.y]);
 
-  /* ------------ AI regenerate from "Questions" (⌘/Ctrl+Enter) ------------- */
-  async function regenerateFrom(text: string) {
-    try {
-      setDbotLoading(true);
-      const plan = await generatePlan(text, aiOptRef.current);
-      insertFromPlan(plan);
-    } catch (e) {
-      console.error(e);
-      alert("Could not regenerate from your reply.");
-    } finally {
-      setDbotLoading(false);
-    }
-  }
 
   useKeyDown((e) => {
     // arrow key nudge (existing)
@@ -277,31 +248,6 @@ export default function JournalEditor() {
         updateBlocks(arr);
       }
       return;
-    }
-
-    // NEW: ⌘/Ctrl+Enter to regenerate from the "Questions" Text block
-    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-      const ae = document.activeElement as HTMLElement | null;
-      const typing =
-        ae &&
-        (ae.tagName === "TEXTAREA" ||
-          (ae as any).isContentEditable ||
-          ae.tagName === "INPUT");
-      if (!typing) return;
-
-      if (!activeId) return;
-      const b = blocks.find((x) => x.id === activeId);
-      if (!b || b.type !== "TEXT") return;
-
-      const cap = (b.caption || "").toLowerCase();
-      const txt = (b.text || "");
-      const looksLikeQuestions =
-        cap.includes("question") || /quick questions/i.test(txt);
-
-      if (looksLikeQuestions) {
-        e.preventDefault();
-        regenerateFrom(txt);
-      }
     }
   });
 
@@ -728,117 +674,9 @@ export default function JournalEditor() {
     }
   };
 
-  function insertFromPlan(plan: AIPlan) {
-    if (plan.title) setTitle(plan.title);
-    if (plan.mood) setMood(plan.mood);
-    if (plan.tags?.length) {
-      setTags((prev) => Array.from(new Set([...(prev ?? []), ...plan.tags!])).slice(0, 12));
-    }
 
-    let cx = Math.round((-offset.x + 120) / zoom);
-    let cy = Math.round((-offset.y + 120) / zoom);
-    const gap = 24;
-    const colW = 400;
-    let col = 0;
-    let rowMaxH = 0;
 
-    const sizeFor = (k: AIBlockPlan["kind"]) =>
-      k === "TEXT"
-        ? { w: 420, h: 240 }
-        : k === "CHECKLIST"
-          ? { w: 360, h: 220 }
-          : k === "IMAGE"
-            ? { w: 460, h: 300 }
-            : k === "VIDEO"
-              ? { w: 460, h: 280 }
-              : k === "AUDIO"
-                ? { w: 380, h: 140 }
-                : { w: 480, h: 320 };
 
-    const created: Block[] = [];
-
-    for (const g of plan.blocks) {
-      const { w, h } = sizeFor(g.kind);
-      const nb: Block = {
-        id: uid(),
-        type: g.kind === "CHECKLIST" ? "CHECKLIST" : (g.kind as unknown as BlockType),
-        x: cx + col * (colW + gap),
-        y: cy,
-        w: Math.max(MIN_W_CARD, w),
-        h: Math.max(MIN_H_CARD, h),
-        caption: "caption" in g ? g.caption : undefined,
-      } as Block;
-
-      if (g.kind === "TEXT") {
-        nb.type = "TEXT";
-        nb.text = g.text;
-        nb.editor = "MARKDOWN";
-      } else if (g.kind === "CHECKLIST") {
-        nb.type = "CHECKLIST";
-        nb.checklist = (g.items || []).map((t) => ({ id: uid(), text: t, done: false }));
-      } else if (g.kind === "DRAW") {
-        nb.type = "DRAW";
-        nb.drawing = { stroke: "#000", strokeWidth: 2, paths: [] };
-      }
-      created.push(nb);
-
-      rowMaxH = Math.max(rowMaxH, nb.h);
-      col++;
-      if (col === 2) {
-        col = 0;
-        cy += rowMaxH + gap;
-        rowMaxH = 0;
-      }
-    }
-
-    if (created.length) {
-      updateBlocks([...blocks, ...created]);
-      setActiveId(created[0].id);
-    }
-  }
-
-  async function handleGenerateAI(prompt: string) {
-    if (!prompt.trim()) {
-      alert(`Tell me what you want (e.g., "Morning routine + groceries + reminders").`);
-      return;
-    }
-    try {
-      setDbotLoading(true);
-      setDbotError(null);
-      const plan = await generatePlan(prompt, aiOptRef.current);
-      insertFromPlan(plan);
-      setDbotOpen(false);
-      setSuggestions(null);
-    } catch (e) {
-      console.error(e);
-      setDbotError("Could not create content from your request.");
-    } finally {
-      setDbotLoading(false);
-    }
-  }
-
-  async function handleFindResources(goalText: string) {
-    setDbotLoading(true);
-    setDbotError(null);
-    try {
-      const response = await fetch("/api/ai/suggestions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ goalText, type: "goal" }),
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setSuggestions(data);
-      } else {
-        setDbotError(data.error || "Failed to find resources");
-      }
-    } catch (error) {
-      console.error(error);
-      setDbotError("Error fetching resources. Please try again.");
-    } finally {
-      setDbotLoading(false);
-    }
-  }
 
   /* ------------ UI ------------- */
 
@@ -1250,9 +1088,6 @@ export default function JournalEditor() {
               </svg>
               {autoSaveEnabled ? "Auto-save" : "Saving disabled"}
             </Btn>
-            <Btn variant="solid" onClick={() => setDbotOpen((s) => !s)} title="Open dbot - AI Assistant & Resources">
-              dbot
-            </Btn>
           </div>
         </div>
 
@@ -1307,19 +1142,6 @@ export default function JournalEditor() {
       </section>
 
       {previewTpl && <TemplatePreview tpl={previewTpl} />}
-
-      <DbotModal
-        isOpen={dbotOpen}
-        onClose={() => {
-          setDbotOpen(false);
-          setSuggestions(null);
-        }}
-        onGenerateAI={handleGenerateAI}
-        onFindResources={handleFindResources}
-        isLoading={dbotLoading}
-        suggestions={suggestions}
-        error={dbotError || undefined}
-      />
     </div>
   );
 }

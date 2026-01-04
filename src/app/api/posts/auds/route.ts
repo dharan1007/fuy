@@ -42,7 +42,6 @@ export async function POST(req: NextRequest) {
                 status,
                 audData: {
                     create: {
-                        audioUrl,
                         duration: duration || 0,
                         waveformData: waveformData ? JSON.stringify(waveformData) : null,
                         coverImageUrl,
@@ -51,20 +50,73 @@ export async function POST(req: NextRequest) {
                         genre,
                     },
                 },
+                // Media will be added in a separate update step to ensure relation correctness
             },
             include: {
                 audData: true,
                 user: {
-                    select: {
-                        id: true,
-                        email: true,
-                        profile: { select: { displayName: true, avatarUrl: true } },
-                    },
+                    include: { profile: true },
                 },
             },
         });
 
-        return NextResponse.json(post);
+        // Add media record via Post update
+        await prisma.post.update({
+            where: { id: post.id },
+            data: {
+                postMedia: {
+                    create: {
+                        media: {
+                            create: {
+                                userId,
+                                url: audioUrl,
+                                type: 'AUDIO',
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Fetch complete post for FeedItem creation and response
+        const completePost = await prisma.post.findUnique({
+            where: { id: post.id },
+            include: {
+                audData: true,
+                user: {
+                    include: { profile: true },
+                },
+                postMedia: { include: { media: true } }
+            }
+        }) as any;
+
+        if (completePost) {
+            // B. Create FeedItem (Denormalized)
+            const mediaPreviews = [{
+                type: 'AUDIO',
+                url: audioUrl,
+                aspect: 1
+            }];
+
+            await prisma.feedItem.create({
+                data: {
+                    userId,
+                    postId: completePost.id,
+                    authorName: completePost.user.profile?.displayName || 'User',
+                    authorAvatarUrl: completePost.user.profile?.avatarUrl,
+                    postType: 'AUD',
+                    feature: feature || 'OTHER',
+                    contentSnippet: (completePost.content || '').slice(0, 200),
+                    mediaPreviews: JSON.stringify(mediaPreviews),
+                    createdAt: completePost.createdAt,
+                    likeCount: 0,
+                    commentCount: 0,
+                    shareCount: 0
+                }
+            });
+        }
+
+        return NextResponse.json(completePost);
     } catch (error: any) {
         console.error('Aud creation error:', error);
         return NextResponse.json(
@@ -73,4 +125,3 @@ export async function POST(req: NextRequest) {
         );
     }
 }
-

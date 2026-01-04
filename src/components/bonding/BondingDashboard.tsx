@@ -56,7 +56,7 @@ interface BondingActivity {
 }
 
 // Updated Locker Types for Emotions + Reminders/Triggers
-type LockerType = 'angry' | 'sad' | 'joy' | 'surprised' | 'reminders' | 'activities';
+type LockerType = 'angry' | 'sad' | 'surprised' | 'reminders' | 'activities';
 
 
 
@@ -81,7 +81,7 @@ const WalkthroughModal = ({ onClose }: { onClose: () => void }) => (
                             <Activity className="text-green-400" /> Emotional Lockers
                         </h3>
                         <p className="text-gray-300 leading-relaxed">
-                            Messages tagged with <b>Angry, Sad, Joy,</b> or <b>Surprised</b> are automatically sorted into their respective lockers.
+                            Messages tagged with <b>Angry, Sad,</b> or <b>Surprised</b> are automatically sorted into their respective lockers.
                             Use these to reflect on your shared emotional journey.
                         </p>
                     </section>
@@ -226,7 +226,7 @@ export default function BondingDashboard() {
     // State
     const [profiles, setProfiles] = useState<Profile[]>([]);
     const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
-    const [activeLocker, setActiveLocker] = useState<LockerType>('joy');
+    const [activeLocker, setActiveLocker] = useState<LockerType>('activities');
     const [tags, setTags] = useState<MessageTag[]>([]);
     const [activities, setActivities] = useState<BondingActivity[]>([]);
     const [tagCounts, setTagCounts] = useState<Record<string, number>>({});
@@ -335,12 +335,7 @@ export default function BondingDashboard() {
             icon: <div className="text-xl">😢</div>,
             tooltip: 'Sad or difficult moments shared.'
         },
-        {
-            id: 'joy',
-            label: 'Joy',
-            icon: <div className="text-xl">😂</div>,
-            tooltip: 'Happy, funny, and joyful memories.'
-        },
+
         {
             id: 'surprised',
             label: 'Surprised',
@@ -481,7 +476,7 @@ export default function BondingDashboard() {
                                         count = activities.length;
                                     } else if (tab.id === 'reminders') {
                                         // Count all that are NOT in emotional set
-                                        count = tags.filter(t => !['Angry', 'Sad', 'Joy', 'Surprised'].includes(t.tagType)).length;
+                                        count = tags.filter(t => !['Angry', 'Sad', 'Surprised'].includes(t.tagType)).length;
                                     } else {
                                         count = tags.filter(t => t.tagType === tab.label).length;
                                     }
@@ -560,7 +555,7 @@ export default function BondingDashboard() {
                                                 const relevantTags = tags.filter(t => {
                                                     if (activeLocker === 'reminders') {
                                                         // Include anything NOT in emotional set (so custom tags/triggers go here)
-                                                        return !['Angry', 'Sad', 'Joy', 'Surprised'].includes(t.tagType);
+                                                        return !['Angry', 'Sad', 'Surprised'].includes(t.tagType);
                                                     }
                                                     return t.tagType === TABS.find(tab => tab.id === activeLocker)?.label;
                                                 });

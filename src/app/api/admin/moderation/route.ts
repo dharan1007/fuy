@@ -121,14 +121,21 @@ export async function GET(req: NextRequest) {
                             user: {
                                 select: { name: true, email: true, profile: { select: { avatarUrl: true, displayName: true } } },
                             },
-                            media: true, // Show media if present
+                            postMedia: { include: { media: true } }, // Show media if present
                         },
                     },
                 },
                 orderBy: { createdAt: "desc" },
             });
 
-            return NextResponse.json({ reports });
+            const normalizedReports = reports.map((r: any) => {
+                if (r.post) {
+                    r.post.media = r.post.postMedia?.map((pm: any) => pm.media) || [];
+                }
+                return r;
+            });
+
+            return NextResponse.json({ reports: normalizedReports });
         }
     } catch (error: any) {
         console.error("Get admin data error:", error);
@@ -166,10 +173,6 @@ export async function POST(req: NextRequest) {
             // --- Post Actions (Require targetId = postId OR reportId) ---
         } else if (action === "DELETE_POST") {
             let postId = targetId;
-
-            // If triggered from a report, we might not have targetId explicitly passed as arg in handleAction sometimes, 
-            // but we can derive it. Ideally the client passes targetId.
-            // If reportId exists, we can resolve the report too.
 
             if (reportId) {
                 const report = await prisma.report.findUnique({ where: { id: reportId } });
@@ -235,7 +238,6 @@ export async function POST(req: NextRequest) {
                 });
 
                 // Notify User (if they can see it, or email)
-                // Since they are banned, they might be blocked from login, but notification is good record.
                 await prisma.notification.create({
                     data: {
                         userId: targetId,
@@ -252,8 +254,6 @@ export async function POST(req: NextRequest) {
                         banReason: null
                     } as any
                 });
-                // Note: We don't automatically restore post visibility as they might have been private before. 
-                // User has to set them back manually or we just leave them.
 
                 await prisma.notification.create({
                     data: {
@@ -268,7 +268,6 @@ export async function POST(req: NextRequest) {
                 await prisma.user.delete({
                     where: { id: targetId }
                 });
-                // No notification possible as user is gone.
             }
 
             // --- Store/Brand Actions (Require targetId = brandId) ---
@@ -284,9 +283,6 @@ export async function POST(req: NextRequest) {
                     } as any
                 });
 
-                // Hide all products? 
-                // Usually status=SUSPENDED on brand is enough for frontend to hide, 
-                // but let's strictly set products to inactive
                 await prisma.product.updateMany({
                     where: { brandId: targetId },
                     data: { status: "INACTIVE" }
@@ -312,8 +308,6 @@ export async function POST(req: NextRequest) {
                         banReason: null
                     } as any
                 });
-                // Restore products? Maybe safest to leave them INACTIVE for owner to re-enable?
-                // Or restore. Let's leave them for owner to manage to be safe.
 
                 const brand = await prisma.brand.findUnique({ where: { id: targetId }, select: { ownerId: true, name: true } });
                 if (brand) {
@@ -340,4 +334,3 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Action failed" }, { status: 500 });
     }
 }
-

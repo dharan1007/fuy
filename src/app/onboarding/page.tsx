@@ -24,7 +24,7 @@ async function postJSON(url: string, data: any): Promise<SaveResp> {
 const VIS = ["PUBLIC", "FRIENDS", "PRIVATE"] as const;
 type Visibility = (typeof VIS)[number];
 
-const FOCI = ["JOY", "CONNECTION", "CREATIVITY", "GROWTH", "HEALTH"] as const;
+const FOCI = ["CONNECTION", "CREATIVITY", "GROWTH", "HEALTH"] as const;
 type Focus = (typeof FOCI)[number];
 
 function generateAlias(seed?: number) {
@@ -95,7 +95,7 @@ export default function PrioritizeAndPersonalize() {
 
   // goals + focus
   const [goals, setGoals] = useState("");
-  const [focus, setFocus] = useState<Focus[]>(["JOY", "CONNECTION"]);
+  const [focus, setFocus] = useState<Focus[]>(["CONNECTION"]);
   const [defaultVis, setDefaultVis] = useState<Visibility>("FRIENDS");
 
   // prioritization (simple Eisenhower + weight)
@@ -152,7 +152,6 @@ export default function PrioritizeAndPersonalize() {
 
   // derive priorities
   const prioritized = useMemo(() => {
-    const wJoy = focus.includes("JOY") ? 0.3 : 0.15;
     const wConn = focus.includes("CONNECTION") ? 0.25 : 0.1;
     const wCr = focus.includes("CREATIVITY") ? 0.25 : 0.1;
     const wGrowth = focus.includes("GROWTH") ? 0.3 : 0.1;
@@ -163,15 +162,15 @@ export default function PrioritizeAndPersonalize() {
         const score =
           t.importance * 0.6 +
           t.urgency * 0.4 +
-          (wJoy + wConn + wCr + wGrowth + wHealth);
+          (wConn + wCr + wGrowth + wHealth);
         const quadrant =
           t.importance >= 3 && t.urgency >= 3
             ? "Do now"
             : t.importance >= 3 && t.urgency < 3
-            ? "Schedule"
-            : t.importance < 3 && t.urgency >= 3
-            ? "Delegate"
-            : "Maybe later";
+              ? "Schedule"
+              : t.importance < 3 && t.urgency >= 3
+                ? "Delegate"
+                : "Maybe later";
         return { ...t, score, quadrant };
       })
       .sort((a, b) => b.score - a.score);
@@ -265,7 +264,7 @@ export default function PrioritizeAndPersonalize() {
         };
         try {
           localStorage.setItem(cacheKey, JSON.stringify(payload));
-        } catch {}
+        } catch { }
         lastFetchRef.current = payload.ts;
       } catch (e) {
         setRecError(
@@ -291,7 +290,7 @@ export default function PrioritizeAndPersonalize() {
       setUsePseudonym(saved.pseudonymous ?? true);
       setDisplayName(saved.displayName ?? generateAlias());
       setGoals(saved.goals ?? "");
-      setFocus(saved.focus ?? ["JOY", "CONNECTION"]);
+      setFocus(saved.focus ?? ["CONNECTION"]);
       setDefaultVis(saved.defaultVisibility ?? "FRIENDS");
       setRawTasks(saved.tasks ?? []);
     }
@@ -310,7 +309,7 @@ export default function PrioritizeAndPersonalize() {
     };
     try {
       localStorage.setItem("fuy.onboarding.v2", JSON.stringify(payload));
-    } catch {}
+    } catch { }
   }, [displayName, usePseudonym, goals, focus, defaultVis, rawTasks]);
 
   const saveAll = useCallback(async () => {
@@ -346,7 +345,6 @@ export default function PrioritizeAndPersonalize() {
         feature: "CHECKIN",
         visibility: "PRIVATE",
         content,
-        joyScore: focus.includes("JOY") ? 1 : 0,
         connectionScore: focus.includes("CONNECTION") ? 1 : 0,
         creativityScore: focus.includes("CREATIVITY") ? 1 : 0,
       })
@@ -367,7 +365,6 @@ export default function PrioritizeAndPersonalize() {
       type: "focus_flags",
       category: "SETUP",
       value:
-        (focus.includes("JOY") ? 1 : 0) +
         (focus.includes("CONNECTION") ? 2 : 0) +
         (focus.includes("CREATIVITY") ? 4 : 0) +
         (focus.includes("GROWTH") ? 8 : 0) +
@@ -388,7 +385,7 @@ export default function PrioritizeAndPersonalize() {
           ts: new Date().toISOString(),
         })
       );
-    } catch {}
+    } catch { }
 
     if (!profileOk || !postOk || !m1.ok || !m2.ok || !m3.ok) {
       setErr("Couldn’t save everything. Your connection might be flaky—try again.");
@@ -657,11 +654,10 @@ function FocusSelector({
           <button
             key={f}
             type="button"
-            className={`inline-flex items-center rounded-full border px-3 py-1 text-sm transition ${
-              focus.includes(f)
+            className={`inline-flex items-center rounded-full border px-3 py-1 text-sm transition ${focus.includes(f)
                 ? "bg-emerald-600 text-white border-emerald-700"
                 : "bg-white text-stone-800 border-stone-200"
-            }`}
+              }`}
             onClick={() => toggleFocus(f)}
           >
             {f.toLowerCase()}
@@ -690,9 +686,8 @@ function VisibilitySelector({
           <button
             key={v}
             type="button"
-            className={`rounded-xl border px-3 py-2 text-sm ${
-              v === value ? "bg-sky-600 text-white border-sky-700" : "bg-white border-stone-200"
-            }`}
+            className={`rounded-xl border px-3 py-2 text-sm ${v === value ? "bg-sky-600 text-white border-sky-700" : "bg-white border-stone-200"
+              }`}
             onClick={() => onChange(v)}
           >
             {v.toLowerCase()}

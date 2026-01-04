@@ -51,23 +51,77 @@ export async function POST(req: NextRequest) {
                 status, // Use the provided status
                 simpleData: {
                     create: {
-                        mediaUrls: JSON.stringify(mediaUrls),
-                        mediaTypes: JSON.stringify(mediaTypes),
+                        // mediaUrls and mediaTypes moved to PostMedia
                     },
-                },
+                } as any,
+                // postMedia will be added via update
             },
             include: {
                 simpleData: true,
                 user: {
-                    select: {
-                        id: true,
-                        profile: { select: { displayName: true, avatarUrl: true } },
-                    },
+                    include: { profile: true },
                 },
+                // postMedia: { include: { media: true } } // Fetch later
             },
         });
 
-        return NextResponse.json(post);
+        // Add media entries via update
+        await prisma.post.update({
+            where: { id: post.id },
+            data: {
+                postMedia: {
+                    create: (mediaUrls || []).map((url: string, index: number) => ({
+                        media: {
+                            create: {
+                                url,
+                                type: (mediaTypes || [])[index] || 'IMAGE',
+                                userId
+                            }
+                        }
+                    }))
+                }
+            } as any
+        });
+
+        // Fetch complete with media
+        const completePost = await prisma.post.findUnique({
+            where: { id: post.id },
+            include: {
+                simpleData: true,
+                user: {
+                    include: { profile: true },
+                },
+                postMedia: { include: { media: true } }
+            } as any
+        }) as any;
+
+        // B. Create FeedItem (Denormalized)
+        const mediaPreviews = (mediaUrls || []).map((url: string, i: number) => ({
+            type: (mediaTypes || [])[i] || 'IMAGE',
+            url,
+            aspect: 1
+        }));
+
+        if (completePost) {
+            await (prisma as any).feedItem.create({
+                data: {
+                    userId,
+                    postId: completePost.id,
+                    authorName: completePost.user.profile?.displayName || 'User',
+                    authorAvatarUrl: completePost.user.profile?.avatarUrl,
+                    postType: 'SIMPLE',
+                    feature: feature || 'OTHER',
+                    contentSnippet: (completePost.content || '').slice(0, 200),
+                    mediaPreviews: JSON.stringify(mediaPreviews),
+                    createdAt: completePost.createdAt,
+                    likeCount: 0,
+                    commentCount: 0,
+                    shareCount: 0
+                }
+            });
+        }
+
+        return NextResponse.json(completePost);
     } catch (error: any) {
         console.error('Simple post creation error:', error);
         return NextResponse.json(
@@ -76,4 +130,3 @@ export async function POST(req: NextRequest) {
         );
     }
 }
-

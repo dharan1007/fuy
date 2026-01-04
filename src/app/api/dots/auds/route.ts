@@ -22,7 +22,7 @@ export async function GET(request: Request) {
                         profile: { select: { displayName: true, avatarUrl: true } }
                     }
                 },
-                media: true,
+                postMedia: { include: { media: true } },
                 slashes: true,
                 _count: {
                     select: { likes: true, comments: true }
@@ -30,7 +30,12 @@ export async function GET(request: Request) {
             }
         });
 
-        return NextResponse.json({ posts });
+        const formattedPosts = posts.map((p: any) => ({
+            ...p,
+            media: p.postMedia?.map((pm: any) => pm.media) || []
+        }));
+
+        return NextResponse.json({ posts: formattedPosts });
 
     } catch (error) {
         console.error('Error fetching auds:', error);

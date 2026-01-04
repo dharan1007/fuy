@@ -1,13 +1,12 @@
-import { getServerSession } from '@/lib/auth';
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { redirect } from "next/navigation";
 import ProfileActions from "@/components/ProfileActions";
 import AppHeader from "@/components/AppHeader";
 import ProfilePostsGrid from "@/components/profile/ProfilePostsGrid";
 import { SpaceBackground } from "@/components/SpaceBackground";
 import { Tv, ChevronRight, Play } from "lucide-react";
 import Link from 'next/link';
+
+export const revalidate = 60; // ISR: Revalidate every 60 seconds
 
 // Type for the posts included in userData
 type Media = { type: "IMAGE" | "VIDEO" | "AUDIO"; url: string };
@@ -21,16 +20,13 @@ type Post = {
 };
 
 export default async function UserProfilePage({ params }: { params: { userId: string } }) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    const next = encodeURIComponent(`/profile/${params.userId}`);
-    redirect(`/join?next=${next}`);
-  }
-
-  const currentUserId = session.user.id;
-  const isMe = currentUserId === params.userId;
+  // Public Cache: No session check here.
+  // const session = await getServerSession(authOptions); 
+  const currentUserId = null;
+  const isMe = false;
 
   // 1. Fetch User Data with Posts & Counts
+  // Note: We always fetch as if guest. Private checks happen via 'isPrivate' flag.
   const userData = await prisma.user.findUnique({
     where: { id: params.userId },
     select: {
@@ -50,12 +46,12 @@ export default async function UserProfilePage({ params }: { params: { userId: st
       },
       posts: {
         where: {
-          status: isMe ? undefined : "PUBLISHED",
+          status: "PUBLISHED", // Always filtered for public
           postType: { not: "CHAN" }
         },
         orderBy: { createdAt: 'desc' },
         include: {
-          media: true,
+          postMedia: { include: { media: true } },
           user: {
             select: {
               id: true,
@@ -109,26 +105,12 @@ export default async function UserProfilePage({ params }: { params: { userId: st
     );
   }
 
-  // Check friendship status
-  let friendshipStatus: "PENDING" | "ACCEPTED" | "NONE" = "NONE";
-
-  if (!isMe) {
-    const friendship = await prisma.friendship.findFirst({
-      where: {
-        OR: [
-          { userId: currentUserId, friendId: params.userId },
-          { userId: params.userId, friendId: currentUserId },
-        ],
-      },
-    });
-    if (friendship) {
-      friendshipStatus = friendship.status as "PENDING" | "ACCEPTED";
-    }
-  }
+  // Friendship status is handled client-side now
+  const friendshipStatus: "PENDING" | "ACCEPTED" | "NONE" = "NONE";
 
   const isPrivate = userData.profile?.isPrivate ?? false;
-  // View logic: Me OR Not Private OR Friends
-  const canViewContent = isMe || !isPrivate || friendshipStatus === "ACCEPTED";
+  // View logic: Only show if public. Private accounts need client-side auth/unlock or just stay locked on public profile.
+  const canViewContent = !isPrivate;
 
   // Use DB counts
   const stats = {
@@ -136,6 +118,13 @@ export default async function UserProfilePage({ params }: { params: { userId: st
     following: userData._count.friendshipsA,
     posts: userData._count.posts
   };
+
+  // Transform posts to flatten media
+  const posts = userData.posts.map((p: any) => ({
+    ...p,
+    media: p.postMedia?.map((pm: any) => pm.media) || [],
+    createdAt: p.createdAt.toISOString()
+  }));
 
   return (
     <div className="min-h-screen bg-black relative text-white">
@@ -287,10 +276,7 @@ export default async function UserProfilePage({ params }: { params: { userId: st
         {/* Posts Grid */}
         {canViewContent && (
           <ProfilePostsGrid
-            posts={userData.posts.map(p => ({
-              ...p,
-              createdAt: p.createdAt.toISOString(), // Serialize date for client component
-            })) as any}
+            posts={posts as any}
             isMe={isMe}
           />
         )}

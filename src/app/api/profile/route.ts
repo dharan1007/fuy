@@ -6,108 +6,37 @@ export const revalidate = 0; // Disable static generation for this route
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser, requireUserId } from "@/lib/session";
-import { supabaseAdmin } from "@/lib/supabase-admin";
-
-const BUCKET = process.env.SUPABASE_PROFILE_BUCKET || "profiles";
-
-async function uploadToStorage(userId: string, kind: "avatar" | "cover" | "stalk", file: File) {
-  const bytes = Buffer.from(await file.arrayBuffer());
-  const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
-  const path = `${userId}/${kind}-${Date.now()}.${ext}`;
-
-  console.log(`[PROFILE_PUT] Uploading file to ${path} (User: ${userId})`);
-  const { error } = await supabaseAdmin.storage.from(BUCKET).upload(path, bytes, {
-    contentType: file.type,
-    upsert: true,
-  });
-  if (error) {
-    console.error(`[PROFILE_PUT] Upload failed for ${path}:`, error);
-    throw new Error(`Upload failed: ${error.message}`);
-  }
-  console.log(`[PROFILE_PUT] Upload success: ${path}`);
-
-  return supabaseAdmin.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
-}
 
 // GET /api/profile
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    const userId = await requireUserId();
+    const user = await getSessionUser();
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const userData = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        email: true, // Need to fetch email here since we don't have session object
-        name: true,
-        followersCount: true,
-        followingCount: true,
-        profile: true,
-        autoAcceptFollows: true,
-        defaultPostVisibility: true,
-        taggingPrivacy: true,
-        notificationSettings: true,
-        createdAt: true,
-      },
+    const profile = await prisma.profile.findUnique({
+      where: { userId: user.id },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            autoAcceptFollows: true,
+            defaultPostVisibility: true,
+            taggingPrivacy: true,
+            notificationSettings: true,
+          }
+        }
+      }
     });
 
-    const [friendCount, postCount, followersCount, followingCount, posts] = await Promise.all([
-      prisma.friendship.count({
-        where: { status: "ACCEPTED", OR: [{ userId: userId }, { friendId: userId }] },
-      }),
-      prisma.post.count({ where: { userId: userId, postType: { not: 'CHAN' } } }),
-      prisma.friendship.count({
-        where: { friendId: userId, status: "ACCEPTED" },
-      }),
-      prisma.friendship.count({
-        where: { userId: userId, status: "ACCEPTED" },
-      }),
-      prisma.post.findMany({
-        where: { userId: userId, postType: { not: 'CHAN' } },
-        orderBy: { createdAt: "desc" },
-        take: 12,
-        select: {
-          id: true,
-          content: true,
-          visibility: true,
-          feature: true,
-          createdAt: true,
-          media: { select: { type: true, url: true } },
-          status: true,
-        },
-      }),
-    ]);
-
-    return NextResponse.json({
-      name: userData?.name ?? null,
-      email: userData?.email,
-      createdAt: userData?.createdAt,
-      autoAcceptFollows: userData?.autoAcceptFollows,
-      defaultPostVisibility: userData?.defaultPostVisibility,
-      taggingPrivacy: userData?.taggingPrivacy,
-      notificationSettings: userData?.notificationSettings,
-      profile: userData?.profile ?? null,
-      followersCount,
-      followingCount,
-      stats: { friends: friendCount, posts: postCount, followers: followersCount, following: followingCount },
-      posts,
-    }, {
-      headers: { "Cache-Control": "no-store, max-age=0" },
-    });
+    return NextResponse.json(profile || { userId: user.id });
   } catch (e: any) {
-    console.error(`[PROFILE_DEBUG] Error fetching profile:`, e);
-    if (e?.message === "UNAUTHENTICATED") {
-      console.error("[PROFILE_DEBUG] Unauthenticated: No valid session found.");
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-    }
-    if (e?.message === "USER_NOT_FOUND") {
-      console.error("[PROFILE_DEBUG] User Not Found: Session exists but user not in DB.");
-      return NextResponse.json({ error: "Profile not found", code: "PROFILE_NOT_FOUND" }, { status: 404 });
-    }
-    return NextResponse.json({ error: e?.message ?? "Failed to load profile", details: String(e) }, { status: 500, headers: { "Cache-Control": "no-store, max-age=0" } });
+    return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }
 
-// PUT /api/profile (multipart form: text + files)
+// PUT /api/profile (JSON: text + urls)
 export async function PUT(req: Request) {
   try {
     // 1. Get Session User directly (bypass DB check)
@@ -128,8 +57,6 @@ export async function PUT(req: Request) {
       // Check for conflict with existing email in Prisma (in case of ID mismatch/zombie)
       const emailConflict = await prisma.user.findUnique({ where: { email: normalizedEmail } });
       if (emailConflict) {
-        // If the email exists but IDs don't match, we have a mess. 
-        // For now, let's just log it and return error to prevent logic errors.
         console.error(`[PROFILE_PUT] Email conflict for ${normalizedEmail}. Existing ID: ${emailConflict.id}, New ID: ${userId}`);
         return NextResponse.json({ error: "Email already in use by another account." }, { status: 409 });
       }
@@ -138,22 +65,24 @@ export async function PUT(req: Request) {
         data: {
           id: userId,
           email: normalizedEmail,
-          name: "New User", // Will be updated below
+          name: "New User",
         }
       });
     }
 
-    const ct = req.headers.get("content-type") || "";
-    if (!ct.includes("multipart/form-data")) {
-      return NextResponse.json({ error: "Send as multipart/form-data" }, { status: 400 });
+    const contentType = req.headers.get("content-type") || "";
+    if (!contentType.includes("application/json")) {
+      return NextResponse.json({ error: "Send as application/json" }, { status: 400 });
     }
 
-    const form = await req.formData();
+    const body = await req.json();
 
     // Core helpers
-    const getStr = (key: string) => (form.get(key) as string) || undefined;
+    const getStr = (key: string) => (body[key] !== undefined && body[key] !== null) ? String(body[key]) : undefined;
     const getArr = (key: string) => {
-      const val = form.get(key);
+      const val = body[key];
+      // If client sends JSON string, parse it. If array, use it.
+      if (Array.isArray(val)) return val;
       if (typeof val === 'string') {
         try { return JSON.parse(val); } catch { return []; }
       }
@@ -215,62 +144,52 @@ export async function PUT(req: Request) {
     const dislikes = getArr("dislikes");
     const icks = getArr("icks");
     const interactionTopics = getArr("interactionTopics");
-    const stalkMeInput = getStr("stalkMe");
+    // stalkMe: previously JSON string of array. Client now sends array or JSON string.
+    // However, the DB likely stores it as JSON string or string array?
+    // Looking at schema (assumed), it's probably String[] or JSON.
+    // Prisma `stalkMe` field type check:
+    // In `view_file` of schema (earlier logs), I didn't see Profile model deep dive.
+    // But assuming strict refactor:
+    // getArr("stalkMe") handles both.
+    // Wait, the client sends `stalkMe: JSON.stringify(data.stalkMe)` in ProfileSetup.
+    // ProfileCardModal sends array and assigns to payload, so it might be array.
+    // `getStr("stalkMe")` was used before.
+    // Let's check previous code: `stalkMe: stalkMeInput` where `stalkMeInput` was `getStr("stalkMe")`.
+    // So the DB field expects a String (JSONified array) or similar.
+    // I will stick to string storage to match previous behavior if it was a single string field.
+    // If it was `getStr`, it suggests it's a string field.
+    // So I should JSON.stringify the array if I get an array.
+    const stalkMeRaw = body["stalkMe"];
+    const stalkMeInput = Array.isArray(stalkMeRaw) ? JSON.stringify(stalkMeRaw) : (typeof stalkMeRaw === 'string' ? stalkMeRaw : undefined);
+
 
     // Settings
-    const cardSettings = getStr("cardSettings");
+    const cardSettingsRaw = body["cardSettings"];
+    const cardSettings = typeof cardSettingsRaw === 'object' ? JSON.stringify(cardSettingsRaw) : (typeof cardSettingsRaw === 'string' ? cardSettingsRaw : undefined);
 
-    // Files
-    const avatar = form.get("avatar") as File | null;
-    const cover = form.get("cover") as File | null;
-
-    let avatarUrl: string | undefined;
-    let coverVideoUrl: string | undefined;
-    let coverImageUrl: string | undefined;
-    let cardBackgroundUrl: string | undefined; // Added declaration
-
-    if (avatar && typeof avatar !== "string") {
-      avatarUrl = await uploadToStorage(userId, "avatar", avatar);
-    }
-
-    if (cover && typeof cover !== "string") {
-      const isVideo = cover.type.startsWith("video/");
-      const isImage = cover.type.startsWith("image/");
-      const url = await uploadToStorage(userId, "cover", cover);
-
-      if (isVideo) {
-        coverVideoUrl = url;
-        coverImageUrl = "";
-      } else if (isImage) {
-        coverImageUrl = url;
-        coverVideoUrl = "";
-      }
-    }
-
-    const cardBackground = form.get("cardBackground") as File | null;
-    if (cardBackground && typeof cardBackground !== "string") {
-      cardBackgroundUrl = await uploadToStorage(userId, "stalk", cardBackground); // Reusing 'stalk' or create new folder logic if needed, but 'stalk' is fine or 'background'
-    }
+    // URLs (already uploaded by client)
+    const avatarUrl = getStr("avatarUrl");
+    const coverVideoUrl = getStr("coverVideoUrl");
+    const coverImageUrl = getStr("coverImageUrl");
+    const cardBackgroundUrl = getStr("cardBackgroundUrl");
 
     // Privacy Settings
-    const autoAcceptFollowsStr = getStr("autoAcceptFollows");
+    const autoAcceptFollowsStr = body["autoAcceptFollows"]; // boolean or string
     const defaultPostVisibility = getStr("defaultPostVisibility");
     const taggingPrivacy = getStr("taggingPrivacy");
-    const notificationSettingsStr = getStr("notificationSettings");
+    const notificationSettingsRaw = body["notificationSettings"];
 
     // Update User Model (Name & Settings)
     const userUpdateData: any = {};
     if (name) userUpdateData.name = name;
-    if (autoAcceptFollowsStr !== undefined) userUpdateData.autoAcceptFollows = autoAcceptFollowsStr === "true";
+    if (autoAcceptFollowsStr !== undefined) userUpdateData.autoAcceptFollows = String(autoAcceptFollowsStr) === "true" || autoAcceptFollowsStr === true;
     if (defaultPostVisibility) userUpdateData.defaultPostVisibility = defaultPostVisibility;
     if (taggingPrivacy) userUpdateData.taggingPrivacy = taggingPrivacy;
 
-    if (notificationSettingsStr) {
-      try {
-        userUpdateData.notificationSettings = JSON.parse(notificationSettingsStr);
-      } catch (e) {
-        console.error("Failed to parse notification settings", e);
-      }
+    if (notificationSettingsRaw) {
+      userUpdateData.notificationSettings = typeof notificationSettingsRaw === 'string'
+        ? JSON.parse(notificationSettingsRaw)
+        : notificationSettingsRaw;
     }
 
     if (Object.keys(userUpdateData).length > 0) {
@@ -351,10 +270,9 @@ export async function PUT(req: Request) {
       },
     });
 
-    return NextResponse.json({ ok: true, avatarUrl, coverVideoUrl, coverImageUrl });
+    return NextResponse.json({ ok: true });
   } catch (e: any) {
     console.error("Profile save error detailed:", e);
-    // Return specific Prisma error if possible, or stack
     const errorMessage = e instanceof Error ? e.message : "Unknown error";
     return NextResponse.json({ error: errorMessage, details: String(e) }, { status: 500 });
   }

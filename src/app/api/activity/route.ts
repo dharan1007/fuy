@@ -36,7 +36,7 @@ export async function GET(req: Request) {
                         select: {
                             id: true,
                             content: true,
-                            media: true,
+                            postMedia: { include: { media: true } },
                             user: { select: { name: true, profile: { select: { avatarUrl: true } } } },
                             postType: true,
                             createdAt: true
@@ -57,7 +57,7 @@ export async function GET(req: Request) {
                         select: {
                             id: true,
                             content: true,
-                            media: true,
+                            postMedia: { include: { media: true } },
                             user: { select: { name: true, profile: { select: { avatarUrl: true } } } },
                             postType: true,
                             createdAt: true
@@ -78,7 +78,7 @@ export async function GET(req: Request) {
                         select: {
                             id: true,
                             content: true,
-                            media: true,
+                            postMedia: { include: { media: true } },
                             user: { select: { name: true, profile: { select: { avatarUrl: true } } } },
                             postType: true,
                             createdAt: true
@@ -89,7 +89,14 @@ export async function GET(req: Request) {
             });
         }
 
-        return NextResponse.json({ data });
+        const normalizedData = data.map((item: any) => {
+            if (item.post) {
+                item.post.media = item.post.postMedia?.map((pm: any) => pm.media) || [];
+            }
+            return item;
+        });
+
+        return NextResponse.json({ data: normalizedData });
     } catch (e: any) {
         console.error("Activity API Error:", e);
         return NextResponse.json({ error: e.message }, { status: 500 });

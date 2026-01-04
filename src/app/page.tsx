@@ -1,9 +1,8 @@
 import HomeClient from '@/components/HomeClient';
-import { cookies } from 'next/headers';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 60; // ISR for the shell
 
 export default function Home() {
-  const isAdmin = cookies().has('fuy_admin_session');
-  return <HomeClient isAdmin={isAdmin} />;
+  // Admin check moved to client or omitted for static shell
+  return <HomeClient isAdmin={false} />;
 }

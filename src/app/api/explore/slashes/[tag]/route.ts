@@ -28,7 +28,7 @@ export async function GET(request: Request, { params }: { params: { tag: string 
                         profile: { select: { displayName: true, avatarUrl: true } }
                     }
                 },
-                media: true,
+                postMedia: { include: { media: true } },
                 slashes: true, // Include tags
                 _count: {
                     select: { likes: true, comments: true }
@@ -36,7 +36,12 @@ export async function GET(request: Request, { params }: { params: { tag: string 
             }
         });
 
-        return NextResponse.json({ posts });
+        const formattedPosts = posts.map((p: any) => ({
+            ...p,
+            media: p.postMedia?.map((pm: any) => pm.media) || []
+        }));
+
+        return NextResponse.json({ posts: formattedPosts });
 
     } catch (error) {
         console.error('Error fetching slash posts:', error);

@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
             },
             orderBy: { createdAt: "desc" },
             include: {
-                media: true,
+                postMedia: { include: { media: true } },
                 // Include type-specific data for preview
                 pullUpDownData: {
                     include: { options: true }
@@ -31,7 +31,12 @@ export async function GET(req: NextRequest) {
             },
         });
 
-        return NextResponse.json(drafts);
+        const formattedDrafts = drafts.map((d: any) => ({
+            ...d,
+            media: d.postMedia?.map((pm: any) => pm.media) || []
+        }));
+
+        return NextResponse.json(formattedDrafts);
     } catch (error) {
         console.error("Error fetching drafts:", error);
         return NextResponse.json({ error: "Failed to fetch drafts" }, { status: 500 });

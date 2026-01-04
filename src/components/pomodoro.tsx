@@ -19,6 +19,7 @@ type Phase = "work" | "short" | "long";
 import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 import ScrollStarfield from "./ScrollStarfield";
 import { Plus, Pencil, Trash2 } from "lucide-react";
+import { uploadFileClientSide } from "@/lib/upload-helper";
 
 const STORE_KEY = "fuy.pomo.v1";
 const HIST_KEY = "fuy.pomo.history.v1";
@@ -74,18 +75,6 @@ async function postJSON(url: string, data: any) {
   }
 }
 
-async function uploadBlob(url: string, blob: Blob, filename: string) {
-  try {
-    const fd = new FormData();
-    fd.append("file", blob, filename);
-    const res = await fetch(url, { method: "POST", body: fd });
-    if (!res.ok) return { ok: false, url: null as string | null };
-    const json = (await res.json()) as { url?: string };
-    return { ok: true, url: json?.url ?? null };
-  } catch {
-    return { ok: false, url: null as string | null };
-  }
-}
 
 /* ---------------- store hooks ---------------- */
 
@@ -726,13 +715,13 @@ export function PomodoroPro() {
 
     let videoUrl: string | null = null;
     if (rec.blob) {
-      // Always upload if blob exists, visibility check removed
-      const up = await uploadBlob(
-        "/api/upload",
-        rec.blob,
-        `pomo-${Date.now()}.webm`
-      );
-      if (up.ok && up.url) videoUrl = up.url;
+      // Create a File from the Blob
+      const file = new File([rec.blob], `pomo-${Date.now()}.webm`, { type: "video/webm" });
+      try {
+        videoUrl = await uploadFileClientSide(file, 'VIDEO');
+      } catch (e) {
+        console.warn("Pomodoro video upload failed", e);
+      }
     }
 
     const recData: Session = {
@@ -770,7 +759,6 @@ export function PomodoroPro() {
       feature: "PROGRESS",
       visibility: "PRIVATE",
       content: contentLines,
-      joyScore: 0,
       connectionScore: 0,
       creativityScore: 1,
     });

@@ -48,7 +48,6 @@ export async function POST(req: NextRequest) {
                 status,
                 lillData: {
                     create: {
-                        videoUrl,
                         thumbnailUrl,
                         duration: duration || 0,
                         musicUrl,
@@ -56,17 +55,51 @@ export async function POST(req: NextRequest) {
                         filters: filters ? JSON.stringify(filters) : null,
                     },
                 },
+                // Add media record via PostMedia
+                postMedia: {
+                    create: {
+                        media: {
+                            create: {
+                                userId,
+                                url: videoUrl,
+                                type: 'VIDEO',
+                            }
+                        }
+                    }
+                }
             },
             include: {
                 lillData: true,
                 user: {
-                    select: {
-                        id: true,
-                        email: true,
-                        profile: { select: { displayName: true, avatarUrl: true } },
-                    },
+                    include: { profile: true },
                 },
+                postMedia: { include: { media: true } }
             },
+        });
+
+        // B. Create FeedItem (Denormalized)
+        const mediaPreviews = [{
+            type: 'VIDEO',
+            url: videoUrl,
+            thumbnailUrl,
+            aspect: 9 / 16
+        }];
+
+        await prisma.feedItem.create({
+            data: {
+                userId,
+                postId: post.id,
+                authorName: post.user.profile?.displayName || 'User',
+                authorAvatarUrl: post.user.profile?.avatarUrl,
+                postType: 'LILL',
+                feature: feature || 'OTHER',
+                contentSnippet: (post.content || '').slice(0, 200),
+                mediaPreviews: JSON.stringify(mediaPreviews),
+                createdAt: post.createdAt,
+                likeCount: 0,
+                commentCount: 0,
+                shareCount: 0
+            }
         });
 
         return NextResponse.json(post);
@@ -78,4 +111,3 @@ export async function POST(req: NextRequest) {
         );
     }
 }
-

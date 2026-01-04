@@ -75,10 +75,9 @@ export async function GET(req: NextRequest) {
                     }
                 },
                 // Include media to show thumbnail
-                media: { take: 1, select: { url: true, type: true } },
+                postMedia: { take: 1, include: { media: true } },
                 lillData: { select: { thumbnailUrl: true } },
                 fillData: { select: { thumbnailUrl: true } },
-                simpleData: { select: { mediaUrls: true } },
             },
             take: 20,
             orderBy: { createdAt: 'desc' }
@@ -90,13 +89,8 @@ export async function GET(req: NextRequest) {
 
             if (post.lillData?.thumbnailUrl) mediaUrl = post.lillData.thumbnailUrl;
             else if (post.fillData?.thumbnailUrl) mediaUrl = post.fillData.thumbnailUrl;
-            else if (post.simpleData?.mediaUrls) {
-                try {
-                    const urls = JSON.parse(post.simpleData.mediaUrls);
-                    if (urls.length > 0) mediaUrl = urls[0];
-                } catch (e) { }
-            } else if (post.media.length > 0) {
-                mediaUrl = post.media[0].url;
+            else if (post.postMedia?.[0]?.media?.url) {
+                mediaUrl = post.postMedia[0].media.url;
             }
 
             return {
@@ -118,4 +112,3 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }
-

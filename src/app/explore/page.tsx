@@ -4,8 +4,10 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import GalaxyScene from '@/components/Explore/GalaxyScene';
+import dynamic from 'next/dynamic';
 import { SearchOverlay } from '@/components/Explore/SearchOverlay';
+
+const GalaxyScene = dynamic(() => import('@/components/Explore/GalaxyScene'), { ssr: false });
 import { PostDetailModal } from '@/components/Explore/PostDetailModal';
 import SlashesTab from '@/components/Explore/SlashesTab';
 import { DUMMY_PUDS, DUMMY_CHANS } from './dummyData';
@@ -16,7 +18,6 @@ interface Post {
   content: string;
   feature: string;
   visibility: string;
-  joyScore: number;
   connectionScore: number;
   createdAt: string;
   user?: {

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import { uploadFileClientSide } from '@/lib/upload-helper';
 
 export default function CreateBrandPage() {
     const router = useRouter();
@@ -16,14 +17,21 @@ export default function CreateBrandPage() {
         bannerUrl: ''
     });
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, field: 'logoUrl' | 'bannerUrl') => {
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, field: 'logoUrl' | 'bannerUrl') => {
         const file = e.target.files?.[0];
         if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setFormData(prev => ({ ...prev, [field]: reader.result as string }));
-            };
-            reader.readAsDataURL(file);
+            setLoading(true);
+            try {
+                const url = await uploadFileClientSide(file, 'IMAGE');
+                if (url) {
+                    setFormData(prev => ({ ...prev, [field]: url }));
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Upload failed");
+            } finally {
+                setLoading(false);
+            }
         }
     };
 

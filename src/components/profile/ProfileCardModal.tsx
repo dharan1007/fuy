@@ -2,6 +2,7 @@
 import { useRef, useState, useEffect, ChangeEvent } from "react";
 import { X, Camera, Eye, Users, Globe, Save, Info, Heart, Star, Sparkles, AlertCircle, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { uploadFileClientSide } from "@/lib/upload-helper";
 
 interface ProfileCardModalProps {
     isOpen: boolean;
@@ -65,7 +66,7 @@ export function ProfileCardModal({ isOpen, closeModal, profile: initialProfile, 
     };
 
     const saveChanges = async () => {
-        const formData = new FormData();
+        const payload: any = {};
         const fieldsToSave = [
             "displayName", "name", "dob", "city", "location", "height", "weight",
             "conversationStarter", "workHistory", "education", "achievements",
@@ -80,23 +81,27 @@ export function ProfileCardModal({ isOpen, closeModal, profile: initialProfile, 
         fieldsToSave.forEach(key => {
             const val = profile[key];
             if (val !== undefined && val !== null) {
-                // If it's an array or object (and not a File), stringify it
-                if (typeof val === 'object' && !(val instanceof File)) {
-                    formData.append(key, JSON.stringify(val));
-                } else {
-                    formData.append(key, val as string);
-                }
+                payload[key] = val; // Direct assignment, let JSON.stringify handle arrays/objects
             }
         });
 
         if (bgFile) {
-            formData.append("cardBackground", bgFile);
+            try {
+                const url = await uploadFileClientSide(bgFile, 'IMAGE');
+                if (url) payload.cardBackgroundUrl = url;
+            } catch (e) {
+                console.error("BG upload failed", e);
+            }
         }
 
-        formData.append("cardSettings", JSON.stringify(settings));
+        payload.cardSettings = settings; // JSON object
 
         try {
-            const res = await fetch("/api/profile", { method: "PUT", body: formData });
+            const res = await fetch("/api/profile", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
             if (res.ok) {
                 setIsEditing(false);
                 router.refresh();

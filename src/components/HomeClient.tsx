@@ -104,7 +104,7 @@ export default function HomeClient({ isAdmin = false }: { isAdmin?: boolean }) {
     const [suggestedUsers, setSuggestedUsers] = useState<any[]>([]);
     const [suggestedPlans, setSuggestedPlans] = useState<any[]>([]);
 
-    const features = ['JOURNAL', 'JOY', 'AWE', 'BONDS', 'SERENDIPITY', 'CHECKIN', 'PROGRESS', 'OTHER'];
+    const features = ['JOURNAL', 'AWE', 'BONDS', 'SERENDIPITY', 'CHECKIN', 'PROGRESS', 'OTHER'];
     const visibilities = ['PUBLIC', 'FRIENDS', 'PRIVATE'];
 
     // Unified Summary Fetch
@@ -433,29 +433,21 @@ export default function HomeClient({ isAdmin = false }: { isAdmin?: boolean }) {
 
                         {/* Posts Feed */}
                         {/* Hybrid Grid Feed */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 auto-rows-auto">
+                        <div className="flex flex-col gap-6 max-w-2xl mx-auto w-full">
                             {posts.length === 0 ? (
-                                <div className="col-span-1 md:col-span-2 text-center py-12 border border-white/20 rounded-lg bg-transparent backdrop-blur-md">
+                                <div className="text-center py-12 border border-white/20 rounded-lg bg-transparent backdrop-blur-md">
                                     <p className="text-white/70">No posts yet. Be the first to share!</p>
                                 </div>
                             ) : (
                                 <FeedRefreshProvider onRefresh={fetchPosts}>
-                                    {posts.map((post: any) => {
-                                        // Wide Cards (Chan, Fill) -> Span 2
-                                        let spanClass = "col-span-1";
-                                        if (post.postType === 'CHAN' || post.postType === 'FILL') {
-                                            spanClass = "col-span-1 md:col-span-2";
-                                        }
-
-                                        return (
-                                            <FeedPostItem
-                                                key={post.id}
-                                                post={post}
-                                                currentUserId={session?.user?.id}
-                                                className={spanClass}
-                                            />
-                                        );
-                                    })}
+                                    {posts.map((post: any) => (
+                                        <FeedPostItem
+                                            key={post.id}
+                                            post={post}
+                                            currentUserId={session?.user?.id}
+                                            className="w-full"
+                                        />
+                                    ))}
                                 </FeedRefreshProvider>
                             )}
                         </div>

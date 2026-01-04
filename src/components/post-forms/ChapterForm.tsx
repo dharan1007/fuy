@@ -87,8 +87,10 @@ export default function ChapterForm({ onBack: propOnBack, initialData }: Chapter
             setLoadingMessage('Uploading files...');
             for (let i = 0; i < mediaFiles.length; i++) {
                 const file = mediaFiles[i];
+                const fileType = file.type.startsWith('video') ? 'VIDEO' :
+                    file.type.startsWith('audio') ? 'AUDIO' : 'IMAGE';
                 setLoadingMessage(`Uploading file ${i + 1} of ${mediaFiles.length}...`);
-                const url = await uploadFileClientSide(file, 'chapters');
+                const url = await uploadFileClientSide(file, fileType);
                 urls.push(url);
             }
             setLoadingMessage('Creating chapter...');
@@ -142,7 +144,7 @@ export default function ChapterForm({ onBack: propOnBack, initialData }: Chapter
                             <div className="flex items-center justify-between p-3 bg-indigo-500/20 border border-indigo-500/40 rounded-xl">
                                 <div className="flex items-center gap-3">
                                     <div className="w-10 h-10 rounded-lg overflow-hidden relative">
-                                        <Image src={linkedPost.mediaUrl} alt="Linked" fill className="object-cover" />
+                                        <Image src={linkedPost.mediaUrl} alt="Linked" fill sizes="40px" className="object-cover" />
                                     </div>
                                     <div className="flex flex-col">
                                         <span className="text-sm font-bold text-white">Continued from: {linkedPost.author}</span>
@@ -301,7 +303,7 @@ export default function ChapterForm({ onBack: propOnBack, initialData }: Chapter
                                             }}
                                             className="group relative aspect-square bg-gray-800 rounded-lg overflow-hidden cursor-pointer border border-transparent hover:border-pink-500 transition-all"
                                         >
-                                            <Image src={post.mediaUrl} alt={post.content} fill className="object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+                                            <Image src={post.mediaUrl} alt={post.content} fill sizes="(max-width: 768px) 50vw, 33vw" className="object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
                                             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-2">
                                                 <span className="text-xs font-bold text-white line-clamp-1">{post.author}</span>
                                                 <span className="text-[10px] text-gray-300 line-clamp-1">{post.content || 'No description'}</span>

@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
             data: {
                 userId: session.user.id,
                 postType: 'STORY',
-                content: '',
+                content: 'Story',
                 visibility,
                 status,
                 expiresAt,
@@ -43,14 +43,22 @@ export async function POST(request: NextRequest) {
             },
         });
 
-        // Create media record
-        await prisma.media.create({
+        // Create media record via Post update to ensure relation correctness
+        await prisma.post.update({
+            where: { id: post.id },
             data: {
-                postId: post.id,
-                userId: session.user.id,
-                url: mediaUrl,
-                type: mediaType || 'IMAGE',
-            },
+                postMedia: {
+                    create: {
+                        media: {
+                            create: {
+                                userId: session.user.id,
+                                url: mediaUrl,
+                                type: mediaType || 'IMAGE',
+                            }
+                        }
+                    }
+                }
+            }
         });
 
         // Fetch the complete post with relations
@@ -64,10 +72,38 @@ export async function POST(request: NextRequest) {
                         profile: { select: { avatarUrl: true } },
                     },
                 },
-                media: true,
+                postMedia: { include: { media: true } },
                 storyData: true,
             },
-        });
+        }) as any;
+
+        if (completePost) {
+            completePost.media = completePost.postMedia?.map((pm: any) => pm.media) || [];
+
+            // B. Create FeedItem (Denormalized) for fast-reads
+            const mediaPreviews = (completePost.postMedia || []).map((pm: any) => ({
+                type: pm.media.type,
+                url: pm.media.url,
+                aspect: 1
+            }));
+
+            await prisma.feedItem.create({
+                data: {
+                    userId: session.user.id,
+                    postId: completePost.id,
+                    authorName: completePost.user.profile?.displayName || session.user.name || 'User',
+                    authorAvatarUrl: completePost.user.profile?.avatarUrl,
+                    postType: 'STORY',
+                    feature: 'OTHER',
+                    contentSnippet: 'Story',
+                    mediaPreviews: JSON.stringify(mediaPreviews),
+                    createdAt: completePost.createdAt,
+                    likeCount: 0,
+                    commentCount: 0,
+                    shareCount: 0
+                }
+            });
+        }
 
         return NextResponse.json({ success: true, post: completePost });
     } catch (error: any) {
@@ -108,15 +144,19 @@ export async function GET(request: NextRequest) {
                         profile: { select: { avatarUrl: true } },
                     },
                 },
-                media: true,
+                postMedia: { include: { media: true } },
                 storyData: true,
             },
         });
 
-        return NextResponse.json({ stories });
+        const formattedStories = stories.map((s: any) => ({
+            ...s,
+            media: s.postMedia?.map((pm: any) => pm.media) || []
+        }));
+
+        return NextResponse.json({ stories: formattedStories });
     } catch (error: any) {
         console.error('Get clocks/stories error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
-

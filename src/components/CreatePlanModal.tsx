@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { X, MapPin, Calendar, Hash, Image as ImageIcon, Search, Check } from "lucide-react";
+import { uploadFileClientSide } from "@/lib/upload-helper";
 
 interface CreatePlanModalProps {
     isOpen: boolean;
@@ -137,15 +138,16 @@ export default function CreatePlanModal({ isOpen, onClose, currentLocation, loca
                 setUploading(true);
                 const uploadPromises = newItems.map(async (item) => {
                     if (!item.file) return null;
-                    const fd = new FormData();
-                    fd.append('file', item.file);
-                    fd.append('type', item.type === 'VIDEO' ? 'video' : 'image');
-                    const res = await fetch('/api/upload', { method: 'POST', body: fd });
-                    if (!res.ok) throw new Error('Upload failed');
-                    return res.json();
+                    try {
+                        const url = await uploadFileClientSide(item.file, item.type);
+                        return { url };
+                    } catch (e) {
+                        console.error(e);
+                        return null;
+                    }
                 });
                 const results = await Promise.all(uploadPromises);
-                uploadedUrls = results.map(r => r?.url).filter(Boolean);
+                uploadedUrls = results.map(r => r?.url).filter(Boolean) as string[];
                 setUploading(false);
             }
 
