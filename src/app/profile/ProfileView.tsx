@@ -78,13 +78,6 @@ export default function ProfileView() {
   const profile = data.profile || {};
   const stats = data.stats || { friends: 0, posts: 0, followers: 0, following: 0 };
 
-  // Inject handler
-  const headerStats = {
-    ...stats,
-    onOpenCard: () => setShowCardModal(true),
-    onOpenFollowers: fetchFollowers,
-    onOpenFollowing: fetchFollowing
-  };
 
   // Fetch followers
   const fetchFollowers = async () => {
@@ -148,6 +141,14 @@ export default function ProfileView() {
     } catch (err) {
       console.error(err);
     }
+  };
+
+  // Stats handlers
+  const headerStats = {
+    ...stats,
+    onOpenCard: () => setShowCardModal(true),
+    onOpenFollowers: fetchFollowers,
+    onOpenFollowing: fetchFollowing
   };
 
   return (
