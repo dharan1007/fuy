@@ -16,6 +16,7 @@ type LillCardProps = {
 };
 
 export default function LillCard({ lill, user, post, currentUserId, onPostHidden, onRefresh }: LillCardProps) {
+    if (!lill) return null;
     return (
         <div className="bg-black rounded-lg overflow-hidden relative h-full w-full aspect-[9/16] group">
             {/* Full Height Video */}

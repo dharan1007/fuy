@@ -22,7 +22,20 @@ export async function GET(req: NextRequest) {
         select: { subscribedToId: true },
     });
 
+    // 1b. Get Friends 
+    const friends = await prisma.friendship.findMany({
+        where: {
+            OR: [
+                { userId: user.id, status: 'ACCEPTED' },
+                { friendId: user.id, status: 'ACCEPTED' }
+            ]
+        },
+        select: { userId: true, friendId: true }
+    });
+
     const followingIds = following.map((f) => f.subscribedToId);
+    const friendIds = friends.map(f => f.userId === user.id ? f.friendId : f.userId);
+    const visibleUserIds = Array.from(new Set([...followingIds, ...friendIds, user.id]));
 
     // 2. Fetch ACTIVE stories from these users + current user
     // Active = expiresAt is in the future
@@ -31,7 +44,7 @@ export async function GET(req: NextRequest) {
             postType: "STORY",
             // @ts-ignore
             expiresAt: { gt: new Date() },
-            userId: { in: [...followingIds, user.id] },
+            userId: { in: visibleUserIds },
             OR: [
                 { visibility: "PUBLIC" },
                 { visibility: "FRIENDS" },
@@ -54,7 +67,7 @@ export async function GET(req: NextRequest) {
                     media: true
                 }
             },
-            reactions: true,
+            // reactions: true, // Removed for performance
         },
         orderBy: { createdAt: 'asc' }
     });

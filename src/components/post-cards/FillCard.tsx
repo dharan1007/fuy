@@ -21,6 +21,7 @@ type FillCardProps = {
 };
 
 export default function FillCard({ fill, user, post, currentUserId, onPostHidden, onRefresh }: FillCardProps) {
+    if (!fill) return null;
     const formatDuration = (seconds: number) => {
         const mins = Math.floor(seconds / 60);
         const secs = seconds % 60;

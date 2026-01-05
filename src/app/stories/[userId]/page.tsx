@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { X, ChevronLeft, ChevronRight, Share2, Send, Check } from "lucide-react";
 
@@ -11,6 +11,8 @@ export default function StoryViewerPage() {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [loading, setLoading] = useState(true);
     const [user, setUser] = useState<any>(null);
+    const [isPaused, setIsPaused] = useState(false); // New Pause State
+    const videoRef = useRef<HTMLVideoElement>(null); // Ref for video control
 
     // Reply / Share State
     const [replyText, setReplyText] = useState("");
@@ -77,13 +79,18 @@ export default function StoryViewerPage() {
         setProgress(0);
 
         if (isVideo) {
-            // For video, we handle progress in onTimeUpdate of the video element
-            // and onEnded for next track. We don't use a timer here.
+            // Video control via useEffect
+            if (videoRef.current) {
+                if (isPaused) videoRef.current.pause();
+                else videoRef.current.play().catch(() => { });
+            }
             return;
         }
 
-        // For Images: Manual Timer with animation frame or interval for smooth progress
-        const start = Date.now();
+        // For Images: Manual Timer
+        if (isPaused) return; // Stop timer if paused
+
+        const start = Date.now() - (progress / 100 * STORY_DURATION); // Resume from current progress
         const duration = STORY_DURATION;
 
         const timer = setInterval(() => {
@@ -99,10 +106,10 @@ export default function StoryViewerPage() {
                     router.push("/");
                 }
             }
-        }, 50); // Update every 50ms
+        }, 50);
 
         return () => clearInterval(timer);
-    }, [currentIndex, stories.length, shareMode, replyText, router]);
+    }, [currentIndex, stories.length, shareMode, replyText, router, isPaused]); // Added isPaused dependency
 
     if (loading) return <div className="min-h-screen bg-black flex items-center justify-center text-white">Loading...</div>;
     if (!stories.length) return null;
@@ -242,9 +249,11 @@ export default function StoryViewerPage() {
             <div className="flex-1 relative flex items-center justify-center bg-black overflow-hidden w-full h-full">
                 {isVideo ? (
                     <video
+                        ref={videoRef} // Attached Ref
                         src={mediaItem?.url}
                         className="w-full h-full object-contain"
                         autoPlay
+                        playsInline
                         // Remove controls, we use custom progress
                         controls={false}
                         loop={false}
@@ -275,7 +284,9 @@ export default function StoryViewerPage() {
                 {/* Navigation Overlays */}
                 <div className="absolute inset-0 flex z-10">
                     <div className="w-1/3 h-full cursor-pointer" onClick={() => !shareMode && currentIndex > 0 && setCurrentIndex(c => c - 1)} />
-                    <div className="w-1/3 h-full cursor-pointer" onClick={() => {/* Pause logic could go here */ }} />
+                    <div className="w-1/3 h-full cursor-pointer flex items-center justify-center group" onClick={() => setIsPaused(!isPaused)}>
+                        {isPaused && <div className="bg-black/50 p-4 rounded-full backdrop-blur-sm pointer-events-none"><div className="w-4 h-12 flex gap-2"><div className="w-4 h-12 bg-white rounded-full"></div><div className="w-4 h-12 bg-white rounded-full"></div></div></div>}
+                    </div>
                     <div className="w-1/3 h-full cursor-pointer" onClick={() => {
                         if (!shareMode) {
                             if (currentIndex < stories.length - 1) setCurrentIndex(c => c + 1);

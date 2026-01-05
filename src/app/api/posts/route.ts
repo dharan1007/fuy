@@ -256,7 +256,37 @@ export async function GET(req: NextRequest) {
 
       // Context
       likedByMe: likedPostIds.has(item.postId),
-      isSubscribed: false
+      isSubscribed: false,
+
+      // Synthesize Data for Cards (avoids joining sub-tables for FeedItems)
+      lillData: item.postType === 'LILL' ? {
+        id: item.postId,
+        videoUrl: media[0]?.url || '',
+        thumbnailUrl: media[0]?.thumbnailUrl || null,
+        duration: 0 // Duration lost in denocmalization for now unless added to mediaPreviews
+      } : undefined,
+
+      fillData: item.postType === 'FILL' ? {
+        id: item.postId,
+        videoUrl: media[0]?.url || '',
+        thumbnailUrl: media[0]?.thumbnailUrl || null,
+        duration: 0
+      } : undefined,
+
+      audData: item.postType === 'AUD' ? {
+        id: item.postId,
+        title: "Audio",
+        artist: "Artist",
+        coverImageUrl: media[0]?.url,
+        duration: 0
+      } : undefined,
+
+      chanData: item.postType === 'CHAN' ? {
+        id: item.postId,
+        channelName: item.feature,
+        description: item.contentSnippet,
+        coverImageUrl: media[0]?.url
+      } : undefined
     };
   });
 

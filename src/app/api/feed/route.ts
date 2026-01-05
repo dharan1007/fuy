@@ -88,7 +88,37 @@ async function feedHandler(req: NextRequest) {
                 likes: item.likeCount,
                 comments: item.commentCount,
                 shares: item.shareCount,
-                likedByMe: likedPostIds.has(item.postId)
+                likedByMe: likedPostIds.has(item.postId),
+
+                // Synthesize Data for Cards
+                lillData: item.postType === 'LILL' ? {
+                    id: item.postId,
+                    videoUrl: media[0]?.url || '',
+                    thumbnailUrl: media[0]?.thumbnailUrl || null,
+                    duration: 0
+                } : undefined,
+
+                fillData: item.postType === 'FILL' ? {
+                    id: item.postId,
+                    videoUrl: media[0]?.url || '',
+                    thumbnailUrl: media[0]?.thumbnailUrl || null,
+                    duration: 0
+                } : undefined,
+
+                audData: item.postType === 'AUD' ? {
+                    id: item.postId,
+                    title: "Audio",
+                    artist: "Artist",
+                    coverImageUrl: media[0]?.url,
+                    duration: 0
+                } : undefined,
+
+                chanData: item.postType === 'CHAN' ? {
+                    id: item.postId,
+                    channelName: item.feature,
+                    description: item.contentSnippet,
+                    coverImageUrl: media[0]?.url
+                } : undefined
             };
         });
 

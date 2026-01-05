@@ -52,24 +52,24 @@ function FeedPostItem({ post, currentUserId, className, isProfileView }: FeedPos
                         case 'CHAPTER':
                             return <ChapterCard {...commonProps} onRefresh={onRefresh} onPostHidden={() => handleHide(post.id)} />;
                         case 'XRAY':
-                            return <XrayCard xray={post.xrayData} currentUserId={currentUserId} onPostHidden={() => handleHide(post.id)} onRefresh={onRefresh} />;
+                            return post.xrayData ? <XrayCard xray={post.xrayData} currentUserId={currentUserId} onPostHidden={() => handleHide(post.id)} onRefresh={onRefresh} /> : <SimplePostCard {...commonProps} />;
                         case 'LILL':
-                            return <LillCard lill={post.lillData} user={post.user} post={post} currentUserId={currentUserId} onPostHidden={() => handleHide(post.id)} onRefresh={onRefresh} />;
+                            return post.lillData ? <LillCard lill={post.lillData} user={post.user} post={post} currentUserId={currentUserId} onPostHidden={() => handleHide(post.id)} onRefresh={onRefresh} /> : <SimplePostCard {...commonProps} />;
                         case 'FILL':
-                            return <FillCard fill={post.fillData} user={post.user} post={post} currentUserId={currentUserId} onPostHidden={() => handleHide(post.id)} onRefresh={onRefresh} />;
+                            return post.fillData ? <FillCard fill={post.fillData} user={post.user} post={post} currentUserId={currentUserId} onPostHidden={() => handleHide(post.id)} onRefresh={onRefresh} /> : <SimplePostCard {...commonProps} />;
                         case 'AUD':
-                            return <AudCard aud={post.audData} user={post.user} post={post} currentUserId={currentUserId} onPostHidden={() => handleHide(post.id)} onRefresh={onRefresh} />;
+                            return post.audData ? <AudCard aud={post.audData} user={post.user} post={post} currentUserId={currentUserId} onPostHidden={() => handleHide(post.id)} onRefresh={onRefresh} /> : <SimplePostCard {...commonProps} />;
                         case 'CHAN':
-                            return <ChanCard chan={post.chanData} user={post.user} post={post} postId={post.id} currentUserId={currentUserId} onPostHidden={() => handleHide(post.id)} onRefresh={onRefresh} />;
+                            return post.chanData ? <ChanCard chan={post.chanData} user={post.user} post={post} postId={post.id} currentUserId={currentUserId} onPostHidden={() => handleHide(post.id)} onRefresh={onRefresh} /> : <SimplePostCard {...commonProps} />;
                         case 'PULLUPDOWN':
-                            return (
+                            return post.pullUpDownData ? (
                                 <div className="bg-transparent relative group">
                                     <PullUpDownCard pullUpDown={post.pullUpDownData} userVote={post.userVote} isAuthenticated={!!currentUserId} />
                                     <div className="absolute top-2 right-2 z-30">
                                         <PostActionMenu post={post} currentUserId={currentUserId} />
                                     </div>
                                 </div>
-                            );
+                            ) : <SimplePostCard {...commonProps} />;
                         default:
                             return <SimplePostCard {...commonProps} />;
                     }
