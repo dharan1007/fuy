@@ -16,6 +16,7 @@ const LeafletMap = dynamic(() => import("@/components/leaflet-map"), {
   loading: () => <div className="w-full h-full flex items-center justify-center text-white/50">Loading map...</div>,
 });
 const EventDetailSidebar = dynamic(() => import("@/components/Hopin/EventDetailSidebar"), { ssr: false });
+const WaypointDetailSidebar = dynamic(() => import("@/components/Hopin/WaypointDetailSidebar"), { ssr: false });
 
 /* ---------- utils ---------- */
 function haversineKm(a: LatLng, b: LatLng) {
@@ -140,6 +141,7 @@ export default function HopinPage() {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
+  const [selectedWaypoint, setSelectedWaypoint] = useState<{ lat: number; lng: number; label: string; index: number } | null>(null);
 
   // --- Effects ---
   useEffect(() => {
@@ -307,26 +309,7 @@ export default function HopinPage() {
               </div>
             </div>
 
-            {/* 2. ETA */}
-            <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
-              <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-400 mb-3">Est. Time</h3>
-              <div className="space-y-2">
-                <div className="flex justify-between items-center text-base">
-                  <span className="text-neutral-400">🚶 Walk</span>
-                  <span className="text-white">{ETA.walk}</span>
-                </div>
-                <div className="flex justify-between items-center text-base">
-                  <span className="text-neutral-400">🚴 Cycle</span>
-                  <span className="text-white">{ETA.bike}</span>
-                </div>
-                <div className="flex justify-between items-center text-base">
-                  <span className="text-neutral-400">🏃 Run</span>
-                  <span className="text-white">{ETA.run}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* 6. Dashboard & Plans */}
+            {/* Dashboard & Plans */}
             <div className="rounded-2xl border border-white/10 bg-white/5 p-4 overflow-hidden">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-semibold uppercase tracking-wider text-white">Your Plans</h3>
@@ -362,28 +345,7 @@ export default function HopinPage() {
               </div>
             </div>
 
-            {/* 4. POIs */}
-            <div>
-              <div className="text-xs uppercase tracking-widest text-neutral-500 font-semibold mb-2">
-                Browse POIs
-              </div>
-              <div className="space-y-1.5">
-                {(["ATMs", "Bus Stops", "Cafés", "Emergencies", "Museums", "Parkings", "Restaurants", "Sport Centers"] as POICategory[]).map((label) => (
-                  <button
-                    key={label}
-                    onClick={() => setActiveCategory((c) => (c === label ? null : label))}
-                    className={`w-full rounded-lg px-3 py-2.5 text-left text-sm transition-all border ${activeCategory === label
-                      ? "bg-white text-black border-white font-medium"
-                      : "bg-transparent text-neutral-400 border-white/10 hover:border-white/30 hover:text-white"
-                      }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* 5. Tips */}
+            {/* Tips */}
             <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
               <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-400 mb-2">Tips</h3>
               <ul className="space-y-1">
@@ -417,6 +379,7 @@ export default function HopinPage() {
             }}
             plans={showEventMarkers ? plans : []}
             onSelectPlan={(plan) => setSelectedPlan(plan)}
+            onSelectWaypoint={(waypoint) => setSelectedWaypoint(waypoint)}
           />
         </div>
 
@@ -433,6 +396,17 @@ export default function HopinPage() {
         isOpen={!!selectedPlan}
         plan={selectedPlan}
         onClose={() => setSelectedPlan(null)}
+      />
+
+      <WaypointDetailSidebar
+        isOpen={!!selectedWaypoint}
+        waypoint={selectedWaypoint}
+        onClose={() => setSelectedWaypoint(null)}
+        onCreatePlan={(loc) => {
+          setSelectedMapLocation({ ...loc, name: loc.name || "Custom Location" });
+          setIsCreateOpen(true);
+          setSelectedWaypoint(null);
+        }}
       />
 
       {/* Styles for PlanBoard (Compact) */}

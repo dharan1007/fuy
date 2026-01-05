@@ -24,6 +24,7 @@ export type LeafletMapProps = {
   onCreatePlan?: (data: { lat: number; lng: number; name?: string }) => void;
   plans?: any[];
   onSelectPlan?: (plan: any) => void;
+  onSelectWaypoint?: (waypoint: { lat: number; lng: number; label: string; index: number }) => void;
 };
 
 const STORAGE_ROUTE = "awe-routes:leaflet";
@@ -113,7 +114,8 @@ export default function LeafletMap({
   onWaypointDelete,
   onCreatePlan,
   plans = [],
-  onSelectPlan
+  onSelectPlan,
+  onSelectWaypoint
 }: LeafletMapProps) {
   const holderRef = useRef<HTMLDivElement | null>(null);
   const mapElRef = useRef<HTMLDivElement | null>(null);
@@ -556,6 +558,14 @@ export default function LeafletMap({
 
       marker.bindPopup(createPopupContent(false));
 
+      // Call onSelectWaypoint if provided (opens sidebar)
+      if (onSelectWaypoint && waypointIndex !== undefined) {
+        marker.on("click", () => {
+          const displayLabel = waypointLabels[waypointIndex] || label;
+          onSelectWaypoint({ lat, lng, label: displayLabel, index: waypointIndex });
+        });
+      }
+
       // Setup handlers
       let isEditMode = false;
 
@@ -686,7 +696,7 @@ export default function LeafletMap({
 
       return marker;
     },
-    [waypointLabels, onWaypointDelete, onCreatePlan]
+    [waypointLabels, onWaypointDelete, onCreatePlan, onSelectWaypoint]
   );
 
   const drawRoute = useCallback(
