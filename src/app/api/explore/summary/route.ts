@@ -132,7 +132,7 @@ export async function GET() {
             });
         };
 
-        const [main, chans, lills, fills, auds, chapters, xrays, puds] = await Promise.all([
+        const [main, chans, lills, fills, auds, chapters, xrays, puds, texts] = await Promise.all([
             fetchByType(undefined, 40),
             fetchByType('CHAN', 20),
             fetchByType('LILL', 20),
@@ -141,6 +141,7 @@ export async function GET() {
             fetchByType('CHAPTER', 20),
             fetchByType('XRAY', 20),
             fetchByType('PULLUPDOWN', 20),
+            fetchByType('SIMPLE_TEXT', 20),
         ]);
 
         return NextResponse.json({
@@ -151,7 +152,8 @@ export async function GET() {
             auds,
             chapters,
             xrays,
-            puds
+            puds,
+            texts
         });
 
     } catch (error: any) {

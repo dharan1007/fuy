@@ -15,6 +15,7 @@ interface GalaxySceneProps {
     chaptes: any[];
     xrays: any[];
     puds: any[];
+    texts: any[];
     onPostClick: (post: any) => void;
     showLines: boolean;
     activeGlobe: string;
@@ -40,6 +41,7 @@ export default function GalaxyScene({
     chaptes,
     xrays,
     puds,
+    texts,
     onPostClick,
     showLines,
     activeGlobe
@@ -57,6 +59,7 @@ export default function GalaxyScene({
             case 'Chaptes': return chaptes;
             case 'X Rays': return xrays;
             case 'Puds': return puds;
+            case 'Simple Texts': return texts;
             default: return posts;
         }
     };

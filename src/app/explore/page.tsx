@@ -49,6 +49,7 @@ export default function ExplorePage() {
   const [chaptes, setChaptes] = useState<Post[]>([]);
   const [xrays, setXrays] = useState<Post[]>([]);
   const [puds, setPuds] = useState<Post[]>([]);
+  const [texts, setTexts] = useState<Post[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
@@ -74,6 +75,7 @@ export default function ExplorePage() {
           setChaptes(data.chapters || []);
           setXrays(data.xrays || []);
           setPuds(data.puds && data.puds.length > 0 ? [...data.puds, ...DUMMY_PUDS] : DUMMY_PUDS as unknown as Post[]);
+          setTexts(data.texts || []);
         }
       } catch (err) {
         console.error('Error fetching explore content:', err);
@@ -124,7 +126,7 @@ export default function ExplorePage() {
 
       {/* Globe Selector Tabs */}
       <div className="absolute top-24 left-1/2 transform -translate-x-1/2 z-20 flex gap-2 overflow-x-auto max-w-full px-4 pb-2 no-scrollbar">
-        {['Posts', 'Slashes', 'Chans', 'Auds', 'Chaptes', 'X Rays', 'Puds'].map((tab) => (
+        {['Posts', 'Slashes', 'Chans', 'Auds', 'Chaptes', 'Simple Texts', 'X Rays', 'Puds'].map((tab) => (
           <button
             key={tab}
             onClick={() => { setActiveGlobe(tab); setSelectedPost(null); }}
@@ -152,6 +154,7 @@ export default function ExplorePage() {
           chaptes={chaptes}
           xrays={xrays}
           puds={puds}
+          texts={texts}
           onPostClick={handlePostClick}
           showLines={showLines}
         />
