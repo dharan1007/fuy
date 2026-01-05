@@ -35,8 +35,36 @@ export default function ProfileView() {
   const [followersError, setFollowersError] = useState<string | null>(null);
   const [followingError, setFollowingError] = useState<string | null>(null);
 
-  if (isLoading || !data) return <div className="p-6">Loading…</div>;
-  if (data.error) return <div className="p-6 text-red-600">{data.error}</div>;
+  // Fetch Unread Counts (MOVED UP - CRITICAL FIX FOR 310)
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0);
+
+  const fetchUnreadCounts = async () => {
+    try {
+      const [notifRes, chatRes] = await Promise.all([
+        fetch("/api/notifications?unreadOnly=true"),
+        fetch("/api/chat/unread")
+      ]);
+      if (notifRes.ok && chatRes.ok) {
+        const notifData = await notifRes.json();
+        const chatData = await chatRes.json();
+        setUnreadCount(notifData.notifications?.length || 0);
+        setUnreadMessageCount(chatData.count || 0);
+      }
+    } catch (e) {
+      console.error("Failed to fetch unread counts", e);
+    }
+  };
+
+  useEffect(() => {
+    fetchUnreadCounts();
+    // Poll every 30s
+    const interval = setInterval(fetchUnreadCounts, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  if (isLoading || !data) return <div className="p-6 text-white text-center">Loading Profile...</div>;
+  if (data.error) return <div className="p-6 text-red-600 text-center">{data.error}</div>;
 
   const profile = data.profile || {};
   const stats = data.stats || { friends: 0, posts: 0, followers: 0, following: 0 };
@@ -106,34 +134,6 @@ export default function ProfileView() {
       console.error(err);
     }
   };
-
-  // Fetch Unread Counts
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [unreadMessageCount, setUnreadMessageCount] = useState(0);
-
-  const fetchUnreadCounts = async () => {
-    try {
-      const [notifRes, chatRes] = await Promise.all([
-        fetch("/api/notifications?unreadOnly=true"),
-        fetch("/api/chat/unread")
-      ]);
-      if (notifRes.ok && chatRes.ok) {
-        const notifData = await notifRes.json();
-        const chatData = await chatRes.json();
-        setUnreadCount(notifData.notifications?.length || 0);
-        setUnreadMessageCount(chatData.count || 0);
-      }
-    } catch (e) {
-      console.error("Failed to fetch unread counts", e);
-    }
-  };
-
-  useEffect(() => {
-    fetchUnreadCounts();
-    // Poll every 30s
-    const interval = setInterval(fetchUnreadCounts, 30000);
-    return () => clearInterval(interval);
-  }, []);
 
   return (
     <div className="min-h-screen bg-black relative pb-20 text-white">
