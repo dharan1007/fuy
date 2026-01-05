@@ -159,7 +159,7 @@ export default function EditProfilePage() {
 
             <main className="max-w-4xl mx-auto px-4 py-8">
                 <div className="flex items-center gap-4 mb-8">
-                    <button onClick={() => router.back()} className="p-2 hover:bg-gray-200 dark:hover:bg-neutral-800 rounded-full transition-colors">
+                    <button onClick={() => router.push("/profile")} className="p-2 hover:bg-gray-200 dark:hover:bg-neutral-800 rounded-full transition-colors">
                         <ChevronLeft className="w-6 h-6 text-gray-900 dark:text-white" />
                     </button>
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Edit Profile</h1>

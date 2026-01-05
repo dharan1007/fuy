@@ -79,6 +79,12 @@ export async function POST(
     });
   }
 
+  // Update FeedItem comment count
+  await prisma.feedItem.updateMany({
+    where: { postId },
+    data: { commentCount: { increment: 1 } }
+  });
+
   return NextResponse.json(comment);
 }
 

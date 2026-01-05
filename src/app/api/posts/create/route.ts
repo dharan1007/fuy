@@ -102,7 +102,8 @@ async function createPostHandler(request: NextRequest) {
                             duration: Math.min(fillData.duration || 0, 18000), // Max 5 hours
                             thumbnailUrl: fillData.thumbnailUrl || fillData.thumbnail,
                             aspectRatio: fillData.aspectRatio || '16:9',
-                            chapters: fillData.chapters,
+                            // Ensure chapters is stringified if it's an object/array
+                            chapters: typeof fillData.chapters === 'object' ? JSON.stringify(fillData.chapters) : fillData.chapters,
                             subtitlesUrl: fillData.subtitlesUrl,
                             quality: fillData.quality || 'HD',
                         },
@@ -152,7 +153,7 @@ async function createPostHandler(request: NextRequest) {
                             schedule: chanData.schedule,
                             isLive: chanData.isLive || false,
                             liveUrl: chanData.liveUrl,
-                            episodes: chanData.episodes || JSON.stringify([{
+                            episodes: (typeof chanData.episodes === 'object' ? JSON.stringify(chanData.episodes) : chanData.episodes) || JSON.stringify([{
                                 title: chanData.episodeTitle || 'Episode 1',
                                 url: chanData.videoUrl,
                                 thumbnail: chanData.thumbnail,

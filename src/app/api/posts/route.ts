@@ -164,7 +164,9 @@ export async function GET(req: NextRequest) {
   const scope = (searchParams.get("scope") ?? "public").toLowerCase();
   const limit = Math.min(Number(searchParams.get("limit")) || 20, 50);
 
-  const where: any = {};
+  const where: any = {
+    postType: { not: "STORY" }
+  };
 
   // --- Scope Filtering on FeedItem ---
   if (scope === "me" && userId) {
@@ -199,6 +201,25 @@ export async function GET(req: NextRequest) {
   }) : [];
   const likedPostIds = new Set(myLikes.map(l => l.postId));
 
+  // --- Fetch Real-Time Reaction Counts ---
+  const allReactions = await prisma.reaction.groupBy({
+    by: ['postId', 'type'],
+    where: { postId: { in: postIds } },
+    _count: { type: true }
+  });
+
+  const reactionMap: Record<string, { W: number; L: number; CAP: number; FIRE: number }> = {};
+
+  allReactions.forEach(r => {
+    if (!reactionMap[r.postId]) {
+      reactionMap[r.postId] = { W: 0, L: 0, CAP: 0, FIRE: 0 };
+    }
+    const type = r.type as keyof typeof reactionMap[string];
+    if (reactionMap[r.postId][type] !== undefined) {
+      reactionMap[r.postId][type] = r._count.type;
+    }
+  });
+
   // --- Transform to Frontend Format ---
   const transformed = feedItems.map((item: any) => {
     let media = [];
@@ -206,17 +227,15 @@ export async function GET(req: NextRequest) {
       media = item.mediaPreviews ? JSON.parse(item.mediaPreviews) : [];
     } catch (e) { }
 
+    const realTimeCounts = reactionMap[item.postId] || { W: 0, L: 0, CAP: 0, FIRE: 0 };
+    const totalLikes = Object.values(realTimeCounts).reduce((a: number, b: number) => a + b, 0);
+
     return {
       id: item.postId,
       userId: item.userId,
       feature: item.feature,
       postType: item.postType,
-      content: item.contentSnippet, // Note: Full content might be truncated in snippet. frontend should fetch full if needed or we store full. 
-      // For now, let's assume contentSnippet is valid content for list view. 
-      // If snippet is truncated, we might need a separate full fetch, or store full content in FeedItem.
-      // User said: "Precompute author info, media URLs... Store counts separately".
-      // Let's rely on snippet for feed.
-
+      content: item.contentSnippet,
       createdAt: item.createdAt,
       user: {
         id: item.userId,
@@ -225,16 +244,19 @@ export async function GET(req: NextRequest) {
           avatarUrl: item.authorAvatarUrl
         }
       },
-      media: media, // { type, url, aspect }
+      media: media,
 
       // Counts
-      likes: item.likeCount,
+      likes: totalLikes, // Override stored count with real-time sum
       comments: item.commentCount,
       shares: item.shareCount,
 
+      // Reaction Details
+      reactionCounts: realTimeCounts,
+
       // Context
       likedByMe: likedPostIds.has(item.postId),
-      isSubscribed: false // TODO: if needed, fetch subs check
+      isSubscribed: false
     };
   });
 

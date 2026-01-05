@@ -227,7 +227,14 @@ export default function ProfileSetupPage() {
     if (step < totalSteps) setStep(step + 1);
   };
 
-  const handleBack = () => { if (step > 1) setStep(step - 1); };
+  const handleBack = () => {
+    if (step > 1) {
+      setStep(step - 1);
+    } else {
+      // Step 1: Back goes to profile or home
+      router.push("/profile");
+    }
+  };
   const handleSkip = () => { if (step < totalSteps) setStep(step + 1); };
 
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -727,8 +734,8 @@ export default function ProfileSetupPage() {
             <div className="p-6 border-t border-white/10 bg-black/40 backdrop-blur-md sticky bottom-0 z-20 flex justify-between">
               <button
                 onClick={handleBack}
-                disabled={step === 1}
-                className={`px-6 py-3 rounded-xl font-medium transition-colors ${step === 1 ? 'opacity-0 pointer-events-none' : 'text-gray-300 hover:bg-white/10 hover:text-white'}`}
+                disabled={false}
+                className={`px-6 py-3 rounded-xl font-medium transition-colors text-gray-300 hover:bg-white/10 hover:text-white`}
               >
                 Back
               </button>

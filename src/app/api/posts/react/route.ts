@@ -144,6 +144,17 @@ export async function POST(req: NextRequest) {
             }
         });
 
+        const totalReactions = Object.values(counts).reduce((a, b) => a + b, 0);
+
+        try {
+            await prisma.feedItem.updateMany({
+                where: { postId },
+                data: { likeCount: totalReactions }
+            });
+        } catch (e) {
+            console.error("Failed to update FeedItem likeCount", e);
+        }
+
         // Get current status
         const current = await prisma.reaction.findUnique({
             where: { userId_postId: { userId, postId } },

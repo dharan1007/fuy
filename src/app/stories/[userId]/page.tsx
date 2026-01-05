@@ -70,7 +70,8 @@ export default function StoryViewerPage() {
         if (!stories.length || shareMode || replyText) return;
 
         const currentStory = stories[currentIndex];
-        const isVideo = currentStory.media?.[0]?.type === 'VIDEO';
+        const mediaItem = currentStory.postMedia?.[0]?.media || currentStory.media?.[0];
+        const isVideo = mediaItem?.type === 'VIDEO';
 
         // Reset progress on story change
         setProgress(0);
@@ -107,7 +108,7 @@ export default function StoryViewerPage() {
     if (!stories.length) return null;
 
     const currentStory = stories[currentIndex];
-    const mediaItem = currentStory.media?.[0];
+    const mediaItem = currentStory.postMedia?.[0]?.media || currentStory.media?.[0];
     const isVideo = mediaItem?.type === 'VIDEO';
 
     // Handle Selection of Followers

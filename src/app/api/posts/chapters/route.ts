@@ -16,6 +16,7 @@ export async function POST(req: NextRequest) {
 
         const currentUser = await prisma.user.findUnique({
             where: { email: session.user.email },
+            include: { profile: true }
         });
 
         if (!currentUser) {
@@ -79,6 +80,51 @@ export async function POST(req: NextRequest) {
                 postMedia: { include: { media: true } }
             }
         });
+
+        // --- 1. Create FeedItem for the Chapter ---
+        // Prepare media previews
+        const mediaPreviews = (mediaUrls || []).map((url: string, i: number) => ({
+            type: (mediaTypes || [])[i] || 'IMAGE',
+            url,
+            aspect: 1
+        }));
+
+        await prisma.feedItem.create({
+            data: {
+                userId: currentUser.id,
+                postId: newPost.id,
+                authorName: currentUser.profile?.displayName || currentUser.name || 'User',
+                authorAvatarUrl: currentUser.profile?.avatarUrl,
+                postType: 'CHAPTER',
+                feature: 'OTHER', // Chapters don't strictly have a feature, use OTHER or similar
+                contentSnippet: (description || content || title || "").slice(0, 200),
+                mediaPreviews: JSON.stringify(mediaPreviews),
+                createdAt: newPost.createdAt,
+                likeCount: 0,
+                commentCount: 0,
+                shareCount: 0
+            }
+        });
+
+        // --- 2. Send Notification to Linked Post Author ---
+        if (linkedPostId) {
+            const parentPost = await prisma.post.findUnique({
+                where: { id: linkedPostId },
+                select: { userId: true }
+            });
+
+            if (parentPost && parentPost.userId !== currentUser.id) {
+                await prisma.notification.create({
+                    data: {
+                        userId: parentPost.userId,
+                        type: "POST_MENTION", // Safe fallback
+                        message: `${currentUser.profile?.displayName || currentUser.name} connected a chapter to your post`,
+                        postId: newPost.id,
+                        read: false,
+                    }
+                });
+            }
+        }
 
         return NextResponse.json({ success: true, post: newPost });
 

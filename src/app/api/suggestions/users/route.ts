@@ -79,12 +79,14 @@ export async function GET(req: Request) {
           select: {
             userId: true,
           },
+          where: { status: "ACCEPTED" }
         },
         // Get who this user follows to calculate mutuals
         friendshipsA: {
           select: {
             friendId: true,
           },
+          where: { status: "ACCEPTED" }
         },
       },
       orderBy: {

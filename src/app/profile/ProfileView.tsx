@@ -11,6 +11,7 @@ import ProfilePostsGrid from "@/components/profile/ProfilePostsGrid";
 import { SpaceBackground } from "@/components/SpaceBackground";
 
 const ProfileCardModal = dynamic(() => import("@/components/profile/ProfileCardModal").then(mod => mod.ProfileCardModal), { ssr: false });
+import ProfileDetailsSection from "@/components/profile/ProfileDetailsSection";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -129,6 +130,7 @@ export default function ProfileView() {
       <div className="mx-auto max-w-4xl px-4 sm:px-6 mt-12 relative z-10">
         {/* Posts */}
         <section className="mb-12">
+          <ProfileDetailsSection profile={profile} />
           <ProfilePostsGrid
             posts={(data?.posts || []).map((p: any) => ({
               ...p,
