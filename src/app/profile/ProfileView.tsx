@@ -39,6 +39,15 @@ export default function ProfileView() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
 
+  // FIX: Extract useMemo to top level so it runs on every render
+  const posts = useMemo(() => {
+    if (!data?.posts) return [];
+    return data.posts.map((p: any) => ({
+      ...p,
+      createdAt: p.createdAt
+    }));
+  }, [data?.posts]);
+
   const fetchUnreadCounts = async () => {
     try {
       const [notifRes, chatRes] = await Promise.all([
@@ -161,11 +170,7 @@ export default function ProfileView() {
         <section className="mb-12">
           <ProfileDetailsSection profile={profile} />
           <ProfilePostsGrid
-            posts={useMemo(() => (data?.posts || []).map((p: any) => ({
-              ...p,
-              // Ensure dates are strings or Date objects as expected
-              createdAt: p.createdAt
-            })), [data?.posts])}
+            posts={posts}
             isMe={true}
             userId={data.id} // Assuming the API returns the user object with ID
             onActionComplete={() => mutate()} // Revalidate SWR cache after actions
