@@ -650,11 +650,11 @@ function MessagesPageContent() {
                                         </button>
                                     </div>
 
-                                    {selectedConversationId && chatWallpapers[selectedConversationId] && (
+                                    {selectedConversation?.wallpaperUrl && (
                                         <div className="mb-4">
                                             <div className="relative aspect-video rounded-lg overflow-hidden border border-white/20">
                                                 <img
-                                                    src={chatWallpapers[selectedConversationId]}
+                                                    src={selectedConversation.wallpaperUrl}
                                                     alt="Current wallpaper"
                                                     className="w-full h-full object-cover"
                                                 />
@@ -675,10 +675,10 @@ function MessagesPageContent() {
                                             className="block w-full text-center px-4 py-3 rounded-lg bg-white/10 hover:bg-white/20 text-white cursor-pointer transition-all border border-white/20"
                                         >
                                             <ImageIcon size={20} className="inline-block mr-2" />
-                                            {selectedConversationId && chatWallpapers[selectedConversationId] ? 'Change Wallpaper' : 'Upload Wallpaper'}
+                                            {selectedConversation?.wallpaperUrl ? 'Change Wallpaper' : 'Upload Wallpaper'}
                                         </label>
 
-                                        {selectedConversationId && chatWallpapers[selectedConversationId] && (
+                                        {selectedConversation?.wallpaperUrl && (
                                             <button
                                                 onClick={handleRemoveWallpaper}
                                                 className="w-full px-4 py-3 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-300 transition-all border border-red-500/30"

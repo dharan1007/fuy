@@ -44,6 +44,7 @@ export interface Conversation {
   isPinned?: boolean;
   isGhosted?: boolean;
   nickname?: string;
+  wallpaperUrl?: string;
 }
 
 export interface Friend {
@@ -117,7 +118,8 @@ export function useMessaging() {
             isMuted: conv.isMuted,
             isPinned: conv.isPinned,
             isGhosted: conv.isGhosted,
-            nickname: conv.nickname
+            nickname: conv.nickname,
+            wallpaperUrl: conv.wallpaperUrl
           };
         }).filter(Boolean);
         setConversations(formattedConversations);
