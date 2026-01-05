@@ -148,7 +148,59 @@ export async function GET(req: NextRequest) {
         });
 
         // Sort by score DESC
-        const sorted = ranked.sort((a, b) => b.score - a.score).map(r => r.post).slice(0, limit);
+        let sorted = ranked.sort((a, b) => b.score - a.score).map(r => r.post).slice(0, limit);
+
+        // FALLBACK: If we don't have enough "Similar" posts, fill with Trending/Recent
+        if (sorted.length < limit) {
+            const needed = limit - sorted.length;
+            const existingIds = [postId, ...sorted.map(p => p.id)];
+
+            const fallbackPosts = await prisma.post.findMany({
+                where: {
+                    id: { notIn: existingIds },
+                    visibility: 'PUBLIC',
+                    postType: { not: 'CHAN' },
+                    status: 'PUBLISHED'
+                },
+                take: needed,
+                orderBy: [
+                    // Mix of Recency and Popularity could be good, but let's just do Recency for "Discovery"
+                    // or we can do popularity. Let's do Recency to ensure fresh content.
+                    { createdAt: 'desc' }
+                ],
+                include: {
+                    user: {
+                        include: {
+                            profile: {
+                                select: { displayName: true, avatarUrl: true }
+                            }
+                        }
+                    },
+                    postMedia: { include: { media: true } },
+                    slashes: true,
+                    _count: {
+                        select: {
+                            likes: true,
+                            comments: true,
+                            shares: true,
+                            reactions: true
+                        }
+                    }
+                }
+            });
+
+            const mappedFallback = fallbackPosts.map((post: any) => ({
+                ...post,
+                media: post.postMedia?.map((pm: any) => pm.media) || [],
+                likesCount: post._count.likes,
+                commentsCount: post._count.comments,
+                sharesCount: post.shareCount || post._count.shares || 0,
+                impressions: post.impressions || 0,
+                matchReason: 'Discovery' // Reason for fallback
+            }));
+
+            sorted = [...sorted, ...mappedFallback];
+        }
 
         return NextResponse.json(sorted);
 
