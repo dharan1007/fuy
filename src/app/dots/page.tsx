@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSession } from '@/hooks/use-session';
-import { Play, Pause, Search, ChevronLeft, MoreVertical, Check, Plus } from 'lucide-react';
+import { Play, Pause, Search, ChevronLeft, MoreVertical, Check, Plus, X } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import LandingPage from '@/components/LandingPage/LandingPage';
 import { useRouter } from 'next/navigation';
@@ -61,8 +61,14 @@ export default function DotsPage() {
     const [bloomMode, setBloomMode] = useState<'selection' | 'feed'>('selection');
     const [availableSlashes, setAvailableSlashes] = useState<{ tag: string, count: number }[]>([]);
     const [selectedSlashes, setSelectedSlashes] = useState<string[]>([]);
-    const [selectedUsers, setSelectedUsers] = useState<string[]>([]); // For future user selection
+    const [selectedUsers, setSelectedUsers] = useState<string[]>([]); // User IDs
+    const [selectedPosts, setSelectedPosts] = useState<any[]>([]); // Selected Post objects
     const [bloomLoading, setBloomLoading] = useState(false);
+
+    // Bloom Search State
+    const [bloomSearchQuery, setBloomSearchQuery] = useState('');
+    const [bloomSearchResults, setBloomSearchResults] = useState<{ users: any[], posts: any[] }>({ users: [], posts: [] });
+    const [isSearching, setIsSearching] = useState(false);
 
     // Initial Load
     useEffect(() => {
@@ -101,10 +107,47 @@ export default function DotsPage() {
         } catch (e) { console.error("Failed to load slashes", e); }
     };
 
+    // Bloom Search Effect
+    useEffect(() => {
+        const timer = setTimeout(async () => {
+            if (!bloomSearchQuery.trim()) {
+                setBloomSearchResults({ users: [], posts: [] });
+                return;
+            }
+
+            setIsSearching(true);
+            try {
+                const res = await fetch(`/api/search?q=${encodeURIComponent(bloomSearchQuery)}&type=all`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setBloomSearchResults({ users: data.users || [], posts: data.posts || [] });
+                }
+            } catch (error) {
+                console.error("Search failed", error);
+            } finally {
+                setIsSearching(false);
+            }
+        }, 500); // 500ms debounce
+
+        return () => clearTimeout(timer);
+    }, [bloomSearchQuery]);
+
+    const toggleUserSelection = (userId: string) => {
+        setSelectedUsers(prev =>
+            prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
+        );
+    };
+
+    const togglePostSelection = (post: any) => {
+        setSelectedPosts(prev =>
+            prev.some(p => p.id === post.id) ? prev.filter(p => p.id !== post.id) : [...prev, post]
+        );
+    };
+
     // Fetch posts and transform to Dots
     const fetchDots = useCallback(async () => {
-        if (activeCategory === 'bloom' && bloomMode === 'selection' && selectedSlashes.length === 0 && selectedUsers.length === 0) {
-            // Don't fetch if no selection in bloom mode (unless we want to show empty)
+        if (activeCategory === 'bloom' && bloomMode === 'selection' && selectedSlashes.length === 0 && selectedUsers.length === 0 && selectedPosts.length === 0) {
+            // Don't fetch if no selection in bloom mode
             return;
         }
 
@@ -116,6 +159,7 @@ export default function DotsPage() {
                 const params = new URLSearchParams();
                 if (selectedSlashes.length > 0) params.append('slashes', selectedSlashes.join(','));
                 if (selectedUsers.length > 0) params.append('userIds', selectedUsers.join(','));
+                if (selectedPosts.length > 0) params.append('postIds', selectedPosts.map(p => p.id).join(','));
                 url = `/api/dots/bloom?${params.toString()}`;
             } else if (activeCategory === 'lills') {
                 url = '/api/dots/lills';
@@ -341,36 +385,138 @@ export default function DotsPage() {
                         </div>
                     </div>
 
-                    {/* Users Section */}
+                    {/* Users & Posts Search Section */}
                     <div className="mb-8">
                         <h2 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
-                            <span className="text-white/60">@</span> Users
+                            <span className="text-white/60">@</span> Add Users & Posts
                         </h2>
-                        <div className="bg-[#111] border border-white/10 rounded-xl p-4">
-                            <input
-                                type="text"
-                                placeholder="Search users to add..."
-                                className="w-full bg-transparent text-white placeholder-gray-600 focus:outline-none text-sm mb-3"
-                            />
-                            {selectedUsers.length === 0 ? (
-                                <p className="text-sm text-gray-600">No users selected. Search and add users above.</p>
-                            ) : (
-                                <div className="flex flex-wrap gap-2">
-                                    {selectedUsers.map(userId => (
-                                        <span key={userId} className="px-3 py-1 bg-white text-black rounded-full text-xs font-medium">
-                                            @{userId}
-                                        </span>
-                                    ))}
+
+                        {/* Search Input */}
+                        <div className="bg-[#111] border border-white/10 rounded-xl p-4 relative z-10">
+                            <div className="flex items-center gap-2 mb-4 bg-black/50 border border-white/10 rounded-lg px-3 py-2">
+                                <Search size={18} className="text-gray-500" />
+                                <input
+                                    type="text"
+                                    placeholder="Search users or posts..."
+                                    value={bloomSearchQuery}
+                                    onChange={(e) => setBloomSearchQuery(e.target.value)}
+                                    className="w-full bg-transparent text-white placeholder-gray-600 focus:outline-none text-sm"
+                                />
+                                {isSearching && <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />}
+                            </div>
+
+                            {/* Search Results */}
+                            {bloomSearchQuery && (
+                                <div className="mb-4 max-h-60 overflow-y-auto no-scrollbar border-b border-white/10 pb-2">
+                                    {bloomSearchResults.users.length === 0 && bloomSearchResults.posts.length === 0 && !isSearching ? (
+                                        <p className="text-sm text-center text-gray-600 py-2">No results found.</p>
+                                    ) : (
+                                        <div className="space-y-4">
+                                            {/* User Results */}
+                                            {bloomSearchResults.users.length > 0 && (
+                                                <div>
+                                                    <h3 className="text-xs font-bold text-gray-500 uppercase mb-2">Users</h3>
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                        {bloomSearchResults.users.map(user => (
+                                                            <button
+                                                                key={user.id}
+                                                                onClick={() => { toggleUserSelection(user.id); setBloomSearchQuery(''); }}
+                                                                disabled={selectedUsers.includes(user.id)}
+                                                                className="flex items-center gap-2 p-2 rounded-lg hover:bg-white/10 text-left transition-colors disabled:opacity-50"
+                                                            >
+                                                                <img src={user.avatar} className="w-8 h-8 rounded-full bg-gray-800 object-cover" />
+                                                                <div className="overflow-hidden">
+                                                                    <p className="text-sm font-medium text-white truncate">{user.name}</p>
+                                                                    <p className="text-xs text-gray-500 truncate">{user.handle}</p>
+                                                                </div>
+                                                                {selectedUsers.includes(user.id) && <Check size={14} className="ml-auto text-green-500" />}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Post Results */}
+                                            {bloomSearchResults.posts.length > 0 && (
+                                                <div>
+                                                    <h3 className="text-xs font-bold text-gray-500 uppercase mb-2">Posts</h3>
+                                                    <div className="grid grid-cols-1 gap-2">
+                                                        {bloomSearchResults.posts.map(post => {
+                                                            const isSelected = selectedPosts.some(p => p.id === post.id);
+                                                            return (
+                                                                <button
+                                                                    key={post.id}
+                                                                    onClick={() => { togglePostSelection(post); setBloomSearchQuery(''); }}
+                                                                    disabled={isSelected}
+                                                                    className="flex items-start gap-3 p-2 rounded-lg hover:bg-white/10 text-left transition-colors disabled:opacity-50"
+                                                                >
+                                                                    {post.image ? (
+                                                                        <img src={post.image} className="w-10 h-10 rounded bg-gray-800 object-cover flex-shrink-0" />
+                                                                    ) : (
+                                                                        <div className="w-10 h-10 rounded bg-gray-800 flex items-center justify-center flex-shrink-0 text-xs text-gray-500">TxT</div>
+                                                                    )}
+                                                                    <div className="flex-1 overflow-hidden">
+                                                                        <p className="text-sm text-gray-300 line-clamp-1">{post.content}</p>
+                                                                        <p className="text-xs text-gray-600 truncate">by {post.author}</p>
+                                                                    </div>
+                                                                    {isSelected && <Check size={14} className="ml-auto text-green-500 mt-1" />}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             )}
+
+                            {/* Selected Items Display */}
+                            <div className="space-y-3">
+                                {/* Selected Users */}
+                                {selectedUsers.length > 0 && (
+                                    <div className="flex flex-wrap gap-2">
+                                        {selectedUsers.map(userId => (
+                                            <div key={userId} className="flex items-center gap-2 pl-3 pr-2 py-1 bg-white text-black rounded-full text-xs font-medium">
+                                                <span>User: {userId}</span> {/* Ideally show name but ID for now */}
+                                                <button onClick={() => toggleUserSelection(userId)} className="p-0.5 hover:bg-black/10 rounded-full">
+                                                    <X size={12} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* Selected Posts */}
+                                {selectedPosts.length > 0 && (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        {selectedPosts.map(post => (
+                                            <div key={post.id} className="flex items-center gap-2 p-2 bg-white/10 border border-white/20 rounded-lg">
+                                                {post.image && <img src={post.image} className="w-8 h-8 rounded object-cover" />}
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-xs text-white truncate">{post.content}</p>
+                                                    <p className="text-[10px] text-gray-400 truncate">{post.author}</p>
+                                                </div>
+                                                <button onClick={() => togglePostSelection(post)} className="text-gray-400 hover:text-white">
+                                                    <X size={14} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {selectedUsers.length === 0 && selectedPosts.length === 0 && !bloomSearchQuery && (
+                                    <p className="text-sm text-gray-600 italic">No users or posts selected yet.</p>
+                                )}
+                            </div>
                         </div>
-                        <p className="text-xs text-gray-600 mt-2">Content from selected users and similar creators will appear in your bloom.</p>
+                        <p className="text-xs text-gray-600 mt-2">Content from selected users, posts and similar creators will appear in your bloom.</p>
                     </div>
 
                     {/* Info */}
                     <div className="mb-8 p-4 bg-white/5 border border-white/10 rounded-xl">
                         <p className="text-sm text-gray-400 leading-relaxed">
-                            Bloom shows posts matching your selected topics and users.
+                            Bloom shows posts matching your selected topics, users, and specific posts.
                             We also include similar content to help you discover more of what you like.
                         </p>
                     </div>
@@ -378,7 +524,7 @@ export default function DotsPage() {
                     {/* Start Bloom Button */}
                     <button
                         onClick={startBloom}
-                        disabled={selectedSlashes.length === 0 && selectedUsers.length === 0}
+                        disabled={selectedSlashes.length === 0 && selectedUsers.length === 0 && selectedPosts.length === 0}
                         className="w-full py-4 bg-white text-black rounded-xl font-bold text-lg hover:bg-gray-100 disabled:bg-gray-800 disabled:text-gray-600 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
                     >
                         Start Bloom <Check size={20} />

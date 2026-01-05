@@ -50,6 +50,7 @@ export default async function UserProfilePage({ params }: { params: { userId: st
           postType: { not: "CHAN" }
         },
         orderBy: { createdAt: 'desc' },
+        take: 12, // Pagination: Limit initial load (Client fetches more)
         include: {
           postMedia: { include: { media: true } },
           user: {
@@ -310,6 +311,7 @@ export default async function UserProfilePage({ params }: { params: { userId: st
           <ProfilePostsGrid
             posts={posts as any}
             isMe={isMe}
+            userId={userData.id}
           />
         )}
 

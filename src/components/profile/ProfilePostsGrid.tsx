@@ -25,14 +25,43 @@ type Post = {
 interface ProfilePostsGridProps {
     posts: Post[];
     isMe: boolean;
+    userId: string;
     onActionComplete?: () => void;
 }
 
-export default function ProfilePostsGrid({ posts, isMe, onActionComplete }: ProfilePostsGridProps) {
+export default function ProfilePostsGrid({ posts: initialPosts, isMe, userId, onActionComplete }: ProfilePostsGridProps) {
     const router = useRouter();
+    const [posts, setPosts] = useState<Post[]>(initialPosts);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [selectionMode, setSelectionMode] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+
+    // Pagination State
+    const [nextCursor, setNextCursor] = useState<string | null>(initialPosts.length >= 12 ? initialPosts[initialPosts.length - 1].id : null);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [hasMore, setHasMore] = useState(initialPosts.length >= 12);
+
+    const handleLoadMore = async () => {
+        if (loadingMore || !hasMore || !nextCursor) return;
+        setLoadingMore(true);
+        try {
+            const res = await fetch(`/api/posts/user?userId=${userId}&cursor=${nextCursor}`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.posts && data.posts.length > 0) {
+                    setPosts(prev => [...prev, ...data.posts]);
+                    setNextCursor(data.nextCursor);
+                    setHasMore(!!data.nextCursor);
+                } else {
+                    setHasMore(false);
+                }
+            }
+        } catch (error) {
+            console.error("Failed to load more posts", error);
+        } finally {
+            setLoadingMore(false);
+        }
+    };
 
     const toggleSelectionMode = () => {
         setSelectionMode(!selectionMode);
@@ -80,7 +109,7 @@ export default function ProfilePostsGrid({ posts, isMe, onActionComplete }: Prof
         <section className="mb-10 relative">
             <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                    Recent Posts ({posts.length})
+                    Recent Posts ({posts.length}{hasMore ? '+' : ''})
                 </h2>
 
                 {isMe && posts.length > 0 && (
@@ -146,6 +175,19 @@ export default function ProfilePostsGrid({ posts, isMe, onActionComplete }: Prof
             ) : (
                 <div className="text-center py-12 bg-white/50 dark:bg-neutral-800/50 rounded-xl border border-gray-200 dark:border-neutral-700">
                     <p className="text-gray-500 dark:text-gray-400">No posts shared yet.</p>
+                </div>
+            )}
+
+            {/* Load More Button */}
+            {hasMore && (
+                <div className="mt-8 flex justify-center">
+                    <button
+                        onClick={handleLoadMore}
+                        disabled={loadingMore}
+                        className="px-6 py-2.5 bg-white/10 hover:bg-white/20 text-white font-medium rounded-full transition-colors disabled:opacity-50"
+                    >
+                        {loadingMore ? 'Loading...' : 'Load More'}
+                    </button>
                 </div>
             )}
 

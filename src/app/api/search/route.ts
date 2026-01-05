@@ -130,15 +130,49 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // Filter posts
-    const posts =
-      type === "all" || type === "posts"
-        ? MOCK_POSTS.filter(
-          (post) =>
-            post.content.toLowerCase().includes(query) ||
-            post.author.toLowerCase().includes(query)
-        )
-        : [];
+    // Fetch real posts from database
+    let posts: any[] = [];
+    if (type === "all" || type === "posts") {
+      const dbPosts = await prisma.post.findMany({
+        where: {
+          content: { contains: query, mode: "insensitive" },
+          status: "PUBLISHED",
+          user: {
+            profile: { isPrivate: false } // Only show public posts for now
+          }
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              profile: {
+                select: {
+                  displayName: true,
+                  avatarUrl: true
+                }
+              }
+            }
+          },
+          postMedia: {
+            take: 1,
+            include: { media: true }
+          }
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 5
+      });
+
+      posts = dbPosts.map(p => ({
+        id: p.id,
+        author: p.user?.profile?.displayName || p.user?.name || "Unknown",
+        avatar: p.user?.profile?.avatarUrl,
+        content: p.content,
+        image: p.postMedia?.[0]?.media?.url, // Valid even if undefined
+        timestamp: p.createdAt.toISOString(),
+        likes: 0 // We can fetch counts if needed but keeping it simple for search summary
+      }));
+    }
 
     // Fetch real users from database
     let users: SearchUser[] = [];

@@ -17,14 +17,17 @@ export async function GET(request: Request) {
         const { searchParams } = new URL(request.url);
         const slashesParam = searchParams.get('slashes');
         const userIdsParam = searchParams.get('userIds');
+        const postIdsParam = searchParams.get('postIds');
 
         let targetSlashes: string[] = [];
         let targetUserIds: string[] = [];
+        let targetPostIds: string[] = [];
 
-        if (slashesParam || userIdsParam) {
+        if (slashesParam || userIdsParam || postIdsParam) {
             // Ad-hoc filtering mode
             if (slashesParam) targetSlashes = slashesParam.split(',').filter(Boolean);
             if (userIdsParam) targetUserIds = userIdsParam.split(',').filter(Boolean);
+            if (postIdsParam) targetPostIds = postIdsParam.split(',').filter(Boolean);
         } else {
             // Default: User's saved preference
             const user = await prisma.user.findUnique({
@@ -48,7 +51,7 @@ export async function GET(request: Request) {
                 postType: { in: ['LILL', 'FILL', 'AUD'] },
                 // Filter by visibility (Public by default for now)
                 visibility: 'PUBLIC',
-                // Filter by Tags OR Users
+                // Filter by Tags OR Users OR Specific Posts
                 OR: [
                     // Match Tags
                     ...(targetSlashes.length > 0 ? [{
@@ -61,6 +64,10 @@ export async function GET(request: Request) {
                     // Match Users
                     ...(targetUserIds.length > 0 ? [{
                         userId: { in: targetUserIds }
+                    }] : []),
+                    // Match Specific Posts
+                    ...(targetPostIds.length > 0 ? [{
+                        id: { in: targetPostIds }
                     }] : [])
                 ]
             },

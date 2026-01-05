@@ -167,6 +167,7 @@ export default function ProfileView() {
               createdAt: p.createdAt
             }))}
             isMe={true}
+            userId={data.id} // Assuming the API returns the user object with ID
             onActionComplete={() => mutate()} // Revalidate SWR cache after actions
           />
         </section>
