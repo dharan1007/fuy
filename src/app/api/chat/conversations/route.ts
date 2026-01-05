@@ -69,7 +69,8 @@ export async function GET(req: Request) {
         isMuted: userState?.isMuted || false,
         isPinned: userState?.isPinned || false,
         isGhosted: userState?.isGhosted || false,
-        nickname: userState?.nickname
+        nickname: userState?.nickname,
+        wallpaperUrl: c.wallpaperUrl
       };
     });
 

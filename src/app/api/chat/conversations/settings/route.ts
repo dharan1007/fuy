@@ -69,6 +69,14 @@ export async function PATCH(req: Request) {
             }
         } else if (action === 'MUTE') {
             updateData.isMuted = Boolean(value);
+        } else if (action === 'WALLPAPER') {
+            // Update the shared Conversation model directly
+            await prisma.conversation.update({
+                where: { id: conversationId },
+                data: { wallpaperUrl: value ? String(value) : null }
+            });
+            // Return early or continue? If we return here we skip ConversationState update which is fine.
+            return NextResponse.json({ success: true, wallpaperUrl: value });
         }
 
         const updated = await prisma.conversationState.update({

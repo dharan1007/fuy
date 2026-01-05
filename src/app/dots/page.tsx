@@ -115,8 +115,14 @@ export default function DotsPage() {
                     mediaUrl = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800';
                 }
 
-                const randomViews = Math.floor(Math.random() * 900) + 10 + 'K';
-                const randomTime = Math.floor(Math.random() * 11) + 1 + ' months ago';
+                // Real Data Mapping
+                const viewsCount = post.views || 0;
+                // Format relative time (simple version)
+                const date = new Date(post.createdAt);
+                const now = new Date();
+                const diffTime = Math.abs(now.getTime() - date.getTime());
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                const timeAgo = diffDays > 30 ? `${Math.floor(diffDays / 30)} mo ago` : `${diffDays}d ago`;
 
                 return {
                     id: `dot-${post.id}`,
@@ -132,8 +138,10 @@ export default function DotsPage() {
                     category: (post.postType || 'MIX').toLowerCase(),
                     isSubscribed: post.isSubscribed || false,
                     followersCount: post.user?.followersCount || 0,
-                    views: randomViews,
-                    createdAt: randomTime
+                    views: viewsCount > 1000 ? (viewsCount / 1000).toFixed(1) + 'K' : viewsCount.toString(),
+                    createdAt: timeAgo,
+                    // Store extra fields for filtering if needed
+                    feature: post.feature
                 };
             });
 
@@ -201,9 +209,33 @@ export default function DotsPage() {
     };
 
     const filteredDots = dots.filter(dot => {
-        if (!searchQuery) return true;
-        const q = searchQuery.toLowerCase();
-        return dot.description.toLowerCase().includes(q) || dot.username.toLowerCase().includes(q);
+        // 1. Search Query Filter
+        if (searchQuery) {
+            const q = searchQuery.toLowerCase();
+            if (!dot.description.toLowerCase().includes(q) && !dot.username.toLowerCase().includes(q)) {
+                return false;
+            }
+        }
+
+        // 2. Category/Tab Filter (already handled by fetchDots for main categories, but refining here if mixed)
+        // If activeCategory is 'fills', we also respect activeFillFilter
+        if (activeCategory === 'fills' && activeFillFilter !== 'All') {
+            // Mapping UI filters to data properties
+            // 'New to you', 'Live', 'Stand-Up', 'Gaming', 'Music', 'Cartoons', 'Challenges', 'Visual Arts'
+            // This is a naive client-side mapping. ideally backend handles this.
+            // For now, we filter by 'feature' tag or description text as a fallback
+            const filter = activeFillFilter.toLowerCase();
+            const contentMatch = dot.description.toLowerCase().includes(filter) || dot.category.includes(filter);
+            // If we had a specific 'feature' field mapped, we'd use it.
+            // Since we dont have mapped features yet, we'll rely on text match or just allow all for now to avoid empty screens
+            // until backend supports these specific tags.
+            // BETTER: Check if the dot has a matching tag/feature
+            // Let's assume we mapped 'feature' in DotData (added above).
+            const featureMatch = (dot as any).feature?.toLowerCase() === filter;
+            return contentMatch || featureMatch;
+        }
+
+        return true;
     });
 
     const handleGridItemClick = (index: number) => {

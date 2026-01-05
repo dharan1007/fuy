@@ -1,7 +1,7 @@
 "use client";
 
 import useSWR from "swr";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import AppHeader from "@/components/AppHeader";
 import UserListModal from "@/components/UserListModal";
 import ProfileHeader from "@/components/profile/ProfileHeader";
@@ -12,6 +12,7 @@ import { SpaceBackground } from "@/components/SpaceBackground";
 
 const ProfileCardModal = dynamic(() => import("@/components/profile/ProfileCardModal").then(mod => mod.ProfileCardModal), { ssr: false });
 import ProfileDetailsSection from "@/components/profile/ProfileDetailsSection";
+import FloatingNavBar from "@/components/FloatingNavBar";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -106,6 +107,34 @@ export default function ProfileView() {
     }
   };
 
+  // Fetch Unread Counts
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0);
+
+  const fetchUnreadCounts = async () => {
+    try {
+      const [notifRes, chatRes] = await Promise.all([
+        fetch("/api/notifications?unreadOnly=true"),
+        fetch("/api/chat/unread")
+      ]);
+      if (notifRes.ok && chatRes.ok) {
+        const notifData = await notifRes.json();
+        const chatData = await chatRes.json();
+        setUnreadCount(notifData.notifications?.length || 0);
+        setUnreadMessageCount(chatData.count || 0);
+      }
+    } catch (e) {
+      console.error("Failed to fetch unread counts", e);
+    }
+  };
+
+  useEffect(() => {
+    fetchUnreadCounts();
+    // Poll every 30s
+    const interval = setInterval(fetchUnreadCounts, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="min-h-screen bg-black relative pb-20 text-white">
       <SpaceBackground />
@@ -145,6 +174,13 @@ export default function ProfileView() {
         {/* My Brands */}
         <MyBrandsSection />
       </div>
+
+      {/* Floating Nav Bar */}
+      <FloatingNavBar
+        unreadCount={unreadCount}
+        unreadMessageCount={unreadMessageCount}
+        onClearUnread={() => setUnreadCount(0)}
+      />
 
       {/* Modals */}
       <UserListModal

@@ -42,8 +42,9 @@ export default function EditProfilePage() {
         );
     }
 
-    const profile = profileData?.profile || {};
-    const user = profileData || {}; // Fallback to empty object if profileData is null
+    // API returns the profile object directly
+    const profile = profileData || {};
+    const user = profile.user || {}; // The included user data is inside the profile object
 
     // -- Handlers --
 

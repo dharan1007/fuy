@@ -97,7 +97,7 @@ function MessagesPageContent() {
 
     // Wallpaper customization
     const [showWallpaperMenu, setShowWallpaperMenu] = useState(false);
-    const [chatWallpapers, setChatWallpapers] = useState<Record<string, string>>({});
+
 
     const [activeContextMenuId, setActiveContextMenuId] = useState<string | null>(null);
     const [activeMessageMenuId, setActiveMessageMenuId] = useState<string | null>(null);
@@ -116,24 +116,7 @@ function MessagesPageContent() {
         }
     }, [messages, selectedConversationId]);
 
-    // Load wallpapers from localStorage on mount
-    useEffect(() => {
-        const saved = localStorage.getItem('chat-wallpapers');
-        if (saved) {
-            try {
-                setChatWallpapers(JSON.parse(saved));
-            } catch (e) {
-                console.error('Failed to load wallpapers:', e);
-            }
-        }
-    }, []);
 
-    // Save wallpapers to localStorage when changed
-    useEffect(() => {
-        if (Object.keys(chatWallpapers).length > 0) {
-            localStorage.setItem('chat-wallpapers', JSON.stringify(chatWallpapers));
-        }
-    }, [chatWallpapers]);
 
     // --- Render ---
 
@@ -446,11 +429,8 @@ function MessagesPageContent() {
         if (file && selectedConversationId) {
             const reader = new FileReader();
             reader.onloadend = () => {
-                setChatWallpapers(prev => ({
-                    ...prev,
-                    [selectedConversationId]: reader.result as string
-                }));
-                setShowWallpaperMenu(false); // Close modal after upload
+                updateSettings(selectedConversationId, 'WALLPAPER', reader.result);
+                setShowWallpaperMenu(false);
             };
             reader.readAsDataURL(file);
         }
@@ -459,12 +439,8 @@ function MessagesPageContent() {
     // Function to remove wallpaper
     const handleRemoveWallpaper = () => {
         if (selectedConversationId) {
-            setChatWallpapers(prev => {
-                const newWallpapers = { ...prev };
-                delete newWallpapers[selectedConversationId];
-                return newWallpapers;
-            });
-            setShowWallpaperMenu(false); // Close modal after removal
+            updateSettings(selectedConversationId, 'WALLPAPER', null);
+            setShowWallpaperMenu(false);
         }
     };
 
@@ -804,6 +780,7 @@ function MessagesPageContent() {
                         )}
 
                         {/* Messages */}
+                        {/* Messages */}
                         <div className={styles.messagesList} style={{
                             flex: 1,
                             overflowY: 'auto',
@@ -811,7 +788,7 @@ function MessagesPageContent() {
                             display: 'flex',
                             flexDirection: 'column',
                             gap: '8px',
-                            backgroundImage: selectedConversationId && chatWallpapers[selectedConversationId] ? `url(${chatWallpapers[selectedConversationId]})` : 'none',
+                            backgroundImage: selectedConversation?.wallpaperUrl ? `url(${selectedConversation.wallpaperUrl})` : 'none',
                             backgroundSize: 'cover',
                             backgroundPosition: 'center',
                             backgroundRepeat: 'no-repeat'
@@ -882,11 +859,11 @@ function MessagesPageContent() {
                                                     msg.content
                                                 )}
 
-                                                {/* Tag moved to bottom */}
+                                                {/* Tag moved to bottom with larger size */}
                                                 {hasTag && (
-                                                    <div className="mt-2 flex items-center gap-1.5 bg-black/20 rounded px-2 py-1 w-fit border border-white/10">
-                                                        <Tag size={10} className="opacity-70" />
-                                                        <span className="text-[10px] font-bold uppercase tracking-wider opacity-90">{msg.tags![0]}</span>
+                                                    <div className="mt-2 flex items-center gap-2 bg-black/40 rounded px-3 py-1.5 w-fit border border-white/20">
+                                                        <Tag size={12} className="opacity-90" />
+                                                        <span className="text-sm font-bold uppercase tracking-wider opacity-100">{msg.tags![0]}</span>
                                                     </div>
                                                 )}
 
@@ -901,7 +878,7 @@ function MessagesPageContent() {
                                             {/* Message Context Menu */}
                                             {isMenuOpen && (
                                                 <div
-                                                    className="absolute z-50 bg-black border border-white/20 rounded-lg shadow-xl p-1 min-w-[150px] max-h-[300px] overflow-y-auto"
+                                                    className="absolute z-50 bg-black border border-white/20 rounded-lg shadow-xl p-2 min-w-[200px] max-h-[300px] overflow-y-auto"
                                                     style={{
                                                         top: '0',
                                                         [isMe ? 'right' : 'left']: '100%',
@@ -910,8 +887,8 @@ function MessagesPageContent() {
                                                     }}
                                                     onClick={e => e.stopPropagation()}
                                                 >
-                                                    <div className="text-[10px] uppercase text-white/50 px-2 py-1 font-bold border-b border-white/10 mb-1 flex items-center gap-1">
-                                                        <Tag size={10} /> Tag Message
+                                                    <div className="text-sm uppercase text-white/50 px-2 py-1 font-bold border-b border-white/10 mb-1 flex items-center gap-1">
+                                                        <Tag size={12} /> Tag Message
                                                     </div>
                                                     {['Angry', 'Sad', 'Joy', 'Surprised', 'Reminders'].map(tag => (
                                                         <button
@@ -921,9 +898,9 @@ function MessagesPageContent() {
                                                                 handleTagMessage(msg.id, tag);
                                                                 setActiveMessageMenuId(null);
                                                             }}
-                                                            className="w-full text-left px-2 py-1.5 text-xs text-white hover:bg-white/10 rounded flex items-center gap-2"
+                                                            className="w-full text-left px-3 py-2 text-sm text-white hover:bg-white/10 rounded flex items-center gap-2"
                                                         >
-                                                            <div className={`w-1.5 h-1.5 rounded-sm ${getTagColor(tag).split(' ')[0].replace('/20', '')}`} />
+                                                            <div className={`w-2 h-2 rounded-sm ${getTagColor(tag).split(' ')[0].replace('/20', '')}`} />
                                                             {tag}
                                                         </button>
                                                     ))}
