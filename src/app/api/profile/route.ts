@@ -179,6 +179,10 @@ export async function PUT(req: Request) {
     const taggingPrivacy = getStr("taggingPrivacy");
     const notificationSettingsRaw = body["notificationSettings"];
 
+    // Profile Privacy (isPrivate from checkbox - comes as 'on' or undefined)
+    const isPrivateRaw = body["isPrivate"];
+    const isPrivate = isPrivateRaw === true || isPrivateRaw === 'true' || isPrivateRaw === 'on';
+
     // Update User Model (Name & Settings)
     const userUpdateData: any = {};
     if (name) userUpdateData.name = name;
@@ -243,11 +247,13 @@ export async function PUT(req: Request) {
         coverImageUrl,
         cardBackgroundUrl,
         cardSettings,
+        isPrivate,
       },
       update: {
         displayName, bio, location, dob, gender, height, weight, city, interactionMode, conversationStarter,
         achievements, workHistory, education,
         bestVibeTime, vibeWithPeople, lifeIsLike, emotionalFit, pleaseDont, careAbout, protectiveAbout, distanceMakers, goals, lifestyle,
+        isPrivate,
         ...(skills ? { skills } : {}),
         ...(values ? { values } : {}),
         ...(hardNos ? { hardNos } : {}),
