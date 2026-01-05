@@ -35,17 +35,27 @@ export async function GET(req: Request) {
     });
 
     // 2. Fetch Stats
-    const [followersCount, followingCount, postsCount] = await Promise.all([
-      prisma.follows.count({ where: { followingId: userId } }),
-      prisma.follows.count({ where: { followerId: userId } }),
+    // Note: User model has counter fields, but we can also count relations if needed.
+    // Schema uses 'Subscription' for follows.
+    const [statsData, postsCount] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          followersCount: true,
+          followingCount: true,
+          // Count friends (accepted friendships)
+          friendshipsA: { where: { status: 'ACCEPTED' } },
+          friendshipsB: { where: { status: 'ACCEPTED' } },
+        }
+      }),
       prisma.post.count({ where: { userId, status: 'PUBLISHED', postType: { not: 'CHAN' } } })
     ]);
 
     const stats = {
-      followers: followersCount,
-      following: followingCount,
+      followers: statsData?.followersCount || 0,
+      following: statsData?.followingCount || 0,
       posts: postsCount,
-      friends: 0 // Placeholder logic for now
+      friends: (statsData?.friendshipsA.length || 0) + (statsData?.friendshipsB.length || 0)
     };
 
     // 3. Fetch Recent Posts (Limit 12)
