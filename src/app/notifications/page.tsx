@@ -268,9 +268,10 @@ type Notification = {
       name: string | null;
     };
   };
-  _actionTaken?: "ACCEPT" | "REJECT" | "GHOST" | "UNDO";
+  _actionTaken?: "ACCEPT" | "REJECT" | "GHOST" | "UNDO" | "FOLLOWED_BACK";
   friendshipStatus?: string;
   isGhosted?: boolean;
+  isFollowing?: boolean;
 };
 
 export default function NotificationsPage() {
@@ -288,10 +289,14 @@ export default function NotificationsPage() {
 
   // Auto mark all as read when opening page
   useEffect(() => {
+    // Immediate local dispatch to clear badge
+    window.dispatchEvent(new CustomEvent('notifications-read'));
+
+    // API Call if needed
     if (!loading && notifications.some(n => !n.read)) {
       markAllAsRead();
     }
-  }, [loading, notifications]);
+  }, [loading, notifications.length]); // depend on length to trigger but avoid loops
 
   if (status === 'loading') {
     return <LoadingSpinner message="Syncing with the cosmos..." />;
@@ -399,6 +404,28 @@ export default function NotificationsPage() {
     }
   }
 
+  async function handleFollowBack(targetUserId: string, notificationId: string) {
+    // Optimistic Update
+    setNotifications(prev => prev.map(n =>
+      n.id === notificationId ? { ...n, _actionTaken: "FOLLOWED_BACK", isFollowing: true } : n
+    ));
+
+    try {
+      const res = await fetch("/api/users/follow", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetUserId }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to follow");
+      }
+    } catch (error) {
+      console.error("Follow back error:", error);
+      loadNotifications(); // Revert
+    }
+  }
+
   // --- UI Helpers ---
 
   function getNotificationIcon(type: string) {
@@ -412,6 +439,7 @@ export default function NotificationsPage() {
           </div>
         );
       case "FRIEND_ACCEPT":
+      case "FOLLOW":
         return (
           <div className="bg-green-500/10 p-2.5 rounded-full border border-green-500/30 shadow-[0_0_15px_rgba(34,197,94,0.2)]">
             <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -442,62 +470,36 @@ export default function NotificationsPage() {
     return user?.profile?.displayName || user?.name || "Unknown User";
   }
 
-  // ==========================================================================
-  //   RENDER
-  // ==========================================================================
-
   return (
     <div className="min-h-screen bg-black text-white selection:bg-blue-500/30 font-sans">
-
-      {/* 1. Space Engine Background */}
       <SpaceBackground />
-
-      {/* 2. Content Layer (z-index 10) */}
       <div className="relative z-10 flex flex-col min-h-screen">
-
-        {/* Navigation Wrapper */}
         <div className="bg-gradient-to-b from-black/80 to-transparent pb-4">
           <AppHeader title="NOTIFICATIONS" showBackButton />
         </div>
 
         <div className="max-w-2xl mx-auto w-full px-4 flex-1 pb-20">
-
-          {/* Controls Bar - Suspended Glass */}
           <div className="sticky top-20 z-20 mb-6 mx-2">
             <div className="flex items-center justify-between backdrop-blur-2xl bg-white/[0.03] p-1.5 rounded-full border border-white/[0.1] shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
               <div className="flex gap-1 p-0.5">
                 <button
                   onClick={() => setFilter("all")}
-                  className={`px-5 py-2 rounded-full text-xs font-bold tracking-wide transition-all duration-300 ${filter === "all"
-                    ? "bg-white text-black shadow-lg scale-100"
-                    : "text-gray-400 hover:text-white hover:bg-white/5 active:scale-95"
-                    }`}
-                >
-                  ALL
-                </button>
+                  className={`px-5 py-2 rounded-full text-xs font-bold tracking-wide transition-all duration-300 ${filter === "all" ? "bg-white text-black shadow-lg scale-100" : "text-gray-400 hover:text-white hover:bg-white/5 active:scale-95"}`}
+                >ALL</button>
                 <button
                   onClick={() => setFilter("unread")}
-                  className={`px-5 py-2 rounded-full text-xs font-bold tracking-wide transition-all duration-300 ${filter === "unread"
-                    ? "bg-white text-black shadow-lg scale-100"
-                    : "text-gray-400 hover:text-white hover:bg-white/5 active:scale-95"
-                    }`}
-                >
-                  UNREAD
-                </button>
+                  className={`px-5 py-2 rounded-full text-xs font-bold tracking-wide transition-all duration-300 ${filter === "unread" ? "bg-white text-black shadow-lg scale-100" : "text-gray-400 hover:text-white hover:bg-white/5 active:scale-95"}`}
+                >UNREAD</button>
               </div>
 
               <button
                 onClick={markAllAsRead}
                 className="px-5 py-2 text-xs font-bold text-gray-400 hover:text-white transition-colors"
-              >
-                MARK ALL READ
-              </button>
+              >MARK ALL READ</button>
             </div>
           </div>
 
-          {/* List Container */}
           <div className="space-y-3 relative">
-
             {loading && (
               <div className="flex flex-col items-center justify-center py-20 animate-pulse">
                 <div className="w-8 h-8 rounded-full border-2 border-white/20 border-t-blue-500 animate-spin mb-4 shadow-[0_0_20px_rgba(59,130,246,0.5)]" />
@@ -524,14 +526,9 @@ export default function NotificationsPage() {
               return (
                 <div
                   key={notif.id}
-                  // Staggered fade-in animation could be added here
-                  className={`group relative overflow-hidden rounded-2xl border transition-all duration-500 ease-out ${notif.read
-                    ? "bg-transparent border-white/[0.03] opacity-70 hover:opacity-100"
-                    : "bg-white/[0.04] border-white/[0.1] shadow-[0_0_30px_rgba(0,0,0,0.5)]"
-                    }`}
+                  className={`group relative overflow-hidden rounded-2xl border transition-all duration-500 ease-out ${notif.read ? "bg-transparent border-white/[0.03] opacity-70 hover:opacity-100" : "bg-white/[0.04] border-white/[0.1] shadow-[0_0_30px_rgba(0,0,0,0.5)]"}`}
                   onClick={() => !notif.read && markAsRead(notif.id)}
                 >
-                  {/* Glass Reflection Effect */}
                   <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-50" />
                   <div className="absolute bottom-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-black/50 to-transparent" />
 
@@ -549,9 +546,49 @@ export default function NotificationsPage() {
                           {" "}{cleanMessage}
                         </p>
 
-                        {notif.post && (
-                          <div className="mt-1 p-3 bg-black/40 rounded-lg border border-white/5 text-[13px] text-gray-400 font-serif italic border-l-2 border-l-blue-500/50">
-                            "{notif.post.content}"
+                        {/* Friend Request / Follow Action Area */}
+                        {(notif.type === "FRIEND_REQUEST" || (notif.friendshipStatus === "ACCEPTED" && !notif.isFollowing)) && notif.sender && (
+                          <div className="mt-3 flex gap-2">
+                            {/* Case 1: Active Friend Request */}
+                            {notif.type === "FRIEND_REQUEST" && notif.friendshipStatus === "PENDING" && !notif._actionTaken && (
+                              <>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); if (notif.friendshipId) handleFriendAction(notif.friendshipId, "ACCEPT"); }}
+                                  className="px-4 py-1.5 bg-white text-black hover:bg-gray-200 rounded text-[10px] font-black uppercase tracking-wider transition-all shadow-md active:scale-95"
+                                >
+                                  Confirm
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); if (notif.friendshipId) handleFriendAction(notif.friendshipId, "REJECT"); }}
+                                  className="px-4 py-1.5 bg-transparent text-white border border-white/20 hover:bg-white/5 rounded text-[10px] font-black uppercase tracking-wider transition-all active:scale-95"
+                                >
+                                  Delete
+                                </button>
+                              </>
+                            )}
+
+                            {/* Case 2: Accepted but NOT Following Back */}
+                            {((notif.friendshipStatus === "ACCEPTED" || notif._actionTaken === "ACCEPT")) && !notif.isFollowing && notif._actionTaken !== "FOLLOWED_BACK" && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); if (notif.sender?.id) handleFollowBack(notif.sender.id, notif.id); }}
+                                className="px-4 py-1.5 bg-blue-600 text-white hover:bg-blue-500 rounded text-[10px] font-black uppercase tracking-wider transition-all shadow-[0_0_15px_rgba(37,99,235,0.3)] active:scale-95 flex items-center gap-1"
+                              >
+                                Follow Back
+                              </button>
+                            )}
+
+                            {/* Status Indicators */}
+                            {((notif.friendshipStatus === "ACCEPTED" || notif._actionTaken === "ACCEPT") && (notif.isFollowing || notif._actionTaken === "FOLLOWED_BACK")) && (
+                              <span className="text-[10px] text-green-400 font-bold uppercase tracking-wider border border-green-500/20 px-2 py-1 rounded bg-green-500/5">
+                                Friends
+                              </span>
+                            )}
+
+                            {((notif.friendshipStatus === "REJECTED" || notif._actionTaken === "REJECT")) && (
+                              <span className="text-[10px] text-red-400 font-bold uppercase tracking-wider border border-red-500/20 px-2 py-1 rounded bg-red-500/5">
+                                Declined
+                              </span>
+                            )}
                           </div>
                         )}
 
@@ -559,64 +596,6 @@ export default function NotificationsPage() {
                           <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">
                             {new Date(notif.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                           </p>
-
-                          {/* Actions */}
-                          {notif.type === "FRIEND_REQUEST" && notif.sender && (
-                            <div className="flex gap-2">
-                              {(notif._actionTaken || (notif.friendshipStatus && notif.friendshipStatus !== 'PENDING') || notif.isGhosted) ? (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (notif.friendshipId) handleFriendAction(notif.friendshipId, "UNDO");
-                                  }}
-                                  className={`text-[9px] font-black px-3 py-1 rounded border tracking-widest uppercase transition-colors hover:opacity-80 ${(notif._actionTaken === 'ACCEPT' || notif.friendshipStatus === 'ACCEPTED') ? 'border-green-500/30 text-green-400 bg-green-900/10' :
-                                    (notif._actionTaken === 'REJECT' || notif.friendshipStatus === 'REJECTED') ? 'border-red-500/30 text-red-400 bg-red-900/10' :
-                                      'border-gray-500/30 text-gray-400 bg-gray-900/10'
-                                    }`}
-                                  title="Click to Undo"
-                                >
-                                  {notif._actionTaken === 'ACCEPT' || notif.friendshipStatus === 'ACCEPTED' ? 'ACCEPTED' :
-                                    notif._actionTaken === 'REJECT' || notif.friendshipStatus === 'REJECTED' ? 'DECLINED' :
-                                      notif.isGhosted ? 'GHOSTED' : notif._actionTaken || 'PROCESSED'}
-                                </button>
-                              ) : (
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      if (notif.friendshipId) handleFriendAction(notif.friendshipId, "ACCEPT");
-                                    }}
-                                    className="px-4 py-1.5 bg-white text-black hover:bg-gray-200 rounded text-[10px] font-black uppercase tracking-wider transition-all shadow-[0_0_15px_rgba(255,255,255,0.1)] active:scale-95"
-                                  >
-                                    Confirm
-                                  </button>
-
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      if (notif.friendshipId) handleFriendAction(notif.friendshipId, "REJECT");
-                                    }}
-                                    className="px-4 py-1.5 bg-transparent text-white border border-white/20 hover:bg-white/5 rounded text-[10px] font-black uppercase tracking-wider transition-all active:scale-95"
-                                  >
-                                    Decline
-                                  </button>
-
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      if (notif.friendshipId) handleFriendAction(notif.friendshipId, "GHOST");
-                                    }}
-                                    className="p-1.5 text-gray-500 hover:text-white transition-colors"
-                                    title="Ghost Request"
-                                  >
-                                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                      <path d="M9 10h.01" /><path d="M15 10h.01" /><path d="M12 2a8 8 0 0 0-8 8v12l3-3 2.5 2.5L12 19l2.5 2.5L17 19l3 3V10a8 8 0 0 0-8-8z" />
-                                    </svg>
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          )}
                         </div>
                       </div>
                     </div>

@@ -78,12 +78,23 @@ export async function GET(req: Request) {
             },
           });
 
+          // Check if current user follows the sender (for "Follow Back" logic)
+          const isFollowing = await prisma.subscription.findUnique({
+            where: {
+              subscriberId_subscribedToId: {
+                subscriberId: userId,
+                subscribedToId: notif.postId,
+              },
+            },
+          });
+
           return {
             ...notif,
             sender,
             friendshipId: friendship?.id,
             friendshipStatus: friendship?.status,
             isGhosted: friendship?.isGhosted,
+            isFollowing: !!isFollowing,
           };
         }
 
