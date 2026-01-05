@@ -80,7 +80,7 @@ export default function SimpleForm({ onBack: propOnBack, initialData }: SimpleFo
         setLoading(true);
 
         try {
-            let uploadedMedia = [];
+            let uploadedMedia: { url: string; type: 'IMAGE' | 'VIDEO' }[] = [];
             if (postMode === 'MEDIA') {
                 setLoadingMessage('Uploading media...');
                 const uploadPromises = mediaItems.map(async (item, index) => {
