@@ -5,9 +5,9 @@ import { Filter } from 'bad-words';
 // Custom list of high-risk keywords (terrorism, violence, illegal)
 // This is a basic list and should be expanded or replaced with an AI API for better accuracy.
 const HIGH_RISK_KEYWORDS = [
-  "bomb", "kill", "suicide", "murder", "terrorist", "terrorism", "isis", "al-qaeda",
+  "bomb", "kill", "suicide", "murder", "terrorist", "terrorism", "isis", "al-qaeda", "jihad",
   "assassinate", "explosive", "weapon", "gun", "shoot", "attack", "die", "death to",
-  "nazi", "hitler", "racist", "sex", "porn", "xxx"
+  "nazi", "hitler", "racist", "sex", "porn", "xxx", "fuck", "shit", "bitch", "bastard"
 ];
 
 const filter = new Filter();

@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
           aspectRatio: "9:16"
         }
       });
-    } else if (postType === 'SIMPLE') {
+    } else if (postType === 'SIMPLE' || postType === 'SIMPLE_TEXT') {
       await tx.simplePost.create({
         data: { postId: newPost.id }
       });
