@@ -106,15 +106,15 @@ export async function GET(req: Request) {
           ...(currentUserProfile.currentlyInto || []),
           ...(currentUserProfile.topGenres || []),
           ...(currentUserProfile.values || []),
-        ];
+        ].filter(Boolean) as string[];
         const theirInterests = [
           ...(u.profile.currentlyInto || []),
           ...(u.profile.topGenres || []),
           ...(u.profile.values || []),
-        ];
+        ].filter(Boolean) as string[];
 
         myInterests.forEach(interest => {
-          if (theirInterests.some(t => t.toLowerCase() === interest.toLowerCase())) {
+          if (interest && theirInterests.some(t => t && t.toLowerCase() === interest.toLowerCase())) {
             similarityScore++;
           }
         });
