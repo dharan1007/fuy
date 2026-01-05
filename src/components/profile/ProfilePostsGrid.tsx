@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Trash2, Archive, CheckSquare, Square, X } from "lucide-react";
 import { createPortal } from "react-dom";
@@ -43,6 +43,15 @@ export default function ProfilePostsGrid({ posts: initialPosts, isMe, userId, on
     const [nextCursor, setNextCursor] = useState<string | null>(safePosts.length >= 12 ? safePosts[safePosts.length - 1]?.id : null);
     const [loadingMore, setLoadingMore] = useState(false);
     const [hasMore, setHasMore] = useState(safePosts.length >= 12);
+
+    // Sync state when initialPosts changes (e.g. SWR load)
+    useEffect(() => {
+        if (initialPosts) {
+            setPosts(initialPosts);
+            setNextCursor(initialPosts.length >= 12 ? initialPosts[initialPosts.length - 1]?.id : null);
+            setHasMore(initialPosts.length >= 12);
+        }
+    }, [initialPosts]);
 
     const handleLoadMore = async () => {
         if (loadingMore || !hasMore || !nextCursor) return;

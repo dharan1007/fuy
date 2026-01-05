@@ -144,6 +144,7 @@ export default async function UserProfilePage({ params }: { params: { userId: st
 
       audData: p.postType === 'AUD' ? {
         id: p.id,
+        audioUrl: media[0]?.url || '',
         title: "Audio",
         artist: "Artist",
         coverImageUrl: media[0]?.url,
