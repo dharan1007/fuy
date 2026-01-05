@@ -183,6 +183,9 @@ export function useMessaging() {
   }, [userId]);
 
   // --- 3. Conversation Subscriptions (Stable) ---
+  // Polling interval for fallback
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
   useEffect(() => {
     if (!userId || conversations.length === 0) return;
 
@@ -201,29 +204,23 @@ export function useMessaging() {
           {
             event: 'INSERT',
             schema: 'public',
-            table: 'Message', // Case sensitive usually, trying 'Message' as seen in schema or 'messages' if mapped. Standard Prisma maps to lowercase usually unless defined. Checking schema... it said `model Message`. In Postgres it might be "Message" quoted or lowercase. Default prisma is usually pascal case model -> pascal case or lowercase table depending on map. 
-            // Let's assume standard behavior: if no @@map, generic is "Message".
-            // However, we can listen to ALL events and filter in callback if unsure, but filtering here is better.
-            // Important: Supabase exposes tables. If Prisma schema has `model Message`, table is usually `Message` (capitalized) if there's no map.
-            // Filter: `conversationId=eq.${conv.id}`
+            table: 'Message', // Prisma default - try capitalized first
             filter: `conversationId=eq.${conv.id}`
           },
           (payload) => {
             const newMsg = payload.new as any;
-            // Handle new message
             handleNewRealtimeMessage(newMsg, conv, userId);
           }
         )
         .on('broadcast', { event: 'typing:start' }, (payload) => handleTypingEvent(payload, conv.id, 'start', userId))
         .on('broadcast', { event: 'typing:stop' }, (payload) => handleTypingEvent(payload, conv.id, 'stop', userId))
-        .subscribe();
+        .subscribe((status) => {
+          console.log(`[useMessaging] Channel ${channelId} status:`, status);
+        });
     });
 
-    // Cleanup channels for conversations that we left? 
-    // Simplified: Just keep them open for session duration or full unmount.
-
     return () => {
-      // We do NOT unsubscribe here to prevent loop. channels will be cleaned up on unmount of the hook (component unmount)
+      // We do NOT unsubscribe here to prevent loop
     };
   }, [conversations, userId]);
 
@@ -232,6 +229,10 @@ export function useMessaging() {
     return () => {
       conversationChannelsRef.current.forEach(ch => supabase.removeChannel(ch));
       conversationChannelsRef.current.clear();
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
     };
   }, []);
 
@@ -431,6 +432,28 @@ export function useMessaging() {
       console.error("Fetch messages failed", e);
     }
   }, []);
+
+  // --- Polling Fallback for Realtime ---
+  // This ensures messages are received even if Supabase Realtime fails
+  useEffect(() => {
+    if (!userId) return;
+
+    // Poll every 5 seconds for active conversations
+    const interval = setInterval(() => {
+      Object.keys(messages).forEach(convId => {
+        if (messages[convId] && messages[convId].length > 0) {
+          fetchMessages(convId);
+        }
+      });
+    }, 5000);
+
+    pollingIntervalRef.current = interval;
+
+    return () => {
+      clearInterval(interval);
+      pollingIntervalRef.current = null;
+    };
+  }, [userId, fetchMessages]);
 
   const markAsRead = useCallback(async (conversationId: string) => {
     // API call to mark read
