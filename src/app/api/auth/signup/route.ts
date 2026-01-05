@@ -94,22 +94,43 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: error.message }, { status: 400 });
         }
 
-        // 6. Create User in Prisma (Sync DB)
+        // 6. Create User in Prisma (Sync DB) - Use upsert for safety
         try {
-            await prisma.user.create({
-                data: {
+            await prisma.user.upsert({
+                where: { id: data.user.id },
+                update: {
+                    email: data.user.email!,
+                    name: name
+                },
+                create: {
                     id: data.user.id,
                     email: data.user.email!,
                     name: name
                 }
             });
-            console.log(`[AUTH_SIGNUP] Prisma User created: ${data.user.id}`);
+            console.log(`[AUTH_SIGNUP] Prisma User synced: ${data.user.id}`);
         } catch (dbError: any) {
-            console.error("[AUTH_SIGNUP] Prisma creation failed:", dbError);
-            // If prisma creation fails, we technically have a "zombie" user in Supabase
-            // but we don't delete the existing Prisma record anymore.
-            // We just return error. 
-            return NextResponse.json({ error: "Failed to sync user data. Please contact support." }, { status: 500 });
+            console.error("[AUTH_SIGNUP] Prisma sync failed:", dbError?.message || dbError);
+            // Try one more time with just email lookup
+            try {
+                const existingByEmail = await prisma.user.findUnique({
+                    where: { email: normalizedEmail }
+                });
+                if (existingByEmail) {
+                    // User exists with same email but different ID - update ID
+                    await prisma.user.update({
+                        where: { email: normalizedEmail },
+                        data: { id: data.user.id }
+                    });
+                    console.log(`[AUTH_SIGNUP] Updated existing user ID to match Supabase`);
+                } else {
+                    // Last resort - return error
+                    return NextResponse.json({ error: "Account created but sync failed. Please try logging in." }, { status: 500 });
+                }
+            } catch (retryError: any) {
+                console.error("[AUTH_SIGNUP] Retry failed:", retryError?.message);
+                return NextResponse.json({ error: "Account created but sync failed. Please try logging in." }, { status: 500 });
+            }
         }
 
         // Successful creation
@@ -121,7 +142,8 @@ export async function POST(req: Request) {
         });
 
     } catch (error: any) {
-        console.error("[AUTH_SIGNUP] Error:", error);
+        console.error("[AUTH_SIGNUP] Error:", error?.message || error);
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
 }
+
