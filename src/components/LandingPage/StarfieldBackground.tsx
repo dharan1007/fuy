@@ -13,7 +13,7 @@ export default function StarfieldBackground() {
                     <Stars
                         radius={100}
                         depth={50}
-                        count={5000}
+                        count={1500} // Reduced from 5000 for stability
                         factor={4}
                         saturation={0}
                         fade

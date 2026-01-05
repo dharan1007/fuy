@@ -123,7 +123,11 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { conversationId, content } = body;
 
-    if (!conversationId || !content) {
+    // Allow empty content if sharing a post or sending media
+    const hasContent = content && content.trim().length > 0;
+    const isSpecialType = body.type !== 'text' || body.sharedPostId || body.mediaUrl;
+
+    if (!conversationId || (!hasContent && !isSpecialType)) {
       return NextResponse.json(
         { error: "Conversation ID and content are required" },
         { status: 400 }

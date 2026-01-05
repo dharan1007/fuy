@@ -204,15 +204,15 @@ export default function HopinDashboard() {
                             ) : (
                                 // Joined View
                                 <div className="mt-2 border-t border-white/10 pt-2">
-                                    {plan.members.find((m: any) => m.user.id === session?.user?.id)?.status === "ACCEPTED" ? (
+                                    {plan.members.find((m: any) => m.user?.id === session?.user?.id)?.status === "ACCEPTED" ? (
                                         <div className="bg-green-500/10 border border-green-500/30 rounded p-2 text-center">
                                             <span className="text-xs text-green-400 font-bold block mb-1">ACCEPTED</span>
                                             <div className="text-white text-lg font-mono tracking-widest font-bold">
-                                                {plan.members.find((m: any) => m.user.id === session?.user?.id)?.verificationCode || "*******"}
+                                                {plan.members.find((m: any) => m.user?.id === session?.user?.id)?.verificationCode || "*******"}
                                             </div>
                                             <span className="text-[10px] text-green-400/70">Show this code to host</span>
                                         </div>
-                                    ) : plan.members.find((m: any) => m.user.id === session?.user?.id)?.status === "VERIFIED" ? (
+                                    ) : plan.members.find((m: any) => m.user?.id === session?.user?.id)?.status === "VERIFIED" ? (
                                         <div className="text-green-400 text-xs font-bold text-center py-2">✓ YOU ARE VERIFIED</div>
                                     ) : (
                                         <div className="text-yellow-400 text-xs font-bold text-center py-2">PENDING APPROVAL</div>

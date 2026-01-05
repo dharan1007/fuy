@@ -72,11 +72,13 @@ export default function ShareModal({ isOpen, onClose, postId, postSnippet }: Sha
             const convRes = await fetch('/api/chat/conversations', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ participantId: userId })
+                // FIX: API expects targetUserId, not participantId
+                body: JSON.stringify({ targetUserId: userId })
             });
 
             if (!convRes.ok) throw new Error('Failed to resolve conversation');
-            const { id: conversationId } = await convRes.json();
+            const { conversation } = await convRes.json();
+            const conversationId = conversation.id; // Correct destructuring from response structure { conversation: {...} }
 
             // 2. Send the Message with sharedPostId
             const msgRes = await fetch('/api/chat/messages', {
@@ -84,7 +86,7 @@ export default function ShareModal({ isOpen, onClose, postId, postSnippet }: Sha
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     conversationId,
-                    content: '', // Can be empty or a default text like "Shared a post"
+                    content: 'Shared a post', // Provide default content to satisfy API check
                     type: 'post',
                     sharedPostId: postId
                 })
@@ -164,8 +166,8 @@ export default function ShareModal({ isOpen, onClose, postId, postSnippet }: Sha
                                     onClick={() => !sent[user.id] && handleSend(user.id)}
                                     disabled={sending[user.id] || sent[user.id]}
                                     className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${sent[user.id]
-                                            ? 'bg-green-500/20 text-green-400 border border-green-500/50 cursor-default'
-                                            : 'bg-white text-black hover:bg-gray-200'
+                                        ? 'bg-green-500/20 text-green-400 border border-green-500/50 cursor-default'
+                                        : 'bg-white text-black hover:bg-gray-200'
                                         }`}
                                 >
                                     {sending[user.id] ? (

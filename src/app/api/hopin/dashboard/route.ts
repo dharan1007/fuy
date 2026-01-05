@@ -50,7 +50,10 @@ export async function GET(req: NextRequest) {
                     }
                 },
                 members: {
-                    where: { userId: userId }
+                    where: { userId: userId },
+                    include: {
+                        user: { select: { id: true } }
+                    }
                 }
             },
             orderBy: { createdAt: "desc" }

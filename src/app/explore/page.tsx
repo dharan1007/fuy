@@ -63,8 +63,8 @@ export default function ExplorePage() {
         if (res.ok) {
           const data = await res.json();
 
-          // Filter out Chans from main mixed posts
-          const filteredMain = (data.main || []).filter((post: any) => post.postType !== 'CHAN' && post.feature !== 'CHAN');
+          // Filter out Chans and Chapters from main mixed posts
+          const filteredMain = (data.main || []).filter((post: any) => post.postType !== 'CHAN' && post.feature !== 'CHAN' && post.postType !== 'CHAPTER');
 
           setPosts(filteredMain);
           setChans(data.chans && data.chans.length > 0 ? [...data.chans, ...DUMMY_CHANS] : DUMMY_CHANS as unknown as Post[]);

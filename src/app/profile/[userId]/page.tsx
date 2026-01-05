@@ -120,11 +120,43 @@ export default async function UserProfilePage({ params }: { params: { userId: st
   };
 
   // Transform posts to flatten media
-  const posts = userData.posts.map((p: any) => ({
-    ...p,
-    media: p.postMedia?.map((pm: any) => pm.media) || [],
-    createdAt: p.createdAt.toISOString()
-  }));
+  const posts = userData.posts.map((p: any) => {
+    const media = p.postMedia?.map((pm: any) => pm.media) || [];
+    return {
+      ...p,
+      media,
+      createdAt: p.createdAt.toISOString(),
+      // Synthesize Data for Cards
+      lillData: p.postType === 'LILL' ? {
+        id: p.id,
+        videoUrl: media[0]?.url || '',
+        thumbnailUrl: media[0]?.thumbnailUrl || null,
+        duration: 0
+      } : undefined,
+
+      fillData: p.postType === 'FILL' ? {
+        id: p.id,
+        videoUrl: media[0]?.url || '',
+        thumbnailUrl: media[0]?.thumbnailUrl || null,
+        duration: 0
+      } : undefined,
+
+      audData: p.postType === 'AUD' ? {
+        id: p.id,
+        title: "Audio",
+        artist: "Artist",
+        coverImageUrl: media[0]?.url,
+        duration: 0
+      } : undefined,
+
+      chanData: p.postType === 'CHAN' ? {
+        id: p.id,
+        channelName: p.feature,
+        description: p.contentSnippet,
+        coverImageUrl: media[0]?.url
+      } : undefined
+    };
+  });
 
   return (
     <div className="min-h-screen bg-black relative text-white">
