@@ -39,10 +39,17 @@ function FeedPostItem({ post, currentUserId, className, isProfileView }: FeedPos
 
     return (
         <FeedItemProvider onRefresh={onRefresh} onPostHidden={handleHide}>
-            <div className={`${className} flex flex-col relative`}>
-                {/* Badge */}
-                <div className="absolute top-3 left-3 z-30 bg-black text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider shadow-sm pointer-events-none">
-                    {(post.postType || post.feature) === 'CHAN' ? 'CHANNEL' : (post.postType || 'POST')}
+            <div className={`${className} flex flex-col relative border-2 border-white/20 rounded-xl overflow-hidden bg-black/40 backdrop-blur-sm`}>
+                {/* Badge & Date */}
+                <div className="absolute top-3 left-3 z-30 flex items-center gap-2 pointer-events-none">
+                    <div className="bg-black text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider shadow-sm">
+                        {(post.postType || post.feature) === 'CHAN' ? 'CHANNEL' : (post.postType || 'POST')}
+                    </div>
+                    {post.createdAt && (
+                        <span className="text-[10px] font-medium text-white/60 bg-black/30 px-2 py-0.5 rounded-full backdrop-blur-md">
+                            {new Date(post.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                    )}
                 </div>
 
                 {(() => {

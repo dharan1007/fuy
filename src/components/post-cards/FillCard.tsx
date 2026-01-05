@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Tv, MessageCircle, Send } from 'lucide-react';
+import { Tv, MessageCircle, Send, VolumeX, Volume2 } from 'lucide-react';
+import { useVideoAutoplay } from '@/context/FeedPlaybackContext';
 
 import PostActionMenu from '@/components/PostActionMenu';
 import ReactionControl from '@/components/ReactionControl';
@@ -26,8 +27,19 @@ type FillCardProps = {
 export default function FillCard({ fill, user, post, currentUserId, onPostHidden, onRefresh }: FillCardProps) {
     const [isCommentsOpen, setIsCommentsOpen] = useState(false);
     const [isShareOpen, setIsShareOpen] = useState(false);
+    const { videoRef, isPlaying } = useVideoAutoplay(post?.id || fill.id);
+    const [isMuted, setIsMuted] = useState(true);
 
     if (!fill) return null;
+
+    const toggleMute = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (videoRef.current) {
+            videoRef.current.muted = !isMuted;
+            setIsMuted(!isMuted);
+        }
+    };
+
     const formatDuration = (seconds: number) => {
         const mins = Math.floor(seconds / 60);
         const secs = seconds % 60;
@@ -38,12 +50,24 @@ export default function FillCard({ fill, user, post, currentUserId, onPostHidden
         <div className="bg-transparent group h-full flex flex-col">
             <div className="aspect-video w-full bg-black rounded-xl overflow-hidden relative shadow-lg mb-3">
                 <video
+                    ref={videoRef}
                     src={fill.videoUrl}
                     poster={fill.thumbnailUrl || undefined}
-                    controls
                     className="w-full h-full object-contain bg-black"
+                    playsInline
+                    loop
+                    muted={isMuted}
                 />
-                <div className="absolute bottom-2 right-2 px-2 py-1 bg-black/70 rounded text-sm">
+
+                {/* Mute Toggle */}
+                <button
+                    onClick={toggleMute}
+                    className="absolute bottom-2 left-2 p-1.5 bg-black/60 rounded-full text-white/90 hover:text-white z-20"
+                >
+                    {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+                </button>
+
+                <div className="absolute bottom-2 right-2 px-2 py-1 bg-black/70 rounded text-sm text-white font-mono">
                     {formatDuration(fill.duration)}
                 </div>
                 <div className="absolute top-2 right-2 z-20">

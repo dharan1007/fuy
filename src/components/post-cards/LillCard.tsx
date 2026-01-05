@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { useState, useRef } from 'react';
+import { useVideoAutoplay } from '@/context/FeedPlaybackContext';
+import { VolumeX, Volume2 } from 'lucide-react';
 import PostActionMenu from '@/components/PostActionMenu';
 import ReactionControl from '@/components/ReactionControl';
 import { MessageCircle, Send, Heart } from 'lucide-react';
@@ -62,19 +64,42 @@ export default function LillCard({ lill, user, post, currentUserId, onPostHidden
         lastTapRef.current = now;
     };
 
+    // ALL hooks must be called unconditionally FIRST
+    const { videoRef, isPlaying } = useVideoAutoplay(post?.id || lill.id);
+    const [isMuted, setIsMuted] = useState(true);
+
+    const toggleMute = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (videoRef.current) {
+            videoRef.current.muted = !isMuted;
+            setIsMuted(!isMuted);
+        }
+    };
+
     return (
         <div className="bg-black rounded-lg overflow-hidden relative h-full w-full aspect-[9/16] group">
             {/* Full Height Video with Double-Tap */}
             <div
-                className="w-full h-full"
+                className="w-full h-full relative"
                 onClick={handleDoubleTap}
             >
                 <video
+                    ref={videoRef}
                     src={lill.videoUrl}
                     poster={lill.thumbnailUrl || undefined}
-                    controls
                     className="w-full h-full object-cover"
+                    playsInline
+                    loop
+                    muted={isMuted}
                 />
+
+                {/* Mute Toggle Overlay (Bottom Right) */}
+                <button
+                    onClick={toggleMute}
+                    className="absolute bottom-4 right-4 p-2 bg-black/50 backdrop-blur-md rounded-full text-white/80 hover:text-white transition-opacity z-20"
+                >
+                    {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+                </button>
             </div>
 
             {/* Like Animation Overlay */}

@@ -21,6 +21,7 @@ import LandingPage from '@/components/LandingPage/LandingPage';
 // Post type card components
 import FeedPostItem from '@/components/FeedPostItem';
 import { FeedRefreshProvider } from '@/context/FeedItemContext';
+import { FeedPlaybackProvider } from '@/context/FeedPlaybackContext';
 import ReportModal from '@/components/ReportModal';
 // import ReactionControl from '@/components/ReactionControl';
 import ReactionBubbleList from '@/components/ReactionBubbleList';
@@ -440,14 +441,16 @@ export default function HomeClient({ isAdmin = false }: { isAdmin?: boolean }) {
                                 </div>
                             ) : (
                                 <FeedRefreshProvider onRefresh={fetchPosts}>
-                                    {posts.map((post: any) => (
-                                        <FeedPostItem
-                                            key={post.id}
-                                            post={post}
-                                            currentUserId={session?.user?.id}
-                                            className="w-full"
-                                        />
-                                    ))}
+                                    <FeedPlaybackProvider>
+                                        {posts.map((post: any) => (
+                                            <FeedPostItem
+                                                key={post.id}
+                                                post={post}
+                                                currentUserId={session?.user?.id}
+                                                className="w-full"
+                                            />
+                                        ))}
+                                    </FeedPlaybackProvider>
                                 </FeedRefreshProvider>
                             )}
                         </div>
