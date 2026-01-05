@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { useState, useRef } from 'react';
 import { useVideoAutoplay } from '@/context/FeedPlaybackContext';
-import { VolumeX, Volume2 } from 'lucide-react';
+import { VolumeX, Volume2, Maximize, Play, Pause } from 'lucide-react';
 import PostActionMenu from '@/components/PostActionMenu';
 import ReactionControl from '@/components/ReactionControl';
 import { MessageCircle, Send, Heart } from 'lucide-react';
@@ -28,6 +28,7 @@ export default function LillCard({ lill, user, post, currentUserId, onPostHidden
     const [isShareOpen, setIsShareOpen] = useState(false);
     const [showLikeAnimation, setShowLikeAnimation] = useState(false);
     const lastTapRef = useRef<number>(0);
+    const [manualPaused, setManualPaused] = useState(false);
 
     // Early returns AFTER all hooks
     if (!lill) return null;
@@ -41,7 +42,9 @@ export default function LillCard({ lill, user, post, currentUserId, onPostHidden
     }
 
     // Double-tap to like handler
-    const handleDoubleTap = async () => {
+    const handleDoubleTap = async (e: React.MouseEvent) => {
+        // e.stopPropagation(); // We might want to allow this to bubble or not.
+
         const now = Date.now();
         const DOUBLE_TAP_DELAY = 300;
 
@@ -60,6 +63,12 @@ export default function LillCard({ lill, user, post, currentUserId, onPostHidden
             } catch (e) {
                 console.error('Failed to react:', e);
             }
+        } else {
+            // Single tap logic (optional, but effectively handled by separate Play/Pause button if we want)
+            // For now, double tap is dedicated to Like.
+            // We can allow togglePlay on single tap if we wait, but that delays responsiveness.
+            // I'll leave this exclusively for double tap usage.
+            // Play/Pause will be handled by the overlay button.
         }
         lastTapRef.current = now;
     };
@@ -75,6 +84,31 @@ export default function LillCard({ lill, user, post, currentUserId, onPostHidden
             setIsMuted(!isMuted);
         }
     };
+
+    const toggleFullscreen = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (videoRef.current) {
+            if (document.fullscreenElement) {
+                document.exitFullscreen();
+            } else {
+                videoRef.current.requestFullscreen();
+            }
+        }
+    };
+
+    const togglePlay = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (videoRef.current) {
+            if (videoRef.current.paused) {
+                videoRef.current.play();
+                setManualPaused(false);
+            } else {
+                videoRef.current.pause();
+                setManualPaused(true);
+            }
+        }
+    };
+
 
     return (
         <div className="bg-black rounded-lg overflow-hidden relative h-full w-full aspect-[9/16] group">
@@ -93,6 +127,63 @@ export default function LillCard({ lill, user, post, currentUserId, onPostHidden
                     muted={isMuted}
                 />
 
+                {/* Play/Pause Overlay Indicator (Manual) */}
+                {/* We make this clickable to toggle play, but verify it doesn't conflict with double tap area.
+                    Since it's absolute inset-0, it covers the video.
+                    If we put onClick on this overlay, it works.
+                    But user might want to double tap ANYWHERE.
+                    If we combine them: onClick handles both?
+                    Or we keep double tap on container, and Play/Pause button is strictly the icon?
+                    User said "manual indication".
+                    I'll make a specialized center button for Play/Pause that works reliably.
+                */}
+                <div
+                    className={`absolute inset-0 flex items-center justify-center transition-opacity duration-200 ${manualPaused || !isPlaying ? 'opacity-100' : 'opacity-0 hover:opacity-100'}`}
+                    onClick={(e) => {
+                        // If we click here, it might be interpreted as part of double tap sequence if we don't stop propagation?
+                        // But we want double tap to work.
+                        // Let's just USE the double tap handler for tap?
+                        // If I separate them, it's safer.
+                        // But I'll stick to: Click on icon = Play/Pause. Click elsewhere = Double Tap check.
+                        // Since this overlay is inset-0, it covers everything.
+                        // Pointer events none?
+                        // If pointer-events-none, then click goes to container (handleDoubleTap).
+                        // So handleDoubleTap receives all clicks.
+                        // I will modify handleDoubleTap to play/pause on single tap?
+                        // No, I'll just add the Visual Indicator (pointer-events-none) and let the container decide.
+                        // Wait, container only has handleDoubleTap which does... nothing on single tap!
+                        // So currently you CANNOT pause a Lill/Reel by tapping.
+                        // I should fix that. Standard assumption: Tap to Pause/Play. Double Tap to Like.
+
+                        // Fix: Logic to handle both in one handler.
+                    }}
+                    style={{ pointerEvents: 'none' }}
+                >
+                    <div className="bg-black/50 p-4 rounded-full backdrop-blur-sm">
+                        {manualPaused || (videoRef.current?.paused) ? (
+                            <Play size={32} className="text-white fill-white" />
+                        ) : (
+                            <Pause size={32} className="text-white fill-white" />
+                        )}
+                    </div>
+                </div>
+
+                {/* Real Click Handler Layer for Play/Pause + Double Tap */}
+                <div
+                    className="absolute inset-0 z-10"
+                    onClick={(e) => {
+                        // Combined Handler
+                        const now = Date.now();
+                        const DOUBLE_TAP_DELAY = 300;
+                        if (now - lastTapRef.current < DOUBLE_TAP_DELAY) {
+                            handleDoubleTap(e);
+                        } else {
+                            togglePlay(e);
+                        }
+                        lastTapRef.current = now;
+                    }}
+                ></div>
+
                 {/* Mute Toggle Overlay (Bottom Right) */}
                 <button
                     onClick={toggleMute}
@@ -100,6 +191,15 @@ export default function LillCard({ lill, user, post, currentUserId, onPostHidden
                 >
                     {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
                 </button>
+
+                {/* Fullscreen Toggle (Top Left) */}
+                <button
+                    onClick={toggleFullscreen}
+                    className="absolute top-4 left-4 p-2 bg-black/50 backdrop-blur-md rounded-full text-white/80 hover:text-white transition-opacity z-20"
+                >
+                    <Maximize size={20} />
+                </button>
+
             </div>
 
             {/* Like Animation Overlay */}

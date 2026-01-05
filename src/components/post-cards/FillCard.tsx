@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Tv, MessageCircle, Send, VolumeX, Volume2 } from 'lucide-react';
+import { Tv, MessageCircle, Send, VolumeX, Volume2, Maximize, Play, Pause } from 'lucide-react';
 import { useVideoAutoplay } from '@/context/FeedPlaybackContext';
 
 import PostActionMenu from '@/components/PostActionMenu';
@@ -29,6 +29,7 @@ export default function FillCard({ fill, user, post, currentUserId, onPostHidden
     const [isShareOpen, setIsShareOpen] = useState(false);
     const { videoRef, isPlaying } = useVideoAutoplay(post?.id || fill.id);
     const [isMuted, setIsMuted] = useState(true);
+    const [manualPaused, setManualPaused] = useState(false);
 
     if (!fill) return null;
 
@@ -40,6 +41,30 @@ export default function FillCard({ fill, user, post, currentUserId, onPostHidden
         }
     };
 
+    const toggleFullscreen = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (videoRef.current) {
+            if (document.fullscreenElement) {
+                document.exitFullscreen();
+            } else {
+                videoRef.current.requestFullscreen();
+            }
+        }
+    };
+
+    const togglePlay = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (videoRef.current) {
+            if (videoRef.current.paused) {
+                videoRef.current.play();
+                setManualPaused(false);
+            } else {
+                videoRef.current.pause();
+                setManualPaused(true);
+            }
+        }
+    };
+
     const formatDuration = (seconds: number) => {
         const mins = Math.floor(seconds / 60);
         const secs = seconds % 60;
@@ -48,7 +73,10 @@ export default function FillCard({ fill, user, post, currentUserId, onPostHidden
 
     return (
         <div className="bg-transparent group h-full flex flex-col">
-            <div className="aspect-video w-full bg-black rounded-xl overflow-hidden relative shadow-lg mb-3">
+            <div
+                className="aspect-video w-full bg-black rounded-xl overflow-hidden relative shadow-lg mb-3 cursor-pointer group/video"
+                onClick={togglePlay}
+            >
                 <video
                     ref={videoRef}
                     src={fill.videoUrl}
@@ -58,6 +86,26 @@ export default function FillCard({ fill, user, post, currentUserId, onPostHidden
                     loop
                     muted={isMuted}
                 />
+
+                {/* Play/Pause Overlay Indicator */}
+                <div className={`absolute inset-0 flex items-center justify-center pointer-events-none transition-opacity duration-200 ${manualPaused || (videoRef.current?.paused && !isPlaying) ? 'opacity-100' : 'opacity-0 group-hover/video:opacity-100'}`}>
+                    <div className="bg-black/50 p-4 rounded-full backdrop-blur-sm">
+                        {manualPaused || (videoRef.current?.paused) ? (
+                            <Play size={32} className="text-white fill-white" />
+                        ) : (
+                            <Pause size={32} className="text-white fill-white opacity-0" />
+                        )}
+                    </div>
+                </div>
+
+                {/* Fullscreen Toggle */}
+                <button
+                    onClick={toggleFullscreen}
+                    className="absolute top-2 left-2 p-1.5 bg-black/60 rounded-full text-white/90 hover:text-white z-20 opacity-0 group-hover/video:opacity-100 transition-opacity"
+                    title="Fullscreen"
+                >
+                    <Maximize size={16} />
+                </button>
 
                 {/* Mute Toggle */}
                 <button

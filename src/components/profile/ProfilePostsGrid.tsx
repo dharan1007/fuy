@@ -117,41 +117,70 @@ export default function ProfilePostsGrid({ posts: initialPosts, isMe, userId, on
         }
     };
 
+    const [filter, setFilter] = useState<'ALL' | 'FILLS' | 'LILLS' | 'SIMPLE'>('ALL');
+
+    // ... (rest of state)
+
+    const filteredPosts = posts.filter(p => {
+        if (filter === 'ALL') return true;
+        if (filter === 'FILLS') return p.postType === 'FILL';
+        if (filter === 'LILLS') return p.postType === 'LILL';
+        if (filter === 'SIMPLE') return !p.postType || p.postType === 'TEXT';
+        return true;
+    });
+
     return (
         <section className="mb-10 relative">
-            <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                    Recent Posts ({posts.length}{hasMore ? '+' : ''})
-                </h2>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                <div className="flex items-center gap-6 border-b border-white/10 overflow-x-auto scrollbar-hide w-full sm:w-auto pb-2">
+                    {(['ALL', 'FILLS', 'LILLS', 'SIMPLE'] as const).map((t) => (
+                        <button
+                            key={t}
+                            onClick={() => setFilter(t)}
+                            className={`text-sm font-black tracking-widest uppercase pb-2 border-b-2 transition-all shrink-0 ${filter === t ? 'text-white border-white' : 'text-white/40 border-transparent hover:text-white/70'}`}
+                        >
+                            {t}
+                        </button>
+                    ))}
+                </div>
 
-                {isMe && posts.length > 0 && (
-                    <button
-                        onClick={toggleSelectionMode}
-                        className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${selectionMode
-                            ? "bg-red-500/10 text-red-500 hover:bg-red-500/20"
-                            : "bg-gray-100 dark:bg-neutral-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-neutral-700"
-                            }`}
-                    >
-                        {selectionMode ? (
-                            <><X size={16} /> Cancel</>
-                        ) : (
-                            <><CheckSquare size={16} /> Select</>
-                        )}
-                    </button>
-                )}
+                <div className="flex items-center gap-4">
+                    <span className="text-xs font-bold text-white/40 uppercase tracking-widest">
+                        {filteredPosts.length} Posts
+                    </span>
+                    {isMe && posts.length > 0 && (
+                        <button
+                            onClick={toggleSelectionMode}
+                            className={`px-3 py-1.5 text-xs font-black uppercase tracking-wider rounded-lg transition-colors flex items-center gap-2 ${selectionMode
+                                ? "bg-red-500/20 text-red-400 hover:bg-red-500/30"
+                                : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"
+                                }`}
+                        >
+                            {selectionMode ? (
+                                <><X size={14} /> Cancel</>
+                            ) : (
+                                <><CheckSquare size={14} /> Select</>
+                            )}
+                        </button>
+                    )}
+                </div>
             </div>
 
-            {posts.length > 0 ? (
+            {filteredPosts.length > 0 ? (
                 <FeedRefreshProvider onRefresh={() => onActionComplete ? onActionComplete() : router.refresh()}>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {posts.map((p) => {
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+                        {filteredPosts.map((p) => {
                             const isSelected = selectedIds.has(p.id);
 
-                            // Determine layout similar to HomeClient
+                            // Determine layout - simple uniform grid for profile to maximize space/density
+                            // Fills/Chans can still be larger if desired, but "horizontally grid wise" usually implies uniformity or masonry.
+                            // Given user asked for "more posts horizontally", uniform grid is safer.
+                            // However, key logic `spanClass` existed. I'll modify to be responsive but mostly uniform unless explicit.
                             let spanClass = "col-span-1";
-                            if (p.postType === 'CHAN' || p.postType === 'FILL') {
-                                spanClass = "col-span-1 md:col-span-2";
-                            }
+                            // if (p.postType === 'CHAN' || p.postType === 'FILL') {
+                            //    spanClass = "col-span-2"; // Optional: keep or remove. User said "more posts horizontally". Uniform might be better. 
+                            //    I'll remove span to fit more posts, unless truly necessary.
+                            // }
 
                             return (
                                 <div key={p.id} className={`${spanClass} relative group`}>

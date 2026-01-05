@@ -5,6 +5,7 @@ import ProfilePostsGrid from "@/components/profile/ProfilePostsGrid";
 import { SpaceBackground } from "@/components/SpaceBackground";
 import { Tv, ChevronRight, Play } from "lucide-react";
 import Link from 'next/link';
+import ProfileSocialStats from "@/components/profile/ProfileSocialStats";
 
 export const revalidate = 60; // ISR: Revalidate every 60 seconds
 
@@ -199,7 +200,7 @@ export default async function UserProfilePage({ params }: { params: { userId: st
       </div>
 
       {/* Content card */}
-      <div className="mx-auto max-w-4xl px-4 sm:px-6 pt-14 z-10 relative">
+      <div className="mx-auto w-full px-4 sm:px-6 pt-14 z-10 relative">
         {/* Actions & Name Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
           <div>
@@ -227,11 +228,7 @@ export default async function UserProfilePage({ params }: { params: { userId: st
         </div>
 
         {/* Stats */}
-        <div className="flex flex-wrap gap-2 sm:gap-3 mb-6">
-          <Stat label="Followers" value={stats.followers} />
-          <Stat label="Following" value={stats.following} />
-          <Stat label="Posts" value={stats.posts} />
-        </div>
+        <ProfileSocialStats userId={userData.id} stats={stats} />
 
         {/* Bio Section (Read Only) */}
         <div className="grid grid-cols-1 gap-4 sm:gap-6 bg-white/5 backdrop-blur rounded-xl p-4 sm:p-6 shadow-sm border border-white/10 mb-8 text-white">
@@ -317,14 +314,6 @@ export default async function UserProfilePage({ params }: { params: { userId: st
         )}
 
       </div>
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-full bg-white/10 px-4 py-2 shadow text-sm border border-white/10">
-      <span className="font-semibold text-white">{value}</span> <span className="text-gray-300">{label}</span>
     </div>
   );
 }

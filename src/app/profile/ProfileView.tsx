@@ -79,7 +79,12 @@ export default function ProfileView() {
   const stats = data.stats || { friends: 0, posts: 0, followers: 0, following: 0 };
 
   // Inject handler
-  const headerStats = { ...stats, onOpenCard: () => setShowCardModal(true) };
+  const headerStats = {
+    ...stats,
+    onOpenCard: () => setShowCardModal(true),
+    onOpenFollowers: fetchFollowers,
+    onOpenFollowing: fetchFollowing
+  };
 
   // Fetch followers
   const fetchFollowers = async () => {
@@ -167,7 +172,7 @@ export default function ProfileView() {
       />
 
       {/* Content card */}
-      <div className="mx-auto max-w-4xl px-4 sm:px-6 mt-12 relative z-10">
+      <div className="mx-auto w-full px-4 sm:px-6 mt-12 relative z-10">
         {/* Posts */}
         <section className="mb-12">
           <ProfileDetailsSection profile={profile} />

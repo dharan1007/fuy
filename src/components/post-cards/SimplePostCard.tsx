@@ -45,7 +45,7 @@ export default function SimplePostCard({ post, currentUserId }: SimplePostCardPr
     };
 
     return (
-        <div className="bg-transparent border border-white/20 rounded-xl hover:border-white/40 transition-colors flex flex-col h-full relative">
+        <div className="bg-transparent rounded-xl flex flex-col h-full relative">
             {/* Visual Header / Content Area */}
             {/* If there is media, show it. If purely text, show text in a nice container. */}
             <div className="relative w-full aspect-square bg-black/50 overflow-hidden group rounded-t-xl">

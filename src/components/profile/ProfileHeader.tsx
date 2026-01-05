@@ -22,6 +22,8 @@ type ProfileHeaderProps = {
         following: number;
         posts: number;
         onOpenCard?: () => void;
+        onOpenFollowers?: () => void;
+        onOpenFollowing?: () => void;
     };
 };
 
@@ -179,8 +181,20 @@ export default function ProfileHeader({ profile, isOwnProfile, stats }: ProfileH
                         {stats && (
                             <>
                                 <div><strong className="text-white">{stats.posts}</strong> Posts</div>
-                                <div><strong className="text-white">{stats.followers}</strong> Followers</div>
-                                <div><strong className="text-white">{stats.following}</strong> Following</div>
+                                <button
+                                    onClick={stats.onOpenFollowers}
+                                    disabled={!stats.onOpenFollowers}
+                                    className={`text-left hover:text-white transition-colors ${stats.onOpenFollowers ? 'cursor-pointer' : 'cursor-default'}`}
+                                >
+                                    <strong className="text-white">{stats.followers}</strong> Followers
+                                </button>
+                                <button
+                                    onClick={stats.onOpenFollowing}
+                                    disabled={!stats.onOpenFollowing}
+                                    className={`text-left hover:text-white transition-colors ${stats.onOpenFollowing ? 'cursor-pointer' : 'cursor-default'}`}
+                                >
+                                    <strong className="text-white">{stats.following}</strong> Following
+                                </button>
                             </>
                         )}
                     </div>
