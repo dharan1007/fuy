@@ -23,7 +23,7 @@ interface Comment {
     replies?: Comment[];
 
     // Frontend Helpers
-    reactionCounts: { W: number; L: number; CAP: number; FIRE: number };
+    reactionCounts: { W: number; L: number; CAP: number };
     userReaction?: string | null;
 }
 
@@ -243,12 +243,13 @@ export default function CommentsModal({ isOpen, onClose, postId, postOwnerId, cu
 
                         {/* Reaction Buttons (Mini) */}
                         <div className="flex items-center gap-1 ml-2">
-                            {["W", "L", "CAP", "FIRE"].map((type) => (
+                            {["W", "L", "CAP"].map((type) => (
                                 <button
                                     key={type}
                                     onClick={() => handleReact(comment.id, type)}
                                     className={cn(
-                                        "px-1.5 py-0.5 rounded text-[10px] font-bold border transition-colors",
+                                        "px-1.5 py-0.5 rounded transition-colors border",
+                                        type === "CAP" ? "text-[10px] font-black tracking-tighter" : "text-[10px] font-bold",
                                         comment.userReaction === type
                                             ? "bg-white/10 border-white/20 text-white"
                                             : "border-transparent text-white/30 hover:bg-white/5 hover:text-white/50"
@@ -256,7 +257,7 @@ export default function CommentsModal({ isOpen, onClose, postId, postOwnerId, cu
                                 >
                                     {type}
                                     {comment.reactionCounts[type as keyof typeof comment.reactionCounts] > 0 &&
-                                        <span className="ml-1 opacity-70">{comment.reactionCounts[type as keyof typeof comment.reactionCounts]}</span>
+                                        <span className="ml-1 opacity-70 font-medium">{comment.reactionCounts[type as keyof typeof comment.reactionCounts]}</span>
                                     }
                                 </button>
                             ))}

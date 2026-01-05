@@ -39,7 +39,7 @@ interface AnalyticsData {
             postType: string;
             views: number;
             reactions: number;
-            breakdown: { W: number; L: number; CAP: number; FIRE: number };
+            breakdown: { W: number; L: number; CAP: number };
         }[];
         rankings: {
             mostLiked: any;
@@ -70,7 +70,7 @@ interface AnalyticsData {
         }[];
         audience: {
             totalReactions: number;
-            sentiment: { W: number; L: number; FIRE: number; CAP: number };
+            sentiment: { W: number; L: number; CAP: number };
         };
         currentViewers: number;
     };
@@ -216,10 +216,7 @@ export default function DashboardAnalytics() {
                                     <div className="text-2xl font-black text-red-400">{data.channel.audience.sentiment.L}</div>
                                     <div className="text-[10px] text-gray-500 uppercase">Losses</div>
                                 </div>
-                                <div className="text-center">
-                                    <div className="text-2xl font-black text-orange-400">{data.channel.audience.sentiment.FIRE}</div>
-                                    <div className="text-[10px] text-gray-500 uppercase">Fire</div>
-                                </div>
+
                                 <div className="text-center">
                                     <div className="text-2xl font-black text-blue-400">{data.channel.audience.sentiment.CAP}</div>
                                     <div className="text-[10px] text-gray-500 uppercase">Cap</div>

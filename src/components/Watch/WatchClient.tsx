@@ -252,7 +252,7 @@ export default function WatchClient({
                             <ReactionControl
                                 postId={post.id}
                                 initialReaction={initialReaction}
-                                counts={post.reactionsCount || { W: 0, L: 0, CAP: 0, FIRE: 0 }}
+                                counts={post.reactionsCount || { W: 0, L: 0, CAP: 0 }}
                                 onReact={handleReact}
                             />
                             <div className="w-px h-6 bg-white/10 mx-2" />
