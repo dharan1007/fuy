@@ -43,9 +43,12 @@ export async function GET(req: Request) {
         select: {
           followersCount: true,
           followingCount: true,
-          // Count friends (accepted friendships)
-          friendshipsA: { where: { status: 'ACCEPTED' } },
-          friendshipsB: { where: { status: 'ACCEPTED' } },
+          _count: {
+            select: {
+              friendshipsA: { where: { status: 'ACCEPTED' } },
+              friendshipsB: { where: { status: 'ACCEPTED' } }
+            }
+          }
         }
       }),
       prisma.post.count({ where: { userId, status: 'PUBLISHED', postType: { not: 'CHAN' } } })
@@ -55,7 +58,7 @@ export async function GET(req: Request) {
       followers: statsData?.followersCount || 0,
       following: statsData?.followingCount || 0,
       posts: postsCount,
-      friends: (statsData?.friendshipsA.length || 0) + (statsData?.friendshipsB.length || 0)
+      friends: (statsData?._count?.friendshipsA || 0) + (statsData?._count?.friendshipsB || 0)
     };
 
     // 3. Fetch Recent Posts (Limit 12)

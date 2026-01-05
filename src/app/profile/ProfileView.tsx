@@ -86,10 +86,11 @@ export default function ProfileView() {
     setLoadingFollowers(true);
     setFollowersError(null);
     try {
-      const response = await fetch('/api/followers');
+      // Use new efficient API
+      const response = await fetch('/api/users/social?type=followers&limit=50');
       const data = await response.json();
       if (response.ok) {
-        setFollowersList(data.followers || []);
+        setFollowersList(data.users || []);
       } else {
         setFollowersList([]);
         setFollowersError(data.error || 'Failed to load followers');
@@ -109,10 +110,10 @@ export default function ProfileView() {
     setLoadingFollowing(true);
     setFollowingError(null);
     try {
-      const response = await fetch('/api/following');
+      const response = await fetch('/api/users/social?type=following&limit=50');
       const data = await response.json();
       if (response.ok) {
-        setFollowingList(data.following || []);
+        setFollowingList(data.users || []);
       } else {
         setFollowingList([]);
         setFollowingError(data.error || 'Failed to load following');
@@ -162,6 +163,7 @@ export default function ProfileView() {
         closeModal={() => setShowCardModal(false)}
         profile={profile}
         isOwnProfile={true}
+        onUpdate={() => mutate()}
       />
 
       {/* Content card */}

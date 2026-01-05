@@ -9,9 +9,10 @@ interface ProfileCardModalProps {
     closeModal: () => void;
     profile: any;
     isOwnProfile: boolean;
+    onUpdate?: () => void;
 }
 
-export function ProfileCardModal({ isOpen, closeModal, profile: initialProfile, isOwnProfile }: ProfileCardModalProps) {
+export function ProfileCardModal({ isOpen, closeModal, profile: initialProfile, isOwnProfile, onUpdate }: ProfileCardModalProps) {
     const router = useRouter();
     const [isEditing, setIsEditing] = useState(false);
 
@@ -104,7 +105,11 @@ export function ProfileCardModal({ isOpen, closeModal, profile: initialProfile, 
             });
             if (res.ok) {
                 setIsEditing(false);
-                router.refresh();
+                if (onUpdate) {
+                    onUpdate();
+                } else {
+                    router.refresh();
+                }
             } else {
                 const data = await res.json();
                 alert(`Failed to save: ${data.error || 'Unknown error'}`);

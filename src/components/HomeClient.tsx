@@ -151,11 +151,11 @@ export default function HomeClient({ isAdmin = false }: { isAdmin?: boolean }) {
         setLoadingFollowers(true);
         setFollowersError(null);
         try {
-            const response = await fetch('/api/followers');
+            const response = await fetch('/api/users/social?type=followers&limit=50');
             const data = await response.json();
 
             if (response.ok) {
-                setFollowersList(data.followers || []);
+                setFollowersList(data.users || []);
                 setFollowersError(null);
             } else {
                 setFollowersList([]);
@@ -177,11 +177,11 @@ export default function HomeClient({ isAdmin = false }: { isAdmin?: boolean }) {
         setLoadingFollowing(true);
         setFollowingError(null);
         try {
-            const response = await fetch('/api/following');
+            const response = await fetch('/api/users/social?type=following&limit=50');
             const data = await response.json();
 
             if (response.ok) {
-                setFollowingList(data.following || []);
+                setFollowingList(data.users || []);
                 setFollowingError(null);
             } else {
                 setFollowingList([]);

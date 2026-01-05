@@ -3,26 +3,18 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 
-interface User {
+interface UserItem {
   id: string;
   name: string | null;
-  profile: {
-    displayName: string | null;
-    avatarUrl: string | null;
-  } | null;
-}
-
-interface UserListItem {
-  id: string;
-  friendshipId: string;
-  user: User;
-  createdAt: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  friendshipId?: string;
 }
 
 interface UserListModalProps {
   isOpen: boolean;
   title: string;
-  users: UserListItem[];
+  users: UserItem[];
   onClose: () => void;
   onRemoveFriend: (friendshipId: string) => Promise<void>;
   isLoading?: boolean;
@@ -54,13 +46,13 @@ export default function UserListModal(props: UserListModalProps) {
     }
   };
 
-  const getDisplayName = (user: User) => {
-    return user.profile?.displayName || user.name || 'Unknown User';
+  const getDisplayName = (user: UserItem) => {
+    return user.displayName || user.name || 'Unknown User';
   };
 
-  const getAvatarUrl = (user: User) => {
+  const getAvatarUrl = (user: UserItem) => {
     return (
-      user.profile?.avatarUrl ||
+      user.avatarUrl ||
       `https://api.dicebear.com/7.x/initials/svg?seed=${getDisplayName(user)}`
     );
   };
@@ -109,31 +101,33 @@ export default function UserListModal(props: UserListModalProps) {
                     className="flex items-center justify-between p-4 hover:bg-white/5 transition-colors"
                   >
                     <Link
-                      href={`/profile/${item.user.id}`}
+                      href={`/profile/${item.id}`}
                       className="flex-1 flex items-center gap-3 hover:opacity-80 transition-opacity"
                     >
                       <img
-                        src={getAvatarUrl(item.user)}
-                        alt={getDisplayName(item.user)}
+                        src={getAvatarUrl(item)}
+                        alt={getDisplayName(item)}
                         className="w-10 h-10 rounded-full border-2 border-blue-400 flex-shrink-0"
                       />
                       <div className="flex-1 min-w-0">
                         <div className="font-medium text-white truncate">
-                          {getDisplayName(item.user)}
+                          {getDisplayName(item)}
                         </div>
                         <div className="text-sm text-white/60">
-                          {item.user.name && `@${item.user.name}`}
+                          {item.name && `@${item.name}`}
                         </div>
                       </div>
                     </Link>
 
-                    <button
-                      onClick={() => handleRemove(item.friendshipId)}
-                      disabled={removingId === item.friendshipId}
-                      className="ml-2 px-3 py-1 bg-red-500 hover:bg-red-600 disabled:bg-gray-400 text-white text-xs font-medium rounded transition-colors flex-shrink-0"
-                    >
-                      {removingId === item.friendshipId ? 'Removing...' : 'Remove'}
-                    </button>
+                    {item.friendshipId && (
+                      <button
+                        onClick={() => handleRemove(item.friendshipId!)}
+                        disabled={removingId === item.friendshipId}
+                        className="ml-2 px-3 py-1 bg-red-500 hover:bg-red-600 disabled:bg-gray-400 text-white text-xs font-medium rounded transition-colors flex-shrink-0"
+                      >
+                        {removingId === item.friendshipId ? 'Removing...' : 'Remove'}
+                      </button>
+                    )}
                   </li>
                 ))}
               </ul>
