@@ -32,6 +32,33 @@ export default function ChanCard({ chan, user, postId, post, currentUserId, onPo
     if (!chan) return null;
 
     // 1. Try to find the latest active active episode from all shows
+    const shows = (chan as any).shows || [];
+    const activeShows = shows.filter((s: any) => !s.isArchived);
+
+    let allEpisodes: any[] = [];
+    activeShows.forEach((show: any) => {
+        if (show.episodes) {
+            allEpisodes = [...allEpisodes, ...show.episodes.map((ep: any) => ({
+                ...ep,
+                showTitle: show.title,
+                url: ep.videoUrl || ep.url, // Handle both field names
+                thumbnail: ep.coverUrl || ep.thumbnail
+            }))];
+        }
+    });
+
+    // 2. Fallback to deprecated episodes field if no shows found
+    if (allEpisodes.length === 0) {
+        const legacyEpisodes = typeof chan.episodes === 'string' ? JSON.parse(chan.episodes || '[]') : chan.episodes || [];
+        allEpisodes = legacyEpisodes.map((ep: any) => ({
+            ...ep,
+            url: ep.url,
+            thumbnail: ep.thumbnail
+        }));
+    }
+
+    // Sort by created date if available to get the actual latest
+    allEpisodes.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
     const hasEpisodes = allEpisodes.length > 0;
     const currentEp = hasEpisodes ? allEpisodes[selectedEpisode] : null;
 
