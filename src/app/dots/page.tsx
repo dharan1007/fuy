@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useSession } from '@/hooks/use-session';
 import { Play, Pause, Search, ChevronLeft, MoreVertical, Check, Plus, X } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -609,23 +609,25 @@ export default function DotsPage() {
 
             {viewMode === 'grid' ? (
                 <div className="pt-[140px] h-screen overflow-y-auto pb-20 no-scrollbar bg-[#0f0f0f]">
-                    {/* Feature Item and Grid Logic Same as Before */}
-                    <div className="max-w-[1800px] mx-auto px-6 mb-8">
-                        <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
-                            {FILL_FILTERS.map((filter) => (
-                                <button
-                                    key={filter}
-                                    onClick={() => setActiveFillFilter(filter)}
-                                    className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${activeFillFilter === filter
-                                        ? 'bg-[#E5E5E5] text-black'
-                                        : 'bg-[#272727] text-white hover:bg-[#3F3F3F]'
-                                        }`}
-                                >
-                                    {filter}
-                                </button>
-                            ))}
+                    {/* Fill Filters - Only show for Fills category */}
+                    {activeCategory === 'fills' && (
+                        <div className="max-w-[1800px] mx-auto px-6 mb-8">
+                            <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2">
+                                {FILL_FILTERS.map((filter) => (
+                                    <button
+                                        key={filter}
+                                        onClick={() => setActiveFillFilter(filter)}
+                                        className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${activeFillFilter === filter
+                                            ? 'bg-[#E5E5E5] text-black'
+                                            : 'bg-[#272727] text-white hover:bg-[#3F3F3F]'
+                                            }`}
+                                    >
+                                        {filter}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     <div className="max-w-[1800px] mx-auto px-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
                         {filteredDots.map((dot, index) => (

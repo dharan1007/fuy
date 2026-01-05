@@ -21,11 +21,13 @@ type LillCardProps = {
 };
 
 export default function LillCard({ lill, user, post, currentUserId, onPostHidden, onRefresh }: LillCardProps) {
+    // ALL hooks must be called unconditionally FIRST (React Rules of Hooks)
     const [isCommentsOpen, setIsCommentsOpen] = useState(false);
     const [isShareOpen, setIsShareOpen] = useState(false);
     const [showLikeAnimation, setShowLikeAnimation] = useState(false);
     const lastTapRef = useRef<number>(0);
 
+    // Early returns AFTER all hooks
     if (!lill) return null;
     if (!lill.videoUrl) {
         // Fallback for missing video
