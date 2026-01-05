@@ -135,7 +135,6 @@ export async function POST(req: NextRequest) {
             W: 0,
             L: 0,
             CAP: 0,
-            FIRE: 0,
         };
 
         reactions.forEach((r) => {

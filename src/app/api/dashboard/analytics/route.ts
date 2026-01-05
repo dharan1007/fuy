@@ -254,8 +254,7 @@ export async function GET(req: Request) {
                 breakdown: {
                     W: reactions['W'] || 0,
                     L: reactions['L'] || 0,
-                    CAP: reactions['CAP'] || 0,
-                    FIRE: reactions['FIRE'] || 0
+                    CAP: reactions['CAP'] || 0
                 }
             };
         });
@@ -348,10 +347,9 @@ export async function GET(req: Request) {
         const sentiment = processedPosts.reduce((acc, curr) => {
             acc.W += curr.breakdown.W;
             acc.L += curr.breakdown.L;
-            acc.FIRE += curr.breakdown.FIRE;
             acc.CAP += curr.breakdown.CAP;
             return acc;
-        }, { W: 0, L: 0, FIRE: 0, CAP: 0 });
+        }, { W: 0, L: 0, CAP: 0 });
 
 
         return NextResponse.json({

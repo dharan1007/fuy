@@ -208,11 +208,11 @@ export async function GET(req: NextRequest) {
     _count: { type: true }
   });
 
-  const reactionMap: Record<string, { W: number; L: number; CAP: number; FIRE: number }> = {};
+  const reactionMap: Record<string, { W: number; L: number; CAP: number }> = {};
 
   allReactions.forEach(r => {
     if (!reactionMap[r.postId]) {
-      reactionMap[r.postId] = { W: 0, L: 0, CAP: 0, FIRE: 0 };
+      reactionMap[r.postId] = { W: 0, L: 0, CAP: 0 };
     }
     const type = r.type as keyof typeof reactionMap[string];
     if (reactionMap[r.postId][type] !== undefined) {
@@ -227,7 +227,7 @@ export async function GET(req: NextRequest) {
       media = item.mediaPreviews ? JSON.parse(item.mediaPreviews) : [];
     } catch (e) { }
 
-    const realTimeCounts = reactionMap[item.postId] || { W: 0, L: 0, CAP: 0, FIRE: 0 };
+    const realTimeCounts = reactionMap[item.postId] || { W: 0, L: 0, CAP: 0 };
     const totalLikes = Object.values(realTimeCounts).reduce((a: number, b: number) => a + b, 0);
 
     return {
