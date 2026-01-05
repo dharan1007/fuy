@@ -8,13 +8,17 @@ import { prisma } from "@/lib/prisma";
 import { getSessionUser, requireUserId } from "@/lib/session";
 
 // GET /api/profile
+// GET /api/profile
 export async function GET(req: Request) {
   try {
     const user = await getSessionUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+    const userId = user.id;
+
+    // 1. Fetch Profile
     const profile = await prisma.profile.findUnique({
-      where: { userId: user.id },
+      where: { userId },
       include: {
         user: {
           select: {
@@ -30,8 +34,85 @@ export async function GET(req: Request) {
       }
     });
 
-    return NextResponse.json(profile || { userId: user.id });
+    // 2. Fetch Stats
+    const [followersCount, followingCount, postsCount] = await Promise.all([
+      prisma.follows.count({ where: { followingId: userId } }),
+      prisma.follows.count({ where: { followerId: userId } }),
+      prisma.post.count({ where: { userId, status: 'PUBLISHED', postType: { not: 'CHAN' } } })
+    ]);
+
+    const stats = {
+      followers: followersCount,
+      following: followingCount,
+      posts: postsCount,
+      friends: 0 // Placeholder logic for now
+    };
+
+    // 3. Fetch Recent Posts (Limit 12)
+    const rawPosts = await prisma.post.findMany({
+      where: {
+        userId,
+        status: 'PUBLISHED',
+        postType: { not: 'CHAN' },
+      },
+      take: 12,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        postMedia: { include: { media: true } },
+        user: {
+          select: {
+            id: true,
+            name: true,
+            profile: { select: { displayName: true, avatarUrl: true } }
+          }
+        },
+        _count: {
+          select: { likes: true, comments: true }
+        }
+      }
+    });
+
+    // Transform Posts
+    const posts = rawPosts.map((p: any) => {
+      const media = p.postMedia?.map((pm: any) => pm.media) || [];
+      return {
+        ...p,
+        media,
+        createdAt: p.createdAt.toISOString(),
+        likes: p._count?.likes || 0,
+        comments: p._count?.comments || 0,
+        lillData: p.postType === 'LILL' ? {
+          id: p.id,
+          videoUrl: media[0]?.url || '',
+          thumbnailUrl: media[0]?.thumbnailUrl || null,
+          duration: 0
+        } : undefined,
+        fillData: p.postType === 'FILL' ? {
+          id: p.id,
+          videoUrl: media[0]?.url || '',
+          thumbnailUrl: media[0]?.thumbnailUrl || null,
+          duration: 0
+        } : undefined,
+        audData: p.postType === 'AUD' ? {
+          id: p.id,
+          audioUrl: media[0]?.url || '',
+          title: "Audio",
+          artist: "Artist",
+          coverImageUrl: media[0]?.url,
+          duration: 0
+        } : undefined,
+      };
+    });
+
+    return NextResponse.json({
+      profile: profile || { userId: user.id }, // Ensure profile key
+      stats,
+      posts,
+      id: user.id
+    });
+
   } catch (e: any) {
+    console.error("Profile GET Error:", e);
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }
