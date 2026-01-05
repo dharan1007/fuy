@@ -58,7 +58,7 @@ export async function GET(req: Request) {
 
       return {
         id: c.id,
-        participantName: userState?.nickname || otherUser?.name || 'Unknown User',
+        participantName: userState?.nickname || otherUser?.profile?.displayName || otherUser?.name || 'Unknown User',
         participantId: otherUser?.id,
         lastMessage: lastMsg?.content || 'Started a conversation',
         lastMessageTime: lastMsg ? new Date(lastMsg.createdAt).getTime() : new Date(c.createdAt).getTime(),

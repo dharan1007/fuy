@@ -58,13 +58,15 @@ export default function ReactionControl({ postId, initialReaction, counts, onRea
     };
 
     return (
-        <div className={cn("flex items-center gap-1", orientation === "vertical" ? "flex-col" : "flex-row", className)}>
+        <div className={cn("flex gap-1.5", orientation === "vertical" ? "flex-col items-stretch" : "flex-row items-center", className)}>
             {/* W Reaction */}
             <button
                 onClick={(e) => { e.stopPropagation(); handleReact("W"); }}
                 className={cn(
-                    "group flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all duration-300 border border-transparent",
-                    currentReaction === "W" ? "bg-white/10 border-white/20" : "hover:bg-white/5 hover:border-white/10"
+                    "group flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full transition-all duration-300 border backdrop-blur-sm",
+                    currentReaction === "W"
+                        ? "bg-green-500/10 border-green-500/50 shadow-[0_0_10px_rgba(34,197,94,0.2)]"
+                        : "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20"
                 )}
             >
                 <span className={cn("font-bold text-sm", currentReaction === "W" ? "text-green-400" : "text-white/40 group-hover:text-white/60")}>W</span>
@@ -77,8 +79,10 @@ export default function ReactionControl({ postId, initialReaction, counts, onRea
             <button
                 onClick={(e) => { e.stopPropagation(); handleReact("L"); }}
                 className={cn(
-                    "group flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all duration-300 border border-transparent",
-                    currentReaction === "L" ? "bg-white/10 border-white/20" : "hover:bg-white/5 hover:border-white/10"
+                    "group flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full transition-all duration-300 border backdrop-blur-sm",
+                    currentReaction === "L"
+                        ? "bg-red-500/10 border-red-500/50 shadow-[0_0_10px_rgba(239,68,68,0.2)]"
+                        : "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20"
                 )}
             >
                 <span className={cn("font-bold text-sm", currentReaction === "L" ? "text-red-500" : "text-white/40 group-hover:text-white/60")}>L</span>
@@ -91,8 +95,10 @@ export default function ReactionControl({ postId, initialReaction, counts, onRea
             <button
                 onClick={(e) => { e.stopPropagation(); handleReact("CAP"); }}
                 className={cn(
-                    "group flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all duration-300 border border-transparent",
-                    currentReaction === "CAP" ? "bg-white/10 border-white/20" : "hover:bg-white/5 hover:border-white/10"
+                    "group flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full transition-all duration-300 border backdrop-blur-sm",
+                    currentReaction === "CAP"
+                        ? "bg-blue-500/10 border-blue-500/50 shadow-[0_0_10px_rgba(59,130,246,0.2)]"
+                        : "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20"
                 )}
             >
                 <svg viewBox="0 0 24 24" fill="currentColor" className={cn("w-4 h-4", currentReaction === "CAP" ? "text-blue-400" : "text-white/40 group-hover:text-white/60")}>
@@ -100,6 +106,22 @@ export default function ReactionControl({ postId, initialReaction, counts, onRea
                 </svg>
                 <span className={cn("text-xs font-medium", currentReaction === "CAP" ? "text-white" : "text-white/40 group-hover:text-white/60")}>
                     {optimisticCounts["CAP"] || 0}
+                </span>
+            </button>
+
+            {/* FIRE Reaction - Added */}
+            <button
+                onClick={(e) => { e.stopPropagation(); handleReact("FIRE"); }}
+                className={cn(
+                    "group flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full transition-all duration-300 border backdrop-blur-sm",
+                    currentReaction === "FIRE"
+                        ? "bg-orange-500/10 border-orange-500/50 shadow-[0_0_10px_rgba(249,115,22,0.2)]"
+                        : "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20"
+                )}
+            >
+                <Flame className={cn("w-4 h-4", currentReaction === "FIRE" ? "text-orange-500 fill-orange-500" : "text-white/40 group-hover:text-white/60")} />
+                <span className={cn("text-xs font-medium", currentReaction === "FIRE" ? "text-white" : "text-white/40 group-hover:text-white/60")}>
+                    {optimisticCounts["FIRE"] || 0}
                 </span>
             </button>
         </div>

@@ -540,10 +540,28 @@ export default function NotificationsPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-col gap-1.5">
                         <p className="text-[15px] text-gray-200 leading-snug font-light tracking-wide">
-                          <span className="font-bold text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">
-                            {getDisplayName(notif.sender)}
-                          </span>
-                          {" "}{cleanMessage}
+                          {(() => {
+                            const displayName = notif.sender ? getDisplayName(notif.sender) : null;
+                            // If we have a sender, try to strip their name from the message to avoid duplication
+                            // "Manoj commented" -> "commented"
+                            let displayMessage = cleanMessage;
+                            if (displayName && displayMessage.startsWith(displayName)) {
+                              displayMessage = displayMessage.substring(displayName.length).trim();
+                            }
+
+                            return (
+                              <>
+                                {displayName && (
+                                  <span className="font-bold text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]">
+                                    {displayName}{" "}
+                                  </span>
+                                )}
+                                <span className={!displayName ? "font-bold text-gray-200" : ""}>
+                                  {displayMessage}
+                                </span>
+                              </>
+                            );
+                          })()}
                         </p>
 
                         {/* Friend Request / Follow Action Area */}

@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from '@/hooks/use-session';
-import { Plus, X, HelpCircle, Tag, MessageSquare, BookOpen, Clock, Activity } from 'lucide-react';
+import { Plus, X, HelpCircle, Tag, MessageSquare, BookOpen, Clock, Activity, Edit2, Trash2 } from 'lucide-react';
 import styles from './BondingDashboard.module.css';
 
 // Types
@@ -567,13 +567,74 @@ export default function BondingDashboard() {
                                                 return (
                                                     <div className={styles.tagList}>
                                                         {relevantTags.map(tag => (
-                                                            <div key={tag.id} className={`${styles.tagCard} ${styles[activeLocker] || 'border-l-4 border-blue-500 bg-white/5'}`}>
+                                                            <div key={tag.id} className={`${styles.tagCard} ${styles[activeLocker] || 'border-l-4 border-blue-500 bg-white/5'} group relative`}>
                                                                 <div className="flex justify-between items-start mb-2">
                                                                     <div className={`${styles.tagBadge} ${activeLocker === 'reminders' ? 'bg-blue-900/50 text-blue-200 border border-blue-500/30' : ''}`}>
                                                                         {tag.tagType.toUpperCase()}
                                                                     </div>
-                                                                    <div className="text-[10px] text-gray-500 font-mono">
-                                                                        {new Date(tag.createdAt).toLocaleDateString()}
+                                                                    <div className="flex items-center gap-2">
+                                                                        <div className="text-[10px] text-gray-500 font-mono">
+                                                                            {new Date(tag.createdAt).toLocaleDateString()}
+                                                                        </div>
+                                                                        {/* Actions */}
+                                                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                            <button
+                                                                                onClick={async (e) => {
+                                                                                    e.stopPropagation();
+                                                                                    const newTag = window.prompt("Edit tag:", tag.tagType);
+                                                                                    if (newTag && newTag !== tag.tagType) {
+                                                                                        // Optimistic update
+                                                                                        const oldTag = tag.tagType;
+                                                                                        setTags(prev => prev.map(t => t.id === tag.id ? { ...t, tagType: newTag } : t));
+
+                                                                                        try {
+                                                                                            const res = await fetch('/api/chat/messages/tag', {
+                                                                                                method: 'PATCH',
+                                                                                                headers: { 'Content-Type': 'application/json' },
+                                                                                                body: JSON.stringify({ messageId: tag.messageId, oldTag: oldTag, newTag: newTag })
+                                                                                            });
+                                                                                            if (!res.ok) throw new Error('Failed to update');
+                                                                                            fetchBondingData(); // Refresh to be safe
+                                                                                        } catch (err) {
+                                                                                            console.error(err);
+                                                                                            alert("Failed to update tag");
+                                                                                            fetchBondingData(); // Revert
+                                                                                        }
+                                                                                    }
+                                                                                }}
+                                                                                className="p-1 hover:bg-white/10 rounded text-gray-400 hover:text-white"
+                                                                                title="Edit Tag Category"
+                                                                            >
+                                                                                <Edit2 size={12} />
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={async (e) => {
+                                                                                    e.stopPropagation();
+                                                                                    if (window.confirm("Remove this tag?")) {
+                                                                                        // Optimistic
+                                                                                        setTags(prev => prev.filter(t => t.id !== tag.id));
+
+                                                                                        try {
+                                                                                            const res = await fetch('/api/chat/messages/tag', {
+                                                                                                method: 'DELETE',
+                                                                                                headers: { 'Content-Type': 'application/json' },
+                                                                                                body: JSON.stringify({ messageId: tag.messageId, tag: tag.tagType })
+                                                                                            });
+                                                                                            if (!res.ok) throw new Error('Failed to delete');
+                                                                                            fetchBondingData(); // Refresh counts
+                                                                                        } catch (err) {
+                                                                                            console.error(err);
+                                                                                            alert("Failed to delete tag");
+                                                                                            fetchBondingData();
+                                                                                        }
+                                                                                    }
+                                                                                }}
+                                                                                className="p-1 hover:bg-red-500/20 rounded text-gray-400 hover:text-red-400"
+                                                                                title="Remove Tag"
+                                                                            >
+                                                                                <Trash2 size={12} />
+                                                                            </button>
+                                                                        </div>
                                                                     </div>
                                                                 </div>
                                                                 <div className="text-white text-sm font-medium leading-relaxed">"{tag.message.content}"</div>

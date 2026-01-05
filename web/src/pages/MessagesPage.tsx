@@ -824,46 +824,77 @@ function MessagesPageContent() {
                                             >
                                                 {/* Content */}
                                                 {msg.sharedPost ? (
-                                                    <div className="flex flex-col gap-2 min-w-[200px]">
+                                                    <div
+                                                        className="flex flex-col gap-3 min-w-[260px] sm:min-w-[300px] cursor-pointer group/post"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            router.push(`/post/${msg.sharedPost!.id}`);
+                                                        }}
+                                                    >
                                                         {/* Shared Post Header */}
-                                                        <div className="flex items-center gap-2 mb-1 border-b border-white/20 pb-1.5">
-                                                            <div className="w-5 h-5 rounded-full overflow-hidden bg-white/10">
-                                                                {/* ... shared post avatar ... */}
+                                                        <div className="flex items-center gap-2.5 pb-2 border-b border-white/10">
+                                                            <div className="w-8 h-8 rounded-full overflow-hidden bg-white/10 ring-1 ring-white/10">
                                                                 {msg.sharedPost.user.profile?.avatarUrl ? (
                                                                     <img src={msg.sharedPost.user.profile.avatarUrl} alt="" className="w-full h-full object-cover" />
                                                                 ) : (
-                                                                    <div className="w-full h-full flex items-center justify-center text-[10px] font-bold">
+                                                                    <div className="w-full h-full flex items-center justify-center text-xs font-bold bg-gradient-to-br from-gray-700 to-gray-900">
                                                                         {msg.sharedPost.user.profile?.displayName?.[0] || '?'}
                                                                     </div>
                                                                 )}
                                                             </div>
-                                                            <span className="font-bold text-xs opacity-90">{msg.sharedPost.user.profile?.displayName || 'Unknown User'}</span>
+                                                            <div className="flex flex-col leading-none gap-0.5">
+                                                                <span className="font-bold text-sm text-white group-hover/post:text-blue-300 transition-colors">
+                                                                    {msg.sharedPost.user.profile?.displayName || 'Unknown User'}
+                                                                </span>
+                                                                <span className="text-[10px] text-white/40 uppercase tracking-wider font-medium">Post</span>
+                                                            </div>
                                                         </div>
-                                                        {/* ... shared post content ... */}
+
+                                                        {/* Media */}
                                                         {msg.sharedPost.media && msg.sharedPost.media.length > 0 && (
-                                                            <div className="rounded-lg overflow-hidden aspect-video bg-black/50 relative border border-white/10">
+                                                            <div className="rounded-xl overflow-hidden w-full bg-black/50 relative border border-white/10 shadow-lg">
                                                                 {msg.sharedPost.media[0].type === 'VIDEO' ? (
-                                                                    <video src={msg.sharedPost.media[0].url} className="w-full h-full object-cover" />
+                                                                    <video
+                                                                        src={msg.sharedPost.media[0].url}
+                                                                        className="w-full h-auto max-h-[400px] object-cover"
+                                                                        controls={false}
+                                                                        muted
+                                                                        playsInline
+                                                                    />
                                                                 ) : (
-                                                                    <img src={msg.sharedPost.media[0].url} alt="Post content" className="w-full h-full object-cover" />
+                                                                    <img
+                                                                        src={msg.sharedPost.media[0].url}
+                                                                        alt="Content"
+                                                                        className="w-full h-auto max-h-[400px] object-contain bg-black/20"
+                                                                    />
                                                                 )}
                                                             </div>
                                                         )}
+
+                                                        {/* Content */}
                                                         {msg.sharedPost.content && (
-                                                            <p className="text-xs opacity-90 line-clamp-3 italic">"{msg.sharedPost.content}"</p>
+                                                            <div className="text-sm text-white/90 leading-relaxed whitespace-pre-wrap font-light">
+                                                                {msg.sharedPost.content}
+                                                            </div>
                                                         )}
-                                                        <a href={`/post/${msg.sharedPost.id}`} className="text-[10px] text-blue-300 hover:text-blue-200 hover:underline mt-0.5 block">View Full Post</a>
-                                                        {msg.content && <div className="text-sm border-t border-white/10 pt-2 mt-1">{msg.content}</div>}
+
+                                                        {/* Message about the share (if any) */}
+                                                        {msg.content && <div className="text-sm border-t border-white/10 pt-2 mt-1 italic text-white/70">{msg.content}</div>}
                                                     </div>
                                                 ) : (
                                                     msg.content
                                                 )}
 
-                                                {/* Tag moved to bottom with larger size */}
+                                                {/* Tag Badge - Attached to bubble */}
                                                 {hasTag && (
-                                                    <div className="mt-2 flex items-center gap-2 bg-black/40 rounded px-3 py-1.5 w-fit border border-white/20">
-                                                        <Tag size={12} className="opacity-90" />
-                                                        <span className="text-sm font-bold uppercase tracking-wider opacity-100">{msg.tags![0]}</span>
+                                                    <div className={`absolute -top-2 ${isMe ? 'left-2' : 'right-2'} flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider shadow-lg border ${msg.tags![0] === 'Angry' ? 'bg-red-500/90 border-red-400 text-white' :
+                                                            msg.tags![0] === 'Sad' ? 'bg-blue-500/90 border-blue-400 text-white' :
+                                                                msg.tags![0] === 'Surprised' ? 'bg-yellow-500/90 border-yellow-400 text-black' :
+                                                                    msg.tags![0] === 'Reminders' ? 'bg-green-500/90 border-green-400 text-white' :
+                                                                        'bg-gray-600/90 border-gray-500 text-white'
+                                                        }`}>
+                                                        <Tag size={10} />
+                                                        <span>{msg.tags![0]}</span>
                                                     </div>
                                                 )}
 
