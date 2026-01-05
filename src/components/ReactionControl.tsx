@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Flame, ThumbsUp, ThumbsDown, AlertCircle, Sparkles } from "lucide-react";
+import { ThumbsUp, ThumbsDown, AlertCircle, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type ReactionType = "W" | "L" | "CAP" | "FIRE" | null;
@@ -111,21 +111,7 @@ export default function ReactionControl({ postId, initialReaction, counts, onRea
                 </span>
             </button>
 
-            {/* FIRE Reaction - Added */}
-            <button
-                onClick={(e) => { e.stopPropagation(); handleReact("FIRE"); }}
-                className={cn(
-                    "group flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full transition-all duration-300 border backdrop-blur-sm",
-                    currentReaction === "FIRE"
-                        ? "bg-orange-500/10 border-orange-500/50 shadow-[0_0_10px_rgba(249,115,22,0.2)]"
-                        : "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20"
-                )}
-            >
-                <Flame className={cn("w-4 h-4", currentReaction === "FIRE" ? "text-orange-500 fill-orange-500" : "text-white/40 group-hover:text-white/60")} />
-                <span className={cn("text-xs font-medium", currentReaction === "FIRE" ? "text-white" : "text-white/40 group-hover:text-white/60")}>
-                    {optimisticCounts["FIRE"] || 0}
-                </span>
-            </button>
+
         </div>
     );
 }
