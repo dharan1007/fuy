@@ -1,8 +1,8 @@
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import PostActionMenu from '@/components/PostActionMenu';
 import ReactionControl from '@/components/ReactionControl';
-import { MessageCircle, Send } from 'lucide-react';
+import { MessageCircle, Send, Heart } from 'lucide-react';
 import CommentsModal from '@/components/CommentsModal';
 import ShareModal from '@/components/ShareModal';
 
@@ -23,84 +23,121 @@ type LillCardProps = {
 export default function LillCard({ lill, user, post, currentUserId, onPostHidden, onRefresh }: LillCardProps) {
     const [isCommentsOpen, setIsCommentsOpen] = useState(false);
     const [isShareOpen, setIsShareOpen] = useState(false);
+    const [showLikeAnimation, setShowLikeAnimation] = useState(false);
+    const lastTapRef = useRef<number>(0);
 
     if (!lill) return null;
+    if (!lill.videoUrl) {
+        // Fallback for missing video
+        return (
+            <div className="bg-black rounded-lg overflow-hidden relative h-full w-full aspect-[9/16] flex items-center justify-center">
+                <p className="text-white/50 text-sm">Video unavailable</p>
+            </div>
+        );
+    }
+
+    // Double-tap to like handler
+    const handleDoubleTap = async () => {
+        const now = Date.now();
+        const DOUBLE_TAP_DELAY = 300;
+
+        if (now - lastTapRef.current < DOUBLE_TAP_DELAY) {
+            // Double tap detected - trigger W reaction
+            setShowLikeAnimation(true);
+            setTimeout(() => setShowLikeAnimation(false), 800);
+
+            try {
+                await fetch('/api/posts/react', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ postId: post?.id || lill.id, type: 'W' })
+                });
+                onRefresh?.();
+            } catch (e) {
+                console.error('Failed to react:', e);
+            }
+        }
+        lastTapRef.current = now;
+    };
 
     return (
         <div className="bg-black rounded-lg overflow-hidden relative h-full w-full aspect-[9/16] group">
-            {/* Full Height Video */}
-            <video
-                src={lill.videoUrl}
-                poster={lill.thumbnailUrl || undefined}
-                controls
-                className="w-full h-full object-cover"
-            />
+            {/* Full Height Video with Double-Tap */}
+            <div
+                className="w-full h-full"
+                onClick={handleDoubleTap}
+            >
+                <video
+                    src={lill.videoUrl}
+                    poster={lill.thumbnailUrl || undefined}
+                    controls
+                    className="w-full h-full object-cover"
+                />
+            </div>
 
-            {/* Right Sidebar Actions - Reels Style */}
-            <div className="absolute right-2 bottom-20 flex flex-col items-center gap-6 z-20 pb-4">
-                {/* Reactions */}
-                <div className="flex flex-col gap-2 scale-90 origin-right">
-                    {/* We pass a modified layout to ReactionControl via CSS classes? 
-                       Actually ReactionControl is horizontal. We might need a vertical wrapper or custom styles for vertical.
-                       For now, let's keep it horizontal but place it carefully, OR just let it be.
-                       But Reels typically have vertical stack: Heart, Comment, Share.
-                       ReactionControl has 3 buttons. Placing them horizontally sticks out.
-                       Let's wrap them or adjust. Better yet, let's just place the Standard ReactionControl floating nearby
-                       or assume vertical stack is better. 
-                       Given current ReactionControl is horizontal, let's place it above the user info or distinct.
-                   */}
-                    {/* Vertical Stack wrapper for custom actions */}
+            {/* Like Animation Overlay */}
+            {showLikeAnimation && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
+                    <Heart
+                        size={100}
+                        className="text-red-500 fill-red-500 animate-ping"
+                        style={{ animationDuration: '0.6s' }}
+                    />
+                </div>
+            )}
+
+            {/* Right Sidebar Actions */}
+            <div className="absolute right-3 bottom-28 flex flex-col items-center gap-4 z-20">
+                {/* Reaction Control */}
+                <div className="bg-black/50 backdrop-blur-md rounded-2xl p-2 border border-white/10">
+                    <ReactionControl
+                        postId={post?.id || lill.id}
+                        initialReaction={post?.userReaction}
+                        counts={post?.reactionCounts}
+                        onReact={() => onRefresh?.()}
+                        orientation="vertical"
+                        className="scale-100"
+                    />
                 </div>
 
-                {/* Horizontal Reaction Control (W/L/Cap) - Floating above details */}
-                <div className="absolute right-0 bottom-32 flex flex-col items-end gap-2 pr-2">
-                    <div className="bg-black/40 backdrop-blur-sm rounded-full p-1.5 border border-white/10 origin-bottom-right scale-90">
-                        <ReactionControl
-                            postId={post?.id || lill.id}
-                            initialReaction={post?.userReaction}
-                            counts={post?.reactionCounts}
-                            onReact={() => onRefresh?.()}
-                            orientation="vertical"
-                        />
+                {/* Comments */}
+                <button
+                    onClick={(e) => { e.stopPropagation(); setIsCommentsOpen(true); }}
+                    className="flex flex-col items-center gap-1 group/btn"
+                >
+                    <div className="p-3 rounded-full bg-black/50 backdrop-blur-md border border-white/10 group-hover/btn:bg-white/10 transition-colors">
+                        <MessageCircle size={26} className="text-white" />
                     </div>
+                    <span className="text-xs font-bold text-white drop-shadow-lg">{post?.comments || 0}</span>
+                </button>
 
-                    <button
-                        onClick={() => setIsCommentsOpen(true)}
-                        className="flex flex-col items-center gap-1 group/btn"
-                    >
-                        <div className="p-3 rounded-full bg-black/20 backdrop-blur-md border border-white/10 group-hover/btn:bg-white/10 transition-colors">
-                            <MessageCircle size={24} className="text-white" />
-                        </div>
-                        <span className="text-xs font-bold text-white shadow-black drop-shadow-md">{post?.comments || 0}</span>
-                    </button>
-
-                    <button
-                        onClick={() => setIsShareOpen(true)}
-                        className="flex flex-col items-center gap-1 group/btn"
-                    >
-                        <div className="p-3 rounded-full bg-black/20 backdrop-blur-md border border-white/10 group-hover/btn:bg-white/10 transition-colors">
-                            <Send size={24} className="text-white" />
-                        </div>
-                        <span className="text-xs font-bold text-white shadow-black drop-shadow-md">{post?.shares || 0}</span>
-                    </button>
-
-                    <div className="p-2 rounded-full bg-black/20 backdrop-blur-md border border-white/10">
-                        <PostActionMenu
-                            post={post || { id: lill.id, user, userId: user?.id }}
-                            currentUserId={currentUserId}
-                            onPostHidden={onPostHidden}
-                            onRefresh={onRefresh}
-                        />
+                {/* Share - No count */}
+                <button
+                    onClick={(e) => { e.stopPropagation(); setIsShareOpen(true); }}
+                    className="flex flex-col items-center group/btn"
+                >
+                    <div className="p-3 rounded-full bg-black/50 backdrop-blur-md border border-white/10 group-hover/btn:bg-white/10 transition-colors">
+                        <Send size={26} className="text-white" />
                     </div>
+                </button>
+
+                {/* Menu */}
+                <div className="p-2.5 rounded-full bg-black/50 backdrop-blur-md border border-white/10">
+                    <PostActionMenu
+                        post={post || { id: lill.id, user, userId: user?.id }}
+                        currentUserId={currentUserId}
+                        onPostHidden={onPostHidden}
+                        onRefresh={onRefresh}
+                    />
                 </div>
             </div>
 
             {/* Overlay Details (Bottom) */}
-            <div className="absolute bottom-0 left-0 right-16 p-4 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex flex-col gap-3 z-10">
+            <div className="absolute bottom-0 left-0 right-20 p-4 bg-gradient-to-t from-black/90 via-black/50 to-transparent flex flex-col gap-3 z-10">
                 <div className="flex items-center gap-3">
                     {user && (
                         <Link href={`/profile/${user.id}`} className="shrink-0 group/avatar">
-                            <div className="p-[2px] rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 group-hover/avatar:scale-105 transition-transform">
+                            <div className="p-[2px] rounded-full bg-gradient-to-tr from-red-500 to-orange-500 group-hover/avatar:scale-105 transition-transform">
                                 <img
                                     src={user.profile?.avatarUrl || "https://api.dicebear.com/7.x/initials/svg?seed=User"}
                                     alt={user.profile?.displayName}
@@ -110,23 +147,18 @@ export default function LillCard({ lill, user, post, currentUserId, onPostHidden
                         </Link>
                     )}
                     <div className="flex flex-col justify-center">
-                        <div className="flex items-center gap-2">
-                            <Link href={`/profile/${user?.id}`} className="text-white font-bold text-base hover:underline shadow-black drop-shadow-md">
-                                {user?.profile?.displayName || 'User'}
-                            </Link>
-                            {/* Follow button logic could go here */}
-                        </div>
+                        <Link href={`/profile/${user?.id}`} className="text-white font-bold text-base hover:underline drop-shadow-lg">
+                            {user?.profile?.displayName || 'User'}
+                        </Link>
                     </div>
                 </div>
 
                 {/* Description / Caption */}
                 {post?.content && (
-                    <p className="text-white/90 text-sm line-clamp-2 leading-relaxed font-medium shadow-black drop-shadow-sm pr-4">
+                    <p className="text-white/90 text-sm line-clamp-2 leading-relaxed font-medium drop-shadow-md pr-4">
                         {post.content}
                     </p>
                 )}
-
-                {/* Audio / Track Info (Placeholder if needed) */}
             </div>
 
             {/* Modals */}

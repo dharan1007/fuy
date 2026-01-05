@@ -286,53 +286,13 @@ export default function DotsPage() {
     // Bloom Selection UI
     if (activeCategory === 'bloom' && bloomMode === 'selection') {
         return (
-            <div className="bg-black min-h-screen text-white p-6 pt-20">
-                <div className="max-w-2xl mx-auto">
-                    <div className="flex items-center gap-4 mb-8">
+            <div className="bg-black min-h-screen text-white">
+                {/* Category Tabs at TOP */}
+                <div className="sticky top-0 z-50 bg-black border-b border-white/10 p-4">
+                    <div className="max-w-2xl mx-auto flex items-center justify-between">
                         <button onClick={() => router.back()} className="p-2 hover:bg-white/10 rounded-full transition-colors">
                             <ChevronLeft size={24} />
                         </button>
-                        <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-pink-500 to-violet-500">
-                            Bloom Your Feed
-                        </h1>
-                    </div>
-
-                    <p className="text-gray-400 mb-6 text-lg">Select themes (Slashes) and users you want to see right now.</p>
-
-                    <div className="mb-8">
-                        <h2 className="text-xl font-semibold mb-4">Select Slashes</h2>
-                        <div className="flex flex-wrap gap-3">
-                            {availableSlashes.map(slash => (
-                                <button
-                                    key={slash.tag}
-                                    onClick={() => toggleSlashSelection(slash.tag)}
-                                    className={`px-4 py-2 rounded-full border transition-all ${selectedSlashes.includes(slash.tag)
-                                        ? 'bg-white text-black border-white'
-                                        : 'bg-transparent text-gray-400 border-gray-700 hover:border-white'
-                                        }`}
-                                >
-                                    #{slash.tag} <span className="text-xs opacity-50 ml-1">({slash.count})</span>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Future: User Selection (Placeholder) */}
-                    {/* <div className="mb-8">
-                        <h2 className="text-xl font-semibold mb-4">Select Users</h2>
-                        <p className="text-sm text-gray-500">Search users feature coming soon to Bloom selection.</p>
-                    </div> */}
-
-                    <button
-                        onClick={startBloom}
-                        disabled={selectedSlashes.length === 0}
-                        className="w-full py-4 bg-gradient-to-r from-pink-600 to-violet-600 rounded-xl font-bold text-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity flex items-center justify-center gap-2"
-                    >
-                        Start Bloom <Check size={20} />
-                    </button>
-
-                    {/* Reset view */}
-                    <div className="mt-8 flex justify-center">
                         <div className="flex gap-2">
                             {CATEGORIES.map((cat) => (
                                 <button
@@ -340,14 +300,89 @@ export default function DotsPage() {
                                     onClick={() => setActiveCategory(cat.id)}
                                     className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all ${activeCategory === cat.id
                                         ? 'bg-white text-black'
-                                        : 'bg-white/10 text-white/70 hover:bg-white/20'
+                                        : 'bg-transparent text-white/50 hover:text-white border border-white/20 hover:border-white/40'
                                         }`}
                                 >
                                     {cat.label}
                                 </button>
                             ))}
                         </div>
+                        <div className="w-10" /> {/* Spacer */}
                     </div>
+                </div>
+
+                {/* Selection Content */}
+                <div className="max-w-2xl mx-auto p-6 pt-8">
+                    <h1 className="text-3xl font-bold text-white mb-2">Bloom Your Feed</h1>
+                    <p className="text-gray-500 mb-8">Select topics and users to curate your personalized feed.</p>
+
+                    {/* Topics Section (Slashes) */}
+                    <div className="mb-8">
+                        <h2 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+                            <span className="text-white/60">#</span> Topics
+                        </h2>
+                        <div className="flex flex-wrap gap-2">
+                            {availableSlashes.length === 0 ? (
+                                <p className="text-sm text-gray-600">Loading topics...</p>
+                            ) : (
+                                availableSlashes.map(slash => (
+                                    <button
+                                        key={slash.tag}
+                                        onClick={() => toggleSlashSelection(slash.tag)}
+                                        className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${selectedSlashes.includes(slash.tag)
+                                            ? 'bg-white text-black border border-white'
+                                            : 'bg-transparent text-gray-400 border border-gray-700 hover:border-white/50 hover:text-white'
+                                            }`}
+                                    >
+                                        #{slash.tag} <span className="text-xs opacity-50">({slash.count})</span>
+                                    </button>
+                                ))
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Users Section */}
+                    <div className="mb-8">
+                        <h2 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+                            <span className="text-white/60">@</span> Users
+                        </h2>
+                        <div className="bg-[#111] border border-white/10 rounded-xl p-4">
+                            <input
+                                type="text"
+                                placeholder="Search users to add..."
+                                className="w-full bg-transparent text-white placeholder-gray-600 focus:outline-none text-sm mb-3"
+                            />
+                            {selectedUsers.length === 0 ? (
+                                <p className="text-sm text-gray-600">No users selected. Search and add users above.</p>
+                            ) : (
+                                <div className="flex flex-wrap gap-2">
+                                    {selectedUsers.map(userId => (
+                                        <span key={userId} className="px-3 py-1 bg-white text-black rounded-full text-xs font-medium">
+                                            @{userId}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        <p className="text-xs text-gray-600 mt-2">Content from selected users and similar creators will appear in your bloom.</p>
+                    </div>
+
+                    {/* Info */}
+                    <div className="mb-8 p-4 bg-white/5 border border-white/10 rounded-xl">
+                        <p className="text-sm text-gray-400 leading-relaxed">
+                            Bloom shows posts matching your selected topics and users.
+                            We also include similar content to help you discover more of what you like.
+                        </p>
+                    </div>
+
+                    {/* Start Bloom Button */}
+                    <button
+                        onClick={startBloom}
+                        disabled={selectedSlashes.length === 0 && selectedUsers.length === 0}
+                        className="w-full py-4 bg-white text-black rounded-xl font-bold text-lg hover:bg-gray-100 disabled:bg-gray-800 disabled:text-gray-600 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
+                    >
+                        Start Bloom <Check size={20} />
+                    </button>
                 </div>
             </div>
         );
