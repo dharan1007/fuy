@@ -161,11 +161,11 @@ export default function ProfileView() {
         <section className="mb-12">
           <ProfileDetailsSection profile={profile} />
           <ProfilePostsGrid
-            posts={(data?.posts || []).map((p: any) => ({
+            posts={useMemo(() => (data?.posts || []).map((p: any) => ({
               ...p,
               // Ensure dates are strings or Date objects as expected
               createdAt: p.createdAt
-            }))}
+            })), [data?.posts])}
             isMe={true}
             userId={data.id} // Assuming the API returns the user object with ID
             onActionComplete={() => mutate()} // Revalidate SWR cache after actions
