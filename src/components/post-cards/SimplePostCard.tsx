@@ -56,6 +56,8 @@ export default function SimplePostCard({ post, currentUserId }: SimplePostCardPr
                                 src={post.media[currentMediaIndex].url}
                                 className="w-full h-full object-cover"
                                 controls
+                                controlsList="nodownload nopictureinpicture noplaybackrate"
+                                disablePictureInPicture
                             />
                         ) : (
                             <img

@@ -73,6 +73,8 @@ export default function ChanCard({ chan, user, postId, post, currentUserId, onPo
                             poster={currentEp.thumbnail}
                             controls
                             className="w-full h-full object-contain bg-black"
+                            controlsList="nodownload nopictureinpicture noplaybackrate"
+                            disablePictureInPicture
                         />
                         {/* Overlay Title (Youtube Style) */}
                         <div className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">

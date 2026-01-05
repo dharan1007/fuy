@@ -42,6 +42,8 @@ export function PostDetailModal({ post, onClose }: PostDetailModalProps) {
                                     src={post.media[0].url}
                                     controls
                                     className="w-full h-full object-contain"
+                                    controlsList="nodownload nopictureinpicture noplaybackrate"
+                                    disablePictureInPicture
                                 />
                             )
                         ) : (
