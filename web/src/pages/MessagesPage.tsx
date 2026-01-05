@@ -922,9 +922,10 @@ function MessagesPageContent() {
                                                 <div
                                                     className="absolute z-50 bg-black border border-white/20 rounded-lg shadow-xl p-1 min-w-[150px] max-h-[300px] overflow-y-auto"
                                                     style={{
-                                                        bottom: '100%',
-                                                        [isMe ? 'right' : 'left']: '10px',
-                                                        marginBottom: '5px'
+                                                        top: '0',
+                                                        [isMe ? 'right' : 'left']: '100%',
+                                                        marginLeft: isMe ? '0' : '10px',
+                                                        marginRight: isMe ? '10px' : '0'
                                                     }}
                                                     onClick={e => e.stopPropagation()}
                                                 >
