@@ -81,19 +81,19 @@ export default function ProfileSocialStats({ userId, stats, isMe }: ProfileSocia
 
     return (
         <>
-            <div className="flex flex-wrap gap-2 sm:gap-6 mb-6">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-6 mb-6">
                 <Stat label="Posts" value={stats.posts} />
                 <Stat
                     label="Followers"
                     value={stats.followers}
                     onClick={fetchFollowers}
-                    className="cursor-pointer hover:bg-white/20 transition-colors"
+                    className="cursor-pointer hover:bg-white/20 transition-all active:scale-95"
                 />
                 <Stat
                     label="Following"
                     value={stats.following}
                     onClick={fetchFollowing}
-                    className="cursor-pointer hover:bg-white/20 transition-colors"
+                    className="cursor-pointer hover:bg-white/20 transition-all active:scale-95"
                 />
             </div>
 

@@ -117,7 +117,7 @@ export default function ProfilePostsGrid({ posts: initialPosts, isMe, userId, on
         }
     };
 
-    const [filter, setFilter] = useState<'ALL' | 'FILLS' | 'LILLS' | 'SIMPLE'>('ALL');
+    const [filter, setFilter] = useState<'ALL' | 'FILLS' | 'LILLS' | 'SIMPLE' | 'AUDIO' | 'CHANNELS'>('ALL');
 
     // ... (rest of state)
 
@@ -125,7 +125,9 @@ export default function ProfilePostsGrid({ posts: initialPosts, isMe, userId, on
         if (filter === 'ALL') return true;
         if (filter === 'FILLS') return p.postType === 'FILL';
         if (filter === 'LILLS') return p.postType === 'LILL';
-        if (filter === 'SIMPLE') return !p.postType || p.postType === 'TEXT';
+        if (filter === 'SIMPLE') return !p.postType || p.postType === 'TEXT' || p.postType === 'SIMPLE';
+        if (filter === 'AUDIO') return p.postType === 'AUD';
+        if (filter === 'CHANNELS') return p.postType === 'CHAN';
         return true;
     });
 
@@ -133,7 +135,7 @@ export default function ProfilePostsGrid({ posts: initialPosts, isMe, userId, on
         <section className="mb-10 relative">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                 <div className="flex items-center gap-6 border-b border-white/10 overflow-x-auto scrollbar-hide w-full sm:w-auto pb-2">
-                    {(['ALL', 'FILLS', 'LILLS', 'SIMPLE'] as const).map((t) => (
+                    {(['ALL', 'FILLS', 'LILLS', 'SIMPLE', 'AUDIO', 'CHANNELS'] as const).map((t) => (
                         <button
                             key={t}
                             onClick={() => setFilter(t)}

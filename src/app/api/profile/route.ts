@@ -55,8 +55,8 @@ export async function GET(req: Request) {
     ]);
 
     const stats = {
-      followers: statsData?.followersCount || 0,
-      following: statsData?.followingCount || 0,
+      followers: statsData?._count?.friendshipsB || 0,
+      following: statsData?._count?.friendshipsA || 0,
       posts: postsCount,
       friends: (statsData?._count?.friendshipsA || 0) + (statsData?._count?.friendshipsB || 0)
     };
