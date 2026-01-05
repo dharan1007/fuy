@@ -30,16 +30,19 @@ interface ProfilePostsGridProps {
 }
 
 export default function ProfilePostsGrid({ posts: initialPosts, isMe, userId, onActionComplete }: ProfilePostsGridProps) {
+    // Ensure initialPosts is always an array to prevent crashes
+    const safePosts = initialPosts || [];
+
     const router = useRouter();
-    const [posts, setPosts] = useState<Post[]>(initialPosts);
+    const [posts, setPosts] = useState<Post[]>(safePosts);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [selectionMode, setSelectionMode] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
     // Pagination State
-    const [nextCursor, setNextCursor] = useState<string | null>(initialPosts.length >= 12 ? initialPosts[initialPosts.length - 1].id : null);
+    const [nextCursor, setNextCursor] = useState<string | null>(safePosts.length >= 12 ? safePosts[safePosts.length - 1]?.id : null);
     const [loadingMore, setLoadingMore] = useState(false);
-    const [hasMore, setHasMore] = useState(initialPosts.length >= 12);
+    const [hasMore, setHasMore] = useState(safePosts.length >= 12);
 
     const handleLoadMore = async () => {
         if (loadingMore || !hasMore || !nextCursor) return;
