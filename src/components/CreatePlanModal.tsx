@@ -127,6 +127,12 @@ export default function CreatePlanModal({ isOpen, onClose, currentLocation, loca
     };
 
     const handleSubmit = async () => {
+        // Validation: Verify location is set (lat/lng mandatory)
+        if (!formData.latitude || !formData.longitude) {
+            alert("Please tag a wavepoint location on the map.");
+            return;
+        }
+
         setLoading(true);
         try {
             // 1. Upload NEW Media

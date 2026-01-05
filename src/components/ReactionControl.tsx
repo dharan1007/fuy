@@ -11,9 +11,11 @@ interface ReactionControlProps {
     initialReaction: ReactionType;
     counts: { W: number; L: number; CAP: number; FIRE: number };
     onReact: (type: ReactionType) => void;
+    orientation?: "horizontal" | "vertical";
+    className?: string; // Add className support
 }
 
-export default function ReactionControl({ postId, initialReaction, counts, onReact }: ReactionControlProps) {
+export default function ReactionControl({ postId, initialReaction, counts, onReact, orientation = "horizontal", className }: ReactionControlProps) {
     const [currentReaction, setCurrentReaction] = useState<ReactionType>(initialReaction);
     const [optimisticCounts, setOptimisticCounts] = useState(counts || { W: 0, L: 0, CAP: 0, FIRE: 0 });
 
@@ -56,7 +58,7 @@ export default function ReactionControl({ postId, initialReaction, counts, onRea
     };
 
     return (
-        <div className="flex items-center gap-1">
+        <div className={cn("flex items-center gap-1", orientation === "vertical" ? "flex-col" : "flex-row", className)}>
             {/* W Reaction */}
             <button
                 onClick={(e) => { e.stopPropagation(); handleReact("W"); }}

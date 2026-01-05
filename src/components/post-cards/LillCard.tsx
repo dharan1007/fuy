@@ -54,12 +54,13 @@ export default function LillCard({ lill, user, post, currentUserId, onPostHidden
 
                 {/* Horizontal Reaction Control (W/L/Cap) - Floating above details */}
                 <div className="absolute right-0 bottom-32 flex flex-col items-end gap-2 pr-2">
-                    <div className="bg-black/40 backdrop-blur-sm rounded-full p-1 border border-white/10 origin-bottom-right scale-90">
+                    <div className="bg-black/40 backdrop-blur-sm rounded-full p-1.5 border border-white/10 origin-bottom-right scale-90">
                         <ReactionControl
                             postId={post?.id || lill.id}
                             initialReaction={post?.userReaction}
                             counts={post?.reactionCounts}
                             onReact={() => onRefresh?.()}
+                            orientation="vertical"
                         />
                     </div>
 

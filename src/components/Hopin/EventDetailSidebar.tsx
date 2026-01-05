@@ -26,11 +26,9 @@ export default function EventDetailSidebar({ plan, isOpen, onClose }: EventDetai
         setRequestStatus(member ? member.status : 'IDLE');
     }, [plan, session]);
 
-    if (!plan) return null;
-
-    const isCreator = session?.user?.id === plan.creatorId;
-    const mediaUrls = plan.mediaUrls ? (typeof plan.mediaUrls === 'string' ? JSON.parse(plan.mediaUrls) : plan.mediaUrls) : [];
-    const tags = plan.slashes ? (typeof plan.slashes === 'string' ? JSON.parse(plan.slashes) : plan.slashes) : [];
+    const isCreator = session?.user?.id === plan?.creatorId;
+    const mediaUrls = plan?.mediaUrls ? (typeof plan.mediaUrls === 'string' ? JSON.parse(plan.mediaUrls) : plan.mediaUrls) : [];
+    const tags = plan?.slashes ? (typeof plan.slashes === 'string' ? JSON.parse(plan.slashes) : plan.slashes) : [];
 
     const handleInterest = async () => {
         if (!session) return;
@@ -62,6 +60,8 @@ export default function EventDetailSidebar({ plan, isOpen, onClose }: EventDetai
             setCurrentMediaIndex((prev) => (prev - 1 + mediaUrls.length) % mediaUrls.length);
         }
     };
+
+    if (!plan) return null;
 
     return (
         <>

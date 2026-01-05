@@ -1,10 +1,13 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
-import { Tv } from 'lucide-react';
+import { Tv, MessageCircle, Send } from 'lucide-react';
 
 import PostActionMenu from '@/components/PostActionMenu';
+import ReactionControl from '@/components/ReactionControl';
+import CommentsModal from '@/components/CommentsModal';
+import ShareModal from '@/components/ShareModal';
 
 type FillCardProps = {
     fill: {
@@ -21,6 +24,9 @@ type FillCardProps = {
 };
 
 export default function FillCard({ fill, user, post, currentUserId, onPostHidden, onRefresh }: FillCardProps) {
+    const [isCommentsOpen, setIsCommentsOpen] = useState(false);
+    const [isShareOpen, setIsShareOpen] = useState(false);
+
     if (!fill) return null;
     const formatDuration = (seconds: number) => {
         const mins = Math.floor(seconds / 60);
@@ -50,6 +56,34 @@ export default function FillCard({ fill, user, post, currentUserId, onPostHidden
                 </div>
             </div>
 
+            {/* Action Bar */}
+            <div className="flex items-center justify-between px-1 mb-3">
+                <ReactionControl
+                    postId={post?.id || fill.id}
+                    initialReaction={post?.userReaction}
+                    counts={post?.reactionCounts}
+                    onReact={() => onRefresh?.()}
+                    orientation="horizontal"
+                />
+
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={() => setIsCommentsOpen(true)}
+                        className="flex items-center gap-1.5 text-neutral-400 hover:text-white transition-colors"
+                    >
+                        <MessageCircle size={20} />
+                        <span className="text-xs font-medium">{post?.comments || 0}</span>
+                    </button>
+                    <button
+                        onClick={() => setIsShareOpen(true)}
+                        className="flex items-center gap-1.5 text-neutral-400 hover:text-white transition-colors"
+                    >
+                        <Send size={20} />
+                        <span className="text-xs font-medium">{post?.shares || 0}</span>
+                    </button>
+                </div>
+            </div>
+
             {/* Details Section */}
             <div className="flex gap-3 px-1 mt-auto">
                 {user && (
@@ -62,7 +96,7 @@ export default function FillCard({ fill, user, post, currentUserId, onPostHidden
                     </Link>
                 )}
                 <div className="flex-1 min-w-0">
-                    <h3 className="text-white font-bold text-lg leading-tight">Video Content</h3>
+                    <h3 className="text-white font-bold text-lg leading-tight line-clamp-2">{post?.content || "Video Content"}</h3>
                     {user && (
                         <Link href={`/profile/${user.id}`} className="text-white/70 text-base hover:text-white transition-colors block mt-1">
                             {user.profile?.displayName || 'User'}
@@ -70,6 +104,22 @@ export default function FillCard({ fill, user, post, currentUserId, onPostHidden
                     )}
                 </div>
             </div>
+
+            {/* Modals */}
+            <CommentsModal
+                isOpen={isCommentsOpen}
+                onClose={() => setIsCommentsOpen(false)}
+                postId={post?.id || fill.id}
+                currentUserId={currentUserId}
+                onCommentAdded={onRefresh}
+            />
+
+            <ShareModal
+                isOpen={isShareOpen}
+                onClose={() => setIsShareOpen(false)}
+                postId={post?.id || fill.id}
+                postSnippet={post?.content || "Shared video"}
+            />
         </div>
     );
 }

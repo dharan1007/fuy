@@ -105,9 +105,13 @@ export default function HopinDashboard() {
         }
     };
 
-    if (loading) return <div className="text-white/50 text-xs p-4">Loading dashboard...</div>;
+    // if (loading) return <div className="text-white/50 text-xs p-4">Loading dashboard...</div>; // Removed to prevent React Hook errors (Minified #310)
 
     const displayedPlans = activeTab === 'hosting' ? plans.created : plans.joined;
+
+    if (loading) {
+        return <div className="text-white/50 text-xs p-4">Loading dashboard...</div>;
+    }
 
     return (
         <>

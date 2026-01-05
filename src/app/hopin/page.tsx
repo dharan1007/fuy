@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import AppHeader from "@/components/AppHeader";
@@ -153,13 +153,28 @@ export default function HopinPage() {
     return () => window.removeEventListener('hopin:create-at-location', handler);
   }, []);
 
-  useEffect(() => {
-    fetch('/api/hopin/plans?mode=map')
+  const fetchPlans = useCallback((bounds?: any, zoom?: number) => {
+    const params = new URLSearchParams({ mode: 'map' });
+    if (bounds) {
+      params.set("minLat", bounds.minLat.toString());
+      params.set("maxLat", bounds.maxLat.toString());
+      params.set("minLng", bounds.minLng.toString());
+      params.set("maxLng", bounds.maxLng.toString());
+    }
+    if (zoom) {
+      params.set("zoom", zoom.toString());
+    }
+
+    fetch(`/api/hopin/plans?${params.toString()}`)
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data)) setPlans(data);
       })
       .catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    fetchPlans(); // Initial fetch (will get global popular or recent)
   }, []);
 
   // Debounced search
@@ -380,6 +395,7 @@ export default function HopinPage() {
             plans={showEventMarkers ? plans : []}
             onSelectPlan={(plan) => setSelectedPlan(plan)}
             onSelectWaypoint={(waypoint) => setSelectedWaypoint(waypoint)}
+            onMapMove={(bounds, zoom) => fetchPlans(bounds, zoom)}
           />
         </div>
 

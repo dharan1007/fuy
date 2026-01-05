@@ -25,6 +25,7 @@ export type LeafletMapProps = {
   plans?: any[];
   onSelectPlan?: (plan: any) => void;
   onSelectWaypoint?: (waypoint: { lat: number; lng: number; label: string; index: number }) => void;
+  onMapMove?: (bounds: { minLat: number; maxLat: number; minLng: number; maxLng: number }, zoom: number) => void;
 };
 
 const STORAGE_ROUTE = "awe-routes:leaflet";
@@ -115,7 +116,8 @@ export default function LeafletMap({
   onCreatePlan,
   plans = [],
   onSelectPlan,
-  onSelectWaypoint
+  onSelectWaypoint,
+  onMapMove
 }: LeafletMapProps) {
   const holderRef = useRef<HTMLDivElement | null>(null);
   const mapElRef = useRef<HTMLDivElement | null>(null);
@@ -377,12 +379,29 @@ export default function LeafletMap({
     };
 
     refresh(); // immediate on change
-    map.on("moveend", refresh);
+
+    const onMove = () => {
+      refresh();
+      if (onMapMove && map) {
+        const b = map.getBounds();
+        onMapMove(
+          {
+            minLat: b.getSouth(),
+            maxLat: b.getNorth(),
+            minLng: b.getWest(),
+            maxLng: b.getEast()
+          },
+          map.getZoom()
+        );
+      }
+    };
+
+    map.on("moveend", onMove);
     return () => {
       abort = true;
-      map.off("moveend", refresh);
+      map.off("moveend", onMove);
     };
-  }, [activeCategory, leafletReady, onCreatePlan]);
+  }, [activeCategory, leafletReady, onCreatePlan, onMapMove]);
 
   /* Render Plans */
   useEffect(() => {

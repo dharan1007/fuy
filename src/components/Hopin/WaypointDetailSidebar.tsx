@@ -17,6 +17,10 @@ export default function WaypointDetailSidebar({
     onDelete,
     onCreatePlan
 }: WaypointDetailSidebarProps) {
+    // if (!waypoint) return null; // Removed check. Handle in JSX.
+
+    // Hooks would be here if any. Component has no hooks but for consistency:
+
     if (!waypoint) return null;
 
     const handleDelete = () => {

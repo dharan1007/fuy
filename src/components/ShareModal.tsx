@@ -46,7 +46,7 @@ export default function ShareModal({ isOpen, onClose, postId, postSnippet }: Sha
                 const data = await res.json();
                 // Normalize data structure if needed
                 const friends = data.friends?.map((f: any) => ({
-                    id: f.friendId, // Assuming structure
+                    id: f.friend?.id, // Correct mapping from /api/friends
                     name: f.friend?.name,
                     username: f.friend?.email, // Fallback
                     profile: f.friend?.profile

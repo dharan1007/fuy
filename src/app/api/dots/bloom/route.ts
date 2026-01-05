@@ -13,17 +13,30 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // 1. Get User's configured slashes
-        const user = await prisma.user.findUnique({
-            where: { email: session.user.email },
-            select: { bloomSlashes: true }
-        });
+        // 1. Get Filters from Query Params OR Defaults
+        const { searchParams } = new URL(request.url);
+        const slashesParam = searchParams.get('slashes');
+        const userIdsParam = searchParams.get('userIds');
 
-        const userSlashes = user?.bloomSlashes || [];
+        let targetSlashes: string[] = [];
+        let targetUserIds: string[] = [];
 
-        // STRICT FILTERING: If no slashes, return empty (or prompting state handled by frontend)
-        if (userSlashes.length === 0) {
-            return NextResponse.json({ posts: [], hasSlashes: false });
+        if (slashesParam || userIdsParam) {
+            // Ad-hoc filtering mode
+            if (slashesParam) targetSlashes = slashesParam.split(',').filter(Boolean);
+            if (userIdsParam) targetUserIds = userIdsParam.split(',').filter(Boolean);
+        } else {
+            // Default: User's saved preference
+            const user = await prisma.user.findUnique({
+                where: { email: session.user.email },
+                select: { bloomSlashes: true }
+            });
+            targetSlashes = user?.bloomSlashes || [];
+
+            // STRICT FILTERING: If no filters at all in default mode, return empty/prompt
+            if (targetSlashes.length === 0) {
+                return NextResponse.json({ posts: [], hasSlashes: false });
+            }
         }
 
         // 2. Query Posts
@@ -33,14 +46,23 @@ export async function GET(request: Request) {
             where: {
                 // Filter by type
                 postType: { in: ['LILL', 'FILL', 'AUD'] },
-                // Filter by visibility (Public or Follower check skipped for now for broad bloom? Assuming public bloom)
+                // Filter by visibility (Public by default for now)
                 visibility: 'PUBLIC',
-                // Filter by Tags
-                slashes: {
-                    some: {
-                        tag: { in: userSlashes }
-                    }
-                }
+                // Filter by Tags OR Users
+                OR: [
+                    // Match Tags
+                    ...(targetSlashes.length > 0 ? [{
+                        slashes: {
+                            some: {
+                                tag: { in: targetSlashes }
+                            }
+                        }
+                    }] : []),
+                    // Match Users
+                    ...(targetUserIds.length > 0 ? [{
+                        userId: { in: targetUserIds }
+                    }] : [])
+                ]
             },
             take: 20,
             orderBy: { createdAt: 'desc' },

@@ -300,11 +300,25 @@ model Plan {
 
   creator User         @relation("PlanCreator", fields: [creatorId], references: [id], onDelete: Cascade)
   members PlanMember[]
+  waypoints PlanWaypoint[]
   workouts WorkoutSession[] @relation("PlanWorkouts")
 
 
   @@index([creatorId])
   @@index([date])
+}
+
+model PlanWaypoint {
+  id        String   @id @default(cuid())
+  planId    String
+  latitude  Float
+  longitude Float
+  order     Int      @default(0)
+  name      String?
+  
+  plan      Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@index([planId])
 }
 
 model PlanMember {
