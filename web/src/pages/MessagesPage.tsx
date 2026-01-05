@@ -519,58 +519,48 @@ function MessagesPageContent() {
                     {filteredConversations.filter(c => !c.isGhosted).map(conv => (
                         <div
                             key={conv.id}
-                            className={`${styles.conversationItem} ${selectedConversationId === conv.id ? styles.active : ''} relative`}
                             onClick={() => handleSelectConversation(conv.id)}
-
+                            className={`${styles.conversationItem} ${selectedConversationId === conv.id ? styles.selected : ''} relative group`}
                         >
-                            <div className="relative group/conv flex items-center gap-3 w-full pr-8">
-                                <div className="flex items-center gap-3">
-                                    <div className={styles.avatar}>
-                                        {/* Pin Indicator */}
-                                        {conv.isPinned && <div className="absolute -top-1 -left-1 z-10 bg-black rounded-full p-0.5 border border-white/20"><Pin size={10} className="text-yellow-400 fill-current" /></div>}
-
-                                        {conv.avatar ? <img src={conv.avatar} alt="" className="w-full h-full object-cover rounded-full" /> : conv.participantName[0]}
-                                        {onlineUsers.has(conv.participantId) && <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-black"></div>}
-                                    </div>
-                                    <div className={`${styles.conversationInfo} flex-1 overflow-hidden`}>
-                                        {editingNicknameId === conv.id ? (
-                                            <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                                                <input
-                                                    className="w-full bg-black border border-white/20 rounded px-1 py-0.5 text-xs text-white"
-                                                    value={nicknameInput}
-                                                    onChange={e => setNicknameInput(e.target.value)}
-                                                    onKeyDown={e => e.key === 'Enter' && handleNicknameSubmit(conv.id)}
-                                                    autoFocus
-                                                />
-                                                <button onClick={() => handleNicknameSubmit(conv.id)} className="text-green-400"><Check size={14} /></button>
-                                                <button onClick={() => setEditingNicknameId(null)} className="text-red-400"><X size={14} /></button>
-                                            </div>
-                                        ) : (
-                                            <>
-                                                <div className={styles.nameRow}>
-                                                    <span className={`${styles.name} flex items-center gap-1`}>
-                                                        {conv.participantName}
-                                                        {conv.isGhosted && <EyeOff size={12} className="text-white/30" />}
-                                                    </span>
-                                                    <span className={styles.time}>{formatTime(conv.lastMessageTime)}</span>
-                                                </div>
-                                                <div className="flex justify-between items-center">
-                                                    <span className={styles.preview}>
-                                                        {typingUsers[conv.id]?.size > 0
-                                                            ? <span className="text-green-400 italic">Typing...</span>
-                                                            : conv.lastMessage || 'Start chatting'}
-                                                    </span>
-                                                    {conv.unreadCount > 0 && <span className={styles.unreadBadge}>{conv.unreadCount}</span>}
-                                                </div>
-                                            </>
-                                        )}
-                                    </div>
+                            <div className="relative">
+                                <div className={`w-14 h-14 rounded-full overflow-hidden bg-white/10 ${onlineUsers.has(conv.participantId) ? 'ring-2 ring-green-500' : ''}`}>
+                                    {conv.avatar ? (
+                                        <img src={conv.avatar} alt="" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-white font-bold text-lg">
+                                            {conv.participantName[0]}
+                                        </div>
+                                    )}
+                                </div>
+                                {onlineUsers.has(conv.participantId) && (
+                                    <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-black"></div>
+                                )}
+                            </div>
+                            <div className="flex-1 min-w-0 pr-6 pl-3">
+                                <div className="flex justify-between items-baseline mb-1">
+                                    <span className="text-base font-bold text-white flex items-center gap-1 truncate">
+                                        {conv.participantName}
+                                        {conv.isGhosted && <EyeOff size={14} className="text-white/30" />}
+                                    </span>
+                                    <span className="text-xs text-white/40 shrink-0 ml-2">{formatTime(conv.lastMessageTime)}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-sm text-gray-400 truncate">
+                                        {typingUsers[conv.id]?.size > 0
+                                            ? <span className="text-green-400 italic">Typing...</span>
+                                            : conv.lastMessage || 'Start chatting'}
+                                    </span>
+                                    {conv.unreadCount > 0 && (
+                                        <span className="bg-blue-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                                            {conv.unreadCount}
+                                        </span>
+                                    )}
                                 </div>
                             </div>
 
-                            {/* 3 Dots Trigger - Moved to right side, no overlap */}
+                            {/* 3 Dots Trigger */}
                             <button
-                                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-white/30 hover:text-white opacity-100 transition-opacity z-20"
+                                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-white/30 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity z-20"
                                 onClick={(e) => { e.stopPropagation(); setActiveContextMenuId(activeContextMenuId === conv.id ? null : conv.id); }}
                             >
                                 <MoreVertical size={16} />
@@ -601,7 +591,6 @@ function MessagesPageContent() {
                 </div>
             </div>
 
-            {/* Main Chat Area */}
             <div className={styles.mainContent}>
                 {!selectedConversation ? (
                     <div className="flex flex-col items-center justify-center h-full text-white/50">
@@ -625,9 +614,9 @@ function MessagesPageContent() {
                                         </button>
                                     )}
                                     <div>
-                                        <h2 className="text-white font-bold text-lg flex items-center gap-2">
+                                        <h2 className="text-white font-bold text-xl flex items-center gap-2">
                                             {selectedConversation.participantName}
-                                            {selectedConversation.isPinned && <Pin size={12} className="text-yellow-400 fill-current" />}
+                                            {selectedConversation.isPinned && <Pin size={14} className="text-yellow-400 fill-current" />}
                                         </h2>
                                         <p className="text-xs text-white/50">
                                             {onlineUsers.has(selectedConversation.participantId) ? '● Online' : 'Offline'}
@@ -856,17 +845,13 @@ function MessagesPageContent() {
                                                     ${hasTag ? tagColorClass : (isMe ? 'bg-white text-black rounded-tr-none' : 'text-white rounded-tl-none border bg-white/10 border-white/20')}
                                                     ${hasTag ? 'border' : ''} transition-all duration-200 cursor-pointer shadow-sm`}
                                             >
-                                                {hasTag && (
-                                                    <div className="absolute -top-3 left-2 bg-black text-white text-[9px] px-1.5 py-0.5 rounded-full border border-white/30 flex items-center gap-1">
-                                                        <Tag size={8} /> {msg.tags![0].toUpperCase()}
-                                                    </div>
-                                                )}
-
+                                                {/* Content */}
                                                 {msg.sharedPost ? (
                                                     <div className="flex flex-col gap-2 min-w-[200px]">
                                                         {/* Shared Post Header */}
                                                         <div className="flex items-center gap-2 mb-1 border-b border-white/20 pb-1.5">
                                                             <div className="w-5 h-5 rounded-full overflow-hidden bg-white/10">
+                                                                {/* ... shared post avatar ... */}
                                                                 {msg.sharedPost.user.profile?.avatarUrl ? (
                                                                     <img src={msg.sharedPost.user.profile.avatarUrl} alt="" className="w-full h-full object-cover" />
                                                                 ) : (
@@ -877,8 +862,7 @@ function MessagesPageContent() {
                                                             </div>
                                                             <span className="font-bold text-xs opacity-90">{msg.sharedPost.user.profile?.displayName || 'Unknown User'}</span>
                                                         </div>
-
-                                                        {/* Media Thumbnail */}
+                                                        {/* ... shared post content ... */}
                                                         {msg.sharedPost.media && msg.sharedPost.media.length > 0 && (
                                                             <div className="rounded-lg overflow-hidden aspect-video bg-black/50 relative border border-white/10">
                                                                 {msg.sharedPost.media[0].type === 'VIDEO' ? (
@@ -888,27 +872,24 @@ function MessagesPageContent() {
                                                                 )}
                                                             </div>
                                                         )}
-
-                                                        {/* Post Content */}
                                                         {msg.sharedPost.content && (
                                                             <p className="text-xs opacity-90 line-clamp-3 italic">"{msg.sharedPost.content}"</p>
                                                         )}
-
-                                                        {/* View Link */}
-                                                        <a href={`/post/${msg.sharedPost.id}`} className="text-[10px] text-blue-300 hover:text-blue-200 hover:underline mt-0.5 block">
-                                                            View Full Post
-                                                        </a>
-
-                                                        {/* Attached User Message */}
-                                                        {msg.content && (
-                                                            <div className="text-sm border-t border-white/10 pt-2 mt-1">
-                                                                {msg.content}
-                                                            </div>
-                                                        )}
+                                                        <a href={`/post/${msg.sharedPost.id}`} className="text-[10px] text-blue-300 hover:text-blue-200 hover:underline mt-0.5 block">View Full Post</a>
+                                                        {msg.content && <div className="text-sm border-t border-white/10 pt-2 mt-1">{msg.content}</div>}
                                                     </div>
                                                 ) : (
                                                     msg.content
                                                 )}
+
+                                                {/* Tag moved to bottom */}
+                                                {hasTag && (
+                                                    <div className="mt-2 flex items-center gap-1.5 bg-black/20 rounded px-2 py-1 w-fit border border-white/10">
+                                                        <Tag size={10} className="opacity-70" />
+                                                        <span className="text-[10px] font-bold uppercase tracking-wider opacity-90">{msg.tags![0]}</span>
+                                                    </div>
+                                                )}
+
                                                 <div className={`text-[10px] opacity-60 text-right mt-1 flex gap-1 justify-end items-center ${tagColorClass && tagColorClass.includes('text-black') ? 'text-black/60' : ''}`}>
                                                     {formatTime(msg.timestamp)}
                                                     {isMe && (
