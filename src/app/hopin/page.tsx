@@ -8,14 +8,14 @@ import StarfieldBackground from "@/components/LandingPage/StarfieldBackground";
 import type { LatLng, POICategory } from "@/components/leaflet-map";
 import CreatePlanModal from "@/components/CreatePlanModal";
 import HopinDashboard from "@/components/HopinDashboard";
-import { Plus } from "lucide-react";
+import { Plus, Search, X, Eye, EyeOff, MapPin } from "lucide-react";
 
 /* ---------- dynamic imports ---------- */
 const LeafletMap = dynamic(() => import("@/components/leaflet-map"), {
   ssr: false,
   loading: () => <div className="w-full h-full flex items-center justify-center text-white/50">Loading map...</div>,
 });
-const PlanDetailModal = dynamic(() => import("@/components/Hopin/PlanDetailModal"), { ssr: false });
+const EventDetailSidebar = dynamic(() => import("@/components/Hopin/EventDetailSidebar"), { ssr: false });
 
 /* ---------- utils ---------- */
 function haversineKm(a: LatLng, b: LatLng) {
@@ -95,12 +95,13 @@ type LiveRoute = {
 };
 
 function useLiveRoute(): LiveRoute {
-  const [pts, setPts] = useState<LatLng[]>(
-    () => (typeof window === "undefined" ? [] : pointsFromLocal())
-  );
+  // Initialize with empty array to match server SSR
+  const [pts, setPts] = useState<LatLng[]>([]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    // Initial load from local storage after mount
+    setPts(pointsFromLocal());
+
     const sync = () => setPts(pointsFromLocal());
     const id = window.setInterval(sync, 600);
     const onStorage = (e: StorageEvent) => {
@@ -134,6 +135,11 @@ export default function HopinPage() {
   const [plans, setPlans] = useState<any[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const [activeCategory, setActiveCategory] = useState<POICategory | null>(null);
+  const [showEventMarkers, setShowEventMarkers] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showSearchResults, setShowSearchResults] = useState(false);
 
   // --- Effects ---
   useEffect(() => {
@@ -153,6 +159,29 @@ export default function HopinPage() {
       })
       .catch(console.error);
   }, []);
+
+  // Debounced search
+  useEffect(() => {
+    if (!searchQuery || searchQuery.length < 2) {
+      setSearchResults([]);
+      setShowSearchResults(false);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const res = await fetch(`/api/hopin/search?q=${encodeURIComponent(searchQuery)}`);
+        const data = await res.json();
+        setSearchResults(data.events || []);
+        setShowSearchResults(true);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   // --- Helpers / Memos ---
   const ETA = {
@@ -196,6 +225,69 @@ export default function HopinPage() {
         {/* Left Sidebar (25% or fixed width) */}
         <div className="w-[320px] lg:w-[25%] flex-shrink-0 h-full border-r border-white/10 bg-black/40 backdrop-blur-md overflow-y-auto custom-scrollbar">
           <div className="p-4 space-y-6 pb-20">
+            {/* Search Bar */}
+            <div className="relative">
+              <Search size={16} className="absolute left-3 top-3 text-neutral-500" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search events or places..."
+                className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-10 pr-10 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:border-white/30"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => { setSearchQuery(""); setShowSearchResults(false); }}
+                  className="absolute right-3 top-2.5 text-neutral-500 hover:text-white"
+                >
+                  <X size={16} />
+                </button>
+              )}
+              {/* Search Results Dropdown */}
+              {showSearchResults && searchResults.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-black border border-white/10 rounded-xl max-h-60 overflow-y-auto z-50">
+                  {searchResults.map((event: any) => (
+                    <button
+                      key={event.id}
+                      onClick={() => {
+                        setSelectedPlan(event);
+                        setSearchQuery("");
+                        setShowSearchResults(false);
+                      }}
+                      className="w-full px-4 py-3 text-left hover:bg-white/5 border-b border-white/5 last:border-b-0"
+                    >
+                      <div className="flex items-start gap-3">
+                        <MapPin size={16} className="text-neutral-500 mt-0.5" />
+                        <div>
+                          <div className="text-sm font-medium text-white">{event.title}</div>
+                          <div className="text-xs text-neutral-500">{event.location || 'No location'}</div>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {isSearching && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-black border border-white/10 rounded-xl p-4 text-center text-sm text-neutral-500">
+                  Searching...
+                </div>
+              )}
+            </div>
+
+            {/* Event Toggle */}
+            <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/10">
+              <div className="flex items-center gap-2">
+                {showEventMarkers ? <Eye size={16} className="text-neutral-400" /> : <EyeOff size={16} className="text-neutral-400" />}
+                <span className="text-sm text-neutral-300">Show Events</span>
+              </div>
+              <button
+                onClick={() => setShowEventMarkers(!showEventMarkers)}
+                className={`w-10 h-5 rounded-full transition-colors relative ${showEventMarkers ? 'bg-white' : 'bg-neutral-700'}`}
+              >
+                <div className={`absolute top-0.5 w-4 h-4 rounded-full transition-all ${showEventMarkers ? 'left-5 bg-black' : 'left-0.5 bg-neutral-500'}`} />
+              </button>
+            </div>
+
             {/* 1. Route Stats */}
             <div className="rounded-2xl bg-white/5 border border-white/10 p-4">
               <h3 className="text-sm font-semibold uppercase tracking-wider text-neutral-400 mb-3">Route Stats</h3>
@@ -323,7 +415,7 @@ export default function HopinPage() {
               setSelectedMapLocation({ ...loc, name: loc.name || "Custom Location" });
               setIsCreateOpen(true);
             }}
-            plans={plans}
+            plans={showEventMarkers ? plans : []}
             onSelectPlan={(plan) => setSelectedPlan(plan)}
           />
         </div>
@@ -337,7 +429,7 @@ export default function HopinPage() {
         locationData={selectedMapLocation}
       />
 
-      <PlanDetailModal
+      <EventDetailSidebar
         isOpen={!!selectedPlan}
         plan={selectedPlan}
         onClose={() => setSelectedPlan(null)}
