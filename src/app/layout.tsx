@@ -62,3 +62,5 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     </html>
   );
 }
+
+// Force rebuild: 2026-01-05 17:55 - Fix #310 Cache Burst
