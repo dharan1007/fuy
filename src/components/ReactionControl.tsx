@@ -101,9 +101,11 @@ export default function ReactionControl({ postId, initialReaction, counts, onRea
                         : "bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20"
                 )}
             >
-                <svg viewBox="0 0 24 24" fill="currentColor" className={cn("w-4 h-4", currentReaction === "CAP" ? "text-blue-400" : "text-white/40 group-hover:text-white/60")}>
-                    <path d="M2,9 L22,9 L22,11 L19,11 C19,15.418 15.418,19 11,19 C6.582,19 3,15.418 3,11 L2,11 L2,9 Z M12,4 C14.209,4 16,5.791 16,8 L8,8 C8,5.791 9.791,4 12,4 Z" />
-                </svg>
+                <div className="flex flex-col items-center leading-none">
+                    <span className={cn("text-[10px] font-black tracking-tighter", currentReaction === "CAP" ? "text-blue-400" : "text-white/40 group-hover:text-white/60")}>
+                        CAP
+                    </span>
+                </div>
                 <span className={cn("text-xs font-medium", currentReaction === "CAP" ? "text-white" : "text-white/40 group-hover:text-white/60")}>
                     {optimisticCounts["CAP"] || 0}
                 </span>
