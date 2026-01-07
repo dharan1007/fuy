@@ -85,7 +85,16 @@ export async function GET(
             // Add user-specific fields
             userReaction: userId ? post.reactions.find((r: any) => r.userId === userId)?.type : null,
             totalBubbles: post.reactionBubbles.length,
-            topBubbles: post.reactionBubbles.slice(0, 3)
+            topBubbles: post.reactionBubbles.slice(0, 3),
+
+            // Synthesize xrayData if missing for XRAY posts
+            xrayData: post.postType === 'XRAY' ? (post.xrayData || {
+                id: post.id,
+                topLayerUrl: post.postMedia.find((pm: any) => pm.media.variant === 'xray-top')?.media.url || post.postMedia[0]?.media.url || '',
+                topLayerType: post.postMedia.find((pm: any) => pm.media.variant === 'xray-top')?.media.type || 'IMAGE',
+                bottomLayerUrl: post.postMedia.find((pm: any) => pm.media.variant === 'xray-bottom')?.media.url || post.postMedia[1]?.media.url || '',
+                bottomLayerType: post.postMedia.find((pm: any) => pm.media.variant === 'xray-bottom')?.media.type || 'IMAGE',
+            }) : undefined
         };
 
         return NextResponse.json(processedPost);
