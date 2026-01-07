@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, Suspense, useEffect, useState, memo } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Stars, ScrollControls, Scroll, useScroll } from '@react-three/drei';
 import * as THREE from 'three';
 
@@ -74,6 +74,15 @@ function ScrollStarfield({ children, variant = 'default' }: ScrollStarfieldProps
         } as any,
         dpr: [1, 2] as [number, number],
         onCreated: ({ gl }: any) => {
+            // R3F handles disposal, we just need to ensure we don't leak listeners
+            // Listeners are moved to SceneEvents component
+        }
+    };
+
+    // Inner component to handle scene events and cleanup
+    const SceneEvents = () => {
+        const { gl } = useThree();
+        useEffect(() => {
             const canvas = gl.domElement;
             const handleContextLost = (event: any) => {
                 event.preventDefault();
@@ -86,13 +95,12 @@ function ScrollStarfield({ children, variant = 'default' }: ScrollStarfieldProps
             canvas.addEventListener('webglcontextlost', handleContextLost);
             canvas.addEventListener('webglcontextrestored', handleContextRestored);
 
-            // Cleanup function to remove listeners and dispose context
             return () => {
                 canvas.removeEventListener('webglcontextlost', handleContextLost);
                 canvas.removeEventListener('webglcontextrestored', handleContextRestored);
-                gl.dispose();
             };
-        }
+        }, [gl]);
+        return null;
     };
 
     if (variant === 'landing') {
@@ -101,6 +109,7 @@ function ScrollStarfield({ children, variant = 'default' }: ScrollStarfieldProps
                 <div className="absolute inset-0 z-0">
                     <Suspense fallback={<div className="w-full h-full bg-black/90" />}>
                         <Canvas {...commonCanvasProps}>
+                            <SceneEvents />
                             <color attach="background" args={['#000000']} />
                             <ScrollControls pages={5} damping={0.2}>
                                 <Scroll>
@@ -123,6 +132,7 @@ function ScrollStarfield({ children, variant = 'default' }: ScrollStarfieldProps
             <div className="fixed inset-0 z-0 bg-black pointer-events-none">
                 <Suspense fallback={<div className="w-full h-full bg-black" />}>
                     <Canvas {...commonCanvasProps}>
+                        <SceneEvents />
                         <color attach="background" args={['#000000']} />
                         <FixedStarfieldScene />
                     </Canvas>
@@ -134,5 +144,8 @@ function ScrollStarfield({ children, variant = 'default' }: ScrollStarfieldProps
         </>
     );
 }
+
+// Adding useThree import which was missing for SceneEvents
+import { useThree } from '@react-three/fiber';
 
 export default memo(ScrollStarfield);

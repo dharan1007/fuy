@@ -42,7 +42,7 @@ export default function XrayCard({ post, xray, currentUserId, onPostHidden, onRe
         if (!ctx) return;
 
         const img = new Image();
-        img.crossOrigin = 'anonymous';
+        img.crossOrigin = 'anonymous'; // Keep this as we are proxying with correct headers now
         img.onload = () => {
             canvas.width = img.width;
             canvas.height = img.height;
@@ -50,7 +50,8 @@ export default function XrayCard({ post, xray, currentUserId, onPostHidden, onRe
             ctx.drawImage(img, 0, 0);
             setImageLoaded(true);
         };
-        img.src = xray.topLayerUrl;
+        // Use proxy to ensure CORS headers are present
+        img.src = `/api/proxy-image?url=${encodeURIComponent(xray.topLayerUrl)}`;
     }, [xray.topLayerUrl]);
 
     const getCoordinates = (e: React.MouseEvent | React.TouchEvent) => {
