@@ -10,6 +10,7 @@ import { SearchOverlay } from '@/components/Explore/SearchOverlay';
 const GalaxyScene = dynamic(() => import('@/components/Explore/GalaxyScene'), { ssr: false });
 import { PostDetailModal } from '@/components/Explore/PostDetailModal';
 import SlashesTab from '@/components/Explore/SlashesTab';
+import FeedPostItem from '@/components/FeedPostItem';
 import { DUMMY_PUDS, DUMMY_CHANS } from './dummyData';
 
 interface Post {
@@ -65,8 +66,8 @@ export default function ExplorePage() {
         if (res.ok) {
           const data = await res.json();
 
-          // Filter out Chans, Chapters, Simple Text, Puds, and Auds from main mixed posts
-          const excludedTypes = ['CHAN', 'CHAPTER', 'SIMPLE', 'SIMPLE_TEXT', 'PULLUPDOWN', 'AUD'];
+          // Filter out Chans, Chapters, Simple Text, Puds, Auds, and Xray from main mixed posts
+          const excludedTypes = ['CHAN', 'CHAPTER', 'SIMPLE', 'SIMPLE_TEXT', 'PULLUPDOWN', 'AUD', 'XRAY'];
           const filteredMain = (data.main || []).filter((post: any) =>
             !excludedTypes.includes(post.postType) && post.feature !== 'CHAN'
           );
@@ -149,9 +150,17 @@ export default function ExplorePage() {
         ))}
       </div>
 
-      {/* Galaxy Scene or Slashes Tab */}
+      {/* Galaxy Scene, Slashes Tab, or Grid View */}
       {activeGlobe === 'Slashes' ? (
         <SlashesTab />
+      ) : ['Chaptes', 'sixts', 'X Rays'].includes(activeGlobe) ? (
+        <div className="pt-40 px-4 pb-8 overflow-y-auto h-full">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-6xl mx-auto">
+            {(activeGlobe === 'Chaptes' ? chaptes : activeGlobe === 'sixts' ? texts : xrays).map((post: any) => (
+              <FeedPostItem key={post.id} post={post} />
+            ))}
+          </div>
+        </div>
       ) : (
         <GalaxyScene
           activeGlobe={activeGlobe}
@@ -170,8 +179,8 @@ export default function ExplorePage() {
         />
       )}
 
-      {/* Controls - Hide for Chans, Fills, Puds, Slashes */}
-      {!['Chans', 'Puds', 'Slashes'].includes(activeGlobe) && (
+      {/* Controls - Hide for Chans, Fills, Puds, Slashes, and Grid Tabs */}
+      {!['Chans', 'Puds', 'Slashes', 'Chaptes', 'sixts', 'X Rays'].includes(activeGlobe) && (
         <div className="absolute bottom-8 right-8 z-10 flex flex-col gap-4">
           <button
             onClick={handleToggle}
