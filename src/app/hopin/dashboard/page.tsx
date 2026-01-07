@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import HopinDashboard from "@/components/HopinDashboard";
 import AppHeader from "@/components/AppHeader";
-import StarfieldBackground from "@/components/LandingPage/StarfieldBackground";
+const StarfieldBackground = dynamic(() => import("@/components/LandingPage/StarfieldBackground"), { ssr: false });
 import CreatePlanModal from "@/components/CreatePlanModal";
 import { Plus } from "lucide-react";
 

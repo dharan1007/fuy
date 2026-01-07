@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import AppHeader from "@/components/AppHeader";
-import StarfieldBackground from "@/components/LandingPage/StarfieldBackground";
+const StarfieldBackground = dynamic(() => import("@/components/LandingPage/StarfieldBackground"), { ssr: false });
 import type { LatLng, POICategory } from "@/components/leaflet-map";
 import CreatePlanModal from "@/components/CreatePlanModal";
 import HopinDashboard from "@/components/HopinDashboard";
