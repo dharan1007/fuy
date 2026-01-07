@@ -3,8 +3,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { SpaceBackground } from "@/components/SpaceBackground";
-
-export const revalidate = 60; // ISR shell
 import LoadingSpinner from "@/components/LoadingSpinner";
 import {
     Play,
