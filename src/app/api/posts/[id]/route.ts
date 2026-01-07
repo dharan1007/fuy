@@ -68,6 +68,16 @@ export async function GET(
             },
         });
 
+        // Debug log
+        if (post && post.postType === 'XRAY') {
+            console.log('[API] Fetched XRAY Post:', {
+                id: post.id,
+                xrayData: post.xrayData,
+                mediaCount: post.postMedia.length,
+                mediaVariants: post.postMedia.map(pm => pm.media.variant)
+            });
+        }
+
         if (!post) {
             return NextResponse.json({ error: "Post not found" }, { status: 404 });
         }
