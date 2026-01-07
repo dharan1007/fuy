@@ -74,7 +74,79 @@ export default function XrayCard({ post, xray, currentUserId, onPostHidden, onRe
         img.src = `/api/proxy-image?url=${encodeURIComponent(xray.topLayerUrl)}`;
     }, [xray.topLayerUrl, isActivated, hasValidData]);
 
-    // ... scratching logic same ...
+    const getCoordinates = (e: React.MouseEvent | React.TouchEvent) => {
+        const canvas = canvasRef.current;
+        if (!canvas) return null;
+
+        const rect = canvas.getBoundingClientRect();
+        let clientX, clientY;
+
+        if ('touches' in e) {
+            clientX = e.touches[0].clientX;
+            clientY = e.touches[0].clientY;
+        } else {
+            clientX = (e as React.MouseEvent).clientX;
+            clientY = (e as React.MouseEvent).clientY;
+        }
+
+        const scaleX = canvas.width / rect.width;
+        const scaleY = canvas.height / rect.height;
+
+        return {
+            x: (clientX - rect.left) * scaleX,
+            y: (clientY - rect.top) * scaleY
+        };
+    };
+
+    const handleStart = (e: React.MouseEvent | React.TouchEvent) => {
+        if (!isActivated) return;
+        setIsScratching(true);
+        lastPos.current = getCoordinates(e);
+    };
+
+    const handleEnd = () => {
+        setIsScratching(false);
+        lastPos.current = null;
+    };
+
+    const scratch = (e: React.MouseEvent | React.TouchEvent) => {
+        if (!isScratching || !isActivated) return;
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        if (!ctx) return;
+        const currentPos = getCoordinates(e);
+        if (!currentPos) return;
+
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+        ctx.lineWidth = 100;
+
+        ctx.beginPath();
+        if (lastPos.current) {
+            ctx.moveTo(lastPos.current.x, lastPos.current.y);
+        } else {
+            ctx.moveTo(currentPos.x, currentPos.y);
+        }
+        ctx.lineTo(currentPos.x, currentPos.y);
+        ctx.stroke();
+
+        lastPos.current = currentPos;
+    };
+
+    const revealAll = () => {
+        if (!isActivated) setIsActivated(true);
+        setTimeout(() => {
+            const canvas = canvasRef.current;
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+            ctx.globalCompositeOperation = 'destination-out';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            setImageLoaded(true);
+        }, 100);
+    };
 
     // Prevent activation if data is missing
     const handleInteractionStart = () => {
@@ -103,10 +175,12 @@ export default function XrayCard({ post, xray, currentUserId, onPostHidden, onRe
                         {xray.bottomLayerType === 'VIDEO' ? (
                             <video
                                 src={xray.bottomLayerUrl}
+                                ref={(el) => {
+                                    if (el) el.play().catch(() => { });
+                                }}
                                 className="absolute inset-0 w-full h-full object-cover"
                                 controls
                                 muted
-                                autoPlay
                                 loop
                             />
                         ) : (
