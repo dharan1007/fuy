@@ -63,10 +63,9 @@ export async function POST(req: NextRequest) {
 
     // --- 2. Create Post Transaction ---
     const post = await prisma.$transaction(async (tx) => {
-      // A. Create Core Post
-      // Note: specialized tables (Lill, etc.) no longer store media URLs.
+      console.log(`[POST] Starting Transaction for ${postType}, userId: ${userId}`);
 
-      // Create Post and PostMedia relations
+      // A. Create Core Post
       const newPost = await tx.post.create({
         data: {
           userId,
@@ -96,6 +95,7 @@ export async function POST(req: NextRequest) {
           postMedia: { include: { media: true } }
         }
       });
+      console.log(`[POST] Created Core Post: ${newPost.id}`);
 
       // B. Create FeedItem (Denormalized)
       const mediaPreviews = newPost.postMedia.map(pm => ({
@@ -120,6 +120,7 @@ export async function POST(req: NextRequest) {
           shareCount: 0
         }
       });
+      console.log(`[POST] Created FeedItem for ${newPost.id}`);
 
       // C. Handle Legacy/Metadata Tables (No URLs)
       if (postType === 'LILL') {
@@ -163,6 +164,7 @@ export async function POST(req: NextRequest) {
           }
         });
       } else if (postType === 'XRAY') {
+        console.log(`[POST] Creating Xray Entry for ${newPost.id}`);
         await tx.xray.create({
           data: {
             postId: newPost.id,
@@ -171,7 +173,11 @@ export async function POST(req: NextRequest) {
         });
       }
 
+      console.log(`[POST] Transaction Complete for ${newPost.id}`);
       return newPost;
+    }, {
+      maxWait: 10000, // 10s wait for connection
+      timeout: 20000  // 20s execution limit
     });
 
     return NextResponse.json(post);
