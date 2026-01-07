@@ -17,7 +17,7 @@ const FixedStarfieldScene = () => {
 
     return (
         <group ref={starsRef}>
-            <Stars radius={80} depth={40} count={800} factor={6} saturation={0} fade speed={1} />
+            <Stars radius={80} depth={40} count={200} factor={6} saturation={0} fade speed={1} />
         </group>
     );
 };
@@ -43,7 +43,7 @@ const ScrollingStarfieldScene = () => {
 
     return (
         <group ref={starsRef}>
-            <Stars radius={80} depth={40} count={800} factor={6} saturation={0} fade speed={1} />
+            <Stars radius={80} depth={40} count={200} factor={6} saturation={0} fade speed={1} />
         </group>
     );
 };

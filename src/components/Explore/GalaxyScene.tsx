@@ -1,5 +1,5 @@
-import React from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import React, { useEffect } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Stars } from '@react-three/drei';
 import { useSession } from '@/hooks/use-session';
 import { GlobeContent } from './GlobeContent';
@@ -22,14 +22,26 @@ interface GalaxySceneProps {
     autoRotate: boolean;
 }
 
-const SceneThrottler = () => {
-    useFrame((state) => {
-        if (document.visibilityState === 'hidden') {
-            state.gl.setAnimationLoop(null);
-        } else {
-            // R3F handles resuming automatically if we just return or use standard loops
-        }
-    });
+const SceneEvents = () => {
+    const { gl } = useThree();
+    useEffect(() => {
+        const canvas = gl.domElement;
+        const handleContextLost = (event: any) => {
+            event.preventDefault();
+            console.warn('WebGL context lost on GalaxyScene. Attempting to restore...');
+        };
+        const handleContextRestored = () => {
+            console.log('WebGL context restored on GalaxyScene.');
+        };
+
+        canvas.addEventListener('webglcontextlost', handleContextLost);
+        canvas.addEventListener('webglcontextrestored', handleContextRestored);
+
+        return () => {
+            canvas.removeEventListener('webglcontextlost', handleContextLost);
+            canvas.removeEventListener('webglcontextrestored', handleContextRestored);
+        };
+    }, [gl]);
     return null;
 };
 
@@ -77,24 +89,13 @@ export default function GalaxyScene({
                     antialias: false, // Disable for better performance
                     preserveDrawingBuffer: false
                 }}
-                onCreated={({ gl }) => {
-                    // Handle WebGL context loss
-                    const canvas = gl.domElement;
-                    canvas.addEventListener('webglcontextlost', (event) => {
-                        event.preventDefault();
-                        console.warn('WebGL context lost. Attempting to restore...');
-                    });
-                    canvas.addEventListener('webglcontextrestored', () => {
-                        console.log('WebGL context restored');
-                    });
-                }}
                 frameloop="demand" // Only render when needed
             >
-                <SceneThrottler />
+                <SceneEvents />
                 <fog attach="fog" args={['#000', 20, 50]} />
                 <ambientLight intensity={0.5} />
                 <pointLight position={[10, 10, 10]} intensity={1} />
-                <Stars radius={200} depth={50} count={800} factor={4} saturation={0} fade speed={0.5} />
+                <Stars radius={200} depth={50} count={300} factor={4} saturation={0} fade speed={0.5} />
 
                 {/* PUDs and Chans are 2D overlays, handled outside Canvas */
                     activeGlobe === 'Puds' || activeGlobe === 'Chans' ? null : (

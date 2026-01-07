@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import React, { useMemo, useEffect } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Stars, Environment } from '@react-three/drei';
 import { PostNode } from './PostNode';
 import * as THREE from 'three';
@@ -41,12 +41,26 @@ function PostsSphere({ posts, onPostClick }: { posts: any[], onPostClick: (post:
     );
 }
 
-const SceneThrottler = () => {
-    useFrame((state) => {
-        if (document.visibilityState === 'hidden') {
-            state.gl.setAnimationLoop(null);
-        }
-    });
+const SceneEvents = () => {
+    const { gl } = useThree();
+    useEffect(() => {
+        const canvas = gl.domElement;
+        const handleContextLost = (event: any) => {
+            event.preventDefault();
+            console.warn('WebGL context lost on ExploreGlobe.');
+        };
+        const handleContextRestored = () => {
+            console.log('WebGL context restored on ExploreGlobe.');
+        };
+
+        canvas.addEventListener('webglcontextlost', handleContextLost);
+        canvas.addEventListener('webglcontextrestored', handleContextRestored);
+
+        return () => {
+            canvas.removeEventListener('webglcontextlost', handleContextLost);
+            canvas.removeEventListener('webglcontextrestored', handleContextRestored);
+        };
+    }, [gl]);
     return null;
 };
 
@@ -60,23 +74,13 @@ export default function ExploreGlobe({ posts, onPostClick, showLines }: ExploreG
                     antialias: false,
                     failIfMajorPerformanceCaveat: true
                 }}
-                onCreated={({ gl }) => {
-                    const canvas = gl.domElement;
-                    canvas.addEventListener('webglcontextlost', (event) => {
-                        event.preventDefault();
-                        console.warn('WebGL context lost on ExploreGlobe.');
-                    });
-                    canvas.addEventListener('webglcontextrestored', () => {
-                        console.log('WebGL context restored on ExploreGlobe.');
-                    });
-                }}
             >
-                <SceneThrottler />
+                <SceneEvents />
                 <fog attach="fog" args={['#000', 15, 25]} />
                 <ambientLight intensity={0.5} />
                 <pointLight position={[10, 10, 10]} intensity={1} />
 
-                <Stars radius={100} depth={50} count={1500} factor={4} saturation={0} fade speed={1} />
+                <Stars radius={100} depth={50} count={400} factor={4} saturation={0} fade speed={1} />
 
                 {/* Central Sphere for reference */}
                 {showLines && (

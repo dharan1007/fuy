@@ -16,7 +16,7 @@ export async function GET() {
             if (type) {
                 where.postType = type;
             } else {
-                where.postType = { notIn: ['STORY', 'CHAN'] };
+                where.postType = { notIn: ['STORY', 'CHAN', 'XRAY'] };
             }
             where.visibility = 'PUBLIC';
 
