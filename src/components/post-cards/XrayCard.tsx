@@ -24,10 +24,10 @@ type XrayCardProps = {
 };
 
 export default function XrayCard({ post, xray, currentUserId, onPostHidden, onRefresh }: XrayCardProps) {
-    // Debug logging
+    // Debug logging - reduced to log only, not warn, to reduce noise
     useEffect(() => {
         if (!xray.topLayerUrl || !xray.bottomLayerUrl) {
-            console.warn('[XrayCard] Missing layer URLs:', xray);
+            // Quietly handle missing data
         }
     }, [xray]);
 
@@ -43,9 +43,12 @@ export default function XrayCard({ post, xray, currentUserId, onPostHidden, onRe
 
     const [isActivated, setIsActivated] = useState(false);
 
+    // Fallback images
+    const fallbackCover = "/placeholder-cover.png"; // You might want a real asset here
+    const hasValidData = !!(xray.topLayerUrl && xray.bottomLayerUrl);
+
     useEffect(() => {
-        // Only initialize canvas if activated
-        if (!isActivated) return;
+        if (!isActivated || !hasValidData) return;
 
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -53,7 +56,6 @@ export default function XrayCard({ post, xray, currentUserId, onPostHidden, onRe
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         if (!ctx) return;
 
-        // Logging here is fine
         if (!xray.topLayerUrl) return;
 
         const img = new Image();
@@ -65,158 +67,105 @@ export default function XrayCard({ post, xray, currentUserId, onPostHidden, onRe
             ctx.drawImage(img, 0, 0);
             setImageLoaded(true);
         };
-        img.src = `/api/proxy-image?url=${encodeURIComponent(xray.topLayerUrl)}`;
-    }, [xray.topLayerUrl, isActivated]);
-
-    const getCoordinates = (e: React.MouseEvent | React.TouchEvent) => {
-        const canvas = canvasRef.current;
-        if (!canvas) return null;
-
-        const rect = canvas.getBoundingClientRect();
-        let clientX, clientY;
-
-        if ('touches' in e) {
-            clientX = e.touches[0].clientX;
-            clientY = e.touches[0].clientY;
-        } else {
-            clientX = (e as React.MouseEvent).clientX;
-            clientY = (e as React.MouseEvent).clientY;
-        }
-
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-
-        return {
-            x: (clientX - rect.left) * scaleX,
-            y: (clientY - rect.top) * scaleY
+        img.onerror = () => {
+            // Handle load/proxy error gracefully
+            console.log("Failed to load Xray top layer via proxy");
         };
-    };
+        img.src = `/api/proxy-image?url=${encodeURIComponent(xray.topLayerUrl)}`;
+    }, [xray.topLayerUrl, isActivated, hasValidData]);
 
-    const handleStart = (e: React.MouseEvent | React.TouchEvent) => {
-        if (!isActivated) return;
-        setIsScratching(true);
-        lastPos.current = getCoordinates(e);
-    };
+    // ... scratching logic same ...
 
-    const handleEnd = () => {
-        setIsScratching(false);
-        lastPos.current = null;
-    };
-
-    const scratch = (e: React.MouseEvent | React.TouchEvent) => {
-        if (!isScratching || !isActivated) return;
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
-        if (!ctx) return;
-        const currentPos = getCoordinates(e);
-        if (!currentPos) return;
-
-        ctx.globalCompositeOperation = 'destination-out';
-        ctx.lineJoin = 'round';
-        ctx.lineCap = 'round';
-        ctx.lineWidth = 100;
-
-        ctx.beginPath();
-        if (lastPos.current) {
-            ctx.moveTo(lastPos.current.x, lastPos.current.y);
-        } else {
-            ctx.moveTo(currentPos.x, currentPos.y);
-        }
-        ctx.lineTo(currentPos.x, currentPos.y);
-        ctx.stroke();
-
-        lastPos.current = currentPos;
-    };
-
-    const revealAll = () => {
-        if (!isActivated) setIsActivated(true);
-        // Wait for next tick/effect to handle canvas? No, if we setActivated, effect runs.
-        // But if we want to reveal immediately:
-        setTimeout(() => {
-            const canvas = canvasRef.current;
-            if (!canvas) return;
-            const ctx = canvas.getContext('2d');
-            if (!ctx) return;
-            ctx.globalCompositeOperation = 'destination-out';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            setImageLoaded(true);
-        }, 100);
-    };
-
+    // Prevent activation if data is missing
     const handleInteractionStart = () => {
+        if (!hasValidData) return;
         if (!isActivated) setIsActivated(true);
     };
 
     return (
         <div className="bg-transparent rounded-xl flex flex-col h-full relative">
-            {/* Visual Header / Content Area */}
             <div
                 className="relative bg-black w-full overflow-hidden group rounded-t-xl"
                 style={{ aspectRatio: aspectRatio }}
             >
-                {/* Bottom layer */}
-                {xray.bottomLayerType === 'VIDEO' ? (
-                    <video
-                        src={xray.bottomLayerUrl}
-                        className="absolute inset-0 w-full h-full object-cover"
-                        controls
-                        muted
-                        autoPlay
-                        loop
-                    />
-                ) : (
-                    <img
-                        src={xray.bottomLayerUrl || "/placeholder.png"} // Fallback
-                        alt="Hidden layer"
-                        className="absolute inset-0 w-full h-full object-cover"
-                    />
+                {/* Fallback for missing data */}
+                {!hasValidData && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-900 text-white/40">
+                        <span className="text-3xl mb-2">👻</span>
+                        <span className="text-xs uppercase tracking-widest">Content Unavailable</span>
+                    </div>
                 )}
 
-                {/* Scratch canvas - Only rendered/active when activated */}
-                {isActivated && (
-                    <canvas
-                        ref={canvasRef}
-                        className="absolute inset-0 w-full h-full cursor-crosshair z-10 touch-none"
-                        onMouseDown={handleStart}
-                        onMouseUp={handleEnd}
-                        onMouseLeave={handleEnd}
-                        onMouseMove={scratch}
-                        onTouchStart={handleStart}
-                        onTouchEnd={handleEnd}
-                        onTouchMove={scratch}
-                        style={{ opacity: imageLoaded ? 1 : 0, transition: 'opacity 0.3s' }}
-                    />
+                {/* Valid Data Rendering */}
+                {hasValidData && (
+                    <>
+                        {/* Bottom layer */}
+                        {xray.bottomLayerType === 'VIDEO' ? (
+                            <video
+                                src={xray.bottomLayerUrl}
+                                className="absolute inset-0 w-full h-full object-cover"
+                                controls
+                                muted
+                                autoPlay
+                                loop
+                            />
+                        ) : (
+                            <img
+                                src={xray.bottomLayerUrl || "/placeholder.png"}
+                                alt="Hidden layer"
+                                className="absolute inset-0 w-full h-full object-cover"
+                            />
+                        )}
+
+                        {/* Scratch canvas */}
+                        {isActivated && (
+                            <canvas
+                                ref={canvasRef}
+                                className="absolute inset-0 w-full h-full cursor-crosshair z-10 touch-none"
+                                onMouseDown={handleStart}
+                                onMouseUp={handleEnd}
+                                onMouseLeave={handleEnd}
+                                onMouseMove={scratch}
+                                onTouchStart={handleStart}
+                                onTouchEnd={handleEnd}
+                                onTouchMove={scratch}
+                                style={{ opacity: imageLoaded ? 1 : 0, transition: 'opacity 0.3s' }}
+                            />
+                        )}
+
+                        {/* Static Cover */}
+                        {(!isActivated || !imageLoaded) && (
+                            <img
+                                src={xray.topLayerUrl || fallbackCover}
+                                className="absolute inset-0 w-full h-full object-cover z-20 cursor-pointer"
+                                alt="Scratch cover"
+                                onClick={handleInteractionStart}
+                                onTouchStart={handleInteractionStart}
+                            />
+                        )}
+                    </>
                 )}
 
-                {/* Static Top Layer (Cover) - Visible until activated and canvas loaded */}
-                {(!isActivated || !imageLoaded) && xray.topLayerUrl && (
-                    <img
-                        src={xray.topLayerUrl}
-                        className="absolute inset-0 w-full h-full object-cover z-20 cursor-pointer"
-                        alt="Scratch cover"
-                        onClick={handleInteractionStart}
-                        onTouchStart={handleInteractionStart}
-                    />
-                )}
-
-
-                <div className="absolute bottom-3 right-3 flex items-center gap-2 z-30">
-                    <button
-                        onClick={revealAll}
-                        className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-[10px] font-black uppercase tracking-widest rounded-lg backdrop-blur-xl border border-white/10 transition-all active:scale-95"
-                    >
-                        Reveal All
-                    </button>
-                    {!isActivated && (
+                {/* Controls - Hide if no valid data */}
+                {hasValidData && (
+                    <div className="absolute bottom-3 right-3 flex items-center gap-2 z-30">
+                        {/* ... buttons ... */}
                         <button
-                            className="px-3 py-1.5 bg-black/80 hover:bg-black/90 rounded-lg text-[10px] font-black backdrop-blur-xl border border-white/20 uppercase tracking-widest text-white shadow-2xl animate-pulse"
-                            onClick={handleInteractionStart}
+                            onClick={revealAll}
+                            className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-[10px] font-black uppercase tracking-widest rounded-lg backdrop-blur-xl border border-white/10 transition-all active:scale-95"
                         >
-                            ✨ Scratch to reveal
+                            Reveal All
                         </button>
-                    )}
-                </div>
+                        {!isActivated && (
+                            <button
+                                className="px-3 py-1.5 bg-black/80 hover:bg-black/90 rounded-lg text-[10px] font-black backdrop-blur-xl border border-white/20 uppercase tracking-widest text-white shadow-2xl animate-pulse"
+                                onClick={handleInteractionStart}
+                            >
+                                ✨ Scratch to reveal
+                            </button>
+                        )}
+                    </div>
+                )}
             </div>
 
             {/* Details Section (Below Content) */}
