@@ -44,7 +44,7 @@ function FeedPostItem({ post, currentUserId, className, isProfileView }: FeedPos
                 {/* Badge & Date */}
                 <div className="absolute top-3 left-3 z-30 flex items-center gap-2 pointer-events-none">
                     <div className="bg-black text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider shadow-sm">
-                        {(post.postType || post.feature) === 'CHAN' ? 'CHANNEL' : (post.postType || 'POST')}
+                        {(post.postType || post.feature) === 'CHAN' ? 'CHANNEL' : (post.postType === 'SIMPLE_TEXT' ? 'sixts' : (post.postType || 'POST'))}
                     </div>
                     {post.createdAt && (
                         <span className="text-[10px] font-medium text-white/60 bg-black/30 px-2 py-0.5 rounded-full backdrop-blur-md">

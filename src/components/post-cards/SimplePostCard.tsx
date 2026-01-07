@@ -47,91 +47,27 @@ export default function SimplePostCard({ post, currentUserId }: SimplePostCardPr
 
     return (
         <div className="bg-transparent rounded-xl flex flex-col h-full relative">
-            {/* Visual Header / Content Area */}
-            {/* If there is media, show it. If purely text, show text in a nice container. */}
-            {/* Text Only Post Styling - Minimal / Twitter-like */}
-            {(!post.media || post.media.length === 0) && (
-                <div className="w-full p-6 flex flex-col justify-center bg-transparent">
-                    <p className="text-white text-lg font-normal leading-relaxed whitespace-pre-wrap">
-                        <Linkify>{post.content}</Linkify>
-                    </p>
-                </div>
-            )}
-
-            {post.media && post.media.length > 0 && (
-                <div className="relative w-full aspect-square bg-black/50 overflow-hidden group">
-                    {post.media[currentMediaIndex].type === 'VIDEO' ? (
-                        <video
-                            src={post.media[currentMediaIndex].url}
-                            className="w-full h-full object-cover"
-                            controls
-                            controlsList="nodownload nopictureinpicture noplaybackrate"
-                            disablePictureInPicture
-                        />
-                    ) : (
-                        <img
-                            src={post.media[currentMediaIndex].url}
-                            alt="Post content"
-                            className="w-full h-full object-cover"
-                        />
-                    )}
-
-                    {/* Navigation Arrows */}
-                    {post.media.length > 1 && (
-                        <>
-                            {currentMediaIndex > 0 && (
-                                <button
-                                    onClick={prevMedia}
-                                    className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                                >
-                                    <ChevronLeft size={20} />
-                                </button>
-                            )}
-                            {currentMediaIndex < post.media.length - 1 && (
-                                <button
-                                    onClick={nextMedia}
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                                >
-                                    <ChevronRight size={20} />
-                                </button>
-                            )}
-                            {/* Dots Indicator */}
-                            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
-                                {post.media.map((_: any, idx: number) => (
-                                    <div
-                                        key={idx}
-                                        className={`w-1.5 h-1.5 rounded-full ${idx === currentMediaIndex ? 'bg-white' : 'bg-white/40'}`}
-                                    />
-                                ))}
-                            </div>
-                        </>
-                    )}
-                </div>
-            )}
-
-            {/* Details Section (Below Content) */}
-            <div className="p-5 flex flex-col gap-4">
-                {/* User Info */}
+            {/* User Info & Header - Moved to Top */}
+            <div className="p-5 pb-2 flex items-center gap-4">
                 {post.user ? (
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3 w-full">
                         <Link href={`/profile/${post.user.id}`} className="shrink-0">
                             <img
                                 src={post.user.profile?.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${post.user.id}`}
                                 alt={post.user.profile?.displayName || "User"}
-                                className="w-10 h-10 rounded-full border border-white/20"
+                                className="w-8 h-8 rounded-full border border-white/20"
                             />
                         </Link>
                         <div className="flex flex-col">
-                            <Link href={`/profile/${post.user.id}`} className="text-base font-bold text-white hover:underline">
+                            <Link href={`/profile/${post.user.id}`} className="text-sm font-bold text-white hover:underline leading-none">
                                 {post.user.profile?.displayName || "Unknown User"}
                             </Link>
                             {post.location && (
-                                <span className="text-sm text-white/50">{post.location}</span>
+                                <span className="text-[10px] text-white/50">{post.location}</span>
                             )}
                         </div>
-                        {/* Timestamp / Menu */}
                         <div className="ml-auto flex items-center gap-3">
-                            <span className="text-sm text-white/40">{new Date(post.createdAt).toLocaleDateString()}</span>
+                            <span className="text-[10px] text-white/40">{new Date(post.createdAt).toLocaleDateString()}</span>
                             <PostActionMenu
                                 post={post}
                                 currentUserId={currentUserId}
@@ -139,13 +75,13 @@ export default function SimplePostCard({ post, currentUserId }: SimplePostCardPr
                         </div>
                     </div>
                 ) : (
-                    <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-full bg-white/10" />
+                    <div className="flex items-center gap-3 w-full">
+                        <div className="w-8 h-8 rounded-full bg-white/10" />
                         <div className="flex flex-col">
-                            <span className="text-base font-bold text-white/50">Unknown User</span>
+                            <span className="text-sm font-bold text-white/50 leading-none">Unknown User</span>
                         </div>
                         <div className="ml-auto flex items-center gap-3">
-                            <span className="text-sm text-white/40">{new Date(post.createdAt).toLocaleDateString()}</span>
+                            <span className="text-[10px] text-white/40">{new Date(post.createdAt).toLocaleDateString()}</span>
                             <PostActionMenu
                                 post={post}
                                 currentUserId={currentUserId}
@@ -153,48 +89,106 @@ export default function SimplePostCard({ post, currentUserId }: SimplePostCardPr
                         </div>
                     </div>
                 )}
+            </div>
 
-                {/* Caption (only if media is present, as text posts show content above) */}
-                {post.media && post.media.length > 0 && post.content && (
-                    <p className="text-base text-white/90 line-clamp-3 leading-relaxed">
-                        {post.user?.profile?.displayName && (
-                            <span className="font-bold mr-2 text-white">{post.user.profile.displayName}</span>
-                        )}
+            {/* Visual Content Area */}
+            {(!post.media || post.media.length === 0) ? (
+                <div className="w-full px-6 pt-2 pb-4 flex flex-col bg-transparent">
+                    <p className="text-white text-lg font-normal leading-relaxed whitespace-pre-wrap">
                         <Linkify>{post.content}</Linkify>
                     </p>
-                )}
+                </div>
+            ) : (
+                <div className="flex flex-col">
+                    <div className="relative w-full aspect-square bg-black/50 overflow-hidden group">
+                        {post.media[currentMediaIndex].type === 'VIDEO' ? (
+                            <video
+                                src={post.media[currentMediaIndex].url}
+                                className="w-full h-full object-cover"
+                                controls
+                                controlsList="nodownload nopictureinpicture noplaybackrate"
+                                disablePictureInPicture
+                            />
+                        ) : (
+                            <img
+                                src={post.media[currentMediaIndex].url}
+                                alt="Post content"
+                                className="w-full h-full object-cover"
+                            />
+                        )}
 
-                {/* Reactions & Bubbles */}
-                <div className="pt-3 border-t border-white/10">
-                    <div className="mb-3">
-                        <ReactionBubbleList
-                            postId={post.id}
-                            bubbles={post.topBubbles || []}
-                            totalBubbles={post.totalBubbles || 0}
-                            onAddBubble={() => onRefresh()} // Simple refresh trigger
-                        />
+                        {/* Navigation Arrows */}
+                        {post.media.length > 1 && (
+                            <>
+                                {currentMediaIndex > 0 && (
+                                    <button
+                                        onClick={prevMedia}
+                                        className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                        <ChevronLeft size={20} />
+                                    </button>
+                                )}
+                                {currentMediaIndex < post.media.length - 1 && (
+                                    <button
+                                        onClick={nextMedia}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                        <ChevronRight size={20} />
+                                    </button>
+                                )}
+                                {/* Dots Indicator */}
+                                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+                                    {post.media.map((_: any, idx: number) => (
+                                        <div
+                                            key={idx}
+                                            className={`w-1.5 h-1.5 rounded-full ${idx === currentMediaIndex ? 'bg-white' : 'bg-white/40'}`}
+                                        />
+                                    ))}
+                                </div>
+                            </>
+                        )}
                     </div>
-                    <div className="flex items-center justify-between">
-                        <ReactionControl
-                            postId={post.id}
-                            initialReaction={post.userReaction}
-                            counts={post.reactionCounts}
-                            onReact={() => onRefresh()}
-                        />
-                        <div className="text-xs text-white/50 hover:text-white cursor-pointer transition-colors" onClick={() => setIsCommentsOpen(true)}>
-                            {post.comments?.length || 0} comments
+                    {/* Caption for Media Posts */}
+                    {post.content && (
+                        <div className="px-5 pt-4">
+                            <p className="text-base text-white/90 leading-relaxed">
+                                <Linkify>{post.content}</Linkify>
+                            </p>
                         </div>
+                    )}
+                </div>
+            )}
+
+            {/* Reactions & Bubbles */}
+            <div className="px-5 pb-5 pt-3">
+                <div className="mb-3">
+                    <ReactionBubbleList
+                        postId={post.id}
+                        bubbles={post.topBubbles || []}
+                        totalBubbles={post.totalBubbles || 0}
+                        onAddBubble={() => onRefresh()} // Simple refresh trigger
+                    />
+                </div>
+                <div className="flex items-center justify-between">
+                    <ReactionControl
+                        postId={post.id}
+                        initialReaction={post.userReaction}
+                        counts={post.reactionCounts}
+                        onReact={() => onRefresh()}
+                    />
+                    <div className="text-xs text-white/50 hover:text-white cursor-pointer transition-colors" onClick={() => setIsCommentsOpen(true)}>
+                        {post.comments?.length || 0} comments
                     </div>
-                    {/* Share Button Row */}
-                    <div className="mt-3 flex items-center justify-end border-t border-white/5 pt-2">
-                        <button
-                            onClick={() => setIsShareOpen(true)}
-                            className="flex items-center gap-2 text-white/50 hover:text-white transition-colors text-xs font-medium"
-                        >
-                            <Send size={14} />
-                            Share
-                        </button>
-                    </div>
+                </div>
+                {/* Share Button Row */}
+                <div className="mt-3 flex items-center justify-end border-t border-white/5 pt-2">
+                    <button
+                        onClick={() => setIsShareOpen(true)}
+                        className="flex items-center gap-2 text-white/50 hover:text-white transition-colors text-xs font-medium"
+                    >
+                        <Send size={14} />
+                        Share
+                    </button>
                 </div>
             </div>
 
