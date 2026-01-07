@@ -99,6 +99,13 @@ export async function GET(req: NextRequest) {
                 },
                 postMedia: { include: { media: true } },
                 slashes: true,
+                // Include specialized data for rendering
+                xrayData: true,
+                lillData: true,
+                fillData: true,
+                audData: true,
+                chanData: true,
+                pullUpDownData: true,
                 _count: {
                     select: {
                         likes: true,
@@ -188,6 +195,13 @@ export async function GET(req: NextRequest) {
                     },
                     postMedia: { include: { media: true } },
                     slashes: true,
+                    // Include specialized data for fallback
+                    xrayData: true,
+                    lillData: true,
+                    fillData: true,
+                    audData: true,
+                    chanData: true,
+                    pullUpDownData: true,
                     _count: {
                         select: {
                             likes: true,

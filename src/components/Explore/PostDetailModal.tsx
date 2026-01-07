@@ -1,6 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { Globe } from 'lucide-react';
+import XrayCard from '@/components/post-cards/XrayCard';
 
 interface PostDetailModalProps {
     post: any;
@@ -29,8 +30,12 @@ export function PostDetailModal({ post, onClose }: PostDetailModalProps) {
 
                 <div className="flex flex-col md:flex-row h-[80vh] md:h-auto md:max-h-[80vh]">
                     {/* Media Section */}
-                    <div className="w-full md:w-1/2 bg-black flex items-center justify-center relative">
-                        {post.media && post.media.length > 0 ? (
+                    <div className="w-full md:w-1/2 bg-black flex items-center justify-center relative overflow-hidden">
+                        {post.postType === 'XRAY' && post.xrayData ? (
+                            <div className="w-full h-full flex items-center justify-center p-4">
+                                <XrayCard post={post} xray={post.xrayData} />
+                            </div>
+                        ) : post.media && post.media.length > 0 ? (
                             post.media[0].type === 'IMAGE' ? (
                                 <img
                                     src={post.media[0].url}
