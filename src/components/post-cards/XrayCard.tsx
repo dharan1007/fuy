@@ -99,7 +99,7 @@ export default function XrayCard({ post, xray, currentUserId, onPostHidden, onRe
         ctx.globalCompositeOperation = 'destination-out';
         ctx.lineJoin = 'round';
         ctx.lineCap = 'round';
-        ctx.lineWidth = 60;
+        ctx.lineWidth = 100; // Increased size as requested for better reveal coverage
 
         ctx.beginPath();
         if (lastPos.current) {
@@ -152,8 +152,8 @@ export default function XrayCard({ post, xray, currentUserId, onPostHidden, onRe
                     style={{ opacity: imageLoaded ? 1 : 0, transition: 'opacity 0.3s' }}
                 />
 
-                <div className="absolute top-3 left-3 px-3 py-1 bg-black/70 rounded-full text-[10px] pointer-events-none font-bold z-20 backdrop-blur-md border border-white/10 uppercase tracking-widest text-white/90">
-                    🔍 Scratch to reveal
+                <div className="absolute bottom-3 right-3 px-3 py-1.5 bg-black/80 rounded-lg text-[10px] pointer-events-none font-black z-20 backdrop-blur-xl border border-white/20 uppercase tracking-widest text-white shadow-2xl animate-pulse">
+                    ✨ Scratch to reveal
                 </div>
             </div>
 
