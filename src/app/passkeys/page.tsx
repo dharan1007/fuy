@@ -5,7 +5,8 @@ import {
   startRegistration,
   startAuthentication,
 } from "@simplewebauthn/browser";
-import ScrollStarfield from "@/components/ScrollStarfield";
+import dynamic from "next/dynamic";
+const ScrollStarfield = dynamic(() => import("@/components/ScrollStarfield"), { ssr: false });
 import Link from "next/link";
 
 async function getOptions(path: string) {

@@ -8,7 +8,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import ScrollStarfield from "@/components/ScrollStarfield";
+import dynamic from "next/dynamic";
+const ScrollStarfield = dynamic(() => import("@/components/ScrollStarfield"), { ssr: false });
 
 function LoginContent() {
   const router = useRouter();

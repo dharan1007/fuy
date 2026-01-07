@@ -17,7 +17,8 @@ type IntervalRef = ReturnType<typeof setInterval> | null;
 type Phase = "work" | "short" | "long";
 
 import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
-import ScrollStarfield from "./ScrollStarfield";
+import dynamic from "next/dynamic";
+const ScrollStarfield = dynamic(() => import("./ScrollStarfield"), { ssr: false });
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { uploadFileClientSide } from "@/lib/upload-helper";
 

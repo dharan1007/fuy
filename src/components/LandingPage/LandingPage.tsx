@@ -1,7 +1,8 @@
 'use client';
 
 import React, { Suspense } from 'react';
-import ScrollStarfield from '@/components/ScrollStarfield';
+import dynamic from 'next/dynamic';
+const ScrollStarfield = dynamic(() => import('@/components/ScrollStarfield'), { ssr: false });
 import HeroSection from './HeroSection';
 import FeatureSection from './FeatureSection';
 import LoadingSpinner from '@/components/LoadingSpinner';

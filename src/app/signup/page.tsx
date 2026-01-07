@@ -7,7 +7,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import ScrollStarfield from "@/components/ScrollStarfield";
+import dynamic from "next/dynamic";
+const ScrollStarfield = dynamic(() => import("@/components/ScrollStarfield"), { ssr: false });
 import { startRegistration } from "@simplewebauthn/browser";
 
 export default function SignupPage() {

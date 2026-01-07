@@ -2,7 +2,8 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import ScrollStarfield from "@/components/ScrollStarfield";
+import dynamic from "next/dynamic";
+const ScrollStarfield = dynamic(() => import("@/components/ScrollStarfield"), { ssr: false });
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { cn } from "@/lib/utils";
 import { uploadFileClientSide } from "@/lib/upload-helper";

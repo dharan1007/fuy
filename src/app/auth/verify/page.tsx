@@ -3,7 +3,8 @@
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase-client";
-import ScrollStarfield from "@/components/ScrollStarfield";
+import dynamic from "next/dynamic";
+const ScrollStarfield = dynamic(() => import("@/components/ScrollStarfield"), { ssr: false });
 
 // Force black background for starfield
 function StarfieldBackground() {

@@ -3,7 +3,8 @@
 import { useFormStatus } from "react-dom";
 import { loginAdmin } from "../actions";
 import { useState, useEffect } from "react";
-import ScrollStarfield from "@/components/ScrollStarfield";
+import dynamic from "next/dynamic";
+const ScrollStarfield = dynamic(() => import("@/components/ScrollStarfield"), { ssr: false });
 
 function SubmitButton() {
     const { pending } = useFormStatus();

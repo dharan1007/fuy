@@ -4,7 +4,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Loader2 } from 'lucide-react'; // Globe removed
-import ScrollStarfield from '@/components/ScrollStarfield';
+import dynamic from 'next/dynamic';
+const ScrollStarfield = dynamic(() => import('@/components/ScrollStarfield'), { ssr: false });
 
 
 import FeedPostItem from '@/components/FeedPostItem';
