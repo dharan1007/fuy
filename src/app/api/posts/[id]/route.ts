@@ -104,7 +104,21 @@ export async function GET(
                 topLayerType: post.postMedia.find((pm: any) => pm.media.variant === 'xray-top')?.media.type || 'IMAGE',
                 bottomLayerUrl: post.postMedia.find((pm: any) => pm.media.variant === 'xray-bottom')?.media.url || post.postMedia[1]?.media.url || '',
                 bottomLayerType: post.postMedia.find((pm: any) => pm.media.variant === 'xray-bottom')?.media.type || 'IMAGE',
-            }) : undefined
+            }) : undefined,
+
+            // Synthesize lillData videoUrl from media
+            lillData: post.postType === 'LILL' && post.lillData ? {
+                ...(post.lillData as any),
+                videoUrl: post.postMedia[0]?.media.url || '',
+                thumbnailUrl: post.lillData.thumbnailUrl || post.postMedia.find((pm: any) => pm.media.variant === 'thumbnail')?.media.url || null,
+            } : post.lillData,
+
+            // Synthesize fillData videoUrl from media
+            fillData: post.postType === 'FILL' && post.fillData ? {
+                ...(post.fillData as any),
+                videoUrl: post.postMedia[0]?.media.url || '',
+                thumbnailUrl: post.fillData.thumbnailUrl || post.postMedia.find((pm: any) => pm.media.variant === 'thumbnail')?.media.url || null,
+            } : post.fillData
         };
 
         return NextResponse.json(processedPost);
