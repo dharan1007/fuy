@@ -1,3 +1,6 @@
+'use client';
+
+import React, { useRef, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Send } from 'lucide-react';
 import ReactionBubbleList from '@/components/ReactionBubbleList';
