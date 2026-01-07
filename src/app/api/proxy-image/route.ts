@@ -10,10 +10,12 @@ export async function GET(request: NextRequest) {
     }
 
     try {
+        console.log(`[Proxy] Fetching: ${url}`);
         const response = await fetch(url);
 
         if (!response.ok) {
-            return NextResponse.json({ error: 'Failed to fetch image' }, { status: response.status });
+            console.error(`[Proxy] Failed to fetch: ${url}, Status: ${response.status}`);
+            return NextResponse.json({ error: 'Failed to fetch image', details: response.statusText }, { status: response.status });
         }
 
         const contentType = response.headers.get('content-type') || 'application/octet-stream';
@@ -27,8 +29,8 @@ export async function GET(request: NextRequest) {
                 'Cache-Control': 'public, max-age=31536000, immutable'
             }
         });
-    } catch (error) {
-        console.error('Proxy error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    } catch (error: any) {
+        console.error('[Proxy] Error:', error);
+        return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
     }
 }

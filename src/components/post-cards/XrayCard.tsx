@@ -38,7 +38,7 @@ export default function XrayCard({ post, xray, currentUserId, onPostHidden, onRe
         const canvas = canvasRef.current;
         if (!canvas) return;
 
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
         if (!ctx) return;
 
         const img = new Image();
@@ -92,7 +92,7 @@ export default function XrayCard({ post, xray, currentUserId, onPostHidden, onRe
         if (!isScratching) return;
         const canvas = canvasRef.current;
         if (!canvas) return;
-        const ctx = canvas.getContext('2d', { alpha: true });
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
         if (!ctx) return;
         const currentPos = getCoordinates(e);
         if (!currentPos) return;
