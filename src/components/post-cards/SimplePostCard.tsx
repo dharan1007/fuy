@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { Linkify } from '@/components/Linkify';
 import { MoreVertical, Flag, ChevronLeft, ChevronRight, Send } from 'lucide-react';
 import ReactionBubbleList from '@/components/ReactionBubbleList';
 import ReactionControl from '@/components/ReactionControl';
@@ -52,7 +53,7 @@ export default function SimplePostCard({ post, currentUserId }: SimplePostCardPr
             {(!post.media || post.media.length === 0) && (
                 <div className="w-full p-6 flex flex-col justify-center bg-transparent">
                     <p className="text-white text-lg font-normal leading-relaxed whitespace-pre-wrap">
-                        {post.content}
+                        <Linkify>{post.content}</Linkify>
                     </p>
                 </div>
             )}
@@ -159,7 +160,7 @@ export default function SimplePostCard({ post, currentUserId }: SimplePostCardPr
                         {post.user?.profile?.displayName && (
                             <span className="font-bold mr-2 text-white">{post.user.profile.displayName}</span>
                         )}
-                        {post.content}
+                        <Linkify>{post.content}</Linkify>
                     </p>
                 )}
 

@@ -1,8 +1,8 @@
 
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { getServerSession } from '@/lib/auth';
-import { authOptions } from '@/lib/auth';
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 export async function GET(
     req: NextRequest,
@@ -10,105 +10,98 @@ export async function GET(
 ) {
     try {
         const session = await getServerSession(authOptions);
-        const { id } = params;
+        const userId = session?.user?.id;
+        const postId = params.id;
 
-        if (!id) {
-            return new NextResponse('Post ID missing', { status: 400 });
+        if (!postId) {
+            return NextResponse.json(
+                { error: "Post ID is required" },
+                { status: 400 }
+            );
         }
 
         const post = await prisma.post.findUnique({
-            where: { id },
-            // @ts-ignore - Prisma types lag
+            where: { id: postId },
             include: {
                 user: {
                     include: {
-                        profile: {
-                            select: {
-                                displayName: true,
-                                avatarUrl: true,
-                            },
-                        },
+                        profile: true,
                     },
                 },
-                postMedia: { include: { media: true } },
+                comments: {
+                    include: {
+                        user: {
+                            include: {
+                                profile: true,
+                            },
+                        },
+                        reactions: true,
+                    },
+                    orderBy: {
+                        createdAt: 'desc',
+                    },
+                },
+                reactions: true,
+                media: true,
                 slashes: true,
-                likes: session?.user?.id ? { where: { userId: session.user.id } } : false, // Check if liked by current user
-                _count: {
-                    select: {
-                        likes: true,
-                        comments: true,
-                        shares: true, // Assuming relation or field exists
+                bubbles: {
+                    include: {
+                        user: {
+                            include: {
+                                profile: true
+                            }
+                        }
                     }
-                }
+                },
+                // Specialized types
+                lillData: {
+                    include: {
+                        slashes: true,
+                        media: true
+                    }
+                },
+                audData: {
+                    include: {
+                        slashes: true
+                    }
+                },
+                fillData: {
+                    include: {
+                        slashes: true
+                    }
+                },
+                xrayData: true,
+                chanData: true,
+                chapterData: true,
+                pullUpDownData: true,
+                simpleData: true,
             },
-        } as any) as any;
+        });
 
         if (!post) {
-            return new NextResponse('Post not found', { status: 404 });
+            return NextResponse.json({ error: "Post not found" }, { status: 404 });
         }
 
-        // Increment view count (simple implementation, potentially debounced in real app)
-        // We do this asynchronously to not block the response
-        // prisma.post.update({ where: { id }, data: { viewCount: { increment: 1 } } }).catch(console.error);
-
-        // Format for frontend
-        const formattedPost = {
+        // Process post for frontend (similar to feed logic)
+        const processedPost = {
             ...post,
-            media: post.postMedia?.map((pm: any) => pm.media) || [],
-            likesCount: post._count.likes,
-            commentsCount: post._count.comments,
-            sharesCount: post.shareCount || post._count.shares || 0,
-            impressions: post.impressions || 0,
-            hasLiked: post.likes?.length > 0
+            media: post.media.map(m => ({
+                ...m,
+                // Ensure URLs are accessible
+                url: m.url.startsWith('http') ? m.url : `/uploads/${m.url}`
+            })),
+            // Add user-specific fields
+            userReaction: userId ? post.reactions.find(r => r.userId === userId)?.type : null,
+            totalBubbles: post.bubbles.length,
+            topBubbles: post.bubbles.slice(0, 3)
         };
 
-
-        return NextResponse.json(formattedPost);
-
+        return NextResponse.json(processedPost);
     } catch (error) {
-        console.error('Error fetching post:', error);
-        return new NextResponse('Internal Server Error', { status: 500 });
-    }
-}
-
-export async function DELETE(
-    req: NextRequest,
-    { params }: { params: { id: string } }
-) {
-    try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user?.id) {
-            return new NextResponse('Unauthorized', { status: 401 });
-        }
-
-        const { id } = params;
-        if (!id) return new NextResponse('Post ID missing', { status: 400 });
-
-        const post = await prisma.post.findUnique({
-            where: { id },
-            select: { userId: true }
-        });
-
-        if (!post) return new NextResponse('Post not found', { status: 404 });
-
-        if (post.userId !== session.user.id) {
-            // Check for admin/mod role if applicable, otherwise forbid
-            return new NextResponse('Forbidden', { status: 403 });
-        }
-
-        await prisma.post.delete({
-            where: { id }
-        });
-
-        // Also clean up Feeditems if any
-        await prisma.feedItem.deleteMany({
-            where: { postId: id }
-        });
-
-        return new NextResponse(null, { status: 204 });
-
-    } catch (error) {
-        console.error('Error deleting post:', error);
-        return new NextResponse('Internal Server Error', { status: 500 });
+        console.error("Error fetching post:", error);
+        return NextResponse.json(
+            { error: "Internal server error" },
+            { status: 500 }
+        );
     }
 }
