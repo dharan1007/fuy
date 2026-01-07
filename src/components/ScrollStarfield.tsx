@@ -145,7 +145,4 @@ function ScrollStarfield({ children, variant = 'default' }: ScrollStarfieldProps
     );
 }
 
-// Adding useThree import which was missing for SceneEvents
-import { useThree } from '@react-three/fiber';
-
 export default memo(ScrollStarfield);
