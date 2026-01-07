@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUserId, getSessionUser } from "@/lib/session";
 import { moderateContent } from "@/lib/moderation";
 import { rateLimit } from "@/lib/rate-limit";
+import { synthesizePostData } from "@/lib/post-synthesis";
 
 // Helper Types
 type FeatureKeyStr = "JOURNAL" | "AWE" | "BONDS" | "SERENDIPITY" | "CHECKIN" | "PROGRESS" | "OTHER";
@@ -296,44 +297,16 @@ export async function GET(req: NextRequest) {
       likedByMe: likedPostIds.has(item.postId),
       isSubscribed: false,
 
-      // Synthesize Data for Cards (avoids joining sub-tables for FeedItems)
-      lillData: item.postType === 'LILL' ? {
-        id: item.postId,
-        videoUrl: media[0]?.url || '',
-        thumbnailUrl: media[0]?.thumbnailUrl || null,
-        duration: 0 // Duration lost in denocmalization for now unless added to mediaPreviews
-      } : undefined,
-
-      fillData: item.postType === 'FILL' ? {
-        id: item.postId,
-        videoUrl: media[0]?.url || '',
-        thumbnailUrl: media[0]?.thumbnailUrl || null,
-        duration: 0
-      } : undefined,
-
-      audData: item.postType === 'AUD' ? {
-        id: item.postId,
-        title: "Audio",
-        artist: "Artist",
-        coverImageUrl: media[0]?.url,
-        duration: 0
-      } : undefined,
-
-
-      chanData: item.postType === 'CHAN' ? {
-        id: item.postId,
-        channelName: item.feature,
-        description: item.contentSnippet,
-        coverImageUrl: media[0]?.url
-      } : undefined,
-
-      xrayData: item.postType === 'XRAY' ? {
-        id: item.postId,
-        topLayerUrl: media.find((m: any) => m.variant === 'xray-top')?.url || media[0]?.url || '',
-        topLayerType: media.find((m: any) => m.variant === 'xray-top')?.type || 'IMAGE',
-        bottomLayerUrl: media.find((m: any) => m.variant === 'xray-bottom')?.url || media[1]?.url || '',
-        bottomLayerType: media.find((m: any) => m.variant === 'xray-bottom')?.type || 'IMAGE',
-      } : undefined
+      // Synthesize specialized post type data
+      ...synthesizePostData(
+        {
+          postId: item.postId,
+          postType: item.postType,
+          contentSnippet: item.contentSnippet,
+          authorName: item.authorName
+        },
+        media
+      ),
     };
   });
 

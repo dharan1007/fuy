@@ -101,8 +101,7 @@ function FeedPostItem({ post, currentUserId, className, isProfileView }: FeedPos
                     </button>
                 )}
 
-                {/* Slashes Overlay - Need to add state for this */}
-                {/* This requires adding [showSlashes, setShowSlashes] state to the component */}
+                {/* Slashes overlay could be added here when slashes feature is fully implemented */}
             </div>
         </FeedItemProvider>
     );

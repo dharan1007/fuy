@@ -93,7 +93,6 @@ export default function HomeClient({ isAdmin = false }: { isAdmin?: boolean }) {
     const [showFollowingModal, setShowFollowingModal] = useState(false);
     const [reportModalOpen, setReportModalOpen] = useState(false);
     const [reportPostId, setReportPostId] = useState<string | null>(null);
-    const [activeMenuPostId, setActiveMenuPostId] = useState<string | null>(null);
     const [followersList, setFollowersList] = useState<any[]>([]);
     const [followingList, setFollowingList] = useState<any[]>([]);
     const [loadingFollowers, setLoadingFollowers] = useState(false);
