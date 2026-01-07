@@ -846,28 +846,51 @@ function MessagesPageContent() {
                                                                 <span className="font-bold text-sm text-white group-hover/post:text-blue-300 transition-colors">
                                                                     {msg.sharedPost.user.profile?.displayName || 'Unknown User'}
                                                                 </span>
-                                                                <span className="text-[10px] text-white/40 uppercase tracking-wider font-medium">Post</span>
+                                                                <span className="text-[10px] text-white/40 uppercase tracking-widest font-black inline-flex items-center gap-1.5">
+                                                                    <span className="w-1 h-1 rounded-full bg-blue-500"></span>
+                                                                    {msg.sharedPost.postType || 'POST'}
+                                                                </span>
                                                             </div>
                                                         </div>
 
-                                                        {/* Media */}
-                                                        {msg.sharedPost.media && msg.sharedPost.media.length > 0 && (
-                                                            <div className="rounded-xl overflow-hidden w-full bg-black/50 relative border border-white/10 shadow-lg">
-                                                                {msg.sharedPost.media[0].type === 'VIDEO' ? (
-                                                                    <video
-                                                                        src={msg.sharedPost.media[0].url}
-                                                                        className="w-full h-auto max-h-[400px] object-cover"
-                                                                        controls={false}
-                                                                        muted
-                                                                        playsInline
-                                                                    />
-                                                                ) : (
-                                                                    <img
-                                                                        src={msg.sharedPost.media[0].url}
-                                                                        alt="Content"
-                                                                        className="w-full h-auto max-h-[400px] object-contain bg-black/20"
-                                                                    />
-                                                                )}
+                                                        {/* Media (Images/Videos) */}
+                                                        {(() => {
+                                                            const mediaList = msg.sharedPost.media || [];
+                                                            if (mediaList.length === 0) return null;
+
+                                                            const firstMedia = mediaList[0];
+                                                            return (
+                                                                <div className="rounded-xl overflow-hidden w-full bg-black relative border border-white/10 shadow-2xl">
+                                                                    {firstMedia.type === 'VIDEO' ? (
+                                                                        <video
+                                                                            src={firstMedia.url}
+                                                                            className="w-full h-auto max-h-[300px] object-cover"
+                                                                            controls={false}
+                                                                            muted
+                                                                            playsInline
+                                                                            autoPlay
+                                                                            loop
+                                                                        />
+                                                                    ) : (
+                                                                        <img
+                                                                            src={firstMedia.url}
+                                                                            alt="Post content"
+                                                                            className="w-full h-auto max-h-[300px] object-cover"
+                                                                        />
+                                                                    )}
+                                                                    {mediaList.length > 1 && (
+                                                                        <div className="absolute top-2 right-2 px-2 py-0.5 bg-black/70 rounded text-[10px] text-white font-bold backdrop-blur-sm border border-white/10 uppercase">
+                                                                            +{mediaList.length - 1} media
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })()}
+
+                                                        {/* Specialized Post Sneak Peek (Xray, etc.) */}
+                                                        {msg.sharedPost.postType === 'XRAY' && (
+                                                            <div className="text-[10px] text-blue-400 font-bold uppercase tracking-widest flex items-center gap-2 px-1">
+                                                                <span className="animate-pulse">🔍</span> Tap to scratch & reveal
                                                             </div>
                                                         )}
 
@@ -888,10 +911,10 @@ function MessagesPageContent() {
                                                 {/* Tag Badge - Attached to bubble */}
                                                 {hasTag && (
                                                     <div className={`absolute -top-2 ${isMe ? 'left-2' : 'right-2'} flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider shadow-lg border ${msg.tags![0] === 'Angry' ? 'bg-red-500/90 border-red-400 text-white' :
-                                                            msg.tags![0] === 'Sad' ? 'bg-blue-500/90 border-blue-400 text-white' :
-                                                                msg.tags![0] === 'Surprised' ? 'bg-yellow-500/90 border-yellow-400 text-black' :
-                                                                    msg.tags![0] === 'Reminders' ? 'bg-green-500/90 border-green-400 text-white' :
-                                                                        'bg-gray-600/90 border-gray-500 text-white'
+                                                        msg.tags![0] === 'Sad' ? 'bg-blue-500/90 border-blue-400 text-white' :
+                                                            msg.tags![0] === 'Surprised' ? 'bg-yellow-500/90 border-yellow-400 text-black' :
+                                                                msg.tags![0] === 'Reminders' ? 'bg-green-500/90 border-green-400 text-white' :
+                                                                    'bg-gray-600/90 border-gray-500 text-white'
                                                         }`}>
                                                         <Tag size={10} />
                                                         <span>{msg.tags![0]}</span>

@@ -74,7 +74,13 @@ export async function GET(req: Request) {
                 profile: { select: { displayName: true, avatarUrl: true } }
               }
             },
-            postMedia: { take: 1, include: { media: true } }
+            postMedia: { include: { media: true } },
+            xrayData: true,
+            lillData: true,
+            fillData: true,
+            audData: true,
+            chanData: true,
+            pullUpDownData: true,
           }
         }
       },

@@ -19,6 +19,7 @@ export interface Message {
     id: string;
     content: string;
     media: any[];
+    postType?: string;
     user: {
       id: string;
       name: string;
@@ -27,6 +28,12 @@ export interface Message {
         avatarUrl: string;
       };
     };
+    xrayData?: any;
+    lillData?: any;
+    fillData?: any;
+    audData?: any;
+    chanData?: any;
+    pullUpDownData?: any;
   };
 }
 
@@ -415,7 +422,10 @@ export function useMessaging() {
           tags: [], // Todo match tags from DB if available
           type: msg.type || 'text',
           sharedPostId: msg.sharedPostId,
-          sharedPost: msg.sharedPost
+          sharedPost: msg.sharedPost ? {
+            ...msg.sharedPost,
+            media: msg.sharedPost.postMedia?.map((pm: any) => pm.media) || []
+          } : undefined
         }));
 
         setMessages(prev => {
