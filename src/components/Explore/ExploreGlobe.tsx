@@ -53,7 +53,24 @@ const SceneThrottler = () => {
 export default function ExploreGlobe({ posts, onPostClick, showLines }: ExploreGlobeProps) {
     return (
         <div className="w-full h-screen absolute inset-0 z-0">
-            <Canvas camera={{ position: [0, 0, 18], fov: 60 }} gl={{ powerPreference: 'low-power' }}>
+            <Canvas
+                camera={{ position: [0, 0, 18], fov: 60 }}
+                gl={{
+                    powerPreference: 'low-power',
+                    antialias: false,
+                    failIfMajorPerformanceCaveat: true
+                }}
+                onCreated={({ gl }) => {
+                    const canvas = gl.domElement;
+                    canvas.addEventListener('webglcontextlost', (event) => {
+                        event.preventDefault();
+                        console.warn('WebGL context lost on ExploreGlobe.');
+                    });
+                    canvas.addEventListener('webglcontextrestored', () => {
+                        console.log('WebGL context restored on ExploreGlobe.');
+                    });
+                }}
+            >
                 <SceneThrottler />
                 <fog attach="fog" args={['#000', 15, 25]} />
                 <ambientLight intensity={0.5} />

@@ -72,7 +72,17 @@ function ScrollStarfield({ children, variant = 'default' }: ScrollStarfieldProps
             alpha: true,
             powerPreference: 'low-power'
         } as any,
-        dpr: [1, 2] as [number, number]
+        dpr: [1, 2] as [number, number],
+        onCreated: ({ gl }: any) => {
+            const canvas = gl.domElement;
+            canvas.addEventListener('webglcontextlost', (event: any) => {
+                event.preventDefault();
+                console.warn('WebGL context lost on ScrollStarfield.');
+            });
+            canvas.addEventListener('webglcontextrestored', () => {
+                console.log('WebGL context restored on ScrollStarfield.');
+            });
+        }
     };
 
     if (variant === 'landing') {

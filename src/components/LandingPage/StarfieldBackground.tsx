@@ -8,7 +8,23 @@ export default function StarfieldBackground() {
     return (
         <div className="fixed inset-0 z-0">
             <Suspense fallback={<div className="w-full h-full bg-black" />}>
-                <Canvas camera={{ position: [0, 0, 5], fov: 30 }} gl={{ powerPreference: "high-performance", failIfMajorPerformanceCaveat: true }}>
+                <Canvas
+                    camera={{ position: [0, 0, 5], fov: 30 }}
+                    gl={{
+                        powerPreference: "low-power",
+                        failIfMajorPerformanceCaveat: true,
+                    }}
+                    onCreated={({ gl }) => {
+                        const canvas = gl.domElement;
+                        canvas.addEventListener('webglcontextlost', (event) => {
+                            event.preventDefault();
+                            console.warn('WebGL context lost on Starfield.');
+                        });
+                        canvas.addEventListener('webglcontextrestored', () => {
+                            console.log('WebGL context restored on Starfield.');
+                        });
+                    }}
+                >
                     <color attach="background" args={['#000000']} />
                     <Stars
                         radius={100}

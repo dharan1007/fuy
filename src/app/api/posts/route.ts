@@ -17,151 +17,176 @@ const asVis = (v: unknown): VisibilityStr => ["PUBLIC", "FRIENDS", "PRIVATE"].in
 const asMT = (v: unknown): MediaTypeStr => ["IMAGE", "VIDEO", "AUDIO"].includes(String(v).toUpperCase() as any) ? String(v).toUpperCase() as MediaTypeStr : "IMAGE";
 
 export async function POST(req: NextRequest) {
-  const userId = await requireUserId();
-  const body = await req.json();
+  try {
+    const userId = await requireUserId();
+    const body = await req.json();
 
-  const feature = asFeat(body.feature);
-  const visibility = asVis(body.visibility);
-  const postType = body.postType === "STORY" ? "STORY" : (body.postType || "STANDARD").toUpperCase();
-  const content = String(body.content ?? "");
-  const title = String(body.title ?? "");
-  const groupId = body.groupId ? String(body.groupId) : null;
+    const feature = asFeat(body.feature);
+    const visibility = asVis(body.visibility);
+    const postType = body.postType === "STORY" ? "STORY" : (body.postType || "STANDARD").toUpperCase();
+    const content = String(body.content ?? "");
+    const title = String(body.title ?? "");
+    const groupId = body.groupId ? String(body.groupId) : null;
 
-  // Moderation
-  const moderation = moderateContent(content, title);
-  if (!moderation.isAllowed) {
-    return NextResponse.json({ error: "Content violates community guidelines", violations: moderation.violations }, { status: 400 });
-  }
+    // Moderation
+    const moderation = moderateContent(content, title);
+    if (!moderation.isAllowed) {
+      return NextResponse.json({ error: "Content violates community guidelines", violations: moderation.violations }, { status: 400 });
+    }
 
-  // --- 1. Prepare Media Data ---
-  // Handle both mobile (flat mediaUrls/Types) and web (array of objects) formats
-  const rawMedia = Array.isArray(body.mediaUrls) ? body.mediaUrls.map((url: string, i: number) => {
-    // For XRAY posts, properly assign variants
-    let variant = 'standard';
+    // --- 1. Prepare Media Data ---
+    // Handle both mobile (flat mediaUrls/Types) and web (array of objects) formats
+    const rawMedia = Array.isArray(body.mediaUrls) ? body.mediaUrls.map((url: string, i: number) => {
+      // For XRAY posts, properly assign variants
+      let variant = 'standard';
+      if (postType === 'XRAY') {
+        variant = i === 0 ? 'xray-top' : 'xray-bottom';
+      }
+      return {
+        url,
+        type: body.mediaTypes?.[i] || 'IMAGE',
+        variant
+      };
+    }) : (Array.isArray(body.media) ? body.media : []);
+
+    // Validation: Ensure XRAY posts have valid media layers
     if (postType === 'XRAY') {
-      variant = i === 0 ? 'xray-top' : 'xray-bottom';
+      const mediaCount = rawMedia.length;
+      if (mediaCount < 2) {
+        console.error(`XRAY Creation Failed: Insufficient media. Found ${mediaCount}, expected 2.`);
+        return NextResponse.json({
+          error: "XRAY posts require exactly 2 media layers (top and bottom).",
+          received: mediaCount
+        }, { status: 400 });
+      }
     }
-    return {
-      url,
-      type: body.mediaTypes?.[i] || 'IMAGE',
-      variant
-    };
-  }) : (Array.isArray(body.media) ? body.media : []);
 
-  // --- 2. Create Post Transaction ---
-  const post = await prisma.$transaction(async (tx) => {
-    // A. Create Core Post
-    // Note: specialized tables (Lill, etc.) no longer store media URLs.
+    // --- 2. Create Post Transaction ---
+    const post = await prisma.$transaction(async (tx) => {
+      // A. Create Core Post
+      // Note: specialized tables (Lill, etc.) no longer store media URLs.
 
-    // Create Post and PostMedia relations
-    const newPost = await tx.post.create({
-      data: {
-        userId,
-        feature,
-        content,
-        visibility,
-        groupId,
-        postType,
-        connectionScore: Number(body.connectionScore) || 0,
-        creativityScore: Number(body.creativityScore) || 0,
-        postMedia: {
-          create: rawMedia.map((m: any, idx: number) => ({
-            orderIndex: idx,
-            media: {
-              create: {
-                userId,
-                type: asMT(m.type),
-                url: String(m.url),
-                variant: m.variant || 'standard'
+      // Create Post and PostMedia relations
+      const newPost = await tx.post.create({
+        data: {
+          userId,
+          feature,
+          content,
+          visibility,
+          groupId,
+          postType,
+          connectionScore: Number(body.connectionScore) || 0,
+          creativityScore: Number(body.creativityScore) || 0,
+          postMedia: {
+            create: rawMedia.map((m: any, idx: number) => ({
+              orderIndex: idx,
+              media: {
+                create: {
+                  userId,
+                  type: asMT(m.type),
+                  url: String(m.url),
+                  variant: m.variant || 'standard'
+                }
               }
-            }
-          }))
+            }))
+          }
+        },
+        include: {
+          user: { select: { id: true, profile: { select: { displayName: true, avatarUrl: true } } } },
+          postMedia: { include: { media: true } }
         }
-      },
-      include: {
-        user: { select: { id: true, profile: { select: { displayName: true, avatarUrl: true } } } },
-        postMedia: { include: { media: true } }
+      });
+
+      // B. Create FeedItem (Denormalized)
+      const mediaPreviews = newPost.postMedia.map(pm => ({
+        type: pm.media.type,
+        url: pm.media.url,
+        aspect: 1
+      }));
+
+      await tx.feedItem.create({
+        data: {
+          userId,
+          postId: newPost.id,
+          authorName: newPost.user.profile?.displayName || 'User',
+          authorAvatarUrl: newPost.user.profile?.avatarUrl,
+          postType,
+          feature,
+          contentSnippet: content.slice(0, 200),
+          mediaPreviews: JSON.stringify(mediaPreviews),
+          createdAt: newPost.createdAt,
+          likeCount: 0,
+          commentCount: 0,
+          shareCount: 0
+        }
+      });
+
+      // C. Handle Legacy/Metadata Tables (No URLs)
+      if (postType === 'LILL') {
+        const duration = Number(body.duration) || 0;
+        await tx.lill.create({
+          data: {
+            postId: newPost.id,
+            duration,
+            aspectRatio: "9:16"
+          }
+        });
+      } else if (postType === 'SIMPLE' || postType === 'SIMPLE_TEXT') {
+        await tx.simplePost.create({
+          data: { postId: newPost.id }
+        });
+      } else if (postType === 'CHAN') {
+        await tx.chan.create({
+          data: {
+            postId: newPost.id,
+            channelName: body.channelName || "Untitled Channel",
+            description: body.description,
+            coverImageUrl: body.coverImageUrl,
+            episodes: JSON.stringify(body.episodes || [])
+          }
+        });
+      } else if (postType === 'FILL') {
+        await tx.fill.create({
+          data: {
+            postId: newPost.id,
+            duration: Number(body.duration) || 0
+          }
+        });
+      } else if (postType === 'AUD') {
+        await tx.aud.create({
+          data: {
+            postId: newPost.id,
+            duration: Number(body.duration) || 0,
+            title: body.title,
+            artist: body.artist,
+            coverImageUrl: body.coverImageUrl // if provided
+          }
+        });
+      } else if (postType === 'XRAY') {
+        await tx.xray.create({
+          data: {
+            postId: newPost.id,
+            scratchPattern: 'RANDOM'
+          }
+        });
       }
+
+      return newPost;
     });
 
-    // B. Create FeedItem (Denormalized)
-    const mediaPreviews = newPost.postMedia.map(pm => ({
-      type: pm.media.type,
-      url: pm.media.url,
-      aspect: 1
-    }));
+    return NextResponse.json(post);
 
-    await tx.feedItem.create({
-      data: {
-        userId,
-        postId: newPost.id,
-        authorName: newPost.user.profile?.displayName || 'User',
-        authorAvatarUrl: newPost.user.profile?.avatarUrl,
-        postType,
-        feature,
-        contentSnippet: content.slice(0, 200),
-        mediaPreviews: JSON.stringify(mediaPreviews),
-        createdAt: newPost.createdAt,
-        likeCount: 0,
-        commentCount: 0,
-        shareCount: 0
-      }
-    });
+  } catch (error: any) {
+    console.error("CRITICAL POST CREATION ERROR:", error);
+    // Log specifics if available
+    if (error.code) console.error("Prisma Error Code:", error.code);
+    if (error.meta) console.error("Prisma Error Meta:", error.meta);
 
-    // C. Handle Legacy/Metadata Tables (No URLs)
-    if (postType === 'LILL') {
-      const duration = Number(body.duration) || 0;
-      await tx.lill.create({
-        data: {
-          postId: newPost.id,
-          duration,
-          aspectRatio: "9:16"
-        }
-      });
-    } else if (postType === 'SIMPLE' || postType === 'SIMPLE_TEXT') {
-      await tx.simplePost.create({
-        data: { postId: newPost.id }
-      });
-    } else if (postType === 'CHAN') {
-      await tx.chan.create({
-        data: {
-          postId: newPost.id,
-          channelName: body.channelName || "Untitled Channel",
-          description: body.description,
-          coverImageUrl: body.coverImageUrl,
-          episodes: JSON.stringify(body.episodes || [])
-        }
-      });
-    } else if (postType === 'FILL') {
-      await tx.fill.create({
-        data: {
-          postId: newPost.id,
-          duration: Number(body.duration) || 0
-        }
-      });
-    } else if (postType === 'AUD') {
-      await tx.aud.create({
-        data: {
-          postId: newPost.id,
-          duration: Number(body.duration) || 0,
-          title: body.title,
-          artist: body.artist,
-          coverImageUrl: body.coverImageUrl // if provided
-        }
-      });
-    } else if (postType === 'XRAY') {
-      await tx.xray.create({
-        data: {
-          postId: newPost.id,
-          scratchPattern: 'RANDOM'
-        }
-      });
-    }
-
-    return newPost;
-  });
-
-  return NextResponse.json(post);
+    return NextResponse.json(
+      { error: "Failed to create post. Server error logged.", details: error.message },
+      { status: 500 }
+    );
+  }
 }
 
 export async function GET(req: NextRequest) {
