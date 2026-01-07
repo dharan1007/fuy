@@ -17,7 +17,7 @@ const FixedStarfieldScene = () => {
 
     return (
         <group ref={starsRef}>
-            <Stars radius={80} depth={40} count={1500} factor={6} saturation={0} fade speed={1} />
+            <Stars radius={80} depth={40} count={800} factor={6} saturation={0} fade speed={1} />
         </group>
     );
 };
@@ -43,7 +43,7 @@ const ScrollingStarfieldScene = () => {
 
     return (
         <group ref={starsRef}>
-            <Stars radius={80} depth={40} count={1500} factor={6} saturation={0} fade speed={1} />
+            <Stars radius={80} depth={40} count={800} factor={6} saturation={0} fade speed={1} />
         </group>
     );
 };
@@ -75,13 +75,23 @@ function ScrollStarfield({ children, variant = 'default' }: ScrollStarfieldProps
         dpr: [1, 2] as [number, number],
         onCreated: ({ gl }: any) => {
             const canvas = gl.domElement;
-            canvas.addEventListener('webglcontextlost', (event: any) => {
+            const handleContextLost = (event: any) => {
                 event.preventDefault();
                 console.warn('WebGL context lost on ScrollStarfield.');
-            });
-            canvas.addEventListener('webglcontextrestored', () => {
+            };
+            const handleContextRestored = () => {
                 console.log('WebGL context restored on ScrollStarfield.');
-            });
+            };
+
+            canvas.addEventListener('webglcontextlost', handleContextLost);
+            canvas.addEventListener('webglcontextrestored', handleContextRestored);
+
+            // Cleanup function to remove listeners and dispose context
+            return () => {
+                canvas.removeEventListener('webglcontextlost', handleContextLost);
+                canvas.removeEventListener('webglcontextrestored', handleContextRestored);
+                gl.dispose();
+            };
         }
     };
 

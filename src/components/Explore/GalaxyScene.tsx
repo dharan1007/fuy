@@ -94,7 +94,7 @@ export default function GalaxyScene({
                 <fog attach="fog" args={['#000', 20, 50]} />
                 <ambientLight intensity={0.5} />
                 <pointLight position={[10, 10, 10]} intensity={1} />
-                <Stars radius={200} depth={50} count={1500} factor={4} saturation={0} fade speed={0.5} />
+                <Stars radius={200} depth={50} count={800} factor={4} saturation={0} fade speed={0.5} />
 
                 {/* PUDs and Chans are 2D overlays, handled outside Canvas */
                     activeGlobe === 'Puds' || activeGlobe === 'Chans' ? null : (
