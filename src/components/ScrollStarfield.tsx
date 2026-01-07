@@ -98,6 +98,7 @@ function ScrollStarfield({ children, variant = 'default' }: ScrollStarfieldProps
             return () => {
                 canvas.removeEventListener('webglcontextlost', handleContextLost);
                 canvas.removeEventListener('webglcontextrestored', handleContextRestored);
+                if (gl) gl.dispose();
             };
         }, [gl]);
         return null;

@@ -5,8 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useSession } from '@/hooks/use-session';
 import { ArrowLeft, BookOpen, Search, Smartphone, Film, Music, Clock, PieChart, Image as ImageIcon, FileEdit } from 'lucide-react';
 import Link from 'next/link';
-import dynamic from 'next/dynamic';
-const ScrollStarfield = dynamic(() => import('@/components/ScrollStarfield'), { ssr: false });
+import ScrollStarfield from '@/components/ScrollStarfield';
 import DraftsList from '@/components/DraftsList';
 import { CreatePostProvider } from '@/context/CreatePostContext';
 

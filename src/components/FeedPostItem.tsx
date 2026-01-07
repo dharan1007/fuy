@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, memo } from 'react';
+import React, { useState, useEffect, memo } from 'react';
 import SimplePostCard from '@/components/post-cards/SimplePostCard';
 import ChapterCard from '@/components/post-cards/ChapterCard';
 import XrayCard from '@/components/post-cards/XrayCard';
@@ -20,9 +20,14 @@ interface FeedPostItemProps {
 }
 
 function FeedPostItem({ post, currentUserId, className, isProfileView }: FeedPostItemProps) {
+    const [mounted, setMounted] = useState(false);
     const [isHidden, setIsHidden] = useState(false);
     const [showSlashes, setShowSlashes] = useState(false);
     const { onRefresh } = useFeedRefresh() || { onRefresh: () => { } };
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     if (isHidden) return null;
 
@@ -34,8 +39,6 @@ function FeedPostItem({ post, currentUserId, className, isProfileView }: FeedPos
     const commonProps = {
         post,
         currentUserId,
-        // We pass onRefresh to others for compatibility until refactored
-        // onRefresh, 
     };
 
     return (
@@ -46,7 +49,7 @@ function FeedPostItem({ post, currentUserId, className, isProfileView }: FeedPos
                     <div className="bg-black text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider shadow-sm">
                         {(post.postType || post.feature) === 'CHAN' ? 'CHANNEL' : (post.postType === 'SIMPLE_TEXT' ? 'sixts' : (post.postType || 'POST'))}
                     </div>
-                    {post.createdAt && (
+                    {mounted && post.createdAt && (
                         <span className="text-[10px] font-medium text-white/60 bg-black/30 px-2 py-0.5 rounded-full backdrop-blur-md">
                             {new Date(post.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                         </span>

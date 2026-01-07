@@ -1,10 +1,19 @@
-'use client';
-
-import React, { Suspense } from 'react';
-import { Canvas } from '@react-three/fiber';
+import React, { Suspense, useEffect, useState } from 'react';
+import { Canvas, useThree } from '@react-three/fiber';
 import { Stars } from '@react-three/drei';
 
 export default function StarfieldBackground() {
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+        return () => setMounted(false);
+    }, []);
+
+    if (!mounted) {
+        return <div className="fixed inset-0 z-0 bg-black" />;
+    }
+
     return (
         <div className="fixed inset-0 z-0">
             <Suspense fallback={<div className="w-full h-full bg-black" />}>
@@ -13,23 +22,18 @@ export default function StarfieldBackground() {
                     gl={{
                         powerPreference: "low-power",
                         failIfMajorPerformanceCaveat: true,
-                    }}
-                    onCreated={({ gl }) => {
-                        const canvas = gl.domElement;
-                        canvas.addEventListener('webglcontextlost', (event) => {
-                            event.preventDefault();
-                            console.warn('WebGL context lost on Starfield.');
-                        });
-                        canvas.addEventListener('webglcontextrestored', () => {
-                            console.log('WebGL context restored on Starfield.');
-                        });
+                        antialias: false,
+                        stencil: false,
+                        depth: false,
+                        alpha: true,
                     }}
                 >
+                    <SceneEvents />
                     <color attach="background" args={['#000000']} />
                     <Stars
                         radius={100}
                         depth={50}
-                        count={1500} // Reduced from 5000 for stability
+                        count={800} // Further reduced for stability
                         factor={4}
                         saturation={0}
                         fade
@@ -39,4 +43,38 @@ export default function StarfieldBackground() {
             </Suspense>
         </div>
     );
+}
+
+function SceneEvents() {
+    const { gl } = useThree();
+
+    useEffect(() => {
+        const canvas = gl.domElement;
+
+        const handleContextLost = (event: any) => {
+            event.preventDefault();
+            console.warn('WebGL context lost on Starfield.');
+        };
+
+        const handleContextRestored = () => {
+            console.log('WebGL context restored on Starfield.');
+        };
+
+        canvas.addEventListener('webglcontextlost', handleContextLost);
+        canvas.addEventListener('webglcontextrestored', handleContextRestored);
+
+        return () => {
+            canvas.removeEventListener('webglcontextlost', handleContextLost);
+            canvas.removeEventListener('webglcontextrestored', handleContextRestored);
+
+            // Critical: Dispose of the renderer and its resources
+            if (gl) {
+                gl.dispose();
+                // If it's a WebGL2Renderer, some additional cleanup might be needed 
+                // but dispose() is the standard Three.js way to release resources.
+            }
+        };
+    }, [gl]);
+
+    return null;
 }

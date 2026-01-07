@@ -1,8 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import dynamic from 'next/dynamic';
-const ScrollStarfield = dynamic(() => import('./ScrollStarfield'), { ssr: false });
+import ScrollStarfield from './ScrollStarfield';
 
 interface LoadingSpinnerProps {
   message?: string;

@@ -15,7 +15,7 @@ import ProductsSidebarCard from '@/components/ProductsSidebarCard';
 
 import LoadingSpinner from '@/components/LoadingSpinner';
 import dynamic from 'next/dynamic';
-const ScrollStarfield = dynamic(() => import('@/components/ScrollStarfield'), { ssr: false });
+import ScrollStarfield from '@/components/ScrollStarfield';
 import LandingPage from '@/components/LandingPage/LandingPage';
 
 // Post type card components
