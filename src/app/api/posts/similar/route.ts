@@ -151,14 +151,14 @@ export async function GET(req: NextRequest) {
                 // Add debug explanation
                 matchReason: slashOverlap > 0 ? 'Similar Vibe' : (interestOverlap > 0 ? 'Based on your interests' : 'Trending'),
 
-                // Synthesize xrayData if XRAY post
-                xrayData: post.postType === 'XRAY' ? {
+                // Synthesize xrayData if XRAY post, but prefer existing DB data if valid
+                xrayData: post.postType === 'XRAY' ? (post.xrayData || {
                     id: post.id,
                     topLayerUrl: media.find((m: any) => m.variant === 'xray-top')?.url || media[0]?.url || '',
                     topLayerType: media.find((m: any) => m.variant === 'xray-top')?.type || 'IMAGE',
                     bottomLayerUrl: media.find((m: any) => m.variant === 'xray-bottom')?.url || media[1]?.url || '',
                     bottomLayerType: media.find((m: any) => m.variant === 'xray-bottom')?.type || 'IMAGE',
-                } : undefined
+                }) : undefined
             };
 
             return { post: mappedPost, score };
@@ -224,14 +224,14 @@ export async function GET(req: NextRequest) {
                     impressions: post.impressions || 0,
                     matchReason: 'Discovery', // Reason for fallback
 
-                    // Synthesize xrayData if XRAY post
-                    xrayData: post.postType === 'XRAY' ? {
+                    // Synthesize xrayData if XRAY post, but prefer existing DB data if valid
+                    xrayData: post.postType === 'XRAY' ? (post.xrayData || {
                         id: post.id,
                         topLayerUrl: media.find((m: any) => m.variant === 'xray-top')?.url || media[0]?.url || '',
                         topLayerType: media.find((m: any) => m.variant === 'xray-top')?.type || 'IMAGE',
                         bottomLayerUrl: media.find((m: any) => m.variant === 'xray-bottom')?.url || media[1]?.url || '',
                         bottomLayerType: media.find((m: any) => m.variant === 'xray-bottom')?.type || 'IMAGE',
-                    } : undefined
+                    }) : undefined
                 };
             });
 

@@ -24,6 +24,13 @@ type XrayCardProps = {
 };
 
 export default function XrayCard({ post, xray, currentUserId, onPostHidden, onRefresh }: XrayCardProps) {
+    // Debug logging
+    useEffect(() => {
+        if (!xray.topLayerUrl || !xray.bottomLayerUrl) {
+            console.warn('[XrayCard] Missing layer URLs:', xray);
+        }
+    }, [xray]);
+
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [isScratching, setIsScratching] = useState(false);
     const lastPos = useRef<{ x: number, y: number } | null>(null);
