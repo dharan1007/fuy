@@ -118,6 +118,14 @@ async function feedHandler(req: NextRequest) {
                     channelName: item.feature,
                     description: item.contentSnippet,
                     coverImageUrl: media[0]?.url
+                } : undefined,
+
+                xrayData: item.postType === 'XRAY' ? {
+                    id: item.postId,
+                    topLayerUrl: media.find((m: any) => m.variant === 'xray-top')?.url || media[0]?.url || '',
+                    topLayerType: media.find((m: any) => m.variant === 'xray-top')?.type || 'IMAGE',
+                    bottomLayerUrl: media.find((m: any) => m.variant === 'xray-bottom')?.url || media[1]?.url || '',
+                    bottomLayerType: media.find((m: any) => m.variant === 'xray-bottom')?.type || 'IMAGE',
                 } : undefined
             };
         });

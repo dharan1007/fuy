@@ -132,16 +132,26 @@ export async function GET(req: NextRequest) {
             score += (post.connectionScore || 0) * 0.5;
 
             // Format for Frontend
+            const media = post.postMedia?.map((pm: any) => pm.media) || [];
             const mappedPost = {
                 ...post,
-                media: post.postMedia?.map((pm: any) => pm.media) || [],
+                media,
                 // Flatten counts for UI
                 likesCount: post._count.likes,
                 commentsCount: post._count.comments,
                 sharesCount: post.shareCount || post._count.shares || 0,
                 impressions: post.impressions || 0,
                 // Add debug explanation
-                matchReason: slashOverlap > 0 ? 'Similar Vibe' : (interestOverlap > 0 ? 'Based on your interests' : 'Trending')
+                matchReason: slashOverlap > 0 ? 'Similar Vibe' : (interestOverlap > 0 ? 'Based on your interests' : 'Trending'),
+
+                // Synthesize xrayData if XRAY post
+                xrayData: post.postType === 'XRAY' ? {
+                    id: post.id,
+                    topLayerUrl: media.find((m: any) => m.variant === 'xray-top')?.url || media[0]?.url || '',
+                    topLayerType: media.find((m: any) => m.variant === 'xray-top')?.type || 'IMAGE',
+                    bottomLayerUrl: media.find((m: any) => m.variant === 'xray-bottom')?.url || media[1]?.url || '',
+                    bottomLayerType: media.find((m: any) => m.variant === 'xray-bottom')?.type || 'IMAGE',
+                } : undefined
             };
 
             return { post: mappedPost, score };
@@ -189,15 +199,27 @@ export async function GET(req: NextRequest) {
                 }
             });
 
-            const mappedFallback = fallbackPosts.map((post: any) => ({
-                ...post,
-                media: post.postMedia?.map((pm: any) => pm.media) || [],
-                likesCount: post._count.likes,
-                commentsCount: post._count.comments,
-                sharesCount: post.shareCount || post._count.shares || 0,
-                impressions: post.impressions || 0,
-                matchReason: 'Discovery' // Reason for fallback
-            }));
+            const mappedFallback = fallbackPosts.map((post: any) => {
+                const media = post.postMedia?.map((pm: any) => pm.media) || [];
+                return {
+                    ...post,
+                    media,
+                    likesCount: post._count.likes,
+                    commentsCount: post._count.comments,
+                    sharesCount: post.shareCount || post._count.shares || 0,
+                    impressions: post.impressions || 0,
+                    matchReason: 'Discovery', // Reason for fallback
+
+                    // Synthesize xrayData if XRAY post
+                    xrayData: post.postType === 'XRAY' ? {
+                        id: post.id,
+                        topLayerUrl: media.find((m: any) => m.variant === 'xray-top')?.url || media[0]?.url || '',
+                        topLayerType: media.find((m: any) => m.variant === 'xray-top')?.type || 'IMAGE',
+                        bottomLayerUrl: media.find((m: any) => m.variant === 'xray-bottom')?.url || media[1]?.url || '',
+                        bottomLayerType: media.find((m: any) => m.variant === 'xray-bottom')?.type || 'IMAGE',
+                    } : undefined
+                };
+            });
 
             sorted = [...sorted, ...mappedFallback];
         }

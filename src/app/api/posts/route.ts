@@ -35,11 +35,18 @@ export async function POST(req: NextRequest) {
 
   // --- 1. Prepare Media Data ---
   // Handle both mobile (flat mediaUrls/Types) and web (array of objects) formats
-  const rawMedia = Array.isArray(body.mediaUrls) ? body.mediaUrls.map((url: string, i: number) => ({
-    url,
-    type: body.mediaTypes?.[i] || 'IMAGE',
-    variant: 'standard'
-  })) : (Array.isArray(body.media) ? body.media : []);
+  const rawMedia = Array.isArray(body.mediaUrls) ? body.mediaUrls.map((url: string, i: number) => {
+    // For XRAY posts, properly assign variants
+    let variant = 'standard';
+    if (postType === 'XRAY') {
+      variant = i === 0 ? 'xray-top' : 'xray-bottom';
+    }
+    return {
+      url,
+      type: body.mediaTypes?.[i] || 'IMAGE',
+      variant
+    };
+  }) : (Array.isArray(body.media) ? body.media : []);
 
   // --- 2. Create Post Transaction ---
   const post = await prisma.$transaction(async (tx) => {
@@ -281,11 +288,20 @@ export async function GET(req: NextRequest) {
         duration: 0
       } : undefined,
 
+
       chanData: item.postType === 'CHAN' ? {
         id: item.postId,
         channelName: item.feature,
         description: item.contentSnippet,
         coverImageUrl: media[0]?.url
+      } : undefined,
+
+      xrayData: item.postType === 'XRAY' ? {
+        id: item.postId,
+        topLayerUrl: media.find((m: any) => m.variant === 'xray-top')?.url || media[0]?.url || '',
+        topLayerType: media.find((m: any) => m.variant === 'xray-top')?.type || 'IMAGE',
+        bottomLayerUrl: media.find((m: any) => m.variant === 'xray-bottom')?.url || media[1]?.url || '',
+        bottomLayerType: media.find((m: any) => m.variant === 'xray-bottom')?.type || 'IMAGE',
       } : undefined
     };
   });

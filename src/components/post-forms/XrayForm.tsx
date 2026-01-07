@@ -55,12 +55,9 @@ export default function XrayForm({ onBack: propOnBack, initialData }: XrayFormPr
                     postType: 'XRAY',
                     content: content || 'Scratch to reveal!',
                     visibility,
-                    startus: status,
-                    media: [
-                        { url: topUrl, type: topType, variant: 'xray-top' },
-                        { url: bottomUrl, type: bottomType, variant: 'xray-bottom' }
-                    ],
-                    status
+                    status,
+                    mediaUrls: [topUrl, bottomUrl],
+                    mediaTypes: [topType, bottomType],
                 }),
             });
 

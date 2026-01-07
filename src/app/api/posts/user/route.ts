@@ -75,6 +75,14 @@ export async function GET(req: Request) {
                     coverImageUrl: media[0]?.url,
                     duration: 0
                 } : undefined,
+
+                xrayData: p.postType === 'XRAY' ? {
+                    id: p.id,
+                    topLayerUrl: media.find((m: any) => m.variant === 'xray-top')?.url || media[0]?.url || '',
+                    topLayerType: media.find((m: any) => m.variant === 'xray-top')?.type || 'IMAGE',
+                    bottomLayerUrl: media.find((m: any) => m.variant === 'xray-bottom')?.url || media[1]?.url || '',
+                    bottomLayerType: media.find((m: any) => m.variant === 'xray-bottom')?.type || 'IMAGE',
+                } : undefined,
             };
         });
 

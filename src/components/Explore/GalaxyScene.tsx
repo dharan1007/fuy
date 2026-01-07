@@ -68,7 +68,26 @@ export default function GalaxyScene({
 
     return (
         <div className="w-full h-screen absolute inset-0 z-0 bg-black">
-            <Canvas camera={{ position: [0, 0, 15], fov: 60 }} gl={{ powerPreference: 'low-power' }}>
+            <Canvas
+                camera={{ position: [0, 0, 15], fov: 60 }}
+                gl={{
+                    powerPreference: 'low-power',
+                    antialias: false, // Disable for better performance
+                    preserveDrawingBuffer: false
+                }}
+                onCreated={({ gl }) => {
+                    // Handle WebGL context loss
+                    const canvas = gl.domElement;
+                    canvas.addEventListener('webglcontextlost', (event) => {
+                        event.preventDefault();
+                        console.warn('WebGL context lost. Attempting to restore...');
+                    });
+                    canvas.addEventListener('webglcontextrestored', () => {
+                        console.log('WebGL context restored');
+                    });
+                }}
+                frameloop="demand" // Only render when needed
+            >
                 <SceneThrottler />
                 <fog attach="fog" args={['#000', 20, 50]} />
                 <ambientLight intensity={0.5} />

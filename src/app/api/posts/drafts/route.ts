@@ -31,10 +31,21 @@ export async function GET(req: NextRequest) {
             },
         });
 
-        const formattedDrafts = drafts.map((d: any) => ({
-            ...d,
-            media: d.postMedia?.map((pm: any) => pm.media) || []
-        }));
+        const formattedDrafts = drafts.map((d: any) => {
+            const media = d.postMedia?.map((pm: any) => pm.media) || [];
+            return {
+                ...d,
+                media,
+                // Synthesize xrayData layer URLs if it's an XRAY post
+                xrayData: d.postType === 'XRAY' && d.xrayData ? {
+                    ...d.xrayData,
+                    topLayerUrl: media.find((m: any) => m.variant === 'xray-top')?.url || media[0]?.url || '',
+                    topLayerType: media.find((m: any) => m.variant === 'xray-top')?.type || 'IMAGE',
+                    bottomLayerUrl: media.find((m: any) => m.variant === 'xray-bottom')?.url || media[1]?.url || '',
+                    bottomLayerType: media.find((m: any) => m.variant === 'xray-bottom')?.type || 'IMAGE',
+                } : d.xrayData
+            };
+        });
 
         return NextResponse.json(formattedDrafts);
     } catch (error) {
