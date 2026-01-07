@@ -63,12 +63,17 @@ export default function XrayForm({ onBack: propOnBack, initialData }: XrayFormPr
 
             if (!res.ok) {
                 const data = await res.json();
-                throw new Error(data.error || 'Failed to create xray');
+                // Include details if available for debugging
+                const errorMessage = data.details
+                    ? `${data.error}: ${data.details}`
+                    : (data.error || 'Failed to create xray');
+                throw new Error(errorMessage);
             }
 
             router.push('/');
             router.refresh();
         } catch (err: any) {
+            console.error("Xray Creation Error:", err);
             setError(err.message || 'Something went wrong');
         } finally {
             setLoading(false);
