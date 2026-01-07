@@ -80,48 +80,50 @@ export default function GalaxyScene({
 
     const activeData = getActiveData();
 
+    const is2DOverlay = activeGlobe === 'Puds' || activeGlobe === 'Chans';
+
     return (
         <div className="w-full h-screen absolute inset-0 z-0 bg-black">
-            <Canvas
-                camera={{ position: [0, 0, 15], fov: 60 }}
-                gl={{
-                    powerPreference: 'low-power',
-                    antialias: false, // Disable for better performance
-                    preserveDrawingBuffer: false
-                }}
-                frameloop="demand" // Only render when needed
-            >
-                <SceneEvents />
-                <fog attach="fog" args={['#000', 20, 50]} />
-                <ambientLight intensity={0.5} />
-                <pointLight position={[10, 10, 10]} intensity={1} />
-                <Stars radius={200} depth={50} count={300} factor={4} saturation={0} fade speed={0.5} />
+            {/* Canvas only renders when 3D content is visible */}
+            {!is2DOverlay && (
+                <Canvas
+                    camera={{ position: [0, 0, 15], fov: 60 }}
+                    gl={{
+                        powerPreference: 'low-power',
+                        antialias: false,
+                        preserveDrawingBuffer: false
+                    }}
+                    frameloop="demand"
+                >
+                    <SceneEvents />
+                    <fog attach="fog" args={['#000', 20, 50]} />
+                    <ambientLight intensity={0.5} />
+                    <pointLight position={[10, 10, 10]} intensity={1} />
+                    <Stars radius={200} depth={50} count={300} factor={4} saturation={0} fade speed={0.5} />
 
-                {/* PUDs and Chans are 2D overlays, handled outside Canvas */
-                    activeGlobe === 'Puds' || activeGlobe === 'Chans' ? null : (
-                        <GlobeContent
-                            position={[0, 0, 0]}
-                            posts={activeData}
-                            onPostClick={onPostClick}
-                            showLines={showLines}
-                            label={activeGlobe === 'Posts' ? '' : activeGlobe}
-                            scale={1.5}
-                            color="#ffffff"
-                            hasRing={false}
-                            isFocused={true}
-                        />
-                    )}
+                    <GlobeContent
+                        position={[0, 0, 0]}
+                        posts={activeData}
+                        onPostClick={onPostClick}
+                        showLines={showLines}
+                        label={activeGlobe === 'Posts' ? '' : activeGlobe}
+                        scale={1.5}
+                        color="#ffffff"
+                        hasRing={false}
+                        isFocused={true}
+                    />
 
-                <OrbitControls
-                    enablePan={true}
-                    enableZoom={true}
-                    minDistance={5}
-                    maxDistance={40}
-                    autoRotate={autoRotate}
-                    autoRotateSpeed={0.5}
-                    zoomSpeed={0.8}
-                />
-            </Canvas>
+                    <OrbitControls
+                        enablePan={true}
+                        enableZoom={true}
+                        minDistance={5}
+                        maxDistance={40}
+                        autoRotate={autoRotate}
+                        autoRotateSpeed={0.5}
+                        zoomSpeed={0.8}
+                    />
+                </Canvas>
+            )}
 
             {/* PUDs Overlay - 2D Grid */}
             {activeGlobe === 'Puds' && (
