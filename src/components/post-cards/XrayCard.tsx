@@ -50,6 +50,8 @@ export default function XrayCard({ post, xray, currentUserId, onPostHidden, onRe
             ctx.drawImage(img, 0, 0);
             setImageLoaded(true);
         };
+        if (!xray.topLayerUrl) return;
+
         // Use proxy to ensure CORS headers are present
         img.src = `/api/proxy-image?url=${encodeURIComponent(xray.topLayerUrl)}`;
     }, [xray.topLayerUrl]);
