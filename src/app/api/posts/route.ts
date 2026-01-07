@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUserId, getSessionUser } from "@/lib/session";
 import { moderateContent } from "@/lib/moderation";
+import { rateLimit } from "@/lib/rate-limit";
 
 // Helper Types
 type FeatureKeyStr = "JOURNAL" | "AWE" | "BONDS" | "SERENDIPITY" | "CHECKIN" | "PROGRESS" | "OTHER";
@@ -16,7 +17,13 @@ const asFeat = (v: unknown): FeatureKeyStr => ["JOURNAL", "AWE", "BONDS", "SEREN
 const asVis = (v: unknown): VisibilityStr => ["PUBLIC", "FRIENDS", "PRIVATE"].includes(String(v).toUpperCase() as any) ? String(v).toUpperCase() as VisibilityStr : "PUBLIC";
 const asMT = (v: unknown): MediaTypeStr => ["IMAGE", "VIDEO", "AUDIO"].includes(String(v).toUpperCase() as any) ? String(v).toUpperCase() as MediaTypeStr : "IMAGE";
 
-export async function POST(req: NextRequest) {
+// Rate limit: 30 posts per hour to prevent spam
+const postLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  maxRequests: 30,
+});
+
+async function postHandler(req: NextRequest) {
   try {
     const userId = await requireUserId();
     const body = await req.json();
@@ -53,7 +60,6 @@ export async function POST(req: NextRequest) {
     if (postType === 'XRAY') {
       const mediaCount = rawMedia.length;
       if (mediaCount < 2) {
-        console.error(`XRAY Creation Failed: Insufficient media. Found ${mediaCount}, expected 2.`);
         return NextResponse.json({
           error: "XRAY posts require exactly 2 media layers (top and bottom).",
           received: mediaCount
@@ -63,7 +69,6 @@ export async function POST(req: NextRequest) {
 
     // --- 2. Create Post Transaction ---
     const post = await prisma.$transaction(async (tx) => {
-      console.log(`[POST] Starting Transaction for ${postType}, userId: ${userId}`);
 
       // A. Create Core Post
       const newPost = await tx.post.create({
@@ -95,7 +100,6 @@ export async function POST(req: NextRequest) {
           postMedia: { include: { media: true } }
         }
       });
-      console.log(`[POST] Created Core Post: ${newPost.id}`);
 
       // B. Create FeedItem (Denormalized)
       const mediaPreviews = newPost.postMedia.map(pm => ({
@@ -120,7 +124,6 @@ export async function POST(req: NextRequest) {
           shareCount: 0
         }
       });
-      console.log(`[POST] Created FeedItem for ${newPost.id}`);
 
       // C. Handle Legacy/Metadata Tables (No URLs)
       if (postType === 'LILL') {
@@ -164,7 +167,6 @@ export async function POST(req: NextRequest) {
           }
         });
       } else if (postType === 'XRAY') {
-        console.log(`[POST] Creating Xray Entry for ${newPost.id}`);
         await tx.xray.create({
           data: {
             postId: newPost.id,
@@ -173,7 +175,6 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      console.log(`[POST] Transaction Complete for ${newPost.id}`);
       return newPost;
     }, {
       maxWait: 10000, // 10s wait for connection
@@ -183,17 +184,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(post);
 
   } catch (error: any) {
-    console.error("CRITICAL POST CREATION ERROR:", error);
-    // Log specifics if available
-    if (error.code) console.error("Prisma Error Code:", error.code);
-    if (error.meta) console.error("Prisma Error Meta:", error.meta);
-
+    // Error logged server-side for debugging
     return NextResponse.json(
-      { error: "Failed to create post. Server error logged.", details: error.message },
+      { error: "Failed to create post." },
       { status: 500 }
     );
   }
 }
+
+// Export POST with rate limiting
+export const POST = postLimiter(postHandler);
 
 export async function GET(req: NextRequest) {
   const user = await getSessionUser();

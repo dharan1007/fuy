@@ -239,7 +239,9 @@ export async function PATCH(req: Request) {
                 }
               }
             });
-          } catch (e) { }
+          } catch {
+            // Expected: subscription may not exist if it was never created
+          }
         }
 
         await tx.friendship.update({

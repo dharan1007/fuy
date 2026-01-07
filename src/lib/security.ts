@@ -69,7 +69,10 @@ export function verifyRequestSignature(
  * Encrypt sensitive data using AES-256-GCM
  */
 export function encryptData(data: string, key?: string): string {
-  const encryptionKey = key || process.env.ENCRYPTION_KEY || 'default-key-change-in-production!!!';
+  const encryptionKey = key || process.env.ENCRYPTION_KEY;
+  if (!encryptionKey) {
+    throw new Error('ENCRYPTION_KEY environment variable is required for encryption');
+  }
 
   // Ensure key is 32 bytes
   const keyBuffer = crypto.scryptSync(encryptionKey, 'salt', 32);
@@ -90,7 +93,10 @@ export function encryptData(data: string, key?: string): string {
  */
 export function decryptData(encryptedData: string, key?: string): string | null {
   try {
-    const encryptionKey = key || process.env.ENCRYPTION_KEY || 'default-key-change-in-production!!!';
+    const encryptionKey = key || process.env.ENCRYPTION_KEY;
+    if (!encryptionKey) {
+      throw new Error('ENCRYPTION_KEY environment variable is required for decryption');
+    }
     const keyBuffer = crypto.scryptSync(encryptionKey, 'salt', 32);
 
     const [ivHex, authTagHex, encrypted] = encryptedData.split(':');

@@ -61,7 +61,7 @@ export async function GET(req: Request) {
           },
         },
 
-        // @ts-ignore
+        // Include shared post data if message references a post
         sharedPost: {
           select: {
             id: true,
@@ -82,7 +82,7 @@ export async function GET(req: Request) {
             chanData: true,
             pullUpDownData: true,
           }
-        }
+        } as any // Type assertion for optional relation
       },
       orderBy: { createdAt: "desc" },
       take: take,

@@ -44,91 +44,76 @@ export async function GET(req: Request) {
         ...(unreadOnly ? { read: false } : {}),
       },
       orderBy: { createdAt: "desc" },
-      take: 200, // Show more history
+      take: 200,
     });
 
-    // Fetch sender info for friend request notifications
-    const enrichedNotifications = await Promise.all(
-      notifications.map(async (notif) => {
-        if (
-          (notif.type === "FRIEND_REQUEST" || notif.type === "FRIEND_ACCEPT") &&
-          notif.postId
-        ) {
-          const sender = await prisma.user.findUnique({
-            where: { id: notif.postId },
-            select: {
-              id: true,
-              name: true,
-              profile: {
-                select: {
-                  displayName: true,
-                  avatarUrl: true,
-                },
-              },
-            },
-          });
-
-          // Find the friendship record for this request
-          const friendship = await prisma.friendship.findFirst({
-            where: {
-              OR: [
-                { userId: notif.postId, friendId: userId },
-                { userId: userId, friendId: notif.postId },
-              ],
-            },
-          });
-
-          // Check if current user follows the sender (for "Follow Back" logic)
-          const isFollowing = await prisma.subscription.findUnique({
-            where: {
-              subscriberId_subscribedToId: {
-                subscriberId: userId,
-                subscribedToId: notif.postId,
-              },
-            },
-          });
-
-          return {
-            ...notif,
-            sender,
-            friendshipId: friendship?.id,
-            friendshipStatus: friendship?.status,
-            isGhosted: friendship?.isGhosted,
-            isFollowing: !!isFollowing,
-          };
-        }
-
-        // For post-related notifications, fetch post info
-        if (notif.postId && notif.type !== "FRIEND_REQUEST" && notif.type !== "FRIEND_ACCEPT") {
-          const post = await prisma.post.findUnique({
-            where: { id: notif.postId },
-            select: {
-              id: true,
-              content: true,
-              user: {
-                select: {
-                  id: true,
-                  name: true,
-                  profile: {
-                    select: {
-                      displayName: true,
-                      avatarUrl: true,
-                    },
-                  },
-                },
-              },
-            },
-          });
-
-          return {
-            ...notif,
-            post,
-          };
-        }
-
-        return notif;
-      })
+    // --- BATCH FETCH for performance (fix N+1 query) ---
+    const friendRequestNotifs = notifications.filter(
+      n => (n.type === "FRIEND_REQUEST" || n.type === "FRIEND_ACCEPT") && n.postId
     );
+    const postNotifs = notifications.filter(
+      n => n.postId && n.type !== "FRIEND_REQUEST" && n.type !== "FRIEND_ACCEPT"
+    );
+
+    // Batch fetch senders for friend requests
+    const senderIds = [...new Set(friendRequestNotifs.map(n => n.postId!))];
+    const senders = senderIds.length > 0 ? await prisma.user.findMany({
+      where: { id: { in: senderIds } },
+      select: { id: true, name: true, profile: { select: { displayName: true, avatarUrl: true } } }
+    }) : [];
+    const senderMap = new Map(senders.map(s => [s.id, s]));
+
+    // Batch fetch friendships
+    const friendships = senderIds.length > 0 ? await prisma.friendship.findMany({
+      where: {
+        OR: [
+          { userId: { in: senderIds }, friendId: userId },
+          { userId: userId, friendId: { in: senderIds } }
+        ]
+      }
+    }) : [];
+    const friendshipMap = new Map(friendships.map(f => [
+      f.userId === userId ? f.friendId : f.userId, f
+    ]));
+
+    // Batch fetch subscriptions (follow status)
+    const subscriptions = senderIds.length > 0 ? await prisma.subscription.findMany({
+      where: { subscriberId: userId, subscribedToId: { in: senderIds } }
+    }) : [];
+    const subscriptionSet = new Set(subscriptions.map(s => s.subscribedToId));
+
+    // Batch fetch posts for post-related notifications
+    const postIds = [...new Set(postNotifs.map(n => n.postId!))];
+    const posts = postIds.length > 0 ? await prisma.post.findMany({
+      where: { id: { in: postIds } },
+      select: {
+        id: true, content: true,
+        user: { select: { id: true, name: true, profile: { select: { displayName: true, avatarUrl: true } } } }
+      }
+    }) : [];
+    const postMap = new Map(posts.map(p => [p.id, p]));
+
+    // Enrich notifications (now O(1) lookups)
+    const enrichedNotifications = notifications.map(notif => {
+      if ((notif.type === "FRIEND_REQUEST" || notif.type === "FRIEND_ACCEPT") && notif.postId) {
+        const sender = senderMap.get(notif.postId);
+        const friendship = friendshipMap.get(notif.postId);
+        return {
+          ...notif,
+          sender,
+          friendshipId: friendship?.id,
+          friendshipStatus: friendship?.status,
+          isGhosted: friendship?.isGhosted,
+          isFollowing: subscriptionSet.has(notif.postId),
+        };
+      }
+
+      if (notif.postId && notif.type !== "FRIEND_REQUEST" && notif.type !== "FRIEND_ACCEPT") {
+        return { ...notif, post: postMap.get(notif.postId) };
+      }
+
+      return notif;
+    });
 
     return NextResponse.json({ notifications: enrichedNotifications });
   } catch (error: any) {

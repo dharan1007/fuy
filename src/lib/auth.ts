@@ -38,16 +38,7 @@ export async function getServerSession(...args: any[]) {
   const { data: { user }, error } = await supabase.auth.getUser();
 
   if (error || !user) {
-    console.log("Debug: No session/user found in getServerSession");
-    console.log(`Debug: Supabase URL: ${process.env.NEXT_PUBLIC_SUPABASE_URL}`);
-    console.log(`Debug: Auth Error: ${error?.message} (Code: ${error?.status})`);
-
-    // Log all cookie names (and full value for the token if found)
-    const allCookies = cookieStore.getAll().map(c => {
-      if (c.name.includes('auth-token')) return `${c.name}=[TOKEN_PRESENT]`;
-      return `${c.name}=${c.value.substring(0, 10)}...`;
-    });
-    console.log("Debug: Cookies present:", allCookies.join(', '));
+    // Debug logging removed for production security
     return null;
   }
 

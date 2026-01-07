@@ -26,8 +26,8 @@ export interface RateLimitConfig {
  */
 function defaultKeyGenerator(req: NextRequest): string {
   const ip = req.headers.get('x-forwarded-for') ||
-             req.headers.get('x-real-ip') ||
-             '127.0.0.1';
+    req.headers.get('x-real-ip') ||
+    '127.0.0.1';
   return ip;
 }
 
@@ -124,8 +124,8 @@ export function endpointRateLimit(config: RateLimitConfig) {
     ...config,
     keyGenerator: (req: NextRequest) => {
       const ip = req.headers.get('x-forwarded-for') ||
-                 req.headers.get('x-real-ip') ||
-                 '127.0.0.1';
+        req.headers.get('x-real-ip') ||
+        '127.0.0.1';
       const endpoint = req.nextUrl.pathname;
       return `${ip}:${endpoint}`;
     },
@@ -133,7 +133,9 @@ export function endpointRateLimit(config: RateLimitConfig) {
 }
 
 /**
- * Clean up expired entries (call periodically)
+ * Clean up expired entries (call periodically if running in long-lived process)
+ * NOTE: This in-memory rate limiting has LIMITATIONS in serverless environments.
+ * For production at scale, use Redis (Upstash) or Vercel KV.
  */
 export function cleanupExpiredEntries(): void {
   const now = Date.now();
@@ -144,5 +146,6 @@ export function cleanupExpiredEntries(): void {
   }
 }
 
-// Run cleanup every hour
-setInterval(cleanupExpiredEntries, 60 * 60 * 1000);
+// NOTE: setInterval removed - not effective in serverless (Vercel)
+// Cleanup happens naturally when entries expire during rateLimit checks
+
