@@ -41,9 +41,13 @@ export async function GET(
                     },
                 },
                 reactions: true,
-                media: true,
+                postMedia: {
+                    include: {
+                        media: true
+                    }
+                },
                 slashes: true,
-                bubbles: {
+                reactionBubbles: {
                     include: {
                         user: {
                             include: {
@@ -53,22 +57,9 @@ export async function GET(
                     }
                 },
                 // Specialized types
-                lillData: {
-                    include: {
-                        slashes: true,
-                        media: true
-                    }
-                },
-                audData: {
-                    include: {
-                        slashes: true
-                    }
-                },
-                fillData: {
-                    include: {
-                        slashes: true
-                    }
-                },
+                lillData: true,
+                audData: true,
+                fillData: true,
                 xrayData: true,
                 chanData: true,
                 chapterData: true,
@@ -81,18 +72,20 @@ export async function GET(
             return NextResponse.json({ error: "Post not found" }, { status: 404 });
         }
 
-        // Process post for frontend (similar to feed logic)
+        // Process post for frontend
         const processedPost = {
             ...post,
-            media: post.media.map(m => ({
-                ...m,
+            media: post.postMedia.map((pm: any) => ({
+                ...pm.media,
                 // Ensure URLs are accessible
-                url: m.url.startsWith('http') ? m.url : `/uploads/${m.url}`
+                url: pm.media.url.startsWith('http') ? pm.media.url : `/uploads/${pm.media.url}`
             })),
+            // Map reactionBubbles to bubbles for frontend if needed, or keep as reactionBubbles
+            bubbles: post.reactionBubbles,
             // Add user-specific fields
-            userReaction: userId ? post.reactions.find(r => r.userId === userId)?.type : null,
-            totalBubbles: post.bubbles.length,
-            topBubbles: post.bubbles.slice(0, 3)
+            userReaction: userId ? post.reactions.find((r: any) => r.userId === userId)?.type : null,
+            totalBubbles: post.reactionBubbles.length,
+            topBubbles: post.reactionBubbles.slice(0, 3)
         };
 
         return NextResponse.json(processedPost);

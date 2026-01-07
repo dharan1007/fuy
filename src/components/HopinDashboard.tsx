@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useEffect } from "react";
 import { useSession } from "@/hooks/use-session";
 import { Calendar, MapPin, Users, QrCode, MessageSquare, Check, X, Edit, Trash2 } from "lucide-react";
