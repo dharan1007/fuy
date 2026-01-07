@@ -1,10 +1,8 @@
-'use client';
-
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import FeedPostItem from '@/components/FeedPostItem';
 import { ArrowLeft } from 'lucide-react';
-import { useSession } from 'next-auth/react';
+import { useSession } from '@/hooks/use-session';
 
 export default function PostDetailPage() {
     const params = useParams();
