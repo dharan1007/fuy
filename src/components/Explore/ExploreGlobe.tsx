@@ -59,6 +59,8 @@ const SceneEvents = () => {
         return () => {
             canvas.removeEventListener('webglcontextlost', handleContextLost);
             canvas.removeEventListener('webglcontextrestored', handleContextRestored);
+            // Explicitly dispose the renderer to prevent stale blob references
+            gl.dispose();
         };
     }, [gl]);
     return null;
