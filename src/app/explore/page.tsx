@@ -54,6 +54,7 @@ export default function ExplorePage() {
   const [loading, setLoading] = useState(true);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [showLines, setShowLines] = useState(true);
+  const [isAutoRotate, setIsAutoRotate] = useState(true);
 
   useEffect(() => {
     const fetchPosts = async () => {
@@ -64,8 +65,11 @@ export default function ExplorePage() {
         if (res.ok) {
           const data = await res.json();
 
-          // Filter out Chans and Chapters from main mixed posts
-          const filteredMain = (data.main || []).filter((post: any) => post.postType !== 'CHAN' && post.feature !== 'CHAN' && post.postType !== 'CHAPTER');
+          // Filter out Chans, Chapters, Simple Text, Puds, and Auds from main mixed posts
+          const excludedTypes = ['CHAN', 'CHAPTER', 'SIMPLE', 'PULLUPDOWN', 'AUD'];
+          const filteredMain = (data.main || []).filter((post: any) =>
+            !excludedTypes.includes(post.postType) && post.feature !== 'CHAN'
+          );
 
           setPosts(filteredMain);
           setChans(data.chans && data.chans.length > 0 ? [...data.chans, ...DUMMY_CHANS] : DUMMY_CHANS as unknown as Post[]);
@@ -104,6 +108,11 @@ export default function ExplorePage() {
     } else {
       setSelectedPost(post);
     }
+  };
+
+  const handleToggle = () => {
+    setShowLines(!showLines);
+    setIsAutoRotate(!isAutoRotate);
   };
 
   return (
@@ -157,6 +166,7 @@ export default function ExplorePage() {
           texts={texts}
           onPostClick={handlePostClick}
           showLines={showLines}
+          autoRotate={isAutoRotate}
         />
       )}
 
@@ -164,16 +174,24 @@ export default function ExplorePage() {
       {!['Chans', 'Puds', 'Slashes'].includes(activeGlobe) && (
         <div className="absolute bottom-8 right-8 z-10 flex flex-col gap-4">
           <button
-            onClick={() => setShowLines(!showLines)}
-            className={`p-3 rounded-full backdrop-blur-md border transition-all duration-300 ${showLines
-              ? 'bg-blue-500/20 border-blue-500/50 text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.3)]'
-              : 'bg-white/10 border-white/20 text-white/60 hover:bg-white/20'
+            onClick={handleToggle}
+            className={`p-3 rounded-full backdrop-blur-md border transition-all duration-300 ${!isAutoRotate
+              ? 'bg-red-500/20 border-red-500/50 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.3)]'
+              : showLines
+                ? 'bg-blue-500/20 border-blue-500/50 text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.3)]'
+                : 'bg-white/10 border-white/20 text-white/60 hover:bg-white/20'
               }`}
-            title="Toggle Globe Lines"
+            title={!isAutoRotate ? "Play Rotation" : "Pause & Hide Lines"}
           >
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-            </svg>
+            {!isAutoRotate ? (
+              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            ) : (
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0" />
+              </svg>
+            )}
           </button>
         </div>
       )}

@@ -19,6 +19,7 @@ interface GalaxySceneProps {
     onPostClick: (post: any) => void;
     showLines: boolean;
     activeGlobe: string;
+    autoRotate: boolean;
 }
 
 const SceneThrottler = () => {
@@ -44,7 +45,8 @@ export default function GalaxyScene({
     texts,
     onPostClick,
     showLines,
-    activeGlobe
+    activeGlobe,
+    autoRotate
 }: GalaxySceneProps) {
 
     const { data: session } = useSession();
@@ -114,7 +116,7 @@ export default function GalaxyScene({
                     enableZoom={true}
                     minDistance={5}
                     maxDistance={40}
-                    autoRotate
+                    autoRotate={autoRotate}
                     autoRotateSpeed={0.5}
                     zoomSpeed={0.8}
                 />
