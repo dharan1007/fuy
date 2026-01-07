@@ -62,8 +62,8 @@ export default function SimpleForm({ onBack: propOnBack, initialData }: SimpleFo
         e.preventDefault();
         setError('');
 
-        if (postMode === 'TEXT' && content.length > 500) {
-            setError('Content exceeds 500 characters');
+        if (postMode === 'TEXT' && content.length > 600) {
+            setError('Content exceeds 600 characters');
             return;
         }
 
@@ -151,15 +151,15 @@ export default function SimpleForm({ onBack: propOnBack, initialData }: SimpleFo
                         <textarea
                             value={content}
                             onChange={(e) => setContent(e.target.value)}
-                            placeholder={postMode === 'TEXT' ? "Write your thoughts... (Max 500 chars)" : "Write a caption..."}
+                            placeholder={postMode === 'TEXT' ? "Write your thoughts... (Max 600 chars)" : "Write a caption..."}
                             rows={postMode === 'TEXT' ? 6 : 3}
-                            maxLength={postMode === 'TEXT' ? 500 : undefined}
+                            maxLength={postMode === 'TEXT' ? 600 : undefined}
                             className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:ring-1 focus:ring-white/30 text-white placeholder-white/30 resize-none transition-all"
                         />
                         {postMode === 'TEXT' && (
                             <div className="flex justify-end mt-1">
-                                <span className={`text-[10px] font-bold tracking-widest ${content.length > 450 ? 'text-red-400' : 'text-white/20'}`}>
-                                    {content.length}/500
+                                <span className={`text-[10px] font-bold tracking-widest ${content.length > 550 ? 'text-red-400' : 'text-white/20'}`}>
+                                    {content.length}/600
                                 </span>
                             </div>
                         )}

@@ -66,7 +66,7 @@ export default function ExplorePage() {
           const data = await res.json();
 
           // Filter out Chans, Chapters, Simple Text, Puds, and Auds from main mixed posts
-          const excludedTypes = ['CHAN', 'CHAPTER', 'SIMPLE', 'PULLUPDOWN', 'AUD'];
+          const excludedTypes = ['CHAN', 'CHAPTER', 'SIMPLE', 'SIMPLE_TEXT', 'PULLUPDOWN', 'AUD'];
           const filteredMain = (data.main || []).filter((post: any) =>
             !excludedTypes.includes(post.postType) && post.feature !== 'CHAN'
           );
@@ -135,7 +135,7 @@ export default function ExplorePage() {
 
       {/* Globe Selector Tabs */}
       <div className="absolute top-24 left-1/2 transform -translate-x-1/2 z-20 flex gap-2 overflow-x-auto max-w-full px-4 pb-2 no-scrollbar">
-        {['Posts', 'Slashes', 'Chans', 'Auds', 'Chaptes', 'Simple Texts', 'X Rays', 'Puds'].map((tab) => (
+        {['Posts', 'Slashes', 'Chans', 'Auds', 'Chaptes', 'sixts', 'X Rays', 'Puds'].map((tab) => (
           <button
             key={tab}
             onClick={() => { setActiveGlobe(tab); setSelectedPost(null); }}
