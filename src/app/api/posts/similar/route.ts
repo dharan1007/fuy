@@ -158,7 +158,21 @@ export async function GET(req: NextRequest) {
                     topLayerType: media.find((m: any) => m.variant === 'xray-top')?.type || 'IMAGE',
                     bottomLayerUrl: media.find((m: any) => m.variant === 'xray-bottom')?.url || media[1]?.url || '',
                     bottomLayerType: media.find((m: any) => m.variant === 'xray-bottom')?.type || 'IMAGE',
-                }) : undefined
+                }) : undefined,
+
+                // Synthesize lillData videoUrl from media
+                lillData: post.postType === 'LILL' && post.lillData ? {
+                    ...post.lillData,
+                    videoUrl: post.lillData.videoUrl || media[0]?.url || '',
+                    thumbnailUrl: post.lillData.thumbnailUrl || media.find((m: any) => m.variant === 'thumbnail')?.url || null,
+                } : post.lillData,
+
+                // Synthesize fillData videoUrl from media
+                fillData: post.postType === 'FILL' && post.fillData ? {
+                    ...post.fillData,
+                    videoUrl: post.fillData.videoUrl || media[0]?.url || '',
+                    thumbnailUrl: post.fillData.thumbnailUrl || media.find((m: any) => m.variant === 'thumbnail')?.url || null,
+                } : post.fillData
             };
 
             return { post: mappedPost, score };
@@ -231,7 +245,21 @@ export async function GET(req: NextRequest) {
                         topLayerType: media.find((m: any) => m.variant === 'xray-top')?.type || 'IMAGE',
                         bottomLayerUrl: media.find((m: any) => m.variant === 'xray-bottom')?.url || media[1]?.url || '',
                         bottomLayerType: media.find((m: any) => m.variant === 'xray-bottom')?.type || 'IMAGE',
-                    }) : undefined
+                    }) : undefined,
+
+                    // Synthesize lillData videoUrl from media
+                    lillData: post.postType === 'LILL' && post.lillData ? {
+                        ...post.lillData,
+                        videoUrl: post.lillData.videoUrl || media[0]?.url || '',
+                        thumbnailUrl: post.lillData.thumbnailUrl || media.find((m: any) => m.variant === 'thumbnail')?.url || null,
+                    } : post.lillData,
+
+                    // Synthesize fillData videoUrl from media
+                    fillData: post.postType === 'FILL' && post.fillData ? {
+                        ...post.fillData,
+                        videoUrl: post.fillData.videoUrl || media[0]?.url || '',
+                        thumbnailUrl: post.fillData.thumbnailUrl || media.find((m: any) => m.variant === 'thumbnail')?.url || null,
+                    } : post.fillData
                 };
             });
 
