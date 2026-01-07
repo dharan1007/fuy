@@ -60,7 +60,7 @@ function FeedPostItem({ post, currentUserId, className, isProfileView }: FeedPos
                         case 'CHAPTER':
                             return <ChapterCard {...commonProps} onRefresh={onRefresh} onPostHidden={() => handleHide(post.id)} />;
                         case 'XRAY':
-                            return post.xrayData ? <XrayCard xray={post.xrayData} currentUserId={currentUserId} onPostHidden={() => handleHide(post.id)} onRefresh={onRefresh} /> : <SimplePostCard {...commonProps} />;
+                            return post.xrayData ? <XrayCard post={post} xray={post.xrayData} currentUserId={currentUserId} onPostHidden={() => handleHide(post.id)} onRefresh={onRefresh} /> : <SimplePostCard {...commonProps} />;
                         case 'LILL':
                             return post.lillData ? <LillCard lill={post.lillData} user={post.user} post={post} currentUserId={currentUserId} onPostHidden={() => handleHide(post.id)} onRefresh={onRefresh} /> : <SimplePostCard {...commonProps} />;
                         case 'FILL':
