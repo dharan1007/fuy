@@ -113,6 +113,17 @@ export default function XrayCard({ post, xray, currentUserId, onPostHidden, onRe
         lastPos.current = currentPos;
     };
 
+    const revealAll = () => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        setImageLoaded(true); // Ensure it stays visible if it wasn't
+    };
+
     return (
         <div className="bg-transparent rounded-xl flex flex-col h-full relative">
             {/* Visual Header / Content Area */}
@@ -152,8 +163,16 @@ export default function XrayCard({ post, xray, currentUserId, onPostHidden, onRe
                     style={{ opacity: imageLoaded ? 1 : 0, transition: 'opacity 0.3s' }}
                 />
 
-                <div className="absolute bottom-3 right-3 px-3 py-1.5 bg-black/80 rounded-lg text-[10px] pointer-events-none font-black z-20 backdrop-blur-xl border border-white/20 uppercase tracking-widest text-white shadow-2xl animate-pulse">
-                    ✨ Scratch to reveal
+                <div className="absolute bottom-3 right-3 flex items-center gap-2 z-20">
+                    <button
+                        onClick={revealAll}
+                        className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-[10px] font-black uppercase tracking-widest rounded-lg backdrop-blur-xl border border-white/10 transition-all active:scale-95"
+                    >
+                        Reveal All
+                    </button>
+                    <div className="px-3 py-1.5 bg-black/80 rounded-lg text-[10px] pointer-events-none font-black z-20 backdrop-blur-xl border border-white/20 uppercase tracking-widest text-white shadow-2xl animate-pulse">
+                        ✨ Scratch to reveal
+                    </div>
                 </div>
             </div>
 
