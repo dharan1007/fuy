@@ -48,65 +48,65 @@ export default function SimplePostCard({ post, currentUserId }: SimplePostCardPr
         <div className="bg-transparent rounded-xl flex flex-col h-full relative">
             {/* Visual Header / Content Area */}
             {/* If there is media, show it. If purely text, show text in a nice container. */}
-            <div className="relative w-full aspect-square bg-black/50 overflow-hidden group rounded-t-xl">
-                {post.media && post.media.length > 0 ? (
-                    <>
-                        {post.media[currentMediaIndex].type === 'VIDEO' ? (
-                            <video
-                                src={post.media[currentMediaIndex].url}
-                                className="w-full h-full object-cover"
-                                controls
-                                controlsList="nodownload nopictureinpicture noplaybackrate"
-                                disablePictureInPicture
-                            />
-                        ) : (
-                            <img
-                                src={post.media[currentMediaIndex].url}
-                                alt="Post content"
-                                className="w-full h-full object-cover"
-                            />
-                        )}
+            {/* Text Only Post Styling - Minimal / Twitter-like */}
+            {(!post.media || post.media.length === 0) && (
+                <div className="w-full p-6 flex flex-col justify-center bg-transparent">
+                    <p className="text-white text-lg font-normal leading-relaxed whitespace-pre-wrap">
+                        {post.content}
+                    </p>
+                </div>
+            )}
 
-                        {/* Navigation Arrows */}
-                        {post.media.length > 1 && (
-                            <>
-                                {currentMediaIndex > 0 && (
-                                    <button
-                                        onClick={prevMedia}
-                                        className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                                    >
-                                        <ChevronLeft size={20} />
-                                    </button>
-                                )}
-                                {currentMediaIndex < post.media.length - 1 && (
-                                    <button
-                                        onClick={nextMedia}
-                                        className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                                    >
-                                        <ChevronRight size={20} />
-                                    </button>
-                                )}
-                                {/* Dots Indicator */}
-                                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
-                                    {post.media.map((_: any, idx: number) => (
-                                        <div
-                                            key={idx}
-                                            className={`w-1.5 h-1.5 rounded-full ${idx === currentMediaIndex ? 'bg-white' : 'bg-white/40'}`}
-                                        />
-                                    ))}
-                                </div>
-                            </>
-                        )}
-                    </>
-                ) : (
-                    // Text Only Post Styling
-                    <div className="w-full h-full p-8 flex items-center justify-center text-center bg-gradient-to-br from-white/5 to-white/10">
-                        <p className="text-white text-2xl font-medium leading-relaxed line-clamp-6">
-                            {post.content}
-                        </p>
-                    </div>
-                )}
-            </div>
+            {post.media && post.media.length > 0 && (
+                <div className="relative w-full aspect-square bg-black/50 overflow-hidden group">
+                    {post.media[currentMediaIndex].type === 'VIDEO' ? (
+                        <video
+                            src={post.media[currentMediaIndex].url}
+                            className="w-full h-full object-cover"
+                            controls
+                            controlsList="nodownload nopictureinpicture noplaybackrate"
+                            disablePictureInPicture
+                        />
+                    ) : (
+                        <img
+                            src={post.media[currentMediaIndex].url}
+                            alt="Post content"
+                            className="w-full h-full object-cover"
+                        />
+                    )}
+
+                    {/* Navigation Arrows */}
+                    {post.media.length > 1 && (
+                        <>
+                            {currentMediaIndex > 0 && (
+                                <button
+                                    onClick={prevMedia}
+                                    className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                    <ChevronLeft size={20} />
+                                </button>
+                            )}
+                            {currentMediaIndex < post.media.length - 1 && (
+                                <button
+                                    onClick={nextMedia}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                >
+                                    <ChevronRight size={20} />
+                                </button>
+                            )}
+                            {/* Dots Indicator */}
+                            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+                                {post.media.map((_: any, idx: number) => (
+                                    <div
+                                        key={idx}
+                                        className={`w-1.5 h-1.5 rounded-full ${idx === currentMediaIndex ? 'bg-white' : 'bg-white/40'}`}
+                                    />
+                                ))}
+                            </div>
+                        </>
+                    )}
+                </div>
+            )}
 
             {/* Details Section (Below Content) */}
             <div className="p-5 flex flex-col gap-4">
@@ -153,7 +153,7 @@ export default function SimplePostCard({ post, currentUserId }: SimplePostCardPr
                     </div>
                 )}
 
-                {/* Caption (if media present, otherwise it's in the main area) */}
+                {/* Caption (only if media is present, as text posts show content above) */}
                 {post.media && post.media.length > 0 && post.content && (
                     <p className="text-base text-white/90 line-clamp-3 leading-relaxed">
                         {post.user?.profile?.displayName && (

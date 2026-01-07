@@ -21,6 +21,7 @@ interface FeedPostItemProps {
 
 function FeedPostItem({ post, currentUserId, className, isProfileView }: FeedPostItemProps) {
     const [isHidden, setIsHidden] = useState(false);
+    const [showSlashes, setShowSlashes] = useState(false);
     const { onRefresh } = useFeedRefresh() || { onRefresh: () => { } };
 
     if (isHidden) return null;
@@ -82,7 +83,23 @@ function FeedPostItem({ post, currentUserId, className, isProfileView }: FeedPos
                             return <SimplePostCard {...commonProps} />;
                     }
                 })()}
-                {/* PostActionMenu is handled within individual cards mostly, or we add global overlay here if needed */}
+
+                {/* Global Slash Toggle */}
+                {post.slashes && post.slashes.length > 0 && (
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setShowSlashes(!showSlashes);
+                        }}
+                        className={`absolute top-3 right-3 z-40 w-8 h-8 rounded-full backdrop-blur-md border border-white/20 flex items-center justify-center transition-all font-mono font-bold text-sm ${showSlashes ? 'bg-white text-black' : 'bg-black/40 text-white/70 hover:text-white hover:bg-white/20'}`}
+                        title="Show Slashes"
+                    >
+                        /
+                    </button>
+                )}
+
+                {/* Slashes Overlay - Need to add state for this */}
+                {/* This requires adding [showSlashes, setShowSlashes] state to the component */}
             </div>
         </FeedItemProvider>
     );
