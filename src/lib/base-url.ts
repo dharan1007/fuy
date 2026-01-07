@@ -5,10 +5,11 @@
  * Prefers public env vars; falls back to NEXTAUTH_URL; finally localhost.
  */
 export function baseUrl(): string {
+  if (typeof window !== 'undefined') return window.location.origin;
   const raw =
     process.env.NEXT_PUBLIC_APP_URL ||
     process.env.NEXTAUTH_URL ||
-    "http://localhost:3000";
+    "https://www.fuymedia.org";
   return raw.replace(/\/+$/, "");
 }
 
