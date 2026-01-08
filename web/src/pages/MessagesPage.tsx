@@ -8,8 +8,12 @@ import {
     ArrowLeft, Flag, MoreVertical, Edit2, Check, X, Search, Paperclip, Smile,
     Users, HeartHandshake, Pin, EyeOff, Ban, Tag, AlertTriangle, Send, Image as ImageIcon, Mic, Phone, Video, Info, Lock, Trash2, Settings, Palette, Menu, PanelLeftClose, PanelLeftOpen
 } from 'lucide-react';
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { format } from 'date-fns';
+import FeedPostItem from '@/components/FeedPostItem';
 import { useSession, signOut } from '@/hooks/use-session';
 import { useMessaging, Message, Friend, Conversation } from '../hooks/useMessaging';
 import styles from './MessagesPage.module.css';
@@ -824,85 +828,24 @@ function MessagesPageContent() {
                                             >
                                                 {/* Content */}
                                                 {msg.sharedPost ? (
-                                                    <div
-                                                        className="flex flex-col gap-3 min-w-[260px] sm:min-w-[300px] cursor-pointer group/post"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            router.push(`/post/${msg.sharedPost!.id}`);
-                                                        }}
-                                                    >
-                                                        {/* Shared Post Header */}
-                                                        <div className="flex items-center gap-2.5 pb-2 border-b border-white/10">
-                                                            <div className="w-8 h-8 rounded-full overflow-hidden bg-white/10 ring-1 ring-white/10">
-                                                                {msg.sharedPost.user.profile?.avatarUrl ? (
-                                                                    <img src={msg.sharedPost.user.profile.avatarUrl} alt="" className="w-full h-full object-cover" />
-                                                                ) : (
-                                                                    <div className="w-full h-full flex items-center justify-center text-xs font-bold bg-gradient-to-br from-gray-700 to-gray-900">
-                                                                        {msg.sharedPost.user.profile?.displayName?.[0] || '?'}
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                            <div className="flex flex-col leading-none gap-0.5">
-                                                                <span className="font-bold text-sm text-white group-hover/post:text-blue-300 transition-colors">
-                                                                    {msg.sharedPost.user.profile?.displayName || 'Unknown User'}
-                                                                </span>
-                                                                <span className="text-[10px] text-white/40 uppercase tracking-widest font-black inline-flex items-center gap-1.5">
-                                                                    <span className="w-1 h-1 rounded-full bg-blue-500"></span>
-                                                                    {msg.sharedPost.postType || 'POST'}
-                                                                </span>
-                                                            </div>
-                                                        </div>
-
-                                                        {/* Media (Images/Videos) */}
-                                                        {(() => {
-                                                            const mediaList = msg.sharedPost.media || [];
-                                                            if (mediaList.length === 0) return null;
-
-                                                            const firstMedia = mediaList[0];
-                                                            return (
-                                                                <div className="rounded-xl overflow-hidden w-full bg-black relative border border-white/10 shadow-2xl">
-                                                                    {firstMedia.type === 'VIDEO' ? (
-                                                                        <video
-                                                                            src={firstMedia.url}
-                                                                            className="w-full h-auto max-h-[300px] object-cover"
-                                                                            controls={false}
-                                                                            muted
-                                                                            playsInline
-                                                                            autoPlay
-                                                                            loop
-                                                                        />
-                                                                    ) : (
-                                                                        <img
-                                                                            src={firstMedia.url}
-                                                                            alt="Post content"
-                                                                            className="w-full h-auto max-h-[300px] object-cover"
-                                                                        />
-                                                                    )}
-                                                                    {mediaList.length > 1 && (
-                                                                        <div className="absolute top-2 right-2 px-2 py-0.5 bg-black/70 rounded text-[10px] text-white font-bold backdrop-blur-sm border border-white/10 uppercase">
-                                                                            +{mediaList.length - 1} media
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            );
-                                                        })()}
-
-                                                        {/* Specialized Post Sneak Peek (Xray, etc.) */}
-                                                        {msg.sharedPost.postType === 'XRAY' && (
-                                                            <div className="text-[10px] text-blue-400 font-bold uppercase tracking-widest flex items-center gap-2 px-1">
-                                                                <span className="animate-pulse">🔍</span> Tap to scratch & reveal
-                                                            </div>
-                                                        )}
-
-                                                        {/* Content */}
-                                                        {msg.sharedPost.content && (
-                                                            <div className="text-sm text-white/90 leading-relaxed whitespace-pre-wrap font-light">
-                                                                {msg.sharedPost.content}
-                                                            </div>
-                                                        )}
+                                                    <div className="min-w-[300px] max-w-[400px]">
+                                                        {/* Pass normalized post to FeedPostItem */}
+                                                        <FeedPostItem
+                                                            post={{
+                                                                ...msg.sharedPost,
+                                                                // Normalize media just in case, though component handles it mostly
+                                                                media: msg.sharedPost.postMedia?.map((pm: any) => pm.media) || []
+                                                            }}
+                                                            currentUserId={userId}
+                                                            className="w-full border-2 border-white/20 bg-black/40 backdrop-blur-sm"
+                                                        />
 
                                                         {/* Message about the share (if any) */}
-                                                        {msg.content && <div className="text-sm border-t border-white/10 pt-2 mt-1 italic text-white/70">{msg.content}</div>}
+                                                        {msg.content && (
+                                                            <div className="text-sm text-white/90 leading-relaxed whitespace-pre-wrap font-light mt-3 pl-1">
+                                                                {msg.content}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 ) : (
                                                     msg.content

@@ -20,6 +20,7 @@ export interface Message {
     content: string;
     media: any[];
     postType?: string;
+    postMedia?: any[]; // Raw media from API
     user: {
       id: string;
       name: string;
