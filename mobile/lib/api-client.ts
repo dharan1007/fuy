@@ -2,7 +2,7 @@ import { TokenManager } from './secure-storage';
 import CryptoJS from 'crypto-js';
 import NetInfo from '@react-native-community/netinfo';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://fuy.vercel.app';
 const API_SECRET = process.env.EXPO_PUBLIC_API_SECRET || 'default-secret';
 
 /**

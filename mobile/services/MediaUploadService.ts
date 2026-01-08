@@ -1,6 +1,6 @@
 import * as FileSystem from 'expo-file-system';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3000';
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://fuy.vercel.app';
 
 export interface UploadResult {
     url: string;
@@ -57,7 +57,7 @@ export class MediaUploadService {
             // 3. Upload directly to R2
             const uploadRes = await FileSystem.uploadAsync(signedUrl, uri, {
                 httpMethod: 'PUT',
-                uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+                uploadType: 1, // BINARY_CONTENT = 1
                 headers: {
                     'Content-Type': contentType
                 }
