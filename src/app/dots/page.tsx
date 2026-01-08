@@ -7,6 +7,7 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import LandingPage from '@/components/LandingPage/LandingPage';
 import { useRouter } from 'next/navigation';
 import ReactionControl from '@/components/ReactionControl';
+import FillsHero from '@/components/FillsHero';
 
 // Categories for content filtering
 const CATEGORIES = [
@@ -609,6 +610,19 @@ export default function DotsPage() {
 
             {viewMode === 'grid' ? (
                 <div className="pt-[140px] h-screen overflow-y-auto pb-20 no-scrollbar bg-[#0f0f0f]">
+                    {/* Fills Hero Section - Placed ABOVE filters */}
+                    {activeCategory === 'fills' && (
+                        <div className="max-w-[1800px] mx-auto px-6 mt-6 mb-2">
+                            <FillsHero
+                                fills={dots.filter(d => d.category === 'fills' || d.category === 'fill').slice(0, 5)}
+                                onPlay={(fill) => {
+                                    const idx = dots.findIndex(d => d.id === fill.id);
+                                    if (idx !== -1) handleGridItemClick(idx);
+                                }}
+                            />
+                        </div>
+                    )}
+
                     {/* Fill Filters - Only show for Fills category */}
                     {activeCategory === 'fills' && (
                         <div className="max-w-[1800px] mx-auto px-6 mb-8">
@@ -629,90 +643,11 @@ export default function DotsPage() {
                         </div>
                     )}
 
-                    {/* Trending & Recent Section - Always Visible on Fills Tab */}
-                    {activeCategory === 'fills' && filteredDots.length > 0 && (
-                        <div className="max-w-[1800px] mx-auto px-6 mb-8">
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                {/* Most Trending */}
-                                <div className="bg-gradient-to-br from-red-500/10 to-orange-500/10 border border-red-500/20 rounded-xl overflow-hidden">
-                                    <div className="p-4 border-b border-white/10">
-                                        <h3 className="text-white font-bold text-lg flex items-center gap-2">
-                                            🔥 Most Trending
-                                        </h3>
-                                    </div>
-                                    {(() => {
-                                        const trending = [...filteredDots].sort((a, b) => b.likes - a.likes)[0];
-                                        return trending ? (
-                                            <div
-                                                onClick={() => handleGridItemClick(filteredDots.indexOf(trending))}
-                                                className="cursor-pointer group"
-                                            >
-                                                <div className="aspect-video relative overflow-hidden bg-black">
-                                                    {trending.mediaType === 'video' ? (
-                                                        <video src={trending.mediaUrl} className="w-full h-full object-cover" muted />
-                                                    ) : (
-                                                        <img src={trending.mediaUrl} alt={trending.description} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                                                    )}
-                                                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent p-4">
-                                                        <div className="flex items-center gap-2 mb-2">
-                                                            <img src={trending.avatar} className="w-8 h-8 rounded-full" />
-                                                            <span className="text-white font-medium text-sm">{trending.username}</span>
-                                                        </div>
-                                                        <p className="text-white font-semibold line-clamp-2 mb-1">{trending.description}</p>
-                                                        <div className="flex items-center gap-4 text-xs text-gray-300">
-                                                            <span>{trending.views} views</span>
-                                                            <span>❤️ {trending.likes}</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ) : null;
-                                    })()}
-                                </div>
-
-                                {/* Most Recent */}
-                                <div className="bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border border-blue-500/20 rounded-xl overflow-hidden">
-                                    <div className="p-4 border-b border-white/10">
-                                        <h3 className="text-white font-bold text-lg flex items-center gap-2">
-                                            ⚡ Most Recent
-                                        </h3>
-                                    </div>
-                                    {(() => {
-                                        const recent = filteredDots[0]; // First item is most recent
-                                        return recent ? (
-                                            <div
-                                                onClick={() => handleGridItemClick(0)}
-                                                className="cursor-pointer group"
-                                            >
-                                                <div className="aspect-video relative overflow-hidden bg-black">
-                                                    {recent.mediaType === 'video' ? (
-                                                        <video src={recent.mediaUrl} className="w-full h-full object-cover" muted />
-                                                    ) : (
-                                                        <img src={recent.mediaUrl} alt={recent.description} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                                                    )}
-                                                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent p-4">
-                                                        <div className="flex items-center gap-2 mb-2">
-                                                            <img src={recent.avatar} className="w-8 h-8 rounded-full" />
-                                                            <span className="text-white font-medium text-sm">{recent.username}</span>
-                                                        </div>
-                                                        <p className="text-white font-semibold line-clamp-2 mb-1">{recent.description}</p>
-                                                        <div className="flex items-center gap-4 text-xs text-gray-300">
-                                                            <span>{recent.views} views</span>
-                                                            <span>{recent.createdAt}</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ) : null;
-                                    })()}
-                                </div>
-                            </div>
-                        </div>
-                    )}
+                    {/* Old Trending Section Removed */}
 
 
                     <div className="max-w-[1800px] mx-auto px-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
-                        {filteredDots.map((dot, index) => (
+                        {filteredDots.filter(d => activeCategory === 'fills' ? (d.category === 'fills' || d.category === 'fill') : true).map((dot, index) => (
                             <div key={dot.id} onClick={() => handleGridItemClick(index)} className="group cursor-pointer flex flex-col gap-3">
                                 <div className={`relative ${getGridAspectRatio(dot)} rounded-xl overflow-hidden bg-[#1a1a1a]`}>
                                     {dot.mediaType === 'video' ? (
