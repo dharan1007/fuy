@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Upload, Loader2 } from 'lucide-react';
+import { Upload, Loader2, Image as ImageIcon } from 'lucide-react';
 import { uploadFileClientSide } from '@/lib/upload-helper';
 
 import { useCreatePost } from '@/context/CreatePostContext';
@@ -24,6 +24,8 @@ export default function FillForm({ onBack: propOnBack, initialData }: FillFormPr
     const [content, setContent] = useState('');
     const [visibility, setVisibility] = useState('PUBLIC');
     const [videoFile, setVideoFile] = useState<File | null>(null);
+    const [coverFile, setCoverFile] = useState<File | null>(null);
+    const [coverPreview, setCoverPreview] = useState<string | null>(null);
     const [duration, setDuration] = useState(0);
 
     const handleVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -41,6 +43,14 @@ export default function FillForm({ onBack: propOnBack, initialData }: FillFormPr
         }
     };
 
+    const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            setCoverFile(file);
+            setCoverPreview(URL.createObjectURL(file));
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent | React.MouseEvent, status: 'PUBLISHED' | 'DRAFT' = 'PUBLISHED') => {
         e.preventDefault();
         setError('');
@@ -52,6 +62,12 @@ export default function FillForm({ onBack: propOnBack, initialData }: FillFormPr
             setLoadingMessage("Uploading video...");
             const publicUrl = await uploadFileClientSide(videoFile, 'VIDEO');
 
+            let coverUrl = null;
+            if (coverFile) {
+                setLoadingMessage("Uploading cover image...");
+                coverUrl = await uploadFileClientSide(coverFile, 'IMAGE');
+            }
+
             const res = await fetch('/api/posts', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -61,6 +77,7 @@ export default function FillForm({ onBack: propOnBack, initialData }: FillFormPr
                     visibility,
                     media: [{ url: publicUrl, type: 'VIDEO' }],
                     duration,
+                    coverImageUrl: coverUrl,
                     status,
                 }),
             });
@@ -120,6 +137,38 @@ export default function FillForm({ onBack: propOnBack, initialData }: FillFormPr
                                     type="file"
                                     accept="video/*"
                                     onChange={handleVideoChange}
+                                    className="hidden"
+                                />
+                            </label>
+                        )}
+                    </div>
+
+                    {/* Cover Image Upload */}
+                    <div>
+                        <label className="block text-sm font-medium text-white/80 mb-2">
+                            Cover Image (Optional - For Thumbnail)
+                        </label>
+                        {coverPreview ? (
+                            <div className="space-y-2">
+                                <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-white/10">
+                                    <img src={coverPreview} alt="Cover preview" className="w-full h-full object-cover" />
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => { setCoverFile(null); setCoverPreview(null); }}
+                                    className="text-sm text-red-400 hover:text-red-300"
+                                >
+                                    Remove cover
+                                </button>
+                            </div>
+                        ) : (
+                            <label className="flex items-center justify-center gap-2 p-6 border-2 border-dashed border-white/20 rounded-xl hover:border-white/40 hover:bg-white/5 cursor-pointer transition-colors">
+                                <ImageIcon className="w-5 h-5" />
+                                <span className="text-sm">Add Cover Image</span>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handleCoverChange}
                                     className="hidden"
                                 />
                             </label>

@@ -3,13 +3,47 @@ import { Html } from '@react-three/drei';
 import { Vector3 } from 'three';
 
 interface PostNodeProps {
-    post: any; // Using any for flexibility with the existing Post type
+    post: any;
     position: [number, number, number];
     onClick: (post: any) => void;
 }
 
 export function PostNode({ post, position, onClick }: PostNodeProps) {
     const [hovered, setHovered] = useState(false);
+
+    // Get the best thumbnail for display
+    const getThumbnail = () => {
+        // LILL - prioritize cover image
+        if (post.postType === 'LILL') {
+            if (post.lillData?.coverImageUrl) return { type: 'IMAGE', url: post.lillData.coverImageUrl };
+            if (post.lillData?.thumbnailUrl) return { type: 'IMAGE', url: post.lillData.thumbnailUrl };
+            if (post.media?.[0]?.type === 'IMAGE') return post.media[0];
+            if (post.media?.[0]?.thumbnailUrl) return { type: 'IMAGE', url: post.media[0].thumbnailUrl };
+            if (post.media?.[0]?.url) return { type: 'VIDEO', url: post.media[0].url };
+        }
+        // FILL - prioritize cover image
+        if (post.postType === 'FILL') {
+            if (post.fillData?.coverImageUrl) return { type: 'IMAGE', url: post.fillData.coverImageUrl };
+            if (post.fillData?.thumbnailUrl) return { type: 'IMAGE', url: post.fillData.thumbnailUrl };
+            if (post.media?.[0]?.type === 'IMAGE') return post.media[0];
+            if (post.media?.[0]?.thumbnailUrl) return { type: 'IMAGE', url: post.media[0].thumbnailUrl };
+            if (post.media?.[0]?.url) return { type: 'VIDEO', url: post.media[0].url };
+        }
+        // AUD - cover image
+        if (post.postType === 'AUD' && post.audData?.coverImageUrl) {
+            return { type: 'IMAGE', url: post.audData.coverImageUrl };
+        }
+        // CHAN - cover
+        if (post.postType === 'CHAN') {
+            if (post.chanData?.coverImageUrl) return { type: 'IMAGE', url: post.chanData.coverImageUrl };
+            if (post.media?.[0]?.url) return post.media[0];
+        }
+        // Default media
+        if (post.media?.[0]) return post.media[0];
+        return null;
+    };
+
+    const thumbnail = getThumbnail();
 
     return (
         <group position={position}>
@@ -35,101 +69,72 @@ export function PostNode({ post, position, onClick }: PostNodeProps) {
                     {/* PUD Rendering */}
                     {post.postType === 'PULLUPDOWN' || post.feature === 'PULLUPDOWN' ? (
                         <div className="w-full h-full flex flex-col items-center justify-center bg-gray-800 text-yellow-400 p-2 text-center">
-                            <span className="text-4xl mb-2">📊</span>
+                            <span className="text-2xl mb-2">Vote</span>
                             <span className="text-[10px] font-bold uppercase tracking-wider text-white/90 line-clamp-3">
                                 {post.question || post.content}
                             </span>
                         </div>
-                    ) : post.postType === 'CHAN' ? (
-                        // Channel Rendering
-                        <div className="w-full h-full relative">
-                            <img
-                                src={post.media?.[0]?.url || post.chanData?.coverImageUrl}
-                                className="w-full h-full object-cover"
-                                alt="Channel"
-                            />
-                        </div>
-                    ) : post.postType === 'AUD' ? (
-                        // Audio Rendering
-                        <div className="w-full h-full relative">
-                            <img
-                                src={post.audData?.coverImageUrl || "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=300&auto=format&fit=crop"}
-                                className="w-full h-full object-cover"
-                                alt="Audio Cover"
-                            />
-                        </div>
-                    ) : (post.postType === 'LILL' && !post.media?.length && !post.lillData?.videoUrl) || (post.postType === 'SIMPLE' && !post.media?.length && !post.simpleData?.mediaUrls) ? (
-                        // Text Only Rendering (No Media)
-                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-900 via-purple-900 to-black p-4 text-center">
-                            <p className="text-sm text-white font-medium leading-relaxed line-clamp-6 drop-shadow-md">
-                                {post.content}
-                            </p>
-                        </div>
-                    ) : post.postType === 'FILL' ? (
-                        // Fill (Video) Rendering
-                        <div className="w-full h-full relative bg-black">
-                            {post.fillData?.thumbnailUrl ? (
-                                <img src={post.fillData.thumbnailUrl} className="w-full h-full object-cover" alt="Fill" />
-                            ) : post.media?.[0]?.url ? (
-                                <video
-                                    src={post.media[0].url}
-                                    className="w-full h-full object-cover"
-                                    muted
-                                    preload="none"
-                                    poster={post.media[0].thumbnailUrl}
-                                    onMouseOver={e => e.currentTarget.play().catch(() => { })}
-                                    onMouseOut={e => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }}
-                                />
-                            ) : (
-                                <div className="w-full h-full flex items-center justify-center bg-gray-900">
-                                    <span className="text-3xl">🎬</span>
-                                </div>
-                            )}
-                        </div>
                     ) : post.postType === 'CHAPTER' ? (
-                        // Chapter Rendering
                         <div className="w-full h-full flex flex-col items-center justify-center bg-[#1a1a1a] p-4 text-center">
-                            <span className="text-3xl mb-2 opacity-80">📖</span>
+                            <span className="text-2xl mb-2 opacity-80">Chapter</span>
                             <p className="text-[10px] text-white/70 line-clamp-4">
                                 {post.content || "Read more..."}
                             </p>
                         </div>
                     ) : post.postType === 'XRAY' ? (
-                        // XRay Rendering
                         <div className="w-full h-full bg-black relative flex flex-col items-center justify-center overflow-hidden border border-white/10">
-                            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/diagmonds-light.png')] opacity-20"></div>
-                            <span className="text-5xl animate-pulse text-cyan-400">⚡</span>
+                            {post.xrayData?.topLayerUrl ? (
+                                <img src={post.xrayData.topLayerUrl} className="w-full h-full object-cover" alt="XRay" />
+                            ) : (
+                                <>
+                                    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/diagmonds-light.png')] opacity-20"></div>
+                                    <span className="text-3xl animate-pulse text-cyan-400">X-Ray</span>
+                                </>
+                            )}
+                        </div>
+                    ) : thumbnail ? (
+                        // Show thumbnail content
+                        <div className="w-full h-full relative bg-black">
+                            {thumbnail.type === 'IMAGE' ? (
+                                <img
+                                    src={thumbnail.url}
+                                    alt={post.content || "Post"}
+                                    className="w-full h-full object-cover"
+                                />
+                            ) : (
+                                <video
+                                    src={thumbnail.url}
+                                    className="w-full h-full object-cover"
+                                    muted
+                                    preload="metadata"
+                                    poster={thumbnail.thumbnailUrl}
+                                    onMouseOver={e => e.currentTarget.play().catch(() => { })}
+                                    onMouseOut={e => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }}
+                                />
+                            )}
+                            {/* Type badge */}
+                            <div className="absolute bottom-2 left-2 px-2 py-0.5 bg-black/60 rounded text-[8px] font-bold uppercase tracking-wider">
+                                {post.postType}
+                            </div>
                         </div>
                     ) : (
-                        // Default / Media Fallback
-                        <React.Fragment>
-                            {post.media && post.media.length > 0 ? (
-                                post.media[0].type === 'IMAGE' ? (
-                                    <img
-                                        src={post.media[0].url}
-                                        alt="Post"
-                                        className="w-full h-full object-cover"
-                                    />
-                                ) : (
-                                    <video
-                                        src={post.media[0].url}
-                                        className="w-full h-full object-cover"
-                                        muted
-                                        preload="none"
-                                        poster={post.media[0].thumbnailUrl || post.lillData?.thumbnailUrl}
-                                        onMouseOver={e => e.currentTarget.play().catch(() => { })}
-                                        onMouseOut={e => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }}
-                                    />
-                                )
-                            ) : (
-                                <div className="w-full h-full flex items-center justify-center text-3xl bg-gray-800">
-                                    📄
-                                </div>
-                            )}
-                        </React.Fragment>
+                        // Text-only content
+                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-800 via-gray-900 to-black p-4 text-center">
+                            <p className="text-sm text-white font-medium leading-relaxed line-clamp-6 drop-shadow-md">
+                                {post.content || "View post"}
+                            </p>
+                        </div>
+                    )}
+
+                    {/* User avatar overlay */}
+                    {post.user?.profile?.avatarUrl && (
+                        <div className="absolute top-2 left-2 w-6 h-6 rounded-full overflow-hidden border border-white/30">
+                            <img src={post.user.profile.avatarUrl} alt="" className="w-full h-full object-cover" />
+                        </div>
                     )}
                 </div>
             </Html>
         </group>
     );
 }
+

@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/session";
+import { getUserSlashPreferences, calculateTagOverlap, extractProfileTags } from "@/lib/recommendation";
 
 export const dynamic = 'force-dynamic';
 
@@ -9,6 +10,24 @@ export async function GET() {
     try {
         const user = await getSessionUser();
         const userId = user?.id;
+
+        // Get user preferences for personalization
+        let slashPrefs: Record<string, number> = {};
+        let userTags: string[] = [];
+
+        if (userId) {
+            const [prefs, profileTags] = await Promise.all([
+                getUserSlashPreferences(userId),
+                extractProfileTags(userId)
+            ]);
+            slashPrefs = prefs;
+            userTags = [
+                ...profileTags.values,
+                ...profileTags.skills,
+                ...profileTags.genres,
+                ...profileTags.currentlyInto,
+            ];
+        }
 
         // Helper to fetch posts by type
         const fetchByType = async (type?: string, limit = 20) => {
@@ -27,6 +46,7 @@ export async function GET() {
                     }
                 },
                 user: { select: { id: true, profile: { select: { displayName: true, avatarUrl: true } } } },
+                slashes: { select: { tag: true } },
                 _count: { select: { likes: true, comments: true, reactionBubbles: true, shares: true } }
             };
 
@@ -58,36 +78,52 @@ export async function GET() {
                 where,
                 orderBy: { createdAt: 'desc' },
                 include,
-                take: limit
+                take: limit * 2 // Fetch more to score and filter
             });
 
-            // Normalize media for specialized post types
-            return posts.map((post: any) => {
+            // Normalize media and score posts
+            const normalized = posts.map((post: any) => {
                 const normalizedMedia = post.postMedia?.map((pm: any) => pm.media) || [];
 
-                // LILL: video
+                // LILL: Add cover image or video
+                if (post.lillData?.coverImageUrl) {
+                    normalizedMedia.unshift({
+                        id: `lill-cover-${post.id}`,
+                        type: 'IMAGE',
+                        url: post.lillData.coverImageUrl,
+                        feature: 'LILL'
+                    });
+                }
                 if (post.lillData?.videoUrl) {
                     normalizedMedia.push({
                         id: `lill-${post.id}`,
                         type: 'VIDEO',
                         url: post.lillData.videoUrl,
-                        thumbnailUrl: post.lillData.thumbnailUrl,
+                        thumbnailUrl: post.lillData.thumbnailUrl || post.lillData.coverImageUrl,
                         feature: 'LILL'
                     });
                 }
 
-                // FILL: video
+                // FILL: Add cover image or video
+                if (post.fillData?.coverImageUrl) {
+                    normalizedMedia.unshift({
+                        id: `fill-cover-${post.id}`,
+                        type: 'IMAGE',
+                        url: post.fillData.coverImageUrl,
+                        feature: 'FILL'
+                    });
+                }
                 if (post.fillData?.videoUrl) {
                     normalizedMedia.push({
                         id: `fill-${post.id}`,
                         type: 'VIDEO',
                         url: post.fillData.videoUrl,
-                        thumbnailUrl: post.fillData.thumbnailUrl,
+                        thumbnailUrl: post.fillData.thumbnailUrl || post.fillData.coverImageUrl,
                         feature: 'FILL'
                     });
                 }
 
-                // AUD: audio
+                // AUD: audio with cover
                 if (post.audData?.audioUrl) {
                     normalizedMedia.push({
                         id: `aud-${post.id}`,
@@ -98,7 +134,7 @@ export async function GET() {
                     });
                 }
 
-                // CHAN: cover (for preview)
+                // CHAN: cover
                 if (post.chanData?.coverImageUrl) {
                     normalizedMedia.push({
                         id: `chan-${post.id}`,
@@ -125,11 +161,38 @@ export async function GET() {
                     });
                 }
 
+                // Calculate recommendation score
+                let recoScore = 0;
+                const postSlashes = post.slashes?.map((s: any) => s.tag) || [];
+
+                // Slash preference matching
+                for (const tag of postSlashes) {
+                    recoScore += slashPrefs[tag] || 0;
+                }
+
+                // Profile tag overlap
+                if (userTags.length > 0) {
+                    recoScore += calculateTagOverlap(userTags, postSlashes) * 5;
+                }
+
+                // Engagement boost
+                const engagementScore = (post._count.likes + post._count.comments * 2) / 10;
+                recoScore += Math.min(engagementScore, 3);
+
                 return {
                     ...post,
-                    media: normalizedMedia
+                    media: normalizedMedia,
+                    recoScore: Math.round(recoScore * 100) / 100,
+                    slashTags: postSlashes
                 };
             });
+
+            // Sort by recommendation score if user is logged in
+            if (userId) {
+                normalized.sort((a: any, b: any) => b.recoScore - a.recoScore);
+            }
+
+            return normalized.slice(0, limit);
         };
 
         const [main, chans, lills, fills, auds, chapters, xrays, puds, texts] = await Promise.all([
