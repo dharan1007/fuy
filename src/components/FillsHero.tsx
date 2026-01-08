@@ -51,13 +51,25 @@ export default function FillsHero({ fills, onPlay }: FillsHeroProps) {
                     transition={{ duration: 0.8 }}
                     className="absolute inset-0"
                 >
-                    {/* Background Image */}
+                    {/* Background Image/Video */}
                     <div className="absolute inset-0">
-                        <img
-                            src={currentFill.mediaType === 'image' ? currentFill.mediaUrl : (currentFill.coverUrl || currentFill.mediaUrl)}
-                            alt={currentFill.description}
-                            className="w-full h-full object-cover"
-                        />
+                        {currentFill.mediaType === 'video' ? (
+                            <video
+                                src={currentFill.mediaUrl}
+                                className="w-full h-full object-cover"
+                                autoPlay
+                                muted
+                                loop
+                                playsInline
+                                poster={currentFill.coverUrl}
+                            />
+                        ) : (
+                            <img
+                                src={currentFill.mediaUrl}
+                                alt={currentFill.description}
+                                className="w-full h-full object-cover"
+                            />
+                        )}
                         <div className="absolute inset-0 bg-gradient-to-r from-black via-black/50 to-transparent" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
                     </div>
@@ -71,7 +83,7 @@ export default function FillsHero({ fills, onPlay }: FillsHeroProps) {
                                 transition={{ delay: 0.3 }}
                                 className="flex items-center gap-3"
                             >
-                                <span className="bg-pink-600 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-lg shadow-pink-600/20">
+                                <span className="bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-lg shadow-red-600/20">
                                     Trending Fill
                                 </span>
                                 {currentFill.category && (
@@ -105,9 +117,9 @@ export default function FillsHero({ fills, onPlay }: FillsHeroProps) {
                                     <span className="font-medium text-white">{currentFill.username}</span>
                                 </div>
                                 <span className="w-1 h-1 bg-white/50 rounded-full" />
-                                <span>{currentFill.likes} likes</span>
+                                <span>{currentFill.likes} W's</span>
                                 <span className="w-1 h-1 bg-white/50 rounded-full" />
-                                <span>{currentFill.views || '1.2k'} views</span>
+                                <span>{currentFill.views || '0'} views</span>
                             </motion.div>
 
                             <motion.div
@@ -118,9 +130,9 @@ export default function FillsHero({ fills, onPlay }: FillsHeroProps) {
                             >
                                 <button
                                     onClick={() => onPlay(currentFill)}
-                                    className="flex items-center gap-3 bg-pink-600 hover:bg-pink-700 text-white px-8 py-3.5 rounded-full font-bold transition-all transform hover:scale-105 shadow-lg shadow-pink-600/30 group/btn"
+                                    className="flex items-center gap-3 bg-red-600 hover:bg-red-700 text-white px-8 py-3.5 rounded-full font-bold transition-all transform hover:scale-105 shadow-lg shadow-red-600/30 group/btn"
                                 >
-                                    <div className="w-8 h-8 bg-white text-pink-600 rounded-full flex items-center justify-center">
+                                    <div className="w-8 h-8 bg-white text-red-600 rounded-full flex items-center justify-center">
                                         <Play size={16} fill="currentColor" className="ml-0.5" />
                                     </div>
                                     Watch Now
@@ -158,8 +170,9 @@ export default function FillsHero({ fills, onPlay }: FillsHeroProps) {
                         key={idx}
                         onClick={() => setCurrentIndex(idx)}
                         className={`transition-all duration-300 rounded-full ${idx === currentIndex
-                                ? 'w-8 h-2 bg-pink-500'
-                                : 'w-2 h-2 bg-white/30 hover:bg-white/60'
+                            ? 'w-8 h-2 bg-red-500'
+                            : 'w-2 h-2 bg-white/30 hover:bg-white/60'
+                            }
                             }`}
                     />
                 ))}

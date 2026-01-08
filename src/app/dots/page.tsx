@@ -579,8 +579,13 @@ export default function DotsPage() {
                         <div className="flex justify-between items-center">
                             <div className="flex items-center gap-3">
                                 <button onClick={() => {
-                                    if (activeCategory === 'bloom') setBloomMode('selection');
-                                    else router.back();
+                                    if (viewMode === 'feed') {
+                                        setViewMode('grid');
+                                    } else if (activeCategory === 'bloom') {
+                                        setBloomMode('selection');
+                                    } else {
+                                        router.back();
+                                    }
                                 }} className="p-2 bg-white/10 rounded-full hover:bg-white/20 transition-all text-white">
                                     <ChevronLeft size={20} />
                                 </button>
@@ -647,13 +652,17 @@ export default function DotsPage() {
 
 
                     <div className="max-w-[1800px] mx-auto px-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
-                        {filteredDots.filter(d => activeCategory === 'fills' ? (d.category === 'fills' || d.category === 'fill') : true).map((dot, index) => (
+                        {filteredDots.filter(d => {
+                            if (activeCategory === 'fills') return d.category === 'fills' || d.category === 'fill';
+                            if (activeCategory === 'lills') return d.category === 'lills';
+                            return true;
+                        }).map((dot, index) => (
                             <div key={dot.id} onClick={() => handleGridItemClick(index)} className="group cursor-pointer flex flex-col gap-3">
                                 <div className={`relative ${getGridAspectRatio(dot)} rounded-xl overflow-hidden bg-[#1a1a1a]`}>
                                     {dot.mediaType === 'video' ? (
-                                        <video src={dot.mediaUrl} className="w-full h-full object-cover" muted />
+                                        <video src={dot.mediaUrl} className={`w-full h-full ${getFeedObjectFit(dot)}`} muted />
                                     ) : (
-                                        <img src={dot.mediaUrl} alt={dot.description} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                                        <img src={dot.mediaUrl} alt={dot.description} className={`w-full h-full ${getFeedObjectFit(dot)} transition-transform duration-300 group-hover:scale-105`} />
                                     )}
                                 </div>
                                 <div className="flex gap-3 items-start">
