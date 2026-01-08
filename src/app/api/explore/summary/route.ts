@@ -66,7 +66,14 @@ export async function GET() {
                     }
                 };
             }
-            if (type === 'PULLUPDOWN') include.pullUpDownData = { include: { options: true } };
+            if (type === 'PULLUPDOWN') {
+                include.pullUpDownData = {
+                    include: {
+                        options: true,
+                        votes: userId ? { where: { userId }, select: { optionId: true } } : false
+                    }
+                };
+            }
             if (type === 'CHAPTER') include.chapterData = true;
             if (type === 'XRAY') include.xrayData = true;
             if (type === 'SIMPLE') include.simpleData = true;
@@ -179,11 +186,18 @@ export async function GET() {
                 const engagementScore = (post._count.likes + post._count.comments * 2) / 10;
                 recoScore += Math.min(engagementScore, 3);
 
+                // Extract userVote for PullUpDown
+                let userVote = null;
+                if (post.postType === 'PULLUPDOWN' && post.pullUpDownData?.votes?.length > 0) {
+                    userVote = post.pullUpDownData.votes[0].optionId;
+                }
+
                 return {
                     ...post,
                     media: normalizedMedia,
                     recoScore: Math.round(recoScore * 100) / 100,
-                    slashTags: postSlashes
+                    slashTags: postSlashes,
+                    userVote // For PullUpDown posts
                 };
             });
 
