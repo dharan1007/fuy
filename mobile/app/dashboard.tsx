@@ -5,20 +5,23 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../context/ThemeContext';
-import { Book, Wind, MessageSquare, ShoppingBag, Anchor, Heart, Timer, ChevronLeft, LayoutDashboard, ArrowRight, BarChart2, TrendingUp, Clock } from 'lucide-react-native';
+import { Book, Wind, MessageSquare, ShoppingBag, Anchor, Heart, Timer, ChevronLeft, LayoutDashboard, ArrowRight, BarChart2, TrendingUp, Clock, Package, CreditCard, Tv, GraduationCap, Eye } from 'lucide-react-native';
 import Svg, { Circle, Rect } from 'react-native-svg';
 
 const { width } = Dimensions.get('window');
 
-// Features Config
+// Features Config - Matching Web Dashboard
 const features = [
     { id: 'overview', title: 'Overview', icon: LayoutDashboard, color: '#64748b', route: null },
-    { id: 'journal', title: 'Journal', icon: Book, color: '#8b5cf6', route: '/(tabs)/journal' },
-
-
+    { id: 'analytics', title: 'Analytics', icon: BarChart2, color: '#3b82f6', route: null },
+    { id: 'journal', title: 'Journal', icon: Book, color: '#8b5cf6', route: '/journal' },
+    { id: 'channel', title: 'Channel', icon: Tv, color: '#ec4899', route: null },
     { id: 'store', title: 'Store', icon: ShoppingBag, color: '#f59e0b', route: '/store' },
+    { id: 'orders', title: 'Orders', icon: Package, color: '#10b981', route: null },
+    { id: 'transactions', title: 'Transactions', icon: CreditCard, color: '#6366f1', route: null },
+    { id: 'courses', title: 'Courses', icon: GraduationCap, color: '#14b8a6', route: null },
+    { id: 'views', title: 'Views', icon: Eye, color: '#f97316', route: null },
     { id: 'wrex', title: 'WREX', icon: Anchor, color: '#a855f7', route: '/grounding' },
-
     { id: 'pomodoro', title: 'Pomodoro', icon: Timer, color: '#d97706', route: '/pomodoro' }
 ];
 
