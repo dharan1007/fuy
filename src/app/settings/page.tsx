@@ -98,7 +98,12 @@ export default function SettingsPage() {
       const convRes = await fetch('/api/chat/conversations');
       if (convRes.ok) {
         const convs = await convRes.json();
-        setGhostedConversations(convs.filter((c: any) => c.isGhosted));
+        if (Array.isArray(convs)) {
+          setGhostedConversations(convs.filter((c: any) => c.isGhosted));
+        } else {
+          console.warn("Expected array of conversations, got:", convs);
+          setGhostedConversations([]);
+        }
       }
     } catch (e) {
       console.error('Failed to load relations', e);
@@ -109,9 +114,11 @@ export default function SettingsPage() {
     // Optimistic update
     setSettings(prev => ({ ...prev, [key]: value }));
     try {
-      const formData = new FormData();
-      formData.append(key, value.toString());
-      await fetch('/api/profile', { method: 'PUT', body: formData });
+      await fetch('/api/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [key]: value })
+      });
     } catch (e) {
       console.error('Failed to update setting', e);
       fetchSettings(); // Revert on error
