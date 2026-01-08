@@ -77,7 +77,6 @@ function formatCount(count: number) {
 export default function ChanCarousel({ chans, onPostClick }: ChanCarouselProps) {
     const [activeIndex, setActiveIndex] = useState(0);
     const [activeFilter, setActiveFilter] = useState('all');
-    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
     // Only use chans that actually have chanData
     const incomingChans = chans.filter(p => p.chanData || p.feature === 'CHAN');
@@ -100,45 +99,25 @@ export default function ChanCarousel({ chans, onPostClick }: ChanCarouselProps) 
     const hasData = carouselItems.length > 0;
 
     return (
-        <div className="absolute inset-0 z-10 flex pointer-events-auto">
-            {/* Sidebar Toggle Button */}
-            <button
-                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className={`absolute top-32 left-8 z-50 p-2 rounded-full backdrop-blur-md border border-white/20 text-white hover:bg-white/10 transition-all duration-300 ${isSidebarOpen ? 'bg-white/10' : 'bg-black/50'}`}
-                title={isSidebarOpen ? "Collapse Sidebar" : "Expand Sidebar"}
-            >
-                {isSidebarOpen ? <ChevronLeft className="w-5 h-5" /> : <div className="w-5 h-5 flex flex-col justify-center gap-1"><div className="h-0.5 bg-white w-full" /><div className="h-0.5 bg-white w-full" /><div className="h-0.5 bg-white w-full" /></div>}
-            </button>
-
-            {/* Left Sidebar - Filters */}
-            <div className={`h-full pt-48 pb-8 pl-8 flex flex-col z-20 overflow-y-auto no-scrollbar hidden xl:flex transition-all duration-300 ease-in-out ${isSidebarOpen ? 'w-64 opacity-100 translate-x-0' : 'w-0 opacity-0 -translate-x-10 pointer-events-none'
-                }`}>
-                <h3 className="text-white/40 text-xs font-bold uppercase tracking-wider mb-6 pl-4 whitespace-nowrap">Discover</h3>
-                <div className="flex flex-col gap-2 min-w-[200px]">
-                    {FILTERS.map(filter => (
-                        <button
-                            key={filter.id}
-                            onClick={() => setActiveFilter(filter.id)}
-                            className={`px-4 py-3 rounded-xl text-left text-sm font-medium transition-all duration-300 flex items-center justify-between group whitespace-nowrap ${activeFilter === filter.id
-                                ? 'bg-white text-black shadow-lg shadow-white/10 scale-105'
-                                : 'text-white/60 hover:bg-white/5 hover:text-white'
-                                }`}
-                        >
-                            <span>{filter.label}</span>
-                            {activeFilter === filter.id && (
-                                <div className="w-1.5 h-1.5 rounded-full bg-black"></div>
-                            )}
-                        </button>
-                    ))}
-                </div>
+        <div className="absolute inset-0 z-10 flex flex-col pointer-events-auto">
+            {/* Filter Pills - Top */}
+            <div className="pt-40 px-8 flex flex-wrap gap-2 justify-center mb-6">
+                {FILTERS.map(filter => (
+                    <button
+                        key={filter.id}
+                        onClick={() => setActiveFilter(filter.id)}
+                        className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 ${activeFilter === filter.id
+                                ? 'bg-white text-black shadow-lg'
+                                : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white border border-white/10'
+                            }`}
+                    >
+                        {filter.label}
+                    </button>
+                ))}
             </div>
 
             {/* Main Content Area */}
-            <div className="flex-1 h-full overflow-y-auto no-scrollbar pt-48 pb-8 relative">
-
-                <div className="max-w-[1400px] mx-auto w-full px-12 mb-4">
-                    <h2 className="text-3xl font-bold text-white tracking-tight">Featured Channels</h2>
-                </div>
+            <div className="flex-1 overflow-y-auto no-scrollbar pb-8 relative">
 
                 {/* Carousel Section - Top */}
                 <div

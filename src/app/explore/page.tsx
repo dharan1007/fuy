@@ -66,13 +66,29 @@ export default function ExplorePage() {
         if (res.ok) {
           const data = await res.json();
 
-          // Filter out Chans, Chapters, Simple Text, Puds, Auds, and Xray from main mixed posts
-          const excludedTypes = ['CHAN', 'CHAPTER', 'SIMPLE', 'SIMPLE_TEXT', 'PULLUPDOWN', 'AUD', 'XRAY'];
+          // Include ALL post types in the main posts globe
+          // Only exclude pure CHAN types as they have their own tab
           const filteredMain = (data.main || []).filter((post: any) =>
-            !excludedTypes.includes(post.postType) && post.feature !== 'CHAN'
+            post.feature !== 'CHAN' && post.postType !== 'CHAN'
           );
 
-          setPosts(filteredMain);
+          // Also pull in specific types to ensure they are in the main globe
+          const allPosts = [
+            ...filteredMain,
+            ...(data.lills || []),
+            ...(data.fills || []),
+            ...(data.chapters || []),
+            ...(data.xrays || []),
+            ...(data.texts || []),
+            ...(data.auds || [])
+          ];
+
+          // De-duplicate by ID
+          const uniquePosts = Array.from(
+            new Map(allPosts.map((p: any) => [p.id, p])).values()
+          );
+
+          setPosts(uniquePosts as Post[]);
           setChans(data.chans && data.chans.length > 0 ? [...data.chans, ...DUMMY_CHANS] : DUMMY_CHANS as unknown as Post[]);
           setLils(data.lills || []);
           setFills(data.fills || []);
@@ -136,7 +152,7 @@ export default function ExplorePage() {
 
       {/* Globe Selector Tabs */}
       <div className="absolute top-24 left-1/2 transform -translate-x-1/2 z-20 flex gap-2 overflow-x-auto max-w-full px-4 pb-2 no-scrollbar">
-        {['Posts', 'Slashes', 'Chans', 'Auds', 'Chaptes', 'sixts', 'X Rays', 'Puds'].map((tab) => (
+        {['Posts', 'Slashes', 'Chans', 'Auds', 'Chaptes', 'sixts', 'Puds'].map((tab) => (
           <button
             key={tab}
             onClick={() => { setActiveGlobe(tab); setSelectedPost(null); }}
@@ -153,10 +169,10 @@ export default function ExplorePage() {
       {/* Galaxy Scene, Slashes Tab, or Grid View */}
       {activeGlobe === 'Slashes' ? (
         <SlashesTab />
-      ) : ['Chaptes', 'sixts', 'X Rays'].includes(activeGlobe) ? (
+      ) : ['Chaptes', 'sixts'].includes(activeGlobe) ? (
         <div className="pt-40 px-4 pb-8 overflow-y-auto h-full">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-6xl mx-auto">
-            {(activeGlobe === 'Chaptes' ? chaptes : activeGlobe === 'sixts' ? texts : xrays).map((post: any) => (
+            {(activeGlobe === 'Chaptes' ? chaptes : texts).map((post: any) => (
               <FeedPostItem key={post.id} post={post} />
             ))}
           </div>
@@ -180,7 +196,7 @@ export default function ExplorePage() {
       )}
 
       {/* Controls - Hide for Chans, Fills, Puds, Slashes, and Grid Tabs */}
-      {!['Chans', 'Puds', 'Slashes', 'Chaptes', 'sixts', 'X Rays'].includes(activeGlobe) && (
+      {!['Chans', 'Puds', 'Slashes', 'Chaptes', 'sixts'].includes(activeGlobe) && (
         <div className="absolute bottom-8 right-8 z-10 flex flex-col gap-4">
           <button
             onClick={handleToggle}
