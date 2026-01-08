@@ -3,44 +3,41 @@ export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/lib/auth';
+import { extractProfileTags, calculateTagOverlap, getUserSlashPreferences } from '@/lib/recommendation';
 
 export async function GET() {
   try {
     const session = await auth();
+    let userId: string | null = null;
     let interests: string[] = [];
+    let slashPrefs: Record<string, number> = {};
 
     if (session?.user?.email) {
       const user = await prisma.user.findUnique({
         where: { email: session.user.email },
         include: { profile: true },
       });
-      interests = user?.profile?.shoppingInterests || [];
+
+      if (user) {
+        userId = user.id;
+        interests = user.profile?.shoppingInterests || [];
+
+        // Get profile tags for matching
+        const profileTags = await extractProfileTags(user.id);
+        interests = [
+          ...interests,
+          ...profileTags.currentlyInto,
+          ...profileTags.genres,
+        ];
+
+        // Get slash preferences
+        slashPrefs = await getUserSlashPreferences(user.id);
+      }
     }
 
-    // Build filter based on interests
-    const where: any = {};
-    if (interests.length > 0) {
-      // Simple string match for tags since it's stored as JSON string
-      where.OR = interests.map(tag => ({
-        tags: { contains: tag.replace('/', '') } // Removing slash for looser matching if stored without, but usually stored as is.
-        // Actually, let's keep it strict or try both.
-      }));
-      // Or just match any
-      where.tags = { contains: interests[0] }; // Prisma doesn't support array contains on string easily for multiple ORs in this way without multiple OR clauses.
-
-      // Better approach: Fetch recent, then sort by relevance in JS, or use multiple ORs
-      where.OR = interests.map(i => ({ tags: { contains: i } }));
-    }
-
-    // Get products, prioritized by interests if any, otherwise trending/recent
-    const suggestedProducts = await prisma.product.findMany({
-      where: interests.length > 0 ? {
-        OR: [
-          ...interests.map(tag => ({ tags: { contains: tag } })),
-          { isTrending: true } // Fallback to trending
-        ]
-      } : { isTrending: true }, // Default if no interests
-
+    // Get candidate products
+    const products = await prisma.product.findMany({
+      where: { status: 'ACTIVE' },
       select: {
         id: true,
         name: true,
@@ -48,44 +45,71 @@ export async function GET() {
         price: true,
         description: true,
         tags: true,
+        category: true,
+        isTrending: true,
       },
-      orderBy: {
-        createdAt: 'desc',
-      },
-      take: 20, // Fetch more to filter
+      orderBy: [
+        { isTrending: 'desc' },
+        { createdAt: 'desc' },
+      ],
+      take: 50,
     });
 
-    // Client side filtering/sorting could be better but this is a start.
-    // If no results from interests, fetch generic recent
-    let finalProducts = suggestedProducts;
-    if (finalProducts.length === 0) {
-      finalProducts = await prisma.product.findMany({
-        orderBy: { createdAt: 'desc' },
-        take: 10,
-        select: { id: true, name: true, images: true, price: true, description: true, tags: true }
-      });
-    }
+    // Score products using recommendation brain
+    const scoredProducts = products.map((p) => {
+      let score = 0;
+      const productTags: string[] = Array.isArray(p.tags) ? p.tags : [];
 
-    // Format response to match component expectations
-    const formattedProducts = finalProducts.map((p) => {
+      // Interest overlap
+      if (interests.length > 0) {
+        score += calculateTagOverlap(interests, productTags) * 10;
+      }
+
+      // Slash preference matching
+      for (const tag of productTags) {
+        if (slashPrefs[tag]) {
+          score += slashPrefs[tag];
+        }
+      }
+
+      // Trending boost
+      if (p.isTrending) {
+        score += 3;
+      }
+
+      // Parse image
       let image = null;
       try {
         if (p.images) {
           const parsed = JSON.parse(p.images);
-          image = Array.isArray(parsed) ? parsed[0] : parsed;
+          image = Array.isArray(parsed) ? parsed[0]?.url || parsed[0] : parsed;
         }
-      } catch (e) { console.error(e) }
+      } catch (e) { /* ignore */ }
 
       return {
         id: p.id,
         name: p.name,
-        image: image,
+        image,
         price: p.price,
         description: p.description,
+        category: p.category,
+        score: Math.round(score * 100) / 100,
+        isTrending: p.isTrending,
+        matchReason: score > 5
+          ? 'Matches your interests'
+          : p.isTrending
+            ? 'Trending now'
+            : 'Popular item',
       };
-    }).slice(0, 10);
+    });
 
-    return NextResponse.json({ products: formattedProducts });
+    // Sort by score
+    scoredProducts.sort((a, b) => b.score - a.score);
+
+    // Return top products
+    const topProducts = scoredProducts.slice(0, 15);
+
+    return NextResponse.json({ products: topProducts });
   } catch (error: any) {
     console.error('Error fetching suggested products:', error);
     return NextResponse.json(

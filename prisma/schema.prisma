@@ -2339,3 +2339,75 @@ model SavedFood {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@index([userId])
 }
+
+// ========================
+// Recommendation Brain
+// ========================
+
+model UserEmbedding {
+  userId         String   @id
+  // JSON array of floats representing user preference vector
+  vector         String?  
+  // JSON object: { slashTag: score, ... }
+  slashScores    String?  
+  // JSON object: { values: [], skills: [], genres: [], topics: [] }
+  profileTags    String?
+  // Behavior patterns
+  activeHours    String?  // JSON array of preferred hours
+  contentPrefs   String?  // JSON: { video: 0.8, image: 0.6, text: 0.4 }
+  updatedAt      DateTime @updatedAt
+}
+
+model SlashInteraction {
+  id        String   @id @default(cuid())
+  userId    String
+  slashTag  String
+  score     Float    @default(0)
+  positive  Int      @default(0)  // W, like, share, save
+  negative  Int      @default(0)  // L, CAP, hide
+  views     Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, slashTag])
+  @@index([userId])
+  @@index([slashTag])
+  @@index([score])
+}
+
+model ContentEmbedding {
+  contentId   String   @id
+  contentType String   // POST | EVENT | PRODUCT | USER
+  // JSON array of floats
+  vector      String?
+  // JSON array of slash tags
+  slashes     String?
+  // Engagement stats
+  wCount      Int      @default(0)
+  lCount      Int      @default(0)
+  capCount    Int      @default(0)
+  viewCount   Int      @default(0)
+  shareCount  Int      @default(0)
+  // Trust score based on engagement ratio
+  trustScore  Float    @default(0.5)
+  updatedAt   DateTime @updatedAt
+
+  @@index([contentType])
+  @@index([trustScore])
+}
+
+model RecoFeedback {
+  id          String   @id @default(cuid())
+  userId      String
+  contentId   String
+  contentType String   // POST | EVENT | PRODUCT | USER
+  action      String   // VIEW | W | L | CAP | SHARE | RSVP | PURCHASE | HIDE
+  score       Float    // Weighted score of this action
+  slashes     String?  // JSON array of related slashes
+  source      String?  // feed | explore | search | profile
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([contentId])
+  @@index([action])
+  @@index([createdAt])
+}
