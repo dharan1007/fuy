@@ -5,7 +5,7 @@ import { userRateLimit } from '@/lib/rate-limit';
 // Rate limit: 10 posts per hour
 const limiter = userRateLimit({
     windowMs: 60 * 60 * 1000,
-    maxRequests: 10,
+    maxRequests: 100,
     getUser: (req) => req.headers.get('x-user-id') // Or extract from session if needed, but here we strictly follow the wrapper pattern
 });
 

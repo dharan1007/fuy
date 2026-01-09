@@ -195,6 +195,7 @@ export default function DotsScreen() {
     const [searchQuery, setSearchQuery] = useState('');
     const [activeFillFilter, setActiveFillFilter] = useState('All');
     const flatListRef = useRef<FlatList>(null);
+    const hasFetched = useRef(false);
 
     // Hide nav bar on dots page for immersive experience
     useEffect(() => {
@@ -215,10 +216,11 @@ export default function DotsScreen() {
     };
 
     const fetchDots = useCallback(async (category: string) => {
+        if (loading) return; // Prevent duplicate fetches
         setLoading(true);
         try {
             // Use web API to bypass RLS restrictions
-            const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://fuy.vercel.app';
+            const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://fuymedia.org';
             const response = await fetch(`${API_URL}/api/posts/create?limit=30`);
 
             if (!response.ok) {
@@ -281,11 +283,15 @@ export default function DotsScreen() {
         } finally {
             setLoading(false);
         }
-    }, [categoryToPostType]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
+    // Fetch only on mount and category change
     useEffect(() => {
         fetchDots(selectedCategory);
-    }, [selectedCategory, fetchDots]);
+        hasFetched.current = true;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedCategory]);
 
     const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: ViewToken[] }) => {
         if (viewableItems.length > 0 && viewableItems[0].index !== null) {

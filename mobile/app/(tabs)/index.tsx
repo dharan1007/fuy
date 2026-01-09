@@ -53,7 +53,7 @@ export default function FeedScreen() {
     const fetchFeed = useCallback(async () => {
         try {
             // Use web API to bypass RLS restrictions
-            const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://fuy.vercel.app';
+            const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://fuymedia.org';
             const response = await fetch(`${API_URL}/api/posts/create?limit=20`);
 
             if (!response.ok) {
@@ -87,7 +87,8 @@ export default function FeedScreen() {
 
     useEffect(() => {
         fetchFeed();
-    }, [fetchFeed]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const onRefresh = () => {
         setRefreshing(true);

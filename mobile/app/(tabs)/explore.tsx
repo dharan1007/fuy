@@ -152,7 +152,7 @@ export default function ExploreScreen() {
     const fetchPosts = async () => {
         try {
             // Use web API to bypass RLS restrictions
-            const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://fuy.vercel.app';
+            const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://fuymedia.org';
             const response = await fetch(`${API_URL}/api/posts/create?limit=20`);
 
             if (!response.ok) {

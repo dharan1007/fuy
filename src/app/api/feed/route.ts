@@ -10,7 +10,7 @@ export const revalidate = 60; // Cache for 60 seconds (ISR-like)
 // Rate limit: 200 requests per minute per IP/User to prevent abuse while allowing high-traffic reading
 const limiter = rateLimit({
     windowMs: 60 * 1000,
-    maxRequests: 200,
+    maxRequests: 500,
 });
 
 async function feedHandler(req: NextRequest) {
