@@ -221,7 +221,7 @@ export default function DotsScreen() {
         try {
             // Use web API to bypass RLS restrictions
             const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://fuymedia.org';
-            const response = await fetch(`${API_URL}/api/posts/create?limit=30`);
+            const response = await fetch(`${API_URL}/api/mobile/feed?limit=30`);
 
             if (!response.ok) {
                 console.error('Dots API error:', response.status);

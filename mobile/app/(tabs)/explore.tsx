@@ -153,7 +153,7 @@ export default function ExploreScreen() {
         try {
             // Use web API to bypass RLS restrictions
             const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://fuymedia.org';
-            const response = await fetch(`${API_URL}/api/posts/create?limit=20`);
+            const response = await fetch(`${API_URL}/api/mobile/feed?limit=20`);
 
             if (!response.ok) {
                 console.error('Explore API error:', response.status);
