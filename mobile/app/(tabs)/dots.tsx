@@ -2,13 +2,14 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, Dimensions, TouchableOpacity, Image, StyleSheet, FlatList, ViewToken, ActivityIndicator, ScrollView, Animated, PanResponder, Share as RNShare, Modal, Switch, TouchableWithoutFeedback, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Video, ResizeMode } from 'expo-av';
-import { Heart, MessageCircle, Share2, MoreVertical, Play, Pause, Circle as DotIcon, X, Search, ChevronLeft } from 'lucide-react-native';
+import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
+import { Heart, MessageCircle, Share2, MoreVertical, Play, Pause, Circle as DotIcon, X, Search, ChevronLeft, Send, Bookmark } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import ShareCardModal from '../../components/ShareCardModal';
 import { useRouter } from 'expo-router';
+import { useNavVisibility } from '../../context/NavContext';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -26,23 +27,7 @@ const CATEGORIES = [
 
 const FILL_FILTERS = ['All', 'New to you', 'Live', 'Stand-Up', 'Gaming', 'Music', 'Cartoons'];
 
-const MOCK_DOTS: DotData[] = [
-    {
-        id: '1',
-        username: 'traveler_jane',
-        avatar: 'https://api.dicebear.com/7.x/avataaars/png?seed=jane',
-        description: 'Beautiful sunset at the beach 🌅',
-        likes: 12400,
-        comments: 234,
-        mediaUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600',
-        mediaType: 'image',
-        category: 'mix',
-        postId: 'mock-1',
-        userId: 'mock-user-1',
-        isSubscribed: false,
-        followersCount: 15600,
-    },
-];
+// Mock data removed - using real Supabase data only
 
 interface DotData {
     id: string;
@@ -92,9 +77,50 @@ const getImageResizeMode = (item: DotData): 'contain' | 'cover' => {
 
 const DotItem = ({ item, isActive, autoScroll, onVideoEnd, onToggleAutoScroll, onSubscribe }: DotItemProps) => {
     const { colors } = useTheme();
+    const { session } = useAuth();
     const [liked, setLiked] = useState(false);
+    const [likeCount, setLikeCount] = useState(item.likes);
     const [isPlaying, setIsPlaying] = useState(true);
     const videoRef = useRef<Video>(null);
+
+    // Fix: Control video playback with useEffect
+    useEffect(() => {
+        if (!videoRef.current || item.mediaType !== 'video') return;
+        if (isActive && isPlaying) {
+            videoRef.current.playAsync();
+        } else {
+            videoRef.current.pauseAsync();
+        }
+    }, [isActive, isPlaying, item.mediaType]);
+
+    // Handle video end for auto-scroll
+    const onPlaybackStatusUpdate = (status: AVPlaybackStatus) => {
+        if (status.isLoaded && status.didJustFinish && autoScroll) {
+            onVideoEnd();
+        }
+    };
+
+    // Like functionality
+    const handleLike = async () => {
+        if (!session?.user) return;
+        const newLiked = !liked;
+        setLiked(newLiked);
+        setLikeCount(prev => newLiked ? prev + 1 : prev - 1);
+        try {
+            if (newLiked) {
+                await supabase.from('PostLike').insert({ postId: item.postId, userId: session.user.id });
+            } else {
+                await supabase.from('PostLike').delete().eq('postId', item.postId).eq('userId', session.user.id);
+            }
+        } catch (e) { console.error('Like error:', e); }
+    };
+
+    // Share functionality
+    const handleShare = async () => {
+        try {
+            await RNShare.share({ message: item.description, url: item.mediaUrl });
+        } catch (e) { console.error('Share error:', e); }
+    };
 
     return (
         <View style={[styles.dotContainer, { height: SCREEN_HEIGHT }]}>
@@ -105,8 +131,9 @@ const DotItem = ({ item, isActive, autoScroll, onVideoEnd, onToggleAutoScroll, o
                         source={{ uri: item.mediaUrl }}
                         style={StyleSheet.absoluteFillObject}
                         resizeMode={getFeedResizeMode(item)}
-                        shouldPlay={isActive && isPlaying}
+                        shouldPlay={false}
                         isLooping={!autoScroll}
+                        onPlaybackStatusUpdate={onPlaybackStatusUpdate}
                     />
                 ) : (
                     <Image
@@ -118,27 +145,27 @@ const DotItem = ({ item, isActive, autoScroll, onVideoEnd, onToggleAutoScroll, o
                 <LinearGradient colors={['transparent', 'rgba(0,0,0,0.7)']} style={[StyleSheet.absoluteFillObject, { top: '50%' }]} />
             </TouchableOpacity>
 
-            {!isPlaying && (
+            {!isPlaying && item.mediaType === 'video' && (
                 <View style={styles.playPauseOverlay}>
                     <Play size={64} color="#fff" fill="#fff" />
                 </View>
             )}
 
             <View style={styles.actionsContainer}>
-                <TouchableOpacity style={styles.actionButton} onPress={() => setLiked(!liked)}>
+                <TouchableOpacity style={styles.actionButton} onPress={handleLike}>
                     <Heart size={28} color={liked ? '#ff3b5c' : '#fff'} fill={liked ? '#ff3b5c' : 'transparent'} />
-                    <Text style={styles.actionText}>{formatNumber(item.likes)}</Text>
+                    <Text style={styles.actionText}>{formatNumber(likeCount)}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.actionButton}>
                     <MessageCircle size={28} color="#fff" />
                     <Text style={styles.actionText}>{formatNumber(item.comments)}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.actionButton}>
-                    <Share2 size={28} color="#fff" />
-                    <Text style={styles.actionText}>Share</Text>
+                <TouchableOpacity style={styles.actionButton} onPress={handleShare}>
+                    <Send size={28} color="#fff" />
+                    <Text style={styles.actionText}>Send</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.actionButton}>
-                    <MoreVertical size={28} color="#fff" />
+                    <Bookmark size={28} color="#fff" />
                 </TouchableOpacity>
             </View>
 
@@ -159,14 +186,21 @@ const DotItem = ({ item, isActive, autoScroll, onVideoEnd, onToggleAutoScroll, o
 export default function DotsScreen() {
     const { colors } = useTheme();
     const router = useRouter();
+    const { setHideNav } = useNavVisibility();
     const [activeIndex, setActiveIndex] = useState(0);
     const [selectedCategory, setSelectedCategory] = useState('mix');
-    const [dots, setDots] = useState<DotData[]>(MOCK_DOTS);
-    const [loading, setLoading] = useState(false);
+    const [dots, setDots] = useState<DotData[]>([]);
+    const [loading, setLoading] = useState(true);
     const [showCategories, setShowCategories] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeFillFilter, setActiveFillFilter] = useState('All');
     const flatListRef = useRef<FlatList>(null);
+
+    // Hide nav bar on dots page for immersive experience
+    useEffect(() => {
+        setHideNav(true);
+        return () => setHideNav(false);
+    }, [setHideNav]);
 
     // Map category to postType
     const categoryToPostType: Record<string, string> = {
@@ -183,107 +217,71 @@ export default function DotsScreen() {
     const fetchDots = useCallback(async (category: string) => {
         setLoading(true);
         try {
-            let query = supabase
-                .from('Post')
-                .select(`
-                    id,
-                    content,
-                    postType,
-                    createdAt,
-                    likes,
-                    comments,
-                    userId,
-                    user:User (
-                        id,
-                        name,
-                        followersCount,
-                        profile:Profile (avatarUrl)
-                    ),
-                    media:Media (url, type),
-                    lillData:Lill (videoUrl, thumbnailUrl),
-                    fillData:Fill (videoUrl, thumbnailUrl),
-                    audData:Aud (audioUrl, coverImageUrl),
-                    xrayData:Xray (topLayerUrl, bottomLayerUrl),
-                    chanData:Chan (coverImageUrl)
-                `)
-                .eq('visibility', 'PUBLIC')
-                .order('createdAt', { ascending: false })
-                .limit(20);
+            // Use web API to bypass RLS restrictions
+            const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://fuy.vercel.app';
+            const response = await fetch(`${API_URL}/api/posts/create?limit=30`);
 
-            if (category === 'bloom') {
-                const { data: { user } } = await supabase.auth.getUser();
-                if (user) {
-                    const { data: subs } = await supabase.from('Subscription').select('subscribedToId').eq('subscriberId', user.id);
-                    if (subs && subs.length > 0) {
-                        query = query.in('userId', subs.map(s => s.subscribedToId));
-                    } else {
-                        setDots([]);
-                        setLoading(false);
-                        return;
-                    }
+            if (!response.ok) {
+                console.error('Dots API error:', response.status);
+                setDots([]);
+                setLoading(false);
+                return;
+            }
+
+            const { posts } = await response.json();
+            console.log('Dots fetched:', posts?.length || 0, 'posts');
+
+            // Filter by category if needed
+            let filteredPosts = posts || [];
+            if (category !== 'mix' && categoryToPostType[category]) {
+                filteredPosts = filteredPosts.filter((p: any) =>
+                    p.postType === categoryToPostType[category]
+                );
+            }
+
+            const formattedDots = filteredPosts.map((post: any) => {
+                // Get media from the standardized media array
+                const media = post.media || [];
+                let mediaUrl = '';
+                let mediaType: 'video' | 'image' | 'audio' = 'image';
+
+                if (media.length > 0) {
+                    mediaUrl = media[0].url;
+                    mediaType = media[0].type === 'VIDEO' ? 'video' :
+                        media[0].type === 'AUDIO' ? 'audio' : 'image';
                 }
-            } else if (category !== 'mix' && categoryToPostType[category]) {
-                query = query.eq('postType', categoryToPostType[category]);
-            }
 
-            const { data, error } = await query;
+                // Fallback placeholder if no media
+                if (!mediaUrl) {
+                    mediaUrl = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800';
+                }
 
-            if (data && data.length > 0) {
-                const formattedDots = data.map((post: any) => {
-                    let mediaUrl = '';
-                    let mediaType: 'video' | 'image' | 'audio' = 'image';
+                return {
+                    id: post.id,
+                    postId: post.id,
+                    userId: post.userId || post.user?.id || '',
+                    username: post.user?.profile?.displayName || post.user?.name || 'User',
+                    avatar: post.user?.profile?.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${post.userId}`,
+                    description: post.content || '',
+                    likes: post.likes || 0,
+                    comments: post.comments || 0,
+                    mediaUrl,
+                    mediaType,
+                    category: post.postType?.toLowerCase() || 'mix',
+                    isSubscribed: false,
+                    followersCount: 0,
+                    createdAt: post.createdAt
+                };
+            });
 
-                    if (post.lillData?.videoUrl) {
-                        mediaUrl = post.lillData.videoUrl;
-                        mediaType = 'video';
-                    } else if (post.fillData?.videoUrl) {
-                        mediaUrl = post.fillData.videoUrl;
-                        mediaType = 'video';
-                    } else if (post.xrayData?.topLayerUrl) {
-                        mediaUrl = post.xrayData.topLayerUrl;
-                        mediaType = 'image';
-                    } else if (post.chanData?.coverImageUrl) {
-                        mediaUrl = post.chanData.coverImageUrl;
-                        mediaType = 'image';
-                    } else if (post.audData?.audioUrl) {
-                        mediaUrl = post.audData.coverImageUrl || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800';
-                        mediaType = 'audio';
-                    } else if (post.media?.[0]?.url) {
-                        mediaUrl = post.media[0].url;
-                        mediaType = post.media[0].type === 'VIDEO' ? 'video' : 'image';
-                    }
-
-                    // Fallback for demo if no real media found
-                    if (!mediaUrl) mediaUrl = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800';
-
-                    return {
-                        id: post.id,
-                        postId: post.id,
-                        userId: post.userId,
-                        username: post.user?.name || 'User',
-                        avatar: post.user?.profile?.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${post.userId}`,
-                        description: post.content || '',
-                        likes: post.likes || 0,
-                        comments: post.comments || 0,
-                        mediaUrl,
-                        mediaType,
-                        category: post.postType?.toLowerCase() || 'mix',
-                        isSubscribed: false, // simplified for now due to complexity of join
-                        followersCount: post.user?.followersCount || 0,
-                        createdAt: post.createdAt
-                    };
-                });
-                setDots(formattedDots);
-            } else {
-                setDots(MOCK_DOTS); // Fallback to mock if empty response (e.g. no internet or empty db) to show UI
-            }
+            setDots(formattedDots);
         } catch (error) {
             console.error('Error fetching dots:', error);
-            setDots(MOCK_DOTS);
+            setDots([]);
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [categoryToPostType]);
 
     useEffect(() => {
         fetchDots(selectedCategory);

@@ -64,15 +64,16 @@ const styles = StyleSheet.create({
     container: {
         position: 'absolute',
         bottom: 20,
-        left: 20,
-        right: 20,
-        alignItems: 'center',
+        left: 0,
+        right: 0,
+        alignItems: 'center', // Center properly
     },
     blurView: {
         borderRadius: 30,
         overflow: 'hidden',
         borderWidth: 1,
-        width: '100%',
+        width: '85%', // Consistent width
+        maxWidth: 400, // Tablet friendly
     },
     content: {
         flexDirection: 'row',

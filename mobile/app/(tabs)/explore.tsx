@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image, TextInput, Dimensions, FlatList, Alert, RefreshControl, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Image, TextInput, Dimensions, FlatList, Alert, RefreshControl, StyleSheet, Animated } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Search, X, UserPlus, Check, Clock, Grid, User, Compass, Bell } from 'lucide-react-native';
@@ -7,7 +7,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { useTheme } from '../../context/ThemeContext';
-import Animated, { FadeInDown, FadeIn, useAnimatedStyle, withSpring } from 'react-native-reanimated';
 
 const { width, height } = Dimensions.get('window');
 
@@ -47,8 +46,7 @@ const FloatingCard = ({ post, config, index, onPress }: { post: Post; config: ty
     const imageUrl = post.media?.[0]?.url || `https://picsum.photos/seed/${post.id}/${Math.round(cardWidth * 2)}/${Math.round(config.height * 2)}`;
 
     return (
-        <Animated.View
-            entering={FadeInDown.delay(index * 80).springify()}
+        <View
             style={{
                 position: 'absolute',
                 top: config.top,
@@ -110,7 +108,7 @@ const FloatingCard = ({ post, config, index, onPress }: { post: Post; config: ty
                     )}
                 </LinearGradient>
             </TouchableOpacity>
-        </Animated.View>
+        </View>
     );
 };
 
@@ -126,18 +124,7 @@ export default function ExploreScreen() {
     const [refreshing, setRefreshing] = useState(false);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
-    const DEMO_POSTS: Post[] = [
-        { id: '1', media: [{ url: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400', type: 'image' }], content: 'Away from city' },
-        { id: '2', media: [{ url: 'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=400', type: 'image' }], content: 'My stories' },
-        { id: '3', media: [{ url: 'https://images.unsplash.com/photo-1517849845537-4d257902454a?w=400', type: 'image' }], content: '' },
-        { id: '4', media: [{ url: 'https://images.unsplash.com/photo-1484399172022-72a90b12e3c1?w=400', type: 'image' }], content: 'I steal motions' },
-        { id: '5', media: [{ url: 'https://images.unsplash.com/photo-1518173946687-a4c036bc6fc8?w=400', type: 'image' }], content: '' },
-        { id: '6', media: [{ url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400', type: 'image' }], content: '' },
-        { id: '7', media: [{ url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400', type: 'image' }], content: '' },
-        { id: '8', media: [{ url: 'https://images.unsplash.com/photo-1533738363-b7f9aef128ce?w=400', type: 'image' }], content: '' },
-        { id: '9', media: [{ url: 'https://images.unsplash.com/photo-1472214103451-9374bd1c798e?w=400', type: 'image' }], content: '' },
-        { id: '10', media: [{ url: 'https://images.unsplash.com/photo-1552642986-ccb41e7059e7?w=400', type: 'image' }], content: '' },
-    ];
+    // Using real data from Supabase - no demo fallback
 
     useEffect(() => {
         fetchPosts();
@@ -164,22 +151,30 @@ export default function ExploreScreen() {
 
     const fetchPosts = async () => {
         try {
-            const response = await fetch('https://fuy.vercel.app/api/explore/summary');
-            if (response.ok) {
-                const data = await response.json();
-                const allPosts = [
-                    ...(data.main || []),
-                    ...(data.lills || []),
-                    ...(data.fills || []),
-                ].slice(0, 10);
+            // Use web API to bypass RLS restrictions
+            const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://fuy.vercel.app';
+            const response = await fetch(`${API_URL}/api/posts/create?limit=20`);
 
-                setPosts(allPosts.length > 0 ? allPosts : DEMO_POSTS);
-            } else {
-                setPosts(DEMO_POSTS);
+            if (!response.ok) {
+                console.error('Explore API error:', response.status);
+                setPosts([]);
+                return;
             }
+
+            const { posts: feedPosts } = await response.json();
+
+            // Transform to Post interface
+            const transformedPosts: Post[] = (feedPosts || []).map((p: any) => ({
+                id: p.id,
+                content: p.content || '',
+                postType: p.postType,
+                media: p.media || [],
+            }));
+
+            setPosts(transformedPosts);
         } catch (e) {
             console.error('Fetch error:', e);
-            setPosts(DEMO_POSTS);
+            setPosts([]);
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -326,31 +321,7 @@ export default function ExploreScreen() {
                     ))}
                 </ScrollView>
 
-                {/* Bottom Navigation Bar */}
-                <View style={styles.bottomNavContainer}>
-                    <BlurView intensity={80} tint="dark" style={styles.bottomNav}>
-                        <TouchableOpacity style={styles.navItem}>
-                            <View style={[styles.navIcon, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
-                                <Compass size={22} color="white" />
-                            </View>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/(tabs)/dots')}>
-                            <View style={styles.navIcon}>
-                                <Grid size={22} color="rgba(255,255,255,0.6)" />
-                            </View>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/(tabs)/profile')}>
-                            <View style={styles.navIcon}>
-                                <User size={22} color="rgba(255,255,255,0.6)" />
-                            </View>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.navItem} onPress={() => router.push('/notifications')}>
-                            <View style={styles.navIcon}>
-                                <Bell size={22} color="rgba(255,255,255,0.6)" />
-                            </View>
-                        </TouchableOpacity>
-                    </BlurView>
-                </View>
+                {/* Bottom Navigation Bar removed - handled by _layout.tsx */}
             </SafeAreaView>
         </View>
     );
@@ -433,28 +404,5 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: 'black',
     },
-    bottomNavContainer: {
-        position: 'absolute',
-        bottom: 30,
-        left: 30,
-        right: 30,
-    },
-    bottomNav: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        paddingVertical: 12,
-        borderRadius: 30,
-        overflow: 'hidden',
-    },
-    navItem: {
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    navIcon: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
+    // Bottom nav styles removed
 });

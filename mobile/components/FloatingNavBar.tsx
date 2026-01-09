@@ -1,14 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, TouchableOpacity, StyleSheet, Dimensions, Animated, PanResponder, Image } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Dimensions, Animated, PanResponder, Image, Platform } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Home, Search, PlusSquare, MessageCircle, User, Circle } from 'lucide-react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useRouter, useSegments } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const BUTTON_SIZE = 48;
-const EXPANDED_WIDTH = SCREEN_WIDTH - 40;
-const BOTTOM_PADDING = 24;
+// FIX: Constrain width to 90% of screen, maxing out at 400px
+const EXPANDED_WIDTH = Math.min(SCREEN_WIDTH * 0.90, 400);
+const BOTTOM_PADDING = 30;
 
 // Use the user's uploaded image for the collapsed nav icon
 const NavIcon = require('../assets/nav-icon.png');
@@ -21,6 +23,7 @@ interface FloatingNavBarProps {
 export default function FloatingNavBar({ currentRoute, onNavigate }: FloatingNavBarProps) {
     const { colors, mode } = useTheme();
     const segments = useSegments();
+    const insets = useSafeAreaInsets(); // FIX: Use safe area insets
 
     const [isExpanded, setIsExpanded] = useState(true);
     const isExpandedRef = useRef(true);
@@ -101,11 +104,20 @@ export default function FloatingNavBar({ currentRoute, onNavigate }: FloatingNav
         <Animated.View
             style={[
                 styles.container,
-                { width: animatedWidth }
+                {
+                    width: animatedWidth,
+                    // FIX: Add safe area bottom inset to base padding
+                    bottom: BOTTOM_PADDING + (Platform.OS === 'ios' ? 0 : insets.bottom),
+                }
             ]}
             {...panResponder.panHandlers}
         >
-            <Animated.View style={{ width: animatedWidth, borderRadius: animatedBorderRadius, overflow: 'hidden' }}>
+            <Animated.View style={{
+                width: animatedWidth,
+                borderRadius: animatedBorderRadius,
+                overflow: 'hidden',
+                height: '100%' // FIX: Ensure height is inherited so it doesn't collapse
+            }}>
                 <BlurView intensity={80} tint={mode === 'dark' ? 'dark' : 'light'} style={[styles.blurView, { borderColor: colors.border }]}>
                     {/* Collapsed state - tap to expand */}
                     {!isExpanded && (
@@ -148,15 +160,18 @@ export default function FloatingNavBar({ currentRoute, onNavigate }: FloatingNav
 const styles = StyleSheet.create({
     container: {
         position: 'absolute',
-        bottom: BOTTOM_PADDING,
+        // alignSelf: 'center' automatically centers it horizontally
         alignSelf: 'center',
         zIndex: 1000,
         height: BUTTON_SIZE,
+        // FIX: Ensure it never exceeds 400px even if calculation fails
+        maxWidth: 400,
     },
     blurView: {
-        borderRadius: BUTTON_SIZE / 2,
+        borderRadius: 30,
         overflow: 'hidden',
         borderWidth: 1,
+        flex: 1,
     },
     collapsedButton: {
         width: BUTTON_SIZE,

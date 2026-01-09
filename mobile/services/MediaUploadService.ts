@@ -5,6 +5,7 @@ const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://fuy.vercel.app';
 export interface UploadResult {
     url: string;
     type: 'IMAGE' | 'VIDEO' | 'AUDIO';
+    duration?: number; // Duration in seconds for audio/video
 }
 
 export interface UploadProgress {

@@ -28,11 +28,7 @@ interface FeedPost {
     content: string;
     createdAt: string;
     user: PostUser;
-    media: PostMedia[];
-    _count?: {
-        reactions: number;
-        comments: number;
-    };
+    postMedia: PostMedia[];
 }
 
 export default function FeedScreen() {
@@ -56,41 +52,33 @@ export default function FeedScreen() {
 
     const fetchFeed = useCallback(async () => {
         try {
-            // Fetch recent posts with user info and media
-            // Note: In a real app, you'd filter by friends/following here. 
-            // For now, we show a global timeline of recent posts.
-            const { data, error } = await supabase
-                .from('Post')
-                .select(`
-                    id, 
-                    content, 
-                    createdAt, 
-                    user:User(id, name, profile:Profile(displayName, avatarUrl)),
-                    media:Media(url, type),
-                    reactions:Reaction(count),
-                    comments:PostComment(count)
-                `)
-                .order('createdAt', { ascending: false })
-                .limit(20);
+            // Use web API to bypass RLS restrictions
+            const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://fuy.vercel.app';
+            const response = await fetch(`${API_URL}/api/posts/create?limit=20`);
 
-            if (error) throw error;
+            if (!response.ok) {
+                console.error('Feed API error:', response.status);
+                setPosts([]);
+                return;
+            }
 
-            // Transform data if needed (e.g., flatten counts)
-            const formattedPosts = data.map((p: any) => ({
-                ...p,
-                _count: {
-                    reactions: p.reactions?.[0]?.count || 0, // Simplified assumption or need exact query
-                    comments: p.comments?.[0]?.count || 0
-                }
-            }));
+            const { posts: feedPosts } = await response.json();
+            console.log('Feed fetched:', feedPosts?.length || 0, 'posts');
 
-            // If fetching relation counts is complex via generic select, handled loosely here
-            // actually Supabase .select with count is different, removing count for simple implementation
-            // Relying on raw data
-            setPosts(data as any);
+            // Transform to match FeedPost interface
+            const transformedPosts = (feedPosts || []).map((p: any) => ({
+                id: p.id,
+                content: p.content,
+                createdAt: p.createdAt,
+                user: p.user,
+                postMedia: p.media || [],
+            })) as FeedPost[];
+
+            setPosts(transformedPosts);
 
         } catch (error) {
             console.error("Error fetching feed:", error);
+            setPosts([]);
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -162,10 +150,10 @@ export default function FeedScreen() {
             ) : null}
 
             {/* Media */}
-            {item.media && item.media.length > 0 && (
+            {item.postMedia && item.postMedia.length > 0 && (
                 <View className="w-full aspect-video bg-gray-100">
                     <Image
-                        source={{ uri: item.media[0].url }}
+                        source={{ uri: item.postMedia[0].url }}
                         className="w-full h-full"
                         resizeMode="cover"
                     />
