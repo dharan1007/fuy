@@ -156,6 +156,13 @@ export async function GET() {
                         url: post.chanData.shows[0].episodes[0].coverUrl,
                         feature: 'CHAN'
                     });
+                } else if (post.user?.profile?.avatarUrl) {
+                    normalizedMedia.push({
+                        id: `chan-user-${post.id}`,
+                        type: 'IMAGE',
+                        url: post.user.profile.avatarUrl,
+                        feature: 'CHAN'
+                    });
                 }
 
                 // XRAY: top layer

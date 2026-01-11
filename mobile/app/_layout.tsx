@@ -51,21 +51,18 @@ const MainLayout = () => {
         );
     }
 
-    const hideToggle = segments.includes('(auth)') ||
-        segments.includes('chat') ||
-        segments.includes('messages') ||
-        segments.includes('grounding') ||
-        segments.includes('bonding') ||
-        segments.includes('profile-card') ||
-        segments.includes('dots') ||
-        segments.includes('create') ||
-        segments.includes('hopin');
+    // User requested toggle on all pages EXCEPT home.
+    const segs = segments as string[];
+    const isHome = (segs.length === 0) ||
+        (segs.includes('(tabs)') && (segs.length === 1 || segs[1] === 'index'));
+
+    const hideToggle = segs.includes('(auth)') || isHome;
 
     return (
         <View className="flex-1 relative">
             <StatusBar style={mode === 'light' ? 'dark' : 'light'} />
             <Slot />
-            {!hideToggle && <ThemeToggle />}
+            {/* Theme Toggle moved to Settings page */}
         </View>
     );
 };

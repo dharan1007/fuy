@@ -5,6 +5,7 @@ type ThemeMode = 'dark' | 'light' | 'eye-care';
 
 interface ThemeContextType {
     mode: ThemeMode;
+    setMode: (mode: ThemeMode) => void;
     toggleTheme: () => void;
     colors: {
         background: string;
@@ -55,6 +56,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                     secondary: '#888888',
                     accent: '#FFFFFF',
                     card: '#1A1A1A',
+                    switchTrack: '#334155', // Added for switch
                 };
         }
     }, [mode]);
@@ -70,7 +72,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const isDark = mode === 'dark';
 
     return (
-        <ThemeContext.Provider value={{ mode, toggleTheme, colors, isDark }}>
+        <ThemeContext.Provider value={{ mode, setMode, toggleTheme, colors, isDark }}>
             {children}
         </ThemeContext.Provider>
     );

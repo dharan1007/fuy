@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, TextInput, ScrollView, TouchableOpacity, Image, Modal, Animated, Dimensions, FlatList, ActivityIndicator, Alert, BackHandler, KeyboardAvoidingView, Platform } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter, useNavigation } from 'expo-router';
+import { useRouter, useNavigation, useFocusEffect } from 'expo-router';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { Mic, Send, Search, Settings, MoreVertical, Phone, Video, Image as ImageIcon, Smile, X, ChevronLeft, Sparkles, User as UserIcon, Sun, Moon, Anchor, Heart, Map as MapIcon, Book, Plus, Tag, Frown, AlertTriangle } from 'lucide-react-native';
@@ -120,10 +120,13 @@ export default function ChatScreen() {
         return () => clearInterval(interval);
     }, [dbUserId]);
 
-    // Hide Floating Nav when Chat Room is Open
-    useEffect(() => {
-        setHideNav(!!selectedUser);
-    }, [selectedUser, setHideNav]);
+    // Hide Floating Nav when Chat Room is Open - Focus aware
+    useFocusEffect(
+        useCallback(() => {
+            setHideNav(!!selectedUser);
+            return () => setHideNav(false);
+        }, [selectedUser, setHideNav])
+    );
 
     // Dbot State
     const [isVoiceMode, setIsVoiceMode] = useState(false);

@@ -1,252 +1,360 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Dimensions, Image, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
-import { BlurView } from 'expo-blur';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, Dimensions, ScrollView, StyleSheet } from 'react-native';
+import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import {
+    Anchor,
+    ShoppingBag,
+    Timer,
+    Package,
+    Tv,
+    Heart,
+    Book,
+    MapPin,
+    ChevronLeft
+} from 'lucide-react-native';
 import { useTheme } from '../context/ThemeContext';
-import { Book, Wind, MessageSquare, ShoppingBag, Anchor, Heart, Timer, ChevronLeft, LayoutDashboard, ArrowRight, BarChart2, TrendingUp, Clock, Package, CreditCard, Tv, GraduationCap, Eye } from 'lucide-react-native';
-import Svg, { Circle, Rect } from 'react-native-svg';
+import { BlurView } from 'expo-blur';
 
 const { width } = Dimensions.get('window');
+const GAP = 12;
+const ITEM_WIDTH = (width - (GAP * 5)) / 4; // 4 columns
 
-// Features Config - Matching Web Dashboard
-const features = [
-    { id: 'overview', title: 'Overview', icon: LayoutDashboard, color: '#64748b', route: null },
-    { id: 'analytics', title: 'Analytics', icon: BarChart2, color: '#3b82f6', route: null },
-    { id: 'journal', title: 'Journal', icon: Book, color: '#8b5cf6', route: '/journal' },
-    { id: 'channel', title: 'Channel', icon: Tv, color: '#ec4899', route: null },
-    { id: 'store', title: 'Store', icon: ShoppingBag, color: '#f59e0b', route: '/store' },
-    { id: 'orders', title: 'Orders', icon: Package, color: '#10b981', route: null },
-    { id: 'transactions', title: 'Transactions', icon: CreditCard, color: '#6366f1', route: null },
-    { id: 'courses', title: 'Courses', icon: GraduationCap, color: '#14b8a6', route: null },
-    { id: 'views', title: 'Views', icon: Eye, color: '#f97316', route: null },
-    { id: 'wrex', title: 'WREX', icon: Anchor, color: '#a855f7', route: '/grounding' },
-    { id: 'pomodoro', title: 'Pomodoro', icon: Timer, color: '#d97706', route: '/pomodoro' }
+// Meteor Configurations - Black/White with Organic Shapes
+const METEORS = [
+    {
+        id: 'bonding',
+        title: 'Relationships',
+        subtitle: 'Bonds',
+        icon: Heart,
+        colors: ['#d90429', '#8d021f'], // Red (Keep)
+        route: '/bonds',
+        radius: { tl: 30, tr: 25, bl: 25, br: 30 },
+        shadowColor: '#d90429',
+        borderWidth: 0,
+        borderColor: 'transparent'
+    },
+    {
+        id: 'store',
+        title: 'Store',
+        subtitle: 'Shop',
+        icon: ShoppingBag,
+        colors: ['#101010', '#000000'],
+        route: '/store',
+        radius: { tl: 20, tr: 30, bl: 30, br: 25 }, // Blobby
+        shadowColor: '#ffffff',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.3)'
+    },
+    {
+        id: 'wrex',
+        title: 'Grounding',
+        subtitle: 'WREX',
+        icon: Anchor,
+        colors: ['#101010', '#000000'],
+        route: '/grounding',
+        radius: { tl: 35, tr: 15, bl: 35, br: 15 },
+        shadowColor: '#ffffff',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.3)'
+    },
+    {
+        id: 'pomodoro',
+        title: 'Focus',
+        subtitle: 'Timer',
+        icon: Timer,
+        colors: ['#101010', '#000000'],
+        route: '/pomodoro',
+        radius: { tl: 25, tr: 25, bl: 15, br: 30 },
+        shadowColor: '#ffffff',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.3)'
+    },
+    {
+        id: 'orders',
+        title: 'Orders',
+        subtitle: 'Shipments',
+        icon: Package,
+        colors: ['#101010', '#000000'],
+        route: null,
+        radius: { tl: 20, tr: 28, bl: 20, br: 28 },
+        shadowColor: '#ffffff',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.3)'
+    },
+    {
+        id: 'canvas',
+        title: 'Journal',
+        subtitle: 'Canvas',
+        icon: Book,
+        colors: ['#101010', '#000000'],
+        route: '/journal',
+        radius: { tl: 30, tr: 15, bl: 25, br: 20 },
+        shadowColor: '#ffffff',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.3)'
+    },
+    {
+        id: 'hopin',
+        title: 'Events',
+        subtitle: 'Hopin',
+        icon: MapPin,
+        colors: ['#101010', '#000000'],
+        route: '/hopin',
+        radius: { tl: 20, tr: 30, bl: 30, br: 20 },
+        shadowColor: '#ffffff',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.3)'
+    },
+    {
+        id: 'channel',
+        title: 'Channel',
+        subtitle: 'Broadcast',
+        icon: Tv,
+        colors: ['#e5e5e5', '#ffffff'], // White (Keep)
+        route: '/channel',
+        radius: { tl: 30, tr: 20, bl: 25, br: 25 },
+        shadowColor: '#ffffff',
+        textColor: '#000',
+        borderWidth: 0,
+        borderColor: 'transparent'
+    }
 ];
 
 export default function DashboardScreen() {
     const router = useRouter();
     const { colors, mode } = useTheme();
-    const [activeIndex, setActiveIndex] = useState(0);
-    const scrollRef = useRef<ScrollView>(null);
-    const iconScrollRef = useRef<ScrollView>(null);
-
-    // Sync Horizontal Scroll with Active Tab
-    const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-        const slideSize = event.nativeEvent.layoutMeasurement.width;
-        const index = event.nativeEvent.contentOffset.x / slideSize;
-        const roundIndex = Math.round(index);
-        if (roundIndex !== activeIndex) {
-            setActiveIndex(roundIndex);
-            // Auto scroll icon bar
-            iconScrollRef.current?.scrollTo({ x: roundIndex * 70 - (width / 2) + 35, animated: true });
-        }
-    };
-
-    const navigateToPage = (index: number) => {
-        scrollRef.current?.scrollTo({ x: index * width, animated: true });
-        setActiveIndex(index);
-    };
-
-    // --- SUB COMPONENTS ---
-
-    // 1. Icon Bar
-    const renderIconBar = () => (
-        <View>
-            <ScrollView
-                ref={iconScrollRef}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 12, gap: 12 }}
-            >
-                {features.map((feature, index) => {
-                    const isActive = activeIndex === index;
-                    return (
-                        <TouchableOpacity
-                            key={feature.id}
-                            onPress={() => navigateToPage(index)}
-                            className="items-center justify-center p-3 rounded-2xl"
-                            style={{
-                                backgroundColor: isActive ? feature.color : (mode === 'light' ? '#f1f5f9' : '#1e293b'),
-                                minWidth: 60
-                            }}
-                        >
-                            <feature.icon size={24} color={isActive ? 'white' : colors.secondary} />
-                            <Text
-                                className="text-[10px] mt-1 font-bold"
-                                style={{ color: isActive ? 'white' : colors.secondary }}
-                            >
-                                {feature.title}
-                            </Text>
-                        </TouchableOpacity>
-                    );
-                })}
-            </ScrollView>
-        </View>
-    );
-
-    // 2. Overview Page Components
-    const renderActivityChart = () => (
-        <BlurView intensity={20} tint={mode === 'light' ? 'light' : 'dark'} className="p-5 rounded-3xl mb-6 overflow-hidden border" style={{ borderColor: colors.border, backgroundColor: colors.card }}>
-            <View className="flex-row justify-between mb-4">
-                <View>
-                    <Text className="text-secondary font-bold text-xs uppercase" style={{ color: colors.secondary }}>Weekly Activity</Text>
-                    <Text className="text-2xl font-bold" style={{ color: colors.text }}>42.5 hrs</Text>
-                </View>
-                <TrendingUp color="#10b981" />
-            </View>
-            <View className="flex-row justify-between items-end h-32 pt-4">
-                {[40, 65, 30, 80, 55, 90, 45].map((h, i) => (
-                    <View key={i} className="items-center gap-2">
-                        {/* Simple Bar using View */}
-                        <View className="w-8 rounded-full" style={{ height: `${h}%`, backgroundColor: i === 5 ? colors.primary : (mode === 'light' ? '#cbd5e1' : '#334155') }} />
-                        <Text style={{ color: colors.secondary, fontSize: 10 }}>{['S', 'M', 'T', 'W', 'T', 'F', 'S'][i]}</Text>
-                    </View>
-                ))}
-            </View>
-        </BlurView>
-    );
-
-    const renderPieChart = () => (
-        <BlurView intensity={20} tint={mode === 'light' ? 'light' : 'dark'} className="p-5 rounded-3xl mb-6 overflow-hidden border flex-row gap-6" style={{ borderColor: colors.border, backgroundColor: colors.card }}>
-            {/* Mock Pie Chart (SVG Circles can be used here or just a list) */}
-            <View className="items-center justify-center">
-                <Svg height="100" width="100" viewBox="0 0 100 100">
-                    <Circle cx="50" cy="50" r="40" stroke="#f1f5f9" strokeWidth="10" fill="transparent" opacity={0.2} />
-                    <Circle cx="50" cy="50" r="40" stroke="#8b5cf6" strokeWidth="10" strokeDasharray="251.2" strokeDashoffset="60" strokeLinecap="round" fill="transparent" origin="50, 50" rotation="-90" />
-                    {/* Add more segments if needed */}
-                </Svg>
-                <View className="absolute items-center">
-                    <Text className="font-bold text-xl" style={{ color: colors.text }}>76%</Text>
-                </View>
-            </View>
-            <View className="flex-1 justify-center gap-3">
-                <Text className="font-bold text-base" style={{ color: colors.text }}>Time Distribution</Text>
-                <View className="gap-2">
-                    <View className="flex-row items-center gap-2">
-                        <View className="w-3 h-3 rounded-full bg-violet-500" />
-                        <Text style={{ color: colors.secondary }}>Journaling (45%)</Text>
-                    </View>
-
-                </View>
-            </View>
-        </BlurView>
-    );
-
-    const renderRecommendations = () => (
-        <View className="mb-6">
-            <Text className="text-lg font-bold mb-3" style={{ color: colors.text }}>Recommended for You</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="gap-4">
-                {[1, 2, 3].map(i => (
-                    <TouchableOpacity key={i} className="w-40 mr-4">
-                        <Image source={{ uri: `https://source.unsplash.com/random/200x200?sig=${i}` }} className="w-40 h-40 rounded-2xl mb-2" />
-                        <Text className="font-bold text-sm" numberOfLines={1} style={{ color: colors.text }}>Calm & Focus Pack</Text>
-                        <Text className="text-xs" style={{ color: colors.secondary }}>Start your journey</Text>
-                    </TouchableOpacity>
-                ))}
-            </ScrollView>
-        </View>
-    );
-
-    // 3. Feature Analysis Page Template
-    const renderFeaturePage = (feature: typeof features[0]) => (
-        <ScrollView className="flex-1 px-6 pt-4" showsVerticalScrollIndicator={false}>
-            <Text className="text-3xl font-bold mb-1" style={{ color: colors.text }}>{feature.title} Analysis</Text>
-            <Text className="text-base mb-6" style={{ color: colors.secondary }}>Your personal insights</Text>
-
-            {/* Main Stats Card */}
-            <View className="p-6 rounded-3xl mb-6 relative overflow-hidden" style={{ backgroundColor: feature.color }}>
-                <View className="absolute right-[-20] top-[-20] opacity-20">
-                    <feature.icon size={150} color="white" />
-                </View>
-                <Text className="text-white/70 text-sm font-bold uppercase mb-2">Total Time</Text>
-                <Text className="text-white text-4xl font-bold mb-4">12h 30m</Text>
-                <View className="flex-row gap-4">
-                    <View className="bg-white/20 p-2 rounded-lg">
-                        <Text className="text-white font-bold text-xs">Sessions: 42</Text>
-                    </View>
-                    <View className="bg-white/20 p-2 rounded-lg">
-                        <Text className="text-white font-bold text-xs">Streak: 5 Days</Text>
-                    </View>
-                </View>
-            </View>
-
-            {/* History List */}
-            <Text className="text-lg font-bold mb-4" style={{ color: colors.text }}>Recent History</Text>
-            {[1, 2, 3, 4, 5].map(i => (
-                <View key={i} className="flex-row items-center p-4 mb-3 rounded-2xl border" style={{ borderColor: colors.border, backgroundColor: colors.card }}>
-                    <View className="p-3 rounded-full mr-4" style={{ backgroundColor: `${feature.color}20` }}>
-                        <Clock size={20} color={feature.color} />
-                    </View>
-                    <View className="flex-1">
-                        <Text className="font-bold text-base" style={{ color: colors.text }}>Session #{i}</Text>
-                        <Text className="text-xs" style={{ color: colors.secondary }}>Today, 2:30 PM</Text>
-                    </View>
-                    <Text className="font-bold text-sm" style={{ color: colors.text }}>25m</Text>
-                </View>
-            ))}
-
-            {/* Action Button */}
-            <TouchableOpacity
-                activeOpacity={0.9}
-                onPress={() => feature.route && router.push(feature.route as any)}
-                className="mt-4 mb-10 py-4 rounded-2xl items-center flex-row justify-center gap-2"
-                style={{ backgroundColor: feature.color }}
-            >
-                <Text className="text-white font-bold text-lg">Open {feature.title}</Text>
-                <ArrowRight color="white" size={20} />
-            </TouchableOpacity>
-        </ScrollView>
-    );
 
     return (
-        <View className="flex-1" style={{ backgroundColor: colors.background }}>
-            <LinearGradient
-                colors={mode === 'light' ? ['#ffffff', '#f0f0f0'] : mode === 'eye-care' ? ['#F5E6D3', '#E6D5C0'] : ['#000000', '#111827']}
-                className="absolute inset-0"
-            />
-            <SafeAreaView className="flex-1" edges={['top']}>
+        <View style={{ flex: 1, backgroundColor: '#000' }}>
+            <SafeAreaView style={{ flex: 1 }} edges={['top']}>
                 {/* Header */}
-                <View className="px-6 py-4 flex-row items-center gap-4 pl-16">
-                    <TouchableOpacity onPress={() => router.back()} className="p-2 rounded-full" style={{ backgroundColor: colors.card }}>
-                        <ChevronLeft color={colors.text} size={24} />
+                <View style={styles.header}>
+                    <TouchableOpacity
+                        onPress={() => router.back()}
+                        style={styles.backButton}
+                    >
+                        <ChevronLeft color="white" size={24} />
                     </TouchableOpacity>
-                    <Text className="text-2xl font-bold" style={{ color: colors.text }}>Stats & Insights</Text>
+                    <View>
+                        <Text style={styles.headerTitle}>COMMAND DECK</Text>
+                        <View style={styles.statusBadge}>
+                            <View style={styles.statusDot} />
+                            <Text style={styles.statusText}>SYSTEMS ONLINE</Text>
+                        </View>
+                    </View>
                 </View>
 
-                {/* Top Nav Icon Bar */}
-                {renderIconBar()}
-
-                {/* Main Horizontal Pager */}
                 <ScrollView
-                    ref={scrollRef}
-                    horizontal
-                    pagingEnabled
-                    showsHorizontalScrollIndicator={false}
-                    onMomentumScrollEnd={handleScroll}
-                    className="flex-1"
+                    contentContainerStyle={styles.gridContainer}
+                    showsVerticalScrollIndicator={false}
                 >
-                    {/* Index 0: Overview */}
-                    <View style={{ width }} className="flex-1">
-                        <ScrollView className="flex-1 px-6 pt-4" showsVerticalScrollIndicator={false}>
-                            <Text className="text-3xl font-bold mb-1" style={{ color: colors.text }}>Snapshot</Text>
-                            <Text className="text-base mb-6" style={{ color: colors.secondary }}>Your weekly wellness report</Text>
-                            {renderActivityChart()}
-                            {renderPieChart()}
-                            {renderRecommendations()}
-                            <View className="h-20" />
-                        </ScrollView>
+                    {/* Mission Report / Stats Placeholders */}
+                    <View style={{ marginBottom: 20, flexDirection: 'row', gap: 8, paddingHorizontal: 4 }}>
+                        <View style={[styles.statCard, { flex: 1, backgroundColor: 'rgba(59, 130, 246, 0.1)', borderColor: 'rgba(59, 130, 246, 0.2)' }]}>
+                            <Text style={styles.statLabel}>VIEWS</Text>
+                            <Text style={styles.statValue}>1.2K</Text>
+                        </View>
+                        <View style={[styles.statCard, { flex: 1, backgroundColor: 'rgba(16, 185, 129, 0.1)', borderColor: 'rgba(16, 185, 129, 0.2)' }]}>
+                            <Text style={styles.statLabel}>TASKS</Text>
+                            <Text style={styles.statValue}>42</Text>
+                        </View>
+                        <View style={[styles.statCard, { flex: 1, backgroundColor: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.2)' }]}>
+                            <Text style={styles.statLabel}>REACTIONS</Text>
+                            <Text style={styles.statValue}>98%</Text>
+                        </View>
                     </View>
 
-                    {/* Features Pages */}
-                    {features.slice(1).map((feature) => (
-                        <View key={feature.id} style={{ width }} className="flex-1">
-                            {renderFeaturePage(feature)}
-                        </View>
-                    ))}
+                    <Text style={{ color: 'white', fontWeight: 'bold', marginBottom: 12, paddingHorizontal: 4 }}>FEATURES</Text>
+
+                    {/* Meteor Grid - 4 Columns */}
+                    <View style={styles.grid}>
+                        {METEORS.map((meteor) => (
+                            <TouchableOpacity
+                                key={meteor.id}
+                                activeOpacity={0.8}
+                                onPress={() => meteor.route ? router.push(meteor.route as any) : null}
+                                style={[
+                                    styles.meteorCard,
+                                    {
+                                        borderTopLeftRadius: meteor.radius.tl,
+                                        borderTopRightRadius: meteor.radius.tr,
+                                        borderBottomLeftRadius: meteor.radius.bl,
+                                        borderBottomRightRadius: meteor.radius.br,
+                                        shadowColor: meteor.shadowColor,
+                                        borderWidth: (meteor as any).borderWidth || 0,
+                                        borderColor: (meteor as any).borderColor || 'transparent'
+                                    }
+                                ]}
+                            >
+                                <LinearGradient
+                                    colors={meteor.colors as [string, string]}
+                                    style={StyleSheet.absoluteFill}
+                                    start={{ x: 0.3, y: 0.3 }}
+                                    end={{ x: 1, y: 1 }}
+                                />
+
+                                <View style={styles.cardContent}>
+                                    <View style={[
+                                        styles.iconContainer,
+                                        {
+                                            padding: 8, // Smaller padding
+                                            marginBottom: 6,
+                                            backgroundColor: meteor.textColor === '#000' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.2)',
+                                            borderColor: meteor.textColor === '#000' ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.3)'
+                                        }
+                                    ]}>
+                                        <meteor.icon
+                                            size={16} // Smaller icon
+                                            color={meteor.textColor || 'white'}
+                                        />
+                                    </View>
+
+                                    <Text
+                                        numberOfLines={1}
+                                        style={[
+                                            styles.cardTitle,
+                                            {
+                                                fontSize: 10, // Smaller text
+                                                color: meteor.textColor || 'white',
+                                                marginBottom: 2
+                                            }
+                                        ]}
+                                    >
+                                        {meteor.title}
+                                    </Text>
+                                </View>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+
+                    {/* Bottom Space */}
+                    <View style={{ height: 40 }} />
                 </ScrollView>
             </SafeAreaView>
         </View>
     );
 }
+
+const styles = StyleSheet.create({
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 24,
+        paddingVertical: 20,
+    },
+    backButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 16,
+    },
+    headerTitle: {
+        color: 'white',
+        fontSize: 24,
+        fontWeight: '900',
+        letterSpacing: 1,
+        textShadowColor: 'rgba(255,255,255,0.3)',
+        textShadowOffset: { width: 0, height: 0 },
+        textShadowRadius: 10,
+    },
+    statusBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 4,
+        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 10,
+        alignSelf: 'flex-start',
+        borderWidth: 1,
+        borderColor: 'rgba(34, 197, 94, 0.2)',
+    },
+    statusDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: '#22c55e',
+        marginRight: 6,
+    },
+    statusText: {
+        color: '#22c55e',
+        fontSize: 9,
+        fontWeight: 'bold',
+        letterSpacing: 1,
+    },
+    gridContainer: {
+        paddingHorizontal: GAP,
+        paddingTop: 10,
+    },
+    grid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: GAP,
+    },
+    meteorCard: {
+        width: ITEM_WIDTH,
+        height: ITEM_WIDTH * 1.2,
+        marginBottom: 8,
+        overflow: 'hidden',
+        // Shadow for "floating" effect
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.4,
+        shadowRadius: 12,
+        elevation: 8,
+    },
+    cardContent: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 16,
+        zIndex: 10,
+    },
+    iconContainer: {
+        padding: 12,
+        borderRadius: 999,
+        borderWidth: 1,
+        marginBottom: 12,
+    },
+    cardTitle: {
+        fontSize: 18,
+        fontWeight: '900',
+        marginBottom: 4,
+        textAlign: 'center',
+        letterSpacing: 0.5,
+    },
+    cardSubtitle: {
+        fontSize: 10,
+        fontWeight: '700',
+        fontFamily: 'monospace', // mimicking the mono font in web
+        textAlign: 'center',
+        opacity: 0.8,
+    },
+    crater: {
+        position: 'absolute',
+        borderRadius: 999,
+    },
+    statCard: {
+        padding: 12,
+        borderRadius: 12,
+        borderWidth: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    statLabel: {
+        color: 'white',
+        fontSize: 10,
+        fontWeight: 'bold',
+        opacity: 0.7,
+        marginBottom: 4,
+    },
+    statValue: {
+        color: 'white',
+        fontSize: 18,
+        fontWeight: '900',
+    },
+});

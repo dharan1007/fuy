@@ -9,6 +9,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
     console.warn('Supabase URL or Anon Key is missing. Please check your .env file.');
 }
 
+// Main Supabase client - uses anon key with RLS policies for secure public access
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
         storage: AsyncStorage,
@@ -18,3 +19,6 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
         flowType: 'pkce',
     },
 });
+
+// Export same client for auth (backwards compatibility)
+export const supabaseAuth = supabase;

@@ -8,9 +8,10 @@ import { authOptions } from '@/lib/auth';
 export async function GET(req: NextRequest) {
     // 1. Auth & Input Validation
     const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-        return new NextResponse('Unauthorized', { status: 401 });
-    }
+    // Allow public access for mobile - simply skip personalized scoring if no user
+    // if (!session?.user?.id) {
+    //     return new NextResponse('Unauthorized', { status: 401 });
+    // }
 
     const { searchParams } = new URL(req.url);
     const postId = searchParams.get('postId');
@@ -31,10 +32,13 @@ export async function GET(req: NextRequest) {
             return new NextResponse('Post not found', { status: 404 });
         }
 
-        const currentUser = await prisma.user.findUnique({
-            where: { id: session.user.id },
-            include: { profile: true }
-        });
+        let currentUser = null;
+        if (session?.user?.id) {
+            currentUser = await prisma.user.findUnique({
+                where: { id: session.user.id },
+                include: { profile: true }
+            });
+        }
 
         const sourceSlashes = sourcePost.slashes.map(s => s.tag);
         const userInterests = [

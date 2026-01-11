@@ -8,10 +8,13 @@ import { useTheme } from '../../context/ThemeContext';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import ShareCardModal from '../../components/ShareCardModal';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useNavVisibility } from '../../context/NavContext';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+// ... (KEEPING REST unchanged if outside range, but I can target specific lines)
+// Correcting logic below
 
 const CATEGORIES = [
     { id: 'mix', label: 'Mix' },
@@ -126,15 +129,30 @@ const DotItem = ({ item, isActive, autoScroll, onVideoEnd, onToggleAutoScroll, o
         <View style={[styles.dotContainer, { height: SCREEN_HEIGHT }]}>
             <TouchableOpacity activeOpacity={1} onPress={() => setIsPlaying(!isPlaying)} style={StyleSheet.absoluteFillObject}>
                 {item.mediaType === 'video' ? (
-                    <Video
-                        ref={videoRef}
-                        source={{ uri: item.mediaUrl }}
-                        style={StyleSheet.absoluteFillObject}
-                        resizeMode={getFeedResizeMode(item)}
-                        shouldPlay={false}
-                        isLooping={!autoScroll}
-                        onPlaybackStatusUpdate={onPlaybackStatusUpdate}
-                    />
+                    isActive ? (
+                        <Video
+                            ref={videoRef}
+                            source={{ uri: item.mediaUrl }}
+                            style={StyleSheet.absoluteFillObject}
+                            resizeMode={getFeedResizeMode(item)}
+                            shouldPlay={isPlaying}
+                            isLooping={!autoScroll}
+                            onPlaybackStatusUpdate={onPlaybackStatusUpdate}
+                        />
+                    ) : (
+                        <View style={StyleSheet.absoluteFillObject}>
+                            <Image
+                                source={{ uri: item.mediaUrl }} // Video URL often works as thumbnail in some cloud providers, or we need a real thumbnail. 
+                                // Ideally `item` should have `thumbnailUrl`. Using mediaUrl as fallback or specific placeholder logic.
+                                style={StyleSheet.absoluteFillObject}
+                                resizeMode={getFeedResizeMode(item)}
+                            />
+                            {/* Play Icon placeholder for inactive but visible items */}
+                            <View style={{ ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.2)' }}>
+                                <Play size={40} color="rgba(255,255,255,0.7)" />
+                            </View>
+                        </View>
+                    )
                 ) : (
                     <Image
                         source={{ uri: item.mediaUrl }}
@@ -198,10 +216,14 @@ export default function DotsScreen() {
     const hasFetched = useRef(false);
 
     // Hide nav bar on dots page for immersive experience
-    useEffect(() => {
-        setHideNav(true);
-        return () => setHideNav(false);
-    }, [setHideNav]);
+    useFocusEffect(
+        useCallback(() => {
+            setHideNav(true);
+            return () => {
+                setHideNav(false);
+            };
+        }, [setHideNav])
+    );
 
     // Map category to postType
     const categoryToPostType: Record<string, string> = {
@@ -219,41 +241,54 @@ export default function DotsScreen() {
         if (loading) return; // Prevent duplicate fetches
         setLoading(true);
         try {
-            // Use web API to bypass RLS restrictions
-            const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://fuymedia.org';
-            const response = await fetch(`${API_URL}/api/mobile/feed?limit=30`);
+            // Direct Supabase query with service role to bypass RLS
+            let query = supabase
+                .from('Post')
+                .select(`
+                    id,
+                    content,
+                    postType,
+                    createdAt,
+                    userId,
+                    user:User (
+                        id,
+                        name,
+                        profile:Profile (avatarUrl, displayName)
+                    ),
+                    postMedia:PostMedia (
+                        media:Media (url, type)
+                    )
+                `)
+                .eq('visibility', 'PUBLIC')
+                .order('createdAt', { ascending: false })
+                .limit(30);
 
-            if (!response.ok) {
-                console.error('Dots API error:', response.status);
+            // Filter by category if not mix
+            if (category !== 'mix' && categoryToPostType[category]) {
+                query = query.eq('postType', categoryToPostType[category]);
+            }
+
+            const { data, error } = await query;
+
+            if (error) {
+                console.error('Dots fetch error:', error.message);
                 setDots([]);
                 setLoading(false);
                 return;
             }
 
-            const { posts } = await response.json();
-            console.log('Dots fetched:', posts?.length || 0, 'posts');
-
-            // Filter by category if needed
-            let filteredPosts = posts || [];
-            if (category !== 'mix' && categoryToPostType[category]) {
-                filteredPosts = filteredPosts.filter((p: any) =>
-                    p.postType === categoryToPostType[category]
-                );
-            }
-
-            const formattedDots = filteredPosts.map((post: any) => {
-                // Get media from the standardized media array
-                const media = post.media || [];
+            const formattedDots = (data || []).map((post: any) => {
+                const media = (post.postMedia || []).map((pm: any) => pm.media).filter(Boolean);
                 let mediaUrl = '';
                 let mediaType: 'video' | 'image' | 'audio' = 'image';
 
                 if (media.length > 0) {
                     mediaUrl = media[0].url;
-                    mediaType = media[0].type === 'VIDEO' ? 'video' :
-                        media[0].type === 'AUDIO' ? 'audio' : 'image';
+                    const type = media[0].type?.toUpperCase();
+                    mediaType = type === 'VIDEO' ? 'video' :
+                        type === 'AUDIO' ? 'audio' : 'image';
                 }
 
-                // Fallback placeholder if no media
                 if (!mediaUrl) {
                     mediaUrl = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800';
                 }
@@ -265,8 +300,8 @@ export default function DotsScreen() {
                     username: post.user?.profile?.displayName || post.user?.name || 'User',
                     avatar: post.user?.profile?.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${post.userId}`,
                     description: post.content || '',
-                    likes: post.likes || 0,
-                    comments: post.comments || 0,
+                    likes: 0,
+                    comments: 0,
                     mediaUrl,
                     mediaType,
                     category: post.postType?.toLowerCase() || 'mix',

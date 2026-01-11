@@ -20,7 +20,7 @@ export default function ThemeToggle() {
     return (
         <TouchableOpacity
             onPress={toggleTheme}
-            className="absolute left-4 rounded-full overflow-hidden shadow-lg"
+            className="absolute right-4 rounded-full overflow-hidden shadow-lg"
             style={{
                 top: Math.max(insets.top, 20) + 10,
                 zIndex: 9999,

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Switch, Alert } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ChevronLeft, User, Bell, Lock, Eye, Moon, HelpCircle, LogOut, ChevronRight } from 'lucide-react-native';
+import { ChevronLeft, User, Bell, Lock, Eye, Moon, Sun, HelpCircle, LogOut, ChevronRight } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../context/ThemeContext';
@@ -10,7 +10,7 @@ import { supabase } from '../lib/supabase';
 
 export default function SettingsScreen() {
     const router = useRouter();
-    const { mode, toggleTheme, colors } = useTheme();
+    const { mode, setMode, colors } = useTheme();
     const [loading, setLoading] = useState(false);
 
     const handleLogout = async () => {
@@ -45,7 +45,7 @@ export default function SettingsScreen() {
                 {items.map((item, index) => (
                     <TouchableOpacity
                         key={index}
-                        disabled={item.type === 'switch'}
+                        disabled={item.type === 'switch' && !item.onValueChange}
                         onPress={item.onPress}
                         className={`flex-row items-center justify-between p-4 ${index < items.length - 1 ? 'border-b' : ''}`}
                         style={{ borderColor: colors.border }}
@@ -100,7 +100,15 @@ export default function SettingsScreen() {
             colorClass: 'bg-indigo-500',
             type: 'switch',
             value: mode === 'dark',
-            onValueChange: toggleTheme
+            onValueChange: (val: boolean) => setMode('dark')
+        },
+        {
+            label: 'Light Mode',
+            icon: Sun, // Import Sun!
+            colorClass: 'bg-yellow-500',
+            type: 'switch',
+            value: mode === 'light',
+            onValueChange: (val: boolean) => setMode('light')
         },
         {
             label: 'Eye Care Mode',
@@ -108,7 +116,7 @@ export default function SettingsScreen() {
             colorClass: 'bg-amber-500',
             type: 'switch',
             value: mode === 'eye-care',
-            onValueChange: toggleTheme
+            onValueChange: (val: boolean) => setMode('eye-care')
         },
     ];
 
@@ -134,8 +142,8 @@ export default function SettingsScreen() {
                 className="absolute inset-0"
             />
             <SafeAreaView className="flex-1">
-                {/* Header with pl-16 for ThemeToggle */}
-                <View className="px-6 pt-4 pb-6 flex-row items-center gap-4 pl-16">
+                {/* Header - Removed pl-16 */}
+                <View className="px-6 pt-4 pb-6 flex-row items-center gap-4">
                     <TouchableOpacity onPress={() => router.back()} className="p-2 rounded-full" style={{ backgroundColor: colors.card }}>
                         <ChevronLeft color={colors.text} size={24} />
                     </TouchableOpacity>

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, TouchableOpacity, StyleSheet, Dimensions, Animated, PanResponder, Image, Platform } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { Home, Search, PlusSquare, MessageCircle, User, Circle } from 'lucide-react-native';
+import { Home, Search, PlusSquare, MessageCircle, User, Circle, ShoppingBag } from 'lucide-react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useRouter, useSegments } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,7 +10,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const BUTTON_SIZE = 48;
 // FIX: Constrain width to 90% of screen, maxing out at 400px
 const EXPANDED_WIDTH = Math.min(SCREEN_WIDTH * 0.90, 400);
-const BOTTOM_PADDING = 30;
+const BOTTOM_PADDING = 1;
 
 // Use the user's uploaded image for the collapsed nav icon
 const NavIcon = require('../assets/nav-icon.png');
@@ -77,7 +77,7 @@ export default function FloatingNavBar({ currentRoute, onNavigate }: FloatingNav
         { route: 'dots', icon: Circle, label: 'Dots' },
         { route: 'create', icon: PlusSquare, label: 'Create' },
         { route: 'chat', icon: MessageCircle, label: 'Chat' },
-        { route: 'profile', icon: User, label: 'Profile' },
+        { route: 'shop', icon: ShoppingBag, label: 'Shop' },
     ];
 
     const animatedWidth = expandAnim.interpolate({
@@ -117,8 +117,9 @@ export default function FloatingNavBar({ currentRoute, onNavigate }: FloatingNav
                 borderRadius: animatedBorderRadius,
                 overflow: 'hidden',
                 height: '100%' // FIX: Ensure height is inherited so it doesn't collapse
+                // FIX: Ensure height is inherited so it doesn't collapse
             }}>
-                <BlurView intensity={80} tint={mode === 'dark' ? 'dark' : 'light'} style={[styles.blurView, { borderColor: colors.border }]}>
+                <View style={[styles.blurView, { backgroundColor: '#000000', borderColor: colors.border }]}>
                     {/* Collapsed state - tap to expand */}
                     {!isExpanded && (
                         <TouchableOpacity
@@ -143,7 +144,7 @@ export default function FloatingNavBar({ currentRoute, onNavigate }: FloatingNav
                                         style={styles.navItem}
                                     >
                                         <IconComponent
-                                            color={isFocused ? colors.primary : colors.secondary}
+                                            color={isFocused ? '#ffffff' : '#888888'} // Clear white/gray icons
                                             size={24}
                                         />
                                     </TouchableOpacity>
@@ -151,7 +152,7 @@ export default function FloatingNavBar({ currentRoute, onNavigate }: FloatingNav
                             })}
                         </Animated.View>
                     )}
-                </BlurView>
+                </View>
             </Animated.View>
         </Animated.View>
     );

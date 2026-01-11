@@ -13,10 +13,6 @@ export default function LoginScreen() {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
 
-    // Debugging: Log the Supabase URL being used (partially hidden)
-    const sbUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'MISSING';
-    console.log("Supabase URL in use:", sbUrl.substring(0, 15) + "...");
-
     const handleLogin = async () => {
         if (!email || !password) {
             Alert.alert('Error', 'Please fill in all fields');
