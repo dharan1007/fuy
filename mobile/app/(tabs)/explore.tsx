@@ -671,7 +671,7 @@ export default function ExploreScreen() {
                         <View style={{ marginBottom: 32 }}>
                             <Text style={{ color: 'white', fontSize: 18, fontWeight: '700', marginLeft: 20, marginBottom: 16 }}>Trending Channels</Text>
                             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 16 }}>
-                                {posts.slice(1, 8).map((post) => (
+                                {posts.slice(1).map((post) => (
                                     <TouchableOpacity
                                         key={post.id}
                                         style={{ width: 160 }}
@@ -692,7 +692,7 @@ export default function ExploreScreen() {
                         <View style={{ marginBottom: 32 }}>
                             <Text style={{ color: 'white', fontSize: 18, fontWeight: '700', marginLeft: 20, marginBottom: 16 }}>New Shows</Text>
                             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 16 }}>
-                                {posts.slice(5, 15).reverse().map((post) => (
+                                {[...posts].reverse().map((post) => (
                                     <TouchableOpacity
                                         key={post.id}
                                         style={{ width: 280 }}

@@ -171,9 +171,9 @@ export default function ChannelProfilePage() {
                 </div>
 
                 {/* Content Section */}
-                <div className="max-w-7xl mx-auto px-6 py-12 grid grid-cols-1 lg:grid-cols-3 gap-12">
-                    {/* Left: Shows & Content */}
-                    <div className="lg:col-span-2 space-y-12">
+                <div className="max-w-7xl mx-auto px-6 py-12">
+                    {/* Shows & Content - Full Width */}
+                    <div className="w-full space-y-12">
                         <section>
                             <h2 className="text-2xl font-black uppercase tracking-tight mb-8 flex items-center gap-3">
                                 <Tv className="w-6 h-6 text-white/40" /> Broadcasting Schedule
@@ -275,47 +275,6 @@ export default function ChannelProfilePage() {
                                 ))}
                             </div>
                         </section>
-                    </div>
-
-                    {/* Right: Sidebar Info */}
-                    <div className="space-y-8">
-                        {/* Channel Bio */}
-                        <div className="bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-md">
-                            <h3 className="text-sm font-black uppercase tracking-widest text-white/40 mb-4">Frequency Signal</h3>
-                            <p className="text-lg leading-relaxed text-white/90 whitespace-pre-wrap">
-                                {channel.description || "The owner hasn't defined a frequency description yet."}
-                            </p>
-
-                            <div className="mt-8 pt-8 border-t border-white/10 space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-white/40 text-sm font-mono uppercase">Creator</span>
-                                    <span className="font-bold">{channel.post.user.profile?.displayName || channel.post.user.name}</span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-white/40 text-sm font-mono uppercase">Broadcast Hours</span>
-                                    <span className="font-bold">{channel.stats.contentHours}H</span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-white/40 text-sm font-mono uppercase">Status</span>
-                                    <span className="flex items-center gap-2 font-bold">
-                                        <div className={`w-2 h-2 rounded-full ${channel.isLive ? 'bg-red-500 animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.5)]' : 'bg-gray-500'}`} />
-                                        {channel.isLive ? 'BROADCASTING' : 'OFF AIR'}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Social / Interactions */}
-                        <div className="flex gap-4">
-                            <button className="flex-1 py-4 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 transition-all flex flex-col items-center justify-center gap-1 group">
-                                <MessageSquare className="w-6 h-6 text-white/40 group-hover:text-white transition-colors" />
-                                <span className="text-[10px] font-black uppercase opacity-60">Frequencies</span>
-                            </button>
-                            <button className="flex-1 py-4 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/10 transition-all flex flex-col items-center justify-center gap-1 group">
-                                <Clock className="w-6 h-6 text-white/40 group-hover:text-white transition-colors" />
-                                <span className="text-[10px] font-black uppercase opacity-60">History</span>
-                            </button>
-                        </div>
                     </div>
                 </div>
             </div>
