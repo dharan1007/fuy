@@ -1,10 +1,10 @@
-// src/components/friends-actions.tsx
+// src/components/follow-actions.tsx
 "use client";
 
 import { useTransition } from "react";
 
 async function post(body: any) {
-  const res = await fetch("/api/friends", {
+  const res = await fetch("/api/users/follow-request", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -13,7 +13,7 @@ async function post(body: any) {
   return res.json();
 }
 
-export function AddFriendButton({ targetUserId }: { targetUserId: string }) {
+export function FollowButton({ targetUserId }: { targetUserId: string }) {
   const [pending, start] = useTransition();
   return (
     <button
@@ -21,24 +21,24 @@ export function AddFriendButton({ targetUserId }: { targetUserId: string }) {
       className="px-3 py-1 rounded border hover:bg-neutral-100 disabled:opacity-60"
       disabled={pending}
     >
-      {pending ? "Sending…" : "Add"}
+      {pending ? "Sending..." : "Follow"}
     </button>
   );
 }
 
-export function AcceptDeclineButtons({ friendshipId }: { friendshipId: string }) {
+export function AcceptDeclineButtons({ requestId }: { requestId: string }) {
   const [pending, start] = useTransition();
   return (
     <div className="flex gap-2">
       <button
-        onClick={() => start(() => post({ action: "accept", friendshipId }).then(() => location.reload()))}
+        onClick={() => start(() => post({ action: "accept", friendshipId: requestId }).then(() => location.reload()))}
         className="px-3 py-1 rounded bg-green-600 text-white hover:opacity-90 disabled:opacity-60"
         disabled={pending}
       >
         Accept
       </button>
       <button
-        onClick={() => start(() => post({ action: "decline", friendshipId }).then(() => location.reload()))}
+        onClick={() => start(() => post({ action: "decline", friendshipId: requestId }).then(() => location.reload()))}
         className="px-3 py-1 rounded bg-red-600 text-white hover:opacity-90 disabled:opacity-60"
         disabled={pending}
       >
@@ -48,15 +48,19 @@ export function AcceptDeclineButtons({ friendshipId }: { friendshipId: string })
   );
 }
 
-export function UnfriendButton({ targetUserId }: { targetUserId: string }) {
+export function UnfollowButton({ targetUserId }: { targetUserId: string }) {
   const [pending, start] = useTransition();
   return (
     <button
-      onClick={() => start(() => post({ action: "unfriend", targetUserId }).then(() => location.reload()))}
+      onClick={() => start(() => post({ action: "unfollow", targetUserId }).then(() => location.reload()))}
       className="px-3 py-1 rounded border hover:bg-neutral-100 disabled:opacity-60"
       disabled={pending}
     >
-      {pending ? "…" : "Unfriend"}
+      {pending ? "..." : "Unfollow"}
     </button>
   );
 }
+
+// For backward compatibility
+export const AddFriendButton = FollowButton;
+export const UnfriendButton = UnfollowButton;

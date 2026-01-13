@@ -72,7 +72,7 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
     }));
 
     try {
-      const response = await fetch('/api/friends/request', {
+      const response = await fetch('/api/users/follow-request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ friendId: userId }),
@@ -123,7 +123,7 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
     }));
 
     try {
-      const response = await fetch('/api/friends/request', {
+      const response = await fetch('/api/users/follow-request', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ friendshipId }),

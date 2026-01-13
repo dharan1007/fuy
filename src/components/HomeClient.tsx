@@ -201,7 +201,7 @@ export default function HomeClient({ isAdmin = false }: { isAdmin?: boolean }) {
     // Handle remove friend
     const handleRemoveFriend = async (friendshipId: string) => {
         try {
-            const response = await fetch('/api/friends/remove', {
+            const response = await fetch('/api/users/unfollow', {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ friendshipId }),

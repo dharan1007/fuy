@@ -31,7 +31,7 @@ export default function GhostedRequestsSection() {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch('/api/friends/ghosted');
+      const response = await fetch('/api/users/ghosted');
       if (!response.ok) throw new Error('Failed to fetch ghosted requests');
       const data = await response.json();
       setGhostedRequests(data.ghostedRequests);
@@ -45,7 +45,7 @@ export default function GhostedRequestsSection() {
 
   const handleRemoveFromGhosted = async (friendshipId: string) => {
     try {
-      const response = await fetch('/api/friends/ghosted', {
+      const response = await fetch('/api/users/ghosted', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ friendshipId }),

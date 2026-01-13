@@ -37,7 +37,7 @@ export default function ProfileHeader({ profile, isOwnProfile, stats }: ProfileH
         if (!profile.id) return;
 
         try {
-            const res = await fetch('/api/friends/relations', {
+            const res = await fetch('/api/users/relations', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ targetUserId: profile.id, action })
