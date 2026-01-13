@@ -588,15 +588,28 @@ export default function ExploreScreen() {
         if (!currentUserId) return;
         setSearchResults(prev => prev.map(u => u.id === item.id ? { ...u, friendshipStatus: 'PENDING' } : u));
 
-        const { error } = await supabase.from('Friendship').insert({
+        // Insert friendship request
+        const { data: friendship, error } = await supabase.from('Friendship').insert({
             userId: currentUserId,
             friendId: item.id,
             status: 'PENDING'
-        });
+        }).select().single();
 
         if (error) {
+            console.error('Follow error:', error);
             setSearchResults(prev => prev.map(u => u.id === item.id ? { ...u, friendshipStatus: 'NONE' } : u));
             Alert.alert("Error", "Could not send request");
+            return;
+        }
+
+        // Create notification for the target user
+        if (friendship) {
+            await supabase.from('Notification').insert({
+                userId: item.id,
+                type: 'FRIEND_REQUEST',
+                message: 'You have a new follow request',
+                read: false
+            });
         }
     };
 
@@ -793,9 +806,13 @@ export default function ExploreScreen() {
                                         {item.type === 'USER' && (
                                             <TouchableOpacity
                                                 onPress={() => handleFollow(item)}
-                                                style={[styles.followButton, { backgroundColor: item.friendshipStatus === 'PENDING' ? colors.primary + '20' : colors.primary }]}
+                                                style={[styles.followButton, {
+                                                    backgroundColor: item.friendshipStatus === 'PENDING' ? 'rgba(255,255,255,0.2)' : 'white'
+                                                }]}
                                             >
-                                                <Text style={[styles.followText, { color: 'white' }]}>
+                                                <Text style={[styles.followText, {
+                                                    color: item.friendshipStatus === 'PENDING' ? 'white' : 'black'
+                                                }]}>
                                                     {item.friendshipStatus === 'PENDING' ? 'Requested' : item.friendshipStatus === 'ACCEPTED' ? 'Following' : 'Follow'}
                                                 </Text>
                                             </TouchableOpacity>
