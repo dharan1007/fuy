@@ -152,7 +152,7 @@ export default function NotificationsScreen() {
                         name: req.user?.name || req.user?.profile?.displayName || 'Unknown User',
                         avatar: req.user?.profile?.avatarUrl || null
                     },
-                    content: 'sent you a friend request',
+                    content: 'wants to follow you',
                     time: new Date(req.createdAt).toLocaleDateString(),
                     data: req
                 }));

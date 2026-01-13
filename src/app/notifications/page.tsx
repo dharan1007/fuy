@@ -598,7 +598,7 @@ export default function NotificationsPage() {
                             {/* Status Indicators */}
                             {((notif.friendshipStatus === "ACCEPTED" || notif._actionTaken === "ACCEPT") && (notif.isFollowing || notif._actionTaken === "FOLLOWED_BACK")) && (
                               <span className="text-[10px] text-green-400 font-bold uppercase tracking-wider border border-green-500/20 px-2 py-1 rounded bg-green-500/5">
-                                Friends
+                                Following
                               </span>
                             )}
 
