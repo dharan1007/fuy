@@ -30,7 +30,7 @@ import {
 } from 'lucide-react-native';
 import { supabase } from '../lib/supabase';
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org';
 
 // Types
 interface Profile {

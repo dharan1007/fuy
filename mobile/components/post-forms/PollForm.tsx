@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { ArrowLeft, Globe, Users, Lock, BarChart2, ChevronUp, ChevronDown } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3000';
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org';
 const { width } = Dimensions.get('window');
 
 interface PollFormProps {

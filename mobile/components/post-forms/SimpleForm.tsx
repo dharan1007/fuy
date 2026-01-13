@@ -10,7 +10,7 @@ import { supabase } from '../../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { moderateContent, getModerationErrorMessage } from '../../lib/content-moderation';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3000';
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org';
 const MAX_MEDIA = 8;
 const MAX_TEXT_LENGTH = 600;
 const { width } = Dimensions.get('window');

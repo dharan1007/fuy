@@ -8,7 +8,7 @@ import { ArrowLeft, Globe, Users, Lock, Tv, X, Image as ImageIcon } from 'lucide
 import { MediaUploadService } from '../../services/MediaUploadService';
 import { supabase } from '../../lib/supabase';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3000';
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org';
 
 interface ChanFormProps {
     onBack: () => void;
