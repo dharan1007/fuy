@@ -19,7 +19,7 @@ export default function ProfileActions({ targetUserId, initialStatus, isPrivate 
     useEffect(() => {
         // Only fetch if initial was NONE (default for public cache)
         if (initialStatus === "NONE") {
-            fetch(`/api/friends/check?userId=${targetUserId}`).then(async res => {
+            fetch(`/api/users/follow-check?userId=${targetUserId}`).then(async res => {
                 if (res.ok) {
                     const data = await res.json();
                     if (data.status) setStatus(data.status);
@@ -31,7 +31,7 @@ export default function ProfileActions({ targetUserId, initialStatus, isPrivate 
     async function handleFollow() {
         setLoading(true);
         try {
-            const res = await fetch("/api/friends/request", {
+            const res = await fetch("/api/users/follow-request", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ friendId: targetUserId }),
@@ -51,7 +51,7 @@ export default function ProfileActions({ targetUserId, initialStatus, isPrivate 
         setIsMenuOpen(false);
 
         try {
-            const res = await fetch('/api/friends/relations', {
+            const res = await fetch('/api/users/relations', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ targetUserId, action })
@@ -79,7 +79,7 @@ export default function ProfileActions({ targetUserId, initialStatus, isPrivate 
                 </button>
             ) : status === "ACCEPTED" ? (
                 <button disabled className="px-4 py-2 bg-green-600 text-white rounded-lg font-medium opacity-90 cursor-default shadow-md">
-                    Friends
+                    Following
                 </button>
             ) : status === "PENDING" ? (
                 <button disabled className="px-4 py-2 bg-stone-500 text-white rounded-lg font-medium opacity-90 cursor-default shadow-md">

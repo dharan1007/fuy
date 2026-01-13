@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 
-export interface FriendshipRequest {
+export interface FollowRequest {
   id: string;
   userId: string;
   friendId: string;
@@ -31,49 +31,49 @@ export interface FriendshipRequest {
   };
 }
 
-export interface FriendshipState {
-  sentRequests: FriendshipRequest[];
-  receivedRequests: FriendshipRequest[];
-  acceptedFriends: FriendshipRequest[];
-  ghostedRequests: FriendshipRequest[];
+export interface FollowState {
+  sentRequests: FollowRequest[];
+  receivedRequests: FollowRequest[];
+  following: FollowRequest[];
+  ghostedRequests: FollowRequest[];
   loading: boolean;
   error: string | null;
 }
 
 /**
- * Hook for managing friendship requests and relationships
+ * Hook for managing follow requests and relationships
  */
-export function useFriendships() {
-  const [state, setState] = useState<FriendshipState>({
+export function useFollow() {
+  const [state, setState] = useState<FollowState>({
     sentRequests: [],
     receivedRequests: [],
-    acceptedFriends: [],
+    following: [],
     ghostedRequests: [],
     loading: false,
     error: null,
   });
 
-  // Fetch all friendship requests
+  // Fetch all follow requests
   const fetchRequests = useCallback(async () => {
     setState((prev) => ({ ...prev, loading: true, error: null }));
     try {
-      const res = await fetch('/api/friends/request');
-      if (!res.ok) throw new Error('Failed to fetch friend requests');
+      const res = await fetch('/api/users/follow-request');
+      if (!res.ok) throw new Error('Failed to fetch follow requests');
 
       const data = await res.json();
       const requests = data.requests || [];
 
       // Separate requests
       const currentUserId = await getCurrentUserId();
-      const sent = requests.filter((r: FriendshipRequest) => r.userId === currentUserId && r.status === 'PENDING');
-      const received = requests.filter((r: FriendshipRequest) => r.friendId === currentUserId && r.status === 'PENDING');
-      const accepted = requests.filter((r: FriendshipRequest) => r.status === 'ACCEPTED');
+      const sent = requests.filter((r: FollowRequest) => r.userId === currentUserId && r.status === 'PENDING');
+      const received = requests.filter((r: FollowRequest) => r.friendId === currentUserId && r.status === 'PENDING');
+      const accepted = requests.filter((r: FollowRequest) => r.status === 'ACCEPTED');
 
       setState((prev) => ({
         ...prev,
         sentRequests: sent,
         receivedRequests: received,
-        acceptedFriends: accepted,
+        following: accepted,
         loading: false,
       }));
     } catch (error) {
@@ -88,7 +88,7 @@ export function useFriendships() {
   // Fetch ghosted requests
   const fetchGhostedRequests = useCallback(async () => {
     try {
-      const res = await fetch('/api/friends/ghosted');
+      const res = await fetch('/api/users/ghosted');
       if (!res.ok) throw new Error('Failed to fetch ghosted requests');
 
       const data = await res.json();
@@ -101,18 +101,18 @@ export function useFriendships() {
     }
   }, []);
 
-  // Send friend request
-  const sendFriendRequest = useCallback(async (friendId: string) => {
+  // Send follow request
+  const sendFollowRequest = useCallback(async (targetUserId: string) => {
     try {
-      const res = await fetch('/api/friends/request', {
+      const res = await fetch('/api/users/follow-request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ friendId }),
+        body: JSON.stringify({ friendId: targetUserId }),
       });
 
       if (!res.ok) {
         const error = await res.json();
-        throw new Error(error.error || 'Failed to send friend request');
+        throw new Error(error.error || 'Failed to send follow request');
       }
 
       // Refresh requests
@@ -125,18 +125,18 @@ export function useFriendships() {
     }
   }, [fetchRequests]);
 
-  // Accept friend request
-  const acceptFriendRequest = useCallback(async (friendshipId: string) => {
+  // Accept follow request
+  const acceptFollowRequest = useCallback(async (requestId: string) => {
     try {
-      const res = await fetch('/api/friends/request', {
+      const res = await fetch('/api/users/follow-request', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ friendshipId, action: 'ACCEPT' }),
+        body: JSON.stringify({ friendshipId: requestId, action: 'ACCEPT' }),
       });
 
       if (!res.ok) {
         const error = await res.json();
-        throw new Error(error.error || 'Failed to accept friend request');
+        throw new Error(error.error || 'Failed to accept follow request');
       }
 
       // Refresh requests
@@ -149,18 +149,18 @@ export function useFriendships() {
     }
   }, [fetchRequests]);
 
-  // Reject friend request
-  const rejectFriendRequest = useCallback(async (friendshipId: string) => {
+  // Reject follow request
+  const rejectFollowRequest = useCallback(async (requestId: string) => {
     try {
-      const res = await fetch('/api/friends/request', {
+      const res = await fetch('/api/users/follow-request', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ friendshipId, action: 'REJECT' }),
+        body: JSON.stringify({ friendshipId: requestId, action: 'REJECT' }),
       });
 
       if (!res.ok) {
         const error = await res.json();
-        throw new Error(error.error || 'Failed to reject friend request');
+        throw new Error(error.error || 'Failed to reject follow request');
       }
 
       // Refresh requests
@@ -173,18 +173,18 @@ export function useFriendships() {
     }
   }, [fetchRequests]);
 
-  // Ghost friend request (receive)
-  const ghostFriendRequest = useCallback(async (friendshipId: string) => {
+  // Ghost follow request
+  const ghostFollowRequest = useCallback(async (requestId: string) => {
     try {
-      const res = await fetch('/api/friends/request', {
+      const res = await fetch('/api/users/follow-request', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ friendshipId, action: 'GHOST' }),
+        body: JSON.stringify({ friendshipId: requestId, action: 'GHOST' }),
       });
 
       if (!res.ok) {
         const error = await res.json();
-        throw new Error(error.error || 'Failed to ghost friend request');
+        throw new Error(error.error || 'Failed to ghost follow request');
       }
 
       // Refresh requests
@@ -197,13 +197,13 @@ export function useFriendships() {
     }
   }, [fetchRequests]);
 
-  // Un-ghost a request (sender's action)
-  const unGhostRequest = useCallback(async (friendshipId: string) => {
+  // Un-ghost a request
+  const unGhostRequest = useCallback(async (requestId: string) => {
     try {
-      const res = await fetch('/api/friends/ghosted', {
+      const res = await fetch('/api/users/ghosted', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ friendshipId }),
+        body: JSON.stringify({ friendshipId: requestId }),
       });
 
       if (!res.ok) {
@@ -222,18 +222,18 @@ export function useFriendships() {
     }
   }, [fetchRequests, fetchGhostedRequests]);
 
-  // Remove friend
-  const removeFriend = useCallback(async (friendshipId: string) => {
+  // Unfollow user
+  const unfollow = useCallback(async (requestId: string) => {
     try {
-      const res = await fetch('/api/friends/request', {
+      const res = await fetch('/api/users/follow-request', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ friendshipId }),
+        body: JSON.stringify({ friendshipId: requestId }),
       });
 
       if (!res.ok) {
         const error = await res.json();
-        throw new Error(error.error || 'Failed to remove friend');
+        throw new Error(error.error || 'Failed to unfollow');
       }
 
       // Refresh requests
@@ -256,14 +256,17 @@ export function useFriendships() {
     ...state,
     fetchRequests,
     fetchGhostedRequests,
-    sendFriendRequest,
-    acceptFriendRequest,
-    rejectFriendRequest,
-    ghostFriendRequest,
+    sendFollowRequest,
+    acceptFollowRequest,
+    rejectFollowRequest,
+    ghostFollowRequest,
     unGhostRequest,
-    removeFriend,
+    unfollow,
   };
 }
+
+// For backward compatibility, export the old name as an alias
+export const useFriendships = useFollow;
 
 // Helper to get current user ID
 async function getCurrentUserId(): Promise<string> {

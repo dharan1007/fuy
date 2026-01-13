@@ -386,7 +386,7 @@ export default function NotificationsPage() {
     });
 
     try {
-      const res = await fetch("/api/friends/request", {
+      const res = await fetch("/api/users/follow-request", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         // @ts-ignore

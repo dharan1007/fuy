@@ -85,8 +85,8 @@ export default function SettingsPage() {
   const fetchRelations = async () => {
     try {
       const [blockedRes, ghostedRes] = await Promise.all([
-        fetch('/api/friends/relations?type=BLOCKED'),
-        fetch('/api/friends/relations?type=GHOSTED')
+        fetch('/api/users/relations?type=BLOCKED'),
+        fetch('/api/users/relations?type=GHOSTED')
       ]);
       const blockedData = await blockedRes.json();
       const ghostedData = await ghostedRes.json();
@@ -172,7 +172,7 @@ export default function SettingsPage() {
 
   const handleUnblockUnghost = async (targetId: string, action: 'UNBLOCK' | 'UNGHOST') => {
     try {
-      const res = await fetch('/api/friends/relations', {
+      const res = await fetch('/api/users/relations', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ targetUserId: targetId, action })
