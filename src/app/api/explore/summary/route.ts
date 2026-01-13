@@ -15,10 +15,18 @@ export async function GET() {
         let slashPrefs: Record<string, number> = {};
         let userTags: string[] = [];
 
+        // --- Safety Filtering ---
+        let excludedUserIds: string[] = [];
+        let hiddenPostIds: string[] = [];
+
         if (userId) {
-            const [prefs, profileTags] = await Promise.all([
+            const [prefs, profileTags, blocked, blockedBy, muted, hidden] = await Promise.all([
                 getUserSlashPreferences(userId),
-                extractProfileTags(userId)
+                extractProfileTags(userId),
+                prisma.blockedUser.findMany({ where: { blockerId: userId }, select: { blockedId: true } }),
+                prisma.blockedUser.findMany({ where: { blockedId: userId }, select: { blockerId: true } }),
+                prisma.mutedUser.findMany({ where: { muterId: userId }, select: { mutedUserId: true } }),
+                prisma.hiddenPost.findMany({ where: { userId }, select: { postId: true } })
             ]);
             slashPrefs = prefs;
             userTags = [
@@ -27,6 +35,13 @@ export async function GET() {
                 ...profileTags.genres,
                 ...profileTags.currentlyInto,
             ];
+
+            excludedUserIds = [
+                ...blocked.map(b => b.blockedId),
+                ...blockedBy.map(b => b.blockerId),
+                ...muted.map(m => m.mutedUserId)
+            ];
+            hiddenPostIds = hidden.map(h => h.postId);
         }
 
         // Helper to fetch posts by type
@@ -38,6 +53,14 @@ export async function GET() {
                 where.postType = { notIn: ['STORY', 'CHAN', 'XRAY'] };
             }
             where.visibility = 'PUBLIC';
+
+            // Safety Filtering
+            if (excludedUserIds.length > 0) {
+                where.userId = { notIn: excludedUserIds };
+            }
+            if (hiddenPostIds.length > 0) {
+                where.id = { notIn: hiddenPostIds };
+            }
 
             const include: any = {
                 postMedia: {

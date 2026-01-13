@@ -113,6 +113,28 @@ function MessagesPageContent() {
     const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
+    // Safety State
+    const [blockedIds, setBlockedIds] = useState<Set<string>>(new Set());
+
+    useEffect(() => {
+        const fetchSafety = async () => {
+            try {
+                const res = await fetch('/api/safety');
+                if (res.ok) {
+                    const data = await res.json();
+                    const blocked = new Set<string>([
+                        ...(data.blocked || []).map((b: any) => b.targetId),
+                        ...(data.blockedBy || [])
+                    ]);
+                    setBlockedIds(blocked);
+                }
+            } catch (e) {
+                console.error("Failed to fetch safety data", e);
+            }
+        };
+        if (userId) fetchSafety();
+    }, [userId]);
+
     // Scroll to bottom
     useEffect(() => {
         if (selectedConversationId && messages[selectedConversationId]) {
@@ -126,6 +148,7 @@ function MessagesPageContent() {
 
     const ghostedConversations = conversations.filter(c => c.isGhosted);
     const filteredConversations = conversations.filter(c => {
+        if (blockedIds.has(c.participantId)) return false;
         if (c.isGhosted) return false;
         if (!searchQuery) return true;
         return c.participantName.toLowerCase().includes(searchQuery.toLowerCase());
@@ -968,16 +991,25 @@ function MessagesPageContent() {
                                 </div>
                             )}
 
-                            <input
-                                value={messageInput}
-                                onChange={handleMessageInputChange}
-                                onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-                                placeholder="Type a message or tag..."
-                                className={styles.messageInput}
-                            />
-                            <button onClick={handleSendMessage} className="w-10 h-10 rounded-full bg-black border-none flex items-center justify-center hover:bg-black/80 transition-colors flex-shrink-0">
-                                <Send size={18} className="text-red-500" />
-                            </button>
+                            {blockedIds.has(selectedConversation?.participantId) ? (
+                                <div className="w-full h-12 bg-white/5 border border-white/10 rounded-lg flex items-center justify-center text-white/50 text-sm font-medium">
+                                    <Ban size={16} className="mr-2" />
+                                    You cannot message this user.
+                                </div>
+                            ) : (
+                                <>
+                                    <input
+                                        value={messageInput}
+                                        onChange={handleMessageInputChange}
+                                        onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                                        placeholder="Type a message or tag..."
+                                        className={styles.messageInput}
+                                    />
+                                    <button onClick={handleSendMessage} className="w-10 h-10 rounded-full bg-black border-none flex items-center justify-center hover:bg-black/80 transition-colors flex-shrink-0">
+                                        <Send size={18} className="text-red-500" />
+                                    </button>
+                                </>
+                            )}
                         </div>
                     </div>
                 )}

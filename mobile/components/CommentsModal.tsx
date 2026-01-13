@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, Modal, StyleSheet, TextInput, FlatList, Image, ActivityIndicator, KeyboardAvoidingView, Platform, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, StyleSheet, TextInput, FlatList, Image, ActivityIndicator, KeyboardAvoidingView, Platform, Dimensions, Alert } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { X, Send, User, Heart } from 'lucide-react-native';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { moderateContent, getModerationErrorMessage } from '../lib/content-moderation';
 
 const { width, height } = Dimensions.get('window');
 
@@ -88,6 +89,14 @@ export default function CommentsModal({ visible, onClose, postId }: CommentsModa
 
     const handleSubmit = async () => {
         if (!newComment.trim() || !postId || !session?.user?.id) return;
+
+        // Content moderation check
+        const moderationResult = moderateContent(newComment.trim());
+        if (!moderationResult.isClean) {
+            Alert.alert('Content Not Allowed', getModerationErrorMessage(moderationResult));
+            return;
+        }
+
         setSubmitting(true);
         try {
             // Get internal user ID

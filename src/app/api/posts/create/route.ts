@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { userRateLimit } from '@/lib/rate-limit';
+import { moderateContent, getModerationErrorMessage } from '@/lib/content-moderation';
 
 // Rate limit: 10 posts per hour
 const limiter = userRateLimit({
@@ -35,18 +36,14 @@ async function createPostHandler(request: NextRequest) {
             return NextResponse.json({ error: 'User ID required' }, { status: 400 });
         }
 
-        // Content Moderation check
-        let moderationStatus = "CLEAN";
-        let moderationReason = null;
-        let finalVisibility = visibility;
-
+        // Comprehensive Content Moderation - REJECT prohibited content immediately
         if (content) {
-            const { analyzeContent } = await import("@/lib/moderation");
-            const analysis = analyzeContent(content);
-            if (analysis.flagged) {
-                moderationStatus = "REMOVED";
-                moderationReason = analysis.reason;
-                finalVisibility = "PRIVATE"; // Hide from public
+            const moderationResult = moderateContent(content);
+            if (!moderationResult.isClean) {
+                return NextResponse.json(
+                    { error: getModerationErrorMessage(moderationResult) },
+                    { status: 400 }
+                );
             }
         }
 
@@ -56,23 +53,9 @@ async function createPostHandler(request: NextRequest) {
                 userId,
                 postType: postType || 'STANDARD',
                 content: content || '',
-                visibility: finalVisibility,
-                moderationStatus,
-                moderationReason,
+                visibility: visibility,
             },
         });
-
-        // If moderated, notify the user
-        if (moderationStatus === "REMOVED") {
-            await prisma.notification.create({
-                data: {
-                    userId,
-                    type: "SYSTEM",
-                    message: `Your post was removed because it violated our community guidelines: ${moderationReason || "Inappropriate content"}`,
-                    postId: post.id,
-                },
-            });
-        }
 
         // Create type-specific data based on postType
         switch (postType) {

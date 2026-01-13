@@ -8,6 +8,7 @@ import { X, ArrowLeft, Globe, Users, Lock, Plus, Type, Image as ImageIcon } from
 import { MediaUploadService } from '../../services/MediaUploadService';
 import { supabase } from '../../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { moderateContent, getModerationErrorMessage } from '../../lib/content-moderation';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3000';
 const MAX_MEDIA = 8;
@@ -95,6 +96,15 @@ export default function SimpleForm({ onBack, initialData }: SimpleFormProps) {
         if (!session?.user?.email) {
             Alert.alert('Error', 'Please log in first');
             return;
+        }
+
+        // Content Moderation: Check caption/text content
+        if (content.trim()) {
+            const moderationResult = moderateContent(content.trim());
+            if (!moderationResult.isClean) {
+                Alert.alert('Content Not Allowed', getModerationErrorMessage(moderationResult));
+                return;
+            }
         }
 
         setLoading(true);

@@ -13,6 +13,33 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
+        // Get current user ID
+        const currentUser = await prisma.user.findUnique({
+            where: { email: session.user.email },
+            select: { id: true, bloomSlashes: true }
+        });
+        const userId = currentUser?.id;
+
+        // --- Safety Filtering ---
+        let excludedUserIds: string[] = [];
+        let hiddenPostIds: string[] = [];
+
+        if (userId) {
+            const [blocked, blockedBy, muted, hidden] = await Promise.all([
+                prisma.blockedUser.findMany({ where: { blockerId: userId }, select: { blockedId: true } }),
+                prisma.blockedUser.findMany({ where: { blockedId: userId }, select: { blockerId: true } }),
+                prisma.mutedUser.findMany({ where: { muterId: userId }, select: { mutedUserId: true } }),
+                prisma.hiddenPost.findMany({ where: { userId }, select: { postId: true } })
+            ]);
+
+            excludedUserIds = [
+                ...blocked.map(b => b.blockedId),
+                ...blockedBy.map(b => b.blockerId),
+                ...muted.map(m => m.mutedUserId)
+            ];
+            hiddenPostIds = hidden.map(h => h.postId);
+        }
+
         // 1. Get Filters from Query Params OR Defaults
         const { searchParams } = new URL(request.url);
         const slashesParam = searchParams.get('slashes');
@@ -30,11 +57,7 @@ export async function GET(request: Request) {
             if (postIdsParam) targetPostIds = postIdsParam.split(',').filter(Boolean);
         } else {
             // Default: User's saved preference
-            const user = await prisma.user.findUnique({
-                where: { email: session.user.email },
-                select: { bloomSlashes: true }
-            });
-            targetSlashes = user?.bloomSlashes || [];
+            targetSlashes = currentUser?.bloomSlashes || [];
 
             // STRICT FILTERING: If no filters at all in default mode, return empty/prompt
             if (targetSlashes.length === 0) {
@@ -51,6 +74,9 @@ export async function GET(request: Request) {
                 postType: { in: ['LILL', 'FILL', 'AUD'] },
                 // Filter by visibility (Public by default for now)
                 visibility: 'PUBLIC',
+                // Safety Filtering
+                ...(excludedUserIds.length > 0 && { userId: { notIn: excludedUserIds } }),
+                ...(hiddenPostIds.length > 0 && { id: { notIn: hiddenPostIds } }),
                 // Filter by Tags OR Users OR Specific Posts
                 OR: [
                     // Match Tags

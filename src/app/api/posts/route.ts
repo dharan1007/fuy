@@ -225,6 +225,32 @@ export async function GET(req: NextRequest) {
     where.userId = { in: subs.map(s => s.subscribedToId) };
   }
 
+  // --- Safety Filtering ---
+  if (userId) {
+    const [blocked, blockedBy, muted, hidden] = await Promise.all([
+      prisma.blockedUser.findMany({ where: { blockerId: userId }, select: { blockedId: true } }),
+      prisma.blockedUser.findMany({ where: { blockedId: userId }, select: { blockerId: true } }),
+      prisma.mutedUser.findMany({ where: { muterId: userId }, select: { mutedUserId: true } }),
+      prisma.hiddenPost.findMany({ where: { userId }, select: { postId: true } })
+    ]);
+
+    const excludedUserIds = [
+      ...blocked.map(b => b.blockedId),
+      ...blockedBy.map(b => b.blockerId),
+      ...muted.map(m => m.mutedUserId)
+    ];
+
+    const hiddenPostIds = hidden.map(h => h.postId);
+
+    // Add to where clause
+    if (excludedUserIds.length > 0) {
+      where.userId = { ...where.userId, notIn: excludedUserIds };
+    }
+    if (hiddenPostIds.length > 0) {
+      where.postId = { notIn: hiddenPostIds };
+    }
+  }
+
   // Fetch from FeedItem (Result Set 1)
   const feedItems = await prisma.feedItem.findMany({
     where,

@@ -6,6 +6,7 @@ export const revalidate = 0; // Disable static generation for this route
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser, requireUserId } from "@/lib/session";
+import { moderateContent, getModerationErrorMessage } from "@/lib/content-moderation";
 
 // GET /api/profile
 // GET /api/profile
@@ -210,6 +211,16 @@ export async function PUT(req: Request) {
     const height = getStr("height");
     const weight = getStr("weight");
     const conversationStarter = getStr("conversationStarter");
+
+    // Content Moderation: Check display name, bio, and other user-facing text
+    const combinedText = `${displayName || ''} ${bio || ''} ${conversationStarter || ''}`;
+    const moderationResult = moderateContent(combinedText);
+    if (!moderationResult.isClean) {
+      return NextResponse.json(
+        { error: getModerationErrorMessage(moderationResult) },
+        { status: 400 }
+      );
+    }
 
     // Professional
     const achievements = getStr("achievements");

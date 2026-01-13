@@ -200,13 +200,7 @@ const FloatingCard = ({ post, config, index, onPress, onToggleScroll, isActive }
     // Determine media:
     // If XRAY: media[0] is Cover (Image usually), media[1] is Content.
     // If VIDEO: media[0] is Video. Cover might be missing.
-    // Local Playback Control
-    const [isPaused, setIsPaused] = useState(false);
-    const shouldPlay = isActive && !isPaused;
-
-    const togglePlayback = () => {
-        setIsPaused(prev => !prev);
-    };
+    // Card always navigates on tap, videos autoplay muted when active
 
     let coverUrl: string | null = null;
     let videoUrl: string | null = null;
@@ -273,12 +267,12 @@ const FloatingCard = ({ post, config, index, onPress, onToggleScroll, isActive }
                     elevation: 5,
                 }}
             >
-                {/* Media Layer with Tap-to-Toggle */}
-                <TouchableWithoutFeedback onPress={videoUrl ? togglePlayback : onPress}>
+                {/* Media Layer - Tap to Navigate */}
+                <TouchableWithoutFeedback onPress={onPress}>
                     <View style={{ flex: 1 }}>
                         {(() => {
-                            // CASE 1: Active Card -> Play Video if available and not paused
-                            if (shouldPlay && videoUrl && videoUrl.length > 5) {
+                            // CASE 1: Active Card -> Play Video if available
+                            if (isActive && videoUrl && videoUrl.length > 5) {
                                 return (
                                     <Video
                                         source={{ uri: videoUrl }}
@@ -321,13 +315,6 @@ const FloatingCard = ({ post, config, index, onPress, onToggleScroll, isActive }
                             // CASE 4: No Media
                             return <View className="bg-zinc-800 w-full h-full" />;
                         })()}
-
-                        {/* Play indication if paused manually on active card */}
-                        {isActive && isPaused && videoUrl && (
-                            <View style={{ position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.2)' }}>
-                                {/* Optional: Play Icon */}
-                            </View>
-                        )}
                     </View>
                 </TouchableWithoutFeedback>
 
@@ -765,7 +752,7 @@ export default function ExploreScreen() {
                     <BlurView
                         intensity={95}
                         tint="dark"
-                        style={StyleSheet.absoluteFill}
+                        style={[StyleSheet.absoluteFill, { zIndex: 9999, elevation: 9999 }]}
                     >
                         <SafeAreaView style={{ flex: 1, paddingHorizontal: PADDING }}>
                             <View style={[styles.searchBar, { backgroundColor: colors.card }]}>

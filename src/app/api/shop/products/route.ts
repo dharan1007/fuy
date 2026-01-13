@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { moderateContent, getModerationErrorMessage } from "@/lib/content-moderation";
 
 export async function GET(req: NextRequest) {
   try {
@@ -45,6 +46,17 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+
+    // Content Moderation: Check product name, description, and other text fields
+    const combinedText = `${body.name || ''} ${body.description || ''} ${body.title || ''}`;
+    const moderationResult = moderateContent(combinedText);
+    if (!moderationResult.isClean) {
+      return NextResponse.json(
+        { error: getModerationErrorMessage(moderationResult) },
+        { status: 400 }
+      );
+    }
+
     const product = await prisma.product.create({
       data: body,
     });

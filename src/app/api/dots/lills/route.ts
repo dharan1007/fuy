@@ -1,16 +1,42 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getSessionUser } from '@/lib/session';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
     try {
+        const user = await getSessionUser();
+        const userId = user?.id;
+
+        // --- Safety Filtering ---
+        let excludedUserIds: string[] = [];
+        let hiddenPostIds: string[] = [];
+
+        if (userId) {
+            const [blocked, blockedBy, muted, hidden] = await Promise.all([
+                prisma.blockedUser.findMany({ where: { blockerId: userId }, select: { blockedId: true } }),
+                prisma.blockedUser.findMany({ where: { blockedId: userId }, select: { blockerId: true } }),
+                prisma.mutedUser.findMany({ where: { muterId: userId }, select: { mutedUserId: true } }),
+                prisma.hiddenPost.findMany({ where: { userId }, select: { postId: true } })
+            ]);
+
+            excludedUserIds = [
+                ...blocked.map(b => b.blockedId),
+                ...blockedBy.map(b => b.blockerId),
+                ...muted.map(m => m.mutedUserId)
+            ];
+            hiddenPostIds = hidden.map(h => h.postId);
+        }
+
         // Fetch public Lills
         const posts = await prisma.post.findMany({
             where: {
                 postType: 'LILL',
                 visibility: 'PUBLIC',
+                ...(excludedUserIds.length > 0 && { userId: { notIn: excludedUserIds } }),
+                ...(hiddenPostIds.length > 0 && { id: { notIn: hiddenPostIds } }),
             },
             take: 20,
             orderBy: { createdAt: 'desc' },

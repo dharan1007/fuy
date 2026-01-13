@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { MoreVertical, Flag, EyeOff, VolumeX, Trash2 } from 'lucide-react';
+import { MoreVertical, Flag, EyeOff, VolumeX, Trash2, Copy, Ban, Share as ShareIcon, PauseCircle } from 'lucide-react';
 import ReportModal from '@/components/ReportModal';
 import MuteOptionsModal from '@/components/MuteOptionsModal';
 
@@ -52,6 +52,45 @@ export default function PostActionMenu({ post, currentUserId, onPostHidden: prop
         if (onRefresh) onRefresh();
     };
 
+    const handleBlock = async () => {
+        if (!confirm(`Are you sure you want to block ${post.user?.name}?`)) return;
+        try {
+            const res = await fetch('/api/interactions/block', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: post.userId })
+            });
+            if (res.ok) {
+                if (onPostHidden) onPostHidden(post.id);
+                if (onRefresh) onRefresh();
+                alert("User blocked");
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Failed to block user");
+        }
+    };
+
+    const handleCopyLink = () => {
+        const url = `${window.location.origin}/post/${post.id}`;
+        navigator.clipboard.writeText(url);
+        alert("Link copied to clipboard");
+    };
+
+    const handleShare = async () => {
+        const url = `${window.location.origin}/post/${post.id}`;
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: `Check out this post by ${post.user?.name}`,
+                    url: url
+                });
+            } catch (e) { console.error("Share failed", e); }
+        } else {
+            handleCopyLink();
+        }
+    };
+
     const menuItems = [
         ...(isOwnPost ? [
             {
@@ -59,11 +98,10 @@ export default function PostActionMenu({ post, currentUserId, onPostHidden: prop
                 icon: <Trash2 size={16} />,
                 onClick: async () => {
                     if (confirm("Are you sure you want to delete this post?")) {
-                        // Call delete API
                         try {
                             const res = await fetch(`/api/posts/${post.id}`, { method: 'DELETE' });
                             if (res.ok) {
-                                if (onPostHidden) onPostHidden(post.id); // Reuse hide logic to remove from view
+                                if (onPostHidden) onPostHidden(post.id);
                                 if (onRefresh) onRefresh();
                             }
                         } catch (e) { console.error(e); }
@@ -73,16 +111,34 @@ export default function PostActionMenu({ post, currentUserId, onPostHidden: prop
             }
         ] : [
             {
+                label: "Share",
+                icon: <ShareIcon size={16} />,
+                onClick: handleShare,
+                danger: false
+            },
+            {
+                label: "Copy Link",
+                icon: <Copy size={16} />,
+                onClick: handleCopyLink,
+                danger: false
+            },
+            {
                 label: "Hide Post",
                 icon: <EyeOff size={16} />,
                 onClick: handleHide,
                 danger: false
             },
             {
-                label: `Mute @${post.user?.profile?.displayName || post.user?.name}`,
-                icon: <VolumeX size={16} />,
+                label: `Pause @${post.user?.profile?.displayName || post.user?.name}`,
+                icon: <PauseCircle size={16} />,
                 onClick: () => setMuteOpen(true),
                 danger: false
+            },
+            {
+                label: "Block User",
+                icon: <Ban size={16} />,
+                onClick: handleBlock,
+                danger: true
             },
             {
                 label: "Report Content",

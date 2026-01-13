@@ -1,5 +1,6 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
+import { createClient } from '@supabase/supabase-js';
 
 // Dummy authOptions to satisfy imports
 export const authOptions = {};
@@ -35,7 +36,28 @@ export async function getServerSession(...args: any[]) {
     }
   );
 
-  const { data: { user }, error } = await supabase.auth.getUser();
+  // Check for Bearer Token (Mobile/API Access)
+  const headerStore = headers();
+  const authHeader = headerStore.get('authorization');
+
+  let user: any = null;
+  let error: any = null;
+
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.split(' ')[1];
+    const supabaseAnon = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+    const { data, error: tokenError } = await supabaseAnon.auth.getUser(token);
+    user = data.user;
+    error = tokenError;
+  } else {
+    // Fallback to Cookies (Web)
+    const { data, error: cookieError } = await supabase.auth.getUser();
+    user = data.user;
+    error = cookieError;
+  }
 
   if (error || !user) {
     // Debug logging removed for production security

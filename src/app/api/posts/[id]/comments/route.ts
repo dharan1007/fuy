@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
 import { getServerSession } from "@/lib/auth"; // Correct import
 import { authOptions } from "@/lib/auth";
+import { moderateContent, getModerationErrorMessage } from "@/lib/content-moderation";
 
 export async function POST(
   req: NextRequest,
@@ -24,12 +25,11 @@ export async function POST(
     );
   }
 
-  // Basic Profanity Filter
-  const badWords = ["badword1", "badword2", "hate", "kill", "stupid", "idiot", "nazi", "racist", "sex", "porn", "xxx", "fuck", "shit", "bitch", "asshole"];
-  const lowerContent = content.toLowerCase();
-  if (badWords.some(word => lowerContent.includes(word))) {
+  // Comprehensive Content Moderation
+  const moderationResult = moderateContent(content);
+  if (!moderationResult.isClean) {
     return NextResponse.json(
-      { error: "Comment contains inappropriate language" },
+      { error: getModerationErrorMessage(moderationResult) },
       { status: 400 }
     );
   }

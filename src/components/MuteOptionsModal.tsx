@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { X, VolumeX, Check } from 'lucide-react';
+import { X, PauseCircle, Check } from 'lucide-react';
 
 interface MuteOptionsModalProps {
     isOpen: boolean;
@@ -64,11 +64,11 @@ export default function MuteOptionsModal({ isOpen, onClose, targetUserId, target
                 onMuteComplete();
                 onClose();
             } else {
-                alert("Failed to mute user");
+                alert("Failed to pause user");
             }
         } catch (e) {
             console.error(e);
-            alert("Error muting user");
+            alert("Error pausing user");
         } finally {
             setIsSubmitting(false);
         }
@@ -79,15 +79,15 @@ export default function MuteOptionsModal({ isOpen, onClose, targetUserId, target
             <div className="w-full max-w-sm bg-[#18181b] border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
                 <div className="p-4 border-b border-white/10 flex items-center justify-between">
                     <h3 className="text-white font-bold flex items-center gap-2">
-                        <VolumeX size={18} className="text-white/70" />
-                        Mute @{targetUserName}?
+                        <PauseCircle size={18} className="text-white/70" />
+                        Pause @{targetUserName}?
                     </h3>
                     <button onClick={onClose}><X size={20} className="text-white/50 hover:text-white" /></button>
                 </div>
 
                 <div className="p-4 space-y-4">
                     <p className="text-sm text-white/60">
-                        You can mute everything from this user, or just specific types of content.
+                        You can pause everything from this user, or just specific types of content.
                     </p>
 
                     <div className="space-y-2">
@@ -95,7 +95,7 @@ export default function MuteOptionsModal({ isOpen, onClose, targetUserId, target
                             onClick={handleMuteAllToggle}
                             className={`w-full flex items-center justify-between p-3 rounded-xl border transition-all ${muteAll ? 'bg-white/10 border-white/30' : 'bg-transparent border-white/10 hover:border-white/20'}`}
                         >
-                            <span className="text-white font-medium text-sm">Mute Everything</span>
+                            <span className="text-white font-medium text-sm">Pause Everything</span>
                             {muteAll && <Check size={16} className="text-blue-400" />}
                         </button>
 
@@ -107,8 +107,8 @@ export default function MuteOptionsModal({ isOpen, onClose, targetUserId, target
                                         key={type.id}
                                         onClick={() => toggleType(type.id)}
                                         className={`flex items-center justify-between p-3 rounded-lg border text-sm transition-all ${!muteAll && selectedTypes.includes(type.id)
-                                                ? 'bg-blue-500/10 border-blue-500/30 text-blue-200'
-                                                : 'bg-transparent border-white/5 text-white/60 hover:bg-white/5'
+                                            ? 'bg-blue-500/10 border-blue-500/30 text-blue-200'
+                                            : 'bg-transparent border-white/5 text-white/60 hover:bg-white/5'
                                             }`}
                                     >
                                         <span>{type.label}</span>
@@ -124,7 +124,7 @@ export default function MuteOptionsModal({ isOpen, onClose, targetUserId, target
                         disabled={isSubmitting}
                         className="w-full py-3 mt-2 bg-white text-black font-bold rounded-xl hover:bg-gray-200 transition-colors disabled:opacity-50"
                     >
-                        {isSubmitting ? "Muting..." : `Mute ${muteAll ? "Everything" : "Selected"}`}
+                        {isSubmitting ? "Pausing..." : `Pause ${muteAll ? "Everything" : "Selected"}`}
                     </button>
                 </div>
             </div>
