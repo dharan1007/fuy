@@ -1,9 +1,12 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, FlatList, TouchableOpacity, RefreshControl, Image, ActivityIndicator, Dimensions, Alert } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, TouchableWithoutFeedback, RefreshControl, Image, ActivityIndicator, Dimensions, Alert } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
-import { Bell, LayoutDashboard, MoreHorizontal, Plus, Check, MessageCircle, User } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
+import { useAuth } from '../../context/AuthContext';
+import { Bell, LayoutDashboard, MoreHorizontal, Plus, Check, MessageCircle, User, Globe, Play, Pause, Volume2, VolumeX } from 'lucide-react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useIsFocused } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../lib/supabase';
 import { Video, ResizeMode } from 'expo-av';
@@ -11,6 +14,15 @@ import { BlurView } from 'expo-blur';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import Svg, { Mask, Rect, Path, G, Defs, Image as SvgImage } from 'react-native-svg';
+// Import Post Menu
+import PostOptionsModal from '../../components/PostOptionsModal';
+import { PanResponder } from 'react-native';
+import DraggableSidebar from '../../components/DraggableSidebar';
+import CommentsModal from '../../components/CommentsModal';
+import { getSafetyFilters, applySafetyFilters } from '../../services/SafetyService';
+
+// Viewability Config Constant
+const VIEWABILITY_CONFIG = { itemVisiblePercentThreshold: 60 };
 
 const { width } = Dimensions.get('window');
 
@@ -38,7 +50,7 @@ interface FeedPost {
     postMedia: PostMedia[];
     slashes?: { tag: string }[];
     postType?: string;
-    reactionCounts?: { W: number; L: number; CAP: number; FIRE: number };
+    reactionCounts?: { W: number; L: number; CAP: number };
     topBubbles?: any[];
     commentCount: number;
     likeCount: number;
@@ -46,180 +58,15 @@ interface FeedPost {
     userReaction?: string | null;
 }
 
-const XrayScratch = ({ coverUrl, contentUrl, coverType, contentType, isActive, onToggleScroll }: {
-    coverUrl: string,
-    contentUrl: string,
-    coverType: string,
-    contentType: string,
-    isActive: boolean,
-    onToggleScroll: (enabled: boolean) => void
-}) => {
-    const [revealed, setRevealed] = useState(false);
-    const [dims, setDims] = useState({ w: 0, h: 0 });
-    const [paths, setPaths] = useState<string[]>([]);
-    const currentPath = useRef<string>("");
+interface ClockStory {
+    id: string;
+    user: { id: string; name: string; profile: { avatarUrl: string; displayName: string } };
+    media: { url: string; type: string }[];
+    createdAt: string;
+    viewed?: boolean;
+}
 
-    const handleTouch = (evt: any) => {
-        if (revealed || dims.w === 0) return;
-        const { locationX, locationY } = evt.nativeEvent;
-        // Ensure precision
-        const point = `${locationX.toFixed(1)},${locationY.toFixed(1)}`;
-
-        if (currentPath.current === "") {
-            currentPath.current = `M ${point}`;
-        } else {
-            currentPath.current += ` L ${point}`;
-        }
-
-        setPaths(prev => {
-            const next = [...prev];
-            if (next.length > 0) {
-                next[next.length - 1] = currentPath.current;
-                return next;
-            }
-            return [currentPath.current];
-        });
-
-        // Simple reveal logic: if we have enough points, reveal more
-        // In a real app we'd calculate area, but here we can just check path length or point count
-        if (paths.length > 10 || currentPath.current.length > 500) {
-            // Check revealed status every few moves
-        }
-    };
-
-    const handleTouchStart = (evt: any) => {
-        if (revealed || dims.w === 0) return;
-        onToggleScroll(false); // Disable scroll
-        const { locationX, locationY } = evt.nativeEvent;
-        currentPath.current = `M ${locationX.toFixed(1)},${locationY.toFixed(1)}`;
-        setPaths(prev => [...prev, currentPath.current]);
-    };
-
-    const handleTouchEnd = () => {
-        onToggleScroll(true); // Re-enable scroll
-        currentPath.current = "";
-        // Check if we should reveal everything
-        if (paths.length > 5) {
-            // For now, let's just keep scratching. User can click "Reveal All" or we can auto-reveal after enough scratch.
-        }
-    };
-
-    const renderMedia = (url: string, type: string, play: boolean, isCover: boolean, resizeMode: ResizeMode = ResizeMode.COVER) => {
-        if (type === 'VIDEO') {
-            return (
-                <Video
-                    source={{ uri: url }}
-                    style={{ width: '100%', height: '100%' }}
-                    resizeMode={resizeMode}
-                    shouldPlay={play}
-                    isLooping
-                    isMuted={isCover} // Mute cover videos
-                    useNativeControls={false}
-                />
-            );
-        }
-        // Force key to ensure reload on url change if needed
-        return (
-            <Image
-                key={url}
-                source={{ uri: url }}
-                className="w-full h-full"
-                resizeMode="cover"
-            />
-        );
-    };
-
-    return (
-        <View
-            className="w-full h-full relative bg-black"
-            onLayout={(e) => setDims({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}
-        >
-            {/* Bottom Layer (Hidden Content) - ZIndex 1 */}
-            <View className="absolute inset-0 z-10">
-                {renderMedia(contentUrl, contentType, isActive, false)}
-            </View>
-
-            {/* Top Layer (Scratch Cover) - ZIndex 20 */}
-            {!revealed && (
-                <View className="absolute inset-0 z-20">
-                    {/*
-                      Note: To mask the Image properly, we render it INSIDE the Svg.
-                      If it's a video, we fallback to a View overlay mask.
-                    */}
-                    <Svg style={{ width: '100%', height: '100%', position: 'absolute' }}>
-                        <Defs>
-                            <Mask id="scratchMask">
-                                {/* White = Opaque (Show Cover), Black = Transparent (Hide Cover/Reveal Bottom) */}
-                                <Rect width="100%" height="100%" fill="white" />
-                                {paths.map((p, i) => (
-                                    <Path
-                                        key={i}
-                                        d={p}
-                                        stroke="black"
-                                        strokeWidth={50}
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        fill="none"
-                                    />
-                                ))}
-                            </Mask>
-                        </Defs>
-
-                        {coverType === 'IMAGE' ? (
-                            <SvgImage
-                                href={{ uri: coverUrl }}
-                                width="100%"
-                                height="100%"
-                                preserveAspectRatio="xMidYMid slice"
-                                mask="url(#scratchMask)"
-                            />
-                        ) : (
-                            // For Video cover, we can't easily mask it in SVG.
-                            // We construct a "Mask Layer" that is black and we cut holes in it?
-                            // No, if cover is video, we want to SEE the cover video and erase it.
-                            // Only way is to put a view ON TOP that paints the BOTTOM layer? No.
-                            // Realistically, masking video in RN is hard.
-                            // Fallback: Just render the video, coverage with semi-transparent sheet?
-                            // User asked for scratch card feel. Assuming Image for now based on context.
-                            <Rect width="100%" height="100%" fill="black" mask="url(#scratchMask)" />
-                        )}
-                    </Svg>
-                </View>
-            )}
-
-            {/* Gesture Handlers Layer - ZIndex 100 (Topmost) */}
-            {!revealed && (
-                <View
-                    className="absolute inset-0 z-[100]"
-                    onStartShouldSetResponder={() => true}
-                    onMoveShouldSetResponder={() => true}
-                    onResponderGrant={handleTouchStart}
-                    onResponderMove={handleTouch}
-                    onResponderRelease={handleTouchEnd}
-                    onResponderTerminate={handleTouchEnd}
-                />
-            )}
-
-            {/* Buttons - ZIndex 110 (Above Gestures) */}
-            {!revealed && (
-                <View className="absolute inset-0 z-[110] flex-row justify-center items-end pb-4 gap-2" pointerEvents="box-none">
-                    <View className="bg-black/60 px-3 py-1 rounded-full border border-white/20">
-                        <Text className="text-white font-bold text-[7px] uppercase tracking-[2px]">Scratch</Text>
-                    </View>
-
-                    <TouchableOpacity
-                        onPress={() => setRevealed(true)}
-                        className="bg-white/10 px-3 py-1 rounded-full border border-white/20 overflow-hidden"
-                    >
-                        <BlurView intensity={20} className="absolute inset-0" tint="dark" />
-                        <Text className="text-white font-bold text-[7px] uppercase tracking-[2px]">Reveal</Text>
-                    </TouchableOpacity>
-                </View>
-            )
-            }
-        </View >
-    );
-};
+import XrayScratch from '../../components/XrayScratch';
 
 const FeedPostItem = React.memo(({
     item,
@@ -228,7 +75,11 @@ const FeedPostItem = React.memo(({
     mode,
     onReact,
     onAddBubble,
-    onToggleScroll
+    onToggleScroll,
+    onActivate,
+    onMenuPress,
+    onCommentPress,
+    isScreenFocused
 }: {
     item: FeedPost,
     isActive: boolean,
@@ -236,9 +87,30 @@ const FeedPostItem = React.memo(({
     mode: any,
     onReact: (id: string, type: string) => void,
     onAddBubble: (id: string) => void,
-    onToggleScroll: (enabled: boolean) => void
+    onToggleScroll: (enabled: boolean) => void,
+    onActivate: () => void,
+    onMenuPress: (post: any) => void,
+    onCommentPress: (postId: string) => void,
+    isScreenFocused: boolean
 }) => {
     const hasMedia = item.postMedia && item.postMedia.length > 0;
+
+    // Tap to Play/Pause Control
+    const [isPaused, setIsPaused] = useState(false);
+    const [isMuted, setIsMuted] = useState(false);
+
+    // Reset pause state when active item changes
+    useEffect(() => {
+        if (!isActive) setIsPaused(false);
+    }, [isActive]);
+
+    const handlePress = () => {
+        if (!isActive) {
+            onActivate();
+        } else {
+            setIsPaused(prev => !prev);
+        }
+    };
 
     const formatCount = (count: number) => {
         if (count >= 1000) return (count / 1000).toFixed(1) + 'K';
@@ -247,13 +119,14 @@ const FeedPostItem = React.memo(({
 
     const name = item.user?.profile?.displayName || item.user?.name || 'Anonymous';
     const rawName = item.user?.name || 'anonymous';
-    const handle = `@${rawName.toLowerCase().replace(/ /g, '')}`;
+    const handle = `@${rawName.toLowerCase().replace(/ /g, '')} `;
     const avatar = item.user?.profile?.avatarUrl;
     const location = item.user?.profile?.location;
 
     // Adaptive aspect ratio
     let aspectRatio = 1 / 1.1;
-    if (item.postType === 'LILL' || item.postType === 'FILL') aspectRatio = 9 / 16;
+    if (item.postType === 'LILL') aspectRatio = 9 / 16; // Vertical short video
+    if (item.postType === 'FILL') aspectRatio = 16 / 9; // Horizontal long video
     if (!hasMedia) aspectRatio = undefined as any;
 
     return (
@@ -264,38 +137,63 @@ const FeedPostItem = React.memo(({
                     <View className="w-full bg-black relative" style={{ aspectRatio }}>
                         {(() => {
                             if (item.postType === 'XRAY' && item.postMedia.length >= 2) {
-                                // STRICT ORDERING requested:
-                                // Layer 1 (Index 0) = Cover (Top)
-                                // Layer 2 (Index 1) = Content (Bottom)
-                                const coverMedia = item.postMedia[0];
-                                const contentMedia = item.postMedia[1];
+                                // Intelligent Media Assignment - SWAPPED per user request
+                                let cover = item.postMedia.find(m => m.variant === 'xray-bottom'); // Was xray-top
+                                let content = item.postMedia.find(m => m.variant === 'xray-top'); // Was xray-bottom
 
-                                return (
-                                    <XrayScratch
-                                        coverUrl={coverMedia.url}
-                                        coverType={coverMedia.type}
-                                        contentUrl={contentMedia.url}
-                                        contentType={contentMedia.type}
-                                        isActive={isActive}
-                                        onToggleScroll={onToggleScroll}
-                                    />
-                                );
+                                // Fallback: If variants are missing, assume index 0 is cover (Top), 1 is content (Bottom)
+                                if (!cover || !content) {
+                                    cover = item.postMedia[0];
+                                    content = item.postMedia[1];
+                                }
+
+                                if (cover && content) {
+                                    return (
+                                        <XrayScratch
+                                            coverUrl={cover.url}
+                                            coverType={cover.type}
+                                            contentUrl={content.url}
+                                            contentType={content.type}
+                                            isActive={isActive}
+                                            onToggleScroll={onToggleScroll}
+                                        />
+                                    );
+                                }
                             }
 
                             const media = item.postMedia[0];
                             if (media.type === 'VIDEO') {
                                 return (
-                                    <Video
-                                        source={{ uri: media.url }}
-                                        style={{ width: '100%', height: '100%' }}
-                                        resizeMode={ResizeMode.COVER}
-                                        shouldPlay={isActive}
-                                        isLooping
-                                        isMuted={false}
-                                        useNativeControls={false}
-                                    />
+                                    <TouchableWithoutFeedback onPress={handlePress}>
+                                        <View style={{ width: '100%', height: '100%' }}>
+                                            <Video
+                                                source={{ uri: media.url }}
+                                                style={{ width: '100%', height: '100%' }}
+                                                resizeMode={ResizeMode.COVER}
+                                                shouldPlay={isActive && !isPaused && isScreenFocused}
+                                                isLooping
+                                                isMuted={isMuted}
+                                                useNativeControls={false}
+                                            />
+                                            {isActive && isPaused && (
+                                                <View className="absolute inset-0 items-center justify-center bg-black/20">
+                                                    <View className="bg-black/40 rounded-full p-4">
+                                                        <Play size={40} color="white" fill="white" />
+                                                    </View>
+                                                </View>
+                                            )}
+                                            {/* Volume Toggle */}
+                                            <TouchableOpacity
+                                                onPress={() => setIsMuted(!isMuted)}
+                                                style={{ position: 'absolute', bottom: 16, right: 16, width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' }}
+                                            >
+                                                {isMuted ? <VolumeX size={18} color="#fff" /> : <Volume2 size={18} color="#fff" />}
+                                            </TouchableOpacity>
+                                        </View>
+                                    </TouchableWithoutFeedback>
                                 );
                             }
+
                             return (
                                 <Image
                                     source={{ uri: media.url }}
@@ -306,12 +204,18 @@ const FeedPostItem = React.memo(({
                         })()}
 
                         {/* Top Floating Pill */}
-                        <View className="absolute top-4 left-4 right-4 flex-row justify-between items-start">
+                        <View className="absolute top-4 left-4 right-4 flex-row justify-between items-start z-[2000]" style={{ elevation: 100 }}>
                             <BlurView intensity={80} tint="dark" className="rounded-full overflow-hidden flex-row items-center p-1 border border-white/20">
-                                <Image
-                                    source={{ uri: avatar || `https://api.dicebear.com/7.x/avataaars/png?seed=${rawName}` }}
-                                    className="w-10 h-10 rounded-full bg-zinc-800 border-2 border-white/20"
-                                />
+                                {avatar ? (
+                                    <Image
+                                        source={{ uri: avatar }}
+                                        className="w-10 h-10 rounded-full bg-zinc-800 border-2 border-white/20"
+                                    />
+                                ) : (
+                                    <View className="w-10 h-10 rounded-full bg-zinc-800 border-2 border-white/20 items-center justify-center">
+                                        <User size={20} color="white" />
+                                    </View>
+                                )}
                                 <View className="ml-3 mr-6">
                                     <View className="flex-row items-center">
                                         <Text className="font-bold text-sm text-white mr-1">
@@ -322,7 +226,7 @@ const FeedPostItem = React.memo(({
                                         </View>
                                     </View>
                                     <Text className="text-[10px] text-white/60 font-medium">
-                                        {handle}{location ? ` • ${location}` : ''}
+                                        {handle}{location ? ` • ${location} ` : ''}
                                     </Text>
                                 </View>
                             </BlurView>
@@ -333,7 +237,10 @@ const FeedPostItem = React.memo(({
                                         <Text className="text-[10px] text-white font-bold tracking-widest uppercase">{item.postType}</Text>
                                     </BlurView>
                                 )}
-                                <TouchableOpacity className="w-10 h-10 rounded-full border border-white/20 overflow-hidden items-center justify-center">
+                                <TouchableOpacity
+                                    onPress={() => onMenuPress(item)}
+                                    className="w-10 h-10 rounded-full border border-white/20 overflow-hidden items-center justify-center"
+                                >
                                     <BlurView intensity={80} tint="dark" className="absolute inset-0" />
                                     <MoreHorizontal color="white" size={20} />
                                 </TouchableOpacity>
@@ -347,10 +254,16 @@ const FeedPostItem = React.memo(({
             {!hasMedia && (
                 <View className="p-4 rounded-[40px] border" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
                     <View className="flex-row items-center mb-3">
-                        <Image
-                            source={{ uri: avatar || `https://api.dicebear.com/7.x/avataaars/png?seed=${rawName}` }}
-                            className="w-10 h-10 rounded-full bg-zinc-800 border-2 border-white/10"
-                        />
+                        {avatar ? (
+                            <Image
+                                source={{ uri: avatar }}
+                                className="w-10 h-10 rounded-full bg-zinc-800 border-2 border-white/10"
+                            />
+                        ) : (
+                            <View className="w-10 h-10 rounded-full bg-zinc-800 border-2 border-white/10 items-center justify-center">
+                                <User size={20} color={colors.text} />
+                            </View>
+                        )}
                         <View className="ml-3">
                             <View className="flex-row items-center">
                                 <Text className="font-bold text-sm mr-1" style={{ color: colors.text }}>{name}</Text>
@@ -408,7 +321,7 @@ const FeedPostItem = React.memo(({
                             borderColor: item.userReaction === 'W' ? 'rgba(239, 68, 68, 0.5)' : colors.border
                         }}
                     >
-                        <Text className={`text-xs font-black ${item.userReaction === 'W' ? 'text-red-500' : 'text-red-500/60'}`}>
+                        <Text className={`text - xs font - black ${item.userReaction === 'W' ? 'text-red-500' : 'text-red-500/60'} `}>
                             W <Text className="font-bold ml-1" style={{ color: colors.secondary }}>{(item.reactionCounts as any)?.['W'] || 0}</Text>
                         </Text>
                     </TouchableOpacity>
@@ -421,7 +334,7 @@ const FeedPostItem = React.memo(({
                             borderColor: item.userReaction === 'L' ? (mode === 'light' ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.3)') : colors.border
                         }}
                     >
-                        <Text className={`text-xs font-black ${item.userReaction === 'L' ? (mode === 'light' ? 'text-black' : 'text-white') : (mode === 'light' ? 'text-black/40' : 'text-white/40')}`}>
+                        <Text className={`text - xs font - black ${item.userReaction === 'L' ? (mode === 'light' ? 'text-black' : 'text-white') : (mode === 'light' ? 'text-black/40' : 'text-white/40')} `}>
                             L <Text className="font-bold ml-1" style={{ color: colors.secondary }}>{(item.reactionCounts as any)?.['L'] || 0}</Text>
                         </Text>
                     </TouchableOpacity>
@@ -434,13 +347,13 @@ const FeedPostItem = React.memo(({
                             borderColor: item.userReaction === 'CAP' ? 'rgba(59, 130, 246, 0.5)' : colors.border
                         }}
                     >
-                        <Text className={`text-xs font-black ${item.userReaction === 'CAP' ? 'text-blue-500' : 'text-blue-500/60'}`}>
+                        <Text className={`text - xs font - black ${item.userReaction === 'CAP' ? 'text-blue-500' : 'text-blue-500/60'} `}>
                             CAP <Text className="font-bold ml-1" style={{ color: colors.secondary }}>{(item.reactionCounts as any)?.['CAP'] || 0}</Text>
                         </Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                        onPress={() => Alert.alert("Comments", "Comment feature coming soon!")}
+                        onPress={() => onCommentPress(item.id)}
                         className="px-4 py-2 rounded-full border flex-row items-center"
                         style={{ borderColor: colors.border }}
                     >
@@ -453,57 +366,139 @@ const FeedPostItem = React.memo(({
     );
 });
 
+
+
 export default function FeedScreen() {
     const { colors, mode } = useTheme();
     const router = useRouter();
+    const { session } = useAuth(); // Use Auth Context
     const [posts, setPosts] = useState<FeedPost[]>([]);
+    const [clocks, setClocks] = useState<ClockStory[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+    const [userProfile, setUserProfile] = useState<{ avatarUrl: string | null } | null>(null); // Profile state
     const [scrollEnabled, setScrollEnabled] = useState(true);
+    const isScreenFocused = useIsFocused();
+
+    // Menu State
+    const [menuVisible, setMenuVisible] = useState(false);
+    const [selectedPost, setSelectedPost] = useState<any>(null);
+
+    // Comments State
+    const [commentsVisible, setCommentsVisible] = useState(false);
+    const [commentPostId, setCommentPostId] = useState<string | null>(null);
+
+    const handleMenuPress = useCallback((post: any) => {
+        setSelectedPost(post);
+        setMenuVisible(true);
+    }, []);
+
+    const handleCommentPress = useCallback((postId: string) => {
+        setCommentPostId(postId);
+        setCommentsVisible(true);
+    }, []);
 
     useEffect(() => {
         const checkUser = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) setCurrentUserId(user.id);
+            if (session?.user) {
+                setCurrentUserId(session.user.id);
+                // Fetch Profile
+                const { data } = await supabase
+                    .from('Profile')
+                    .select('avatarUrl')
+                    .eq('userId', session.user.id)
+                    .single();
+                if (data) setUserProfile(data);
+            }
         };
+        fetchClocks();
         checkUser();
-    }, []);
+    }, [session]);
 
-    const fetchFeed = useCallback(async () => {
+    const fetchClocks = async () => {
         try {
-            const { data, error } = await supabase
+            const { data } = await supabase
+                .from('Post')
+                .select(`id, content, createdAt, postType, media: Media(url, type), user: User(id, name, profile: Profile(displayName, avatarUrl))`)
+                .eq('postType', 'CLOCK')
+                .order('createdAt', { ascending: false })
+                .limit(20);
+
+            if (data) {
+                const uniqueUsers = new Map();
+                const stories: ClockStory[] = [];
+                data.forEach((post: any) => {
+                    // Handle potential array return for user
+                    const userObj = Array.isArray(post.user) ? post.user[0] : post.user;
+                    if (userObj && !uniqueUsers.has(userObj.id)) {
+                        uniqueUsers.set(userObj.id, true);
+                        stories.push({
+                            id: post.id,
+                            user: userObj,
+                            media: post.media || [],
+                            createdAt: post.createdAt
+                        });
+                    }
+                });
+                setClocks(stories);
+            }
+        } catch (e) {
+            console.error("Fetch clocks error:", e);
+        }
+    };
+
+    // REDEFINED fetchFeed to use session if needed or keep using currentUserId state
+    const fetchFeed = useCallback(async () => {
+        setLoading(true);
+        try {
+            // Get current user directly to avoid race condition
+            const { data: { user }, error: userError } = await supabase.auth.getUser();
+            const userId = user?.id;
+
+            console.log('[Feed] User ID:', userId, userError ? `Error: ${userError.message} ` : '');
+
+            let filters = { excludedUserIds: [], hiddenPostIds: [] };
+            if (userId) {
+                filters = await getSafetyFilters(userId);
+                setCurrentUserId(userId);
+            }
+
+
+
+            let query = supabase
                 .from('Post')
                 .select(`
-                    id,
-                    content,
-                    postType,
-                    createdAt,
-                    userId,
-                    viewCount,
-                    shareCount,
-                    user:User (
-                        id,
-                        name,
-                        profile:Profile (avatarUrl, displayName, location)
-                    ),
-                    postMedia:PostMedia (
-                        media:Media (url, type, variant)
-                    ),
-                    reactions:Reaction (type, userId),
-                    reactionBubbles:ReactionBubble (
-                        id,
-                        mediaUrl,
-                        mediaType,
-                        user:User (profile:Profile (avatarUrl))
-                    ),
-                    slashes:Slash (tag),
-                    comments:PostComment (id),
-                    likes:PostLike (id)
+                    id, 
+                    content, 
+                    postType, 
+                    createdAt, 
+                    userId, 
+                    viewCount, 
+                    shareCount, 
+                    user:User(id, name, profile:Profile(avatarUrl, displayName, location)), 
+                    postMedia:PostMedia(media:Media(url, type, variant)), 
+                    reactions:Reaction(type, userId), 
+                    reactionBubbles:ReactionBubble(id, mediaUrl, mediaType, user:User(profile:Profile(avatarUrl))), 
+                    slashes:Slash(tag), 
+                    comments:PostComment(id), 
+                    likes:PostLike(id)
                 `)
                 .eq('visibility', 'PUBLIC')
                 .order('createdAt', { ascending: false })
                 .limit(20);
+
+            if (userId) {
+                query = applySafetyFilters(query, filters);
+            }
+
+            const { data, error } = await query;
+
+            console.log('[Feed] Query result:', {
+                postsCount: data?.length || 0,
+                error: error?.message,
+                firstPostId: data?.[0]?.id
+            });
 
             if (error) {
                 console.error("Error fetching feed:", error);
@@ -520,7 +515,6 @@ export default function FeedScreen() {
                     W: reactions.filter((r: any) => r.type === 'W').length,
                     L: reactions.filter((r: any) => r.type === 'L').length,
                     CAP: reactions.filter((r: any) => r.type === 'CAP').length,
-                    FIRE: reactions.filter((r: any) => r.type === 'FIRE').length,
                 };
 
                 const userReaction = currentUserId ? reactions.find((r: any) => r.userId === currentUserId)?.type || null : null;
@@ -570,10 +564,6 @@ export default function FeedScreen() {
         }
     }).current;
 
-    const viewabilityConfig = useRef({
-        itemVisiblePercentThreshold: 80 // Higher threshold for more selective activation
-    }).current;
-
     useEffect(() => {
         fetchFeed();
         return () => {
@@ -584,6 +574,7 @@ export default function FeedScreen() {
     const onRefresh = () => {
         setRefreshing(true);
         fetchFeed();
+        fetchClocks();
     };
 
     const handleReact = useCallback(async (postId: string, type: string) => {
@@ -637,14 +628,14 @@ export default function FeedScreen() {
                     encoding: 'base64',
                 });
                 const mimeType = result.assets[0].type === 'video' ? 'video/mp4' : 'image/jpeg';
-                const uploadUrl = `data:${mimeType};base64,${base64Data}`;
+                const uploadUrl = `data:${mimeType}; base64, ${base64Data} `;
 
                 const { data: { session } } = await supabase.auth.getSession();
                 const res = await fetch("https://fuymedia.org/api/posts/bubble", {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
-                        "Authorization": `Bearer ${session?.access_token}`
+                        "Authorization": `Bearer ${session?.access_token} `
                     },
                     body: JSON.stringify({
                         postId,
@@ -667,18 +658,85 @@ export default function FeedScreen() {
         }
     }, [fetchFeed]);
 
+    // ... (renderClockRail unchanged)
+    const renderClockRail = () => (
+        <View className="py-3 mb-2">
+            <FlatList
+                horizontal
+                data={[{ id: 'add-story' }, ...clocks]}
+                keyExtractor={(item: any) => item.id}
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingHorizontal: 16, gap: 14 }}
+                renderItem={({ item }: { item: any }) => {
+                    if (item.id === 'add-story') {
+                        return (
+                            <TouchableOpacity onPress={() => router.push('/(tabs)/create?type=CLOCK')} className="items-center gap-1">
+                                <View className="relative w-[60px] h-[60px] rounded-full border-2 border-dashed border-white/30 items-center justify-center bg-white/5">
+                                    <Plus size={20} color={colors.text} />
+                                    <View className="absolute bottom-0 right-0 bg-white rounded-full p-1 border border-black">
+                                        <Plus size={10} color="black" />
+                                    </View>
+                                </View>
+                                <Text style={{ color: colors.text, fontSize: 11, marginTop: 4 }}>Your Story</Text>
+                            </TouchableOpacity>
+                        );
+                    }
+                    return (
+                        <TouchableOpacity className="items-center gap-1">
+                            <View className="p-[2px] rounded-full border border-white">
+                                <View className="p-[2px] bg-black rounded-full">
+                                    {item.user.profile?.avatarUrl ? (
+                                        <Image
+                                            source={{ uri: item.user.profile.avatarUrl }}
+                                            className="w-[52px] h-[52px] rounded-full"
+                                            style={{ backgroundColor: '#222' }}
+                                        />
+                                    ) : (
+                                        <View className="w-[52px] h-[52px] rounded-full items-center justify-center" style={{ backgroundColor: '#222' }}>
+                                            <User size={24} color="white" />
+                                        </View>
+                                    )}
+                                </View>
+                            </View>
+                            <Text style={{ color: colors.text, fontSize: 11, marginTop: 4 }} numberOfLines={1}>{item.user.profile?.displayName || item.user.name}</Text>
+                        </TouchableOpacity>
+                    );
+                }}
+            />
+        </View>
+    );
+
     const renderHeader = () => (
         <View className="px-6 pt-4 pb-2 flex-row justify-between items-center">
+            {/* Left: App Name */}
             <Text className="text-3xl font-bold" style={{ color: colors.text }}>Fuy</Text>
-            <View className="flex-row gap-4">
-                <TouchableOpacity onPress={() => router.push('/(tabs)/profile')} className="p-2 rounded-full" style={{ backgroundColor: colors.card }}>
-                    <User color={colors.text} size={24} />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => router.push('/dashboard')} className="p-2 rounded-full" style={{ backgroundColor: colors.card }}>
-                    <LayoutDashboard color={colors.text} size={24} />
-                </TouchableOpacity>
+
+            {/* Right Group: Notification -> Hopin -> Profile (Corner) */}
+            <View className="flex-row gap-4 items-center">
+                {/* Notification */}
                 <TouchableOpacity onPress={() => router.push('/notifications')} className="p-2 rounded-full" style={{ backgroundColor: colors.card }}>
                     <Bell color={colors.text} size={24} />
+                    {/* Notification Red Dot logic needs AuthContext access or separate hook */}
+                </TouchableOpacity>
+
+                {/* Hopin Icon (Globe) */}
+                <TouchableOpacity onPress={() => router.push('/hopin')} className="p-2 rounded-full" style={{ backgroundColor: colors.card }}>
+                    <Globe color={colors.text} size={24} />
+                </TouchableOpacity>
+
+                {/* Profile Icon - User Avatar */}
+                <TouchableOpacity onPress={() => router.push('/(tabs)/profile')} className="rounded-full overflow-hidden border border-white/20">
+                    {userProfile?.avatarUrl ? (
+                        <Image
+                            source={{ uri: userProfile.avatarUrl }}
+                            style={{ width: 40, height: 40 }}
+                            resizeMode="cover"
+                        />
+                    ) : (
+                        <View style={{ width: 40, height: 40, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' }}>
+                            <User color={colors.text} size={24} />
+                        </View>
+                    )}
                 </TouchableOpacity>
             </View>
         </View>
@@ -693,12 +751,15 @@ export default function FeedScreen() {
             onReact={handleReact}
             onAddBubble={handleAddBubble}
             onToggleScroll={setScrollEnabled}
+            onActivate={() => setActivePostId(item.id)}
+            onMenuPress={handleMenuPress}
+            onCommentPress={handleCommentPress}
+            isScreenFocused={isScreenFocused}
         />
-    ), [activePostId, colors, mode, handleReact, handleAddBubble, setScrollEnabled]);
+    ), [activePostId, colors, mode, handleReact, handleAddBubble, setScrollEnabled, isScreenFocused, handleMenuPress, handleCommentPress]);
 
     return (
         <View className="flex-1" style={{ backgroundColor: colors.background }}>
-            <LinearGradient colors={mode === 'light' ? ['#ffffff', '#f8f8f8'] : ['#000000', '#0a0a0a']} className="absolute inset-0" />
             <SafeAreaView className="flex-1" edges={['top']}>
                 {renderHeader()}
                 {loading && !refreshing ? (
@@ -715,15 +776,45 @@ export default function FeedScreen() {
                         showsVerticalScrollIndicator={false}
                         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
                         onViewableItemsChanged={onViewableItemsChanged}
-                        viewabilityConfig={viewabilityConfig}
+                        viewabilityConfig={VIEWABILITY_CONFIG}
                         initialNumToRender={2}
                         maxToRenderPerBatch={2}
                         windowSize={3}
                         removeClippedSubviews={true}
+                        ListHeaderComponent={renderClockRail}
                         ListEmptyComponent={<View className="flex-1 items-center justify-center py-20"><Text style={{ color: colors.secondary }}>No posts yet. Be the first!</Text></View>}
                     />
                 )}
             </SafeAreaView>
+
+            <DraggableSidebar />
+
+            <PostOptionsModal
+                visible={menuVisible}
+                onClose={() => setMenuVisible(false)}
+                post={selectedPost}
+                onReport={() => Alert.alert("Reported", "Thanks for letting us know.")}
+                onBlock={() => {
+                    setPosts(prev => prev.filter(p => p.user.id !== selectedPost?.user?.id));
+                    fetchFeed();
+                }}
+                onDelete={() => {
+                    setPosts(prev => prev.filter(p => p.id !== selectedPost?.id));
+                }}
+                onHide={() => {
+                    setPosts(prev => prev.filter(p => p.id !== selectedPost?.id));
+                }}
+                onMute={() => {
+                    setPosts(prev => prev.filter(p => p.user.id !== selectedPost?.user?.id));
+                    fetchFeed();
+                }}
+            />
+
+            <CommentsModal
+                visible={commentsVisible}
+                onClose={() => setCommentsVisible(false)}
+                postId={commentPostId}
+            />
         </View>
     );
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Dimensions, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, Dimensions, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,10 +12,17 @@ import {
     Heart,
     Book,
     MapPin,
-    ChevronLeft
+    ChevronLeft,
+    Eye,
+    MessageCircle,
+    TrendingUp,
+    CreditCard,
+    GraduationCap,
+    BookOpen,
+    ChevronRight
 } from 'lucide-react-native';
 import { useTheme } from '../context/ThemeContext';
-import { BlurView } from 'expo-blur';
+import { api } from '../lib/api-client';
 
 const { width } = Dimensions.get('window');
 const GAP = 12;
@@ -77,7 +84,7 @@ const METEORS = [
         subtitle: 'Shipments',
         icon: Package,
         colors: ['#101010', '#000000'],
-        route: null,
+        route: '/orders',
         radius: { tl: 20, tr: 28, bl: 20, br: 28 },
         shadowColor: '#ffffff',
         borderWidth: 1,
@@ -122,9 +129,46 @@ const METEORS = [
     }
 ];
 
+// Quick Links for additional pages
+const QUICK_LINKS = [
+    { id: 'transactions', title: 'Transactions', icon: CreditCard, route: '/transactions' },
+    { id: 'purchases', title: 'Purchases', icon: ShoppingBag, route: '/purchases' },
+    { id: 'views', title: 'Recently Viewed', icon: Eye, route: '/views' },
+    { id: 'courses', title: 'My Courses', icon: GraduationCap, route: '/courses' },
+    { id: 'books', title: 'My Books', icon: BookOpen, route: '/books' },
+];
+
 export default function DashboardScreen() {
     const router = useRouter();
     const { colors, mode } = useTheme();
+    const [stats, setStats] = useState({ totalViews: 0, totalLikes: 0, totalComments: 0 });
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        fetchAnalytics();
+    }, []);
+
+    const fetchAnalytics = async () => {
+        try {
+            const { data, error } = await api.get<any>('/api/profile');
+            if (data && !error) {
+                setStats({
+                    totalViews: data.totalViews || 0,
+                    totalLikes: data.totalLikes || 0,
+                    totalComments: data.totalComments || 0
+                });
+            }
+        } catch (e) {
+            console.error('Failed to fetch analytics:', e);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const formatNumber = (num: number) => {
+        if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+        return num.toString();
+    };
 
     return (
         <View style={{ flex: 1, backgroundColor: '#000' }}>
@@ -150,19 +194,34 @@ export default function DashboardScreen() {
                     contentContainerStyle={styles.gridContainer}
                     showsVerticalScrollIndicator={false}
                 >
-                    {/* Mission Report / Stats Placeholders */}
+                    {/* Real Analytics Stats */}
                     <View style={{ marginBottom: 20, flexDirection: 'row', gap: 8, paddingHorizontal: 4 }}>
                         <View style={[styles.statCard, { flex: 1, backgroundColor: 'rgba(59, 130, 246, 0.1)', borderColor: 'rgba(59, 130, 246, 0.2)' }]}>
+                            <Eye size={16} color="#3b82f6" style={{ marginBottom: 4 }} />
                             <Text style={styles.statLabel}>VIEWS</Text>
-                            <Text style={styles.statValue}>1.2K</Text>
-                        </View>
-                        <View style={[styles.statCard, { flex: 1, backgroundColor: 'rgba(16, 185, 129, 0.1)', borderColor: 'rgba(16, 185, 129, 0.2)' }]}>
-                            <Text style={styles.statLabel}>TASKS</Text>
-                            <Text style={styles.statValue}>42</Text>
+                            {loading ? (
+                                <ActivityIndicator size="small" color="#3b82f6" />
+                            ) : (
+                                <Text style={styles.statValue}>{formatNumber(stats.totalViews)}</Text>
+                            )}
                         </View>
                         <View style={[styles.statCard, { flex: 1, backgroundColor: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.2)' }]}>
-                            <Text style={styles.statLabel}>REACTIONS</Text>
-                            <Text style={styles.statValue}>98%</Text>
+                            <Heart size={16} color="#ef4444" style={{ marginBottom: 4 }} />
+                            <Text style={styles.statLabel}>LIKES</Text>
+                            {loading ? (
+                                <ActivityIndicator size="small" color="#ef4444" />
+                            ) : (
+                                <Text style={styles.statValue}>{formatNumber(stats.totalLikes)}</Text>
+                            )}
+                        </View>
+                        <View style={[styles.statCard, { flex: 1, backgroundColor: 'rgba(16, 185, 129, 0.1)', borderColor: 'rgba(16, 185, 129, 0.2)' }]}>
+                            <MessageCircle size={16} color="#10b981" style={{ marginBottom: 4 }} />
+                            <Text style={styles.statLabel}>COMMENTS</Text>
+                            {loading ? (
+                                <ActivityIndicator size="small" color="#10b981" />
+                            ) : (
+                                <Text style={styles.statValue}>{formatNumber(stats.totalComments)}</Text>
+                            )}
                         </View>
                     </View>
 
@@ -225,6 +284,24 @@ export default function DashboardScreen() {
                                         {meteor.title}
                                     </Text>
                                 </View>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+
+                    {/* Quick Links */}
+                    <Text style={{ color: 'white', fontWeight: 'bold', marginBottom: 12, marginTop: 20, paddingHorizontal: 4 }}>MORE</Text>
+                    <View style={{ paddingHorizontal: 4, gap: 8 }}>
+                        {QUICK_LINKS.map((link) => (
+                            <TouchableOpacity
+                                key={link.id}
+                                onPress={() => router.push(link.route as any)}
+                                style={styles.quickLink}
+                            >
+                                <View style={styles.quickLinkIcon}>
+                                    <link.icon size={18} color="white" />
+                                </View>
+                                <Text style={styles.quickLinkText}>{link.title}</Text>
+                                <ChevronRight size={18} color="rgba(255,255,255,0.5)" />
                             </TouchableOpacity>
                         ))}
                     </View>
@@ -356,5 +433,29 @@ const styles = StyleSheet.create({
         color: 'white',
         fontSize: 18,
         fontWeight: '900',
+    },
+    quickLink: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        borderRadius: 12,
+        padding: 14,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.1)',
+    },
+    quickLinkIcon: {
+        width: 36,
+        height: 36,
+        borderRadius: 10,
+        backgroundColor: 'rgba(255,255,255,0.1)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 12,
+    },
+    quickLinkText: {
+        flex: 1,
+        color: 'white',
+        fontSize: 14,
+        fontWeight: '600',
     },
 });

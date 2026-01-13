@@ -1,21 +1,22 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Image, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Image, Alert, ActivityIndicator, Dimensions } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import { ArrowLeft, Globe, Users, Lock, Music, Upload, X, Image as ImageIcon } from 'lucide-react-native';
+import { ArrowLeft, Globe, Users, Lock, Radio, Music, Upload, X, Image as ImageIcon } from 'lucide-react-native';
 import { MediaUploadService } from '../../services/MediaUploadService';
 import { supabase } from '../../lib/supabase';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3000';
+const { width } = Dimensions.get('window');
 
 interface AudFormProps {
     onBack: () => void;
 }
 
 export default function AudForm({ onBack }: AudFormProps) {
-    const { colors, isDark } = useTheme();
+    const { isDark } = useTheme();
     const { session } = useAuth();
     const [title, setTitle] = useState('');
     const [artist, setArtist] = useState('');
@@ -23,17 +24,14 @@ export default function AudForm({ onBack }: AudFormProps) {
     const [description, setDescription] = useState('');
     const [visibility, setVisibility] = useState('PUBLIC');
     const [audioUri, setAudioUri] = useState<string | null>(null);
-    const [audioName, setAudioName] = useState<string>('');
+    const [audioName, setAudioName] = useState('');
     const [coverImage, setCoverImage] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
 
     const pickAudio = async () => {
         try {
-            const result = await DocumentPicker.getDocumentAsync({
-                type: 'audio/*',
-                copyToCacheDirectory: true,
-            });
-
+            const result = await DocumentPicker.getDocumentAsync({ type: 'audio/*', copyToCacheDirectory: true });
             if (result.canceled === false && result.assets?.[0]) {
                 setAudioUri(result.assets[0].uri);
                 setAudioName(result.assets[0].name);
@@ -50,7 +48,6 @@ export default function AudForm({ onBack }: AudFormProps) {
             aspect: [1, 1],
             quality: 0.8,
         });
-
         if (!result.canceled && result.assets[0]) {
             setCoverImage(result.assets[0].uri);
         }
@@ -71,25 +68,22 @@ export default function AudForm({ onBack }: AudFormProps) {
         }
 
         setLoading(true);
+        setUploadProgress(0);
 
         try {
-            const { data: userData } = await supabase
-                .from('User')
-                .select('id')
-                .eq('email', session.user.email)
-                .single();
-
+            const { data: userData } = await supabase.from('User').select('id').eq('email', session.user.email).single();
             if (!userData?.id) throw new Error('User not found');
 
-            // Upload audio to Cloudflare R2
+            setUploadProgress(30);
             const audioResult = await MediaUploadService.uploadAudio(audioUri, audioName || `audio_${Date.now()}.mp3`);
 
-            // Upload cover image if provided
             let coverUrl = null;
             if (coverImage) {
-                const coverResult = await MediaUploadService.uploadImage(coverImage, `cover_${Date.now()}.jpg`);
+                setUploadProgress(60);
+                const coverResult = await MediaUploadService.uploadImage(coverImage);
                 coverUrl = coverResult.url;
             }
+            setUploadProgress(80);
 
             const response = await fetch(`${API_URL}/api/posts/create`, {
                 method: 'POST',
@@ -103,19 +97,16 @@ export default function AudForm({ onBack }: AudFormProps) {
                         audioUrl: audioResult.url,
                         duration: audioResult.duration || 0,
                         coverImageUrl: coverUrl,
-                        title: title,
+                        title,
                         artist: artist || null,
                         genre: genre || null,
                     },
                 }),
             });
 
-            if (!response.ok) {
-                const errData = await response.json();
-                throw new Error(errData.error || 'Failed to create Aud');
-            }
-
-            Alert.alert('Success', 'Aud posted!', [{ text: 'OK', onPress: onBack }]);
+            setUploadProgress(100);
+            if (!response.ok) throw new Error((await response.json()).error || 'Failed');
+            Alert.alert('Done', 'Posted successfully', [{ text: 'OK', onPress: onBack }]);
         } catch (error: any) {
             Alert.alert('Error', error.message);
         } finally {
@@ -123,212 +114,114 @@ export default function AudForm({ onBack }: AudFormProps) {
         }
     };
 
-    const VisibilityOption = ({ value, label, icon: Icon }: any) => (
-        <TouchableOpacity
-            onPress={() => setVisibility(value)}
-            className={`flex-1 flex-row items-center justify-center p-3 rounded-xl border ${visibility === value ? 'bg-indigo-500 border-indigo-500' : 'bg-transparent border-gray-200 dark:border-white/10'}`}
-        >
-            <Icon size={16} color={visibility === value ? 'white' : colors.text} />
-            <Text style={{ color: visibility === value ? 'white' : colors.text, fontWeight: '600', marginLeft: 6 }}>{label}</Text>
-        </TouchableOpacity>
-    );
-
     return (
-        <ScrollView className="flex-1" contentContainerStyle={{ padding: 16 }}>
-            <View className="flex-row items-center mb-6">
-                <TouchableOpacity
-                    onPress={onBack}
-                    className={`p-3 rounded-full mr-4 ${isDark ? 'bg-white/10' : 'bg-gray-100'}`}
-                    style={{ width: 48, height: 48, alignItems: 'center', justifyContent: 'center' }}
-                >
-                    <ArrowLeft size={24} color={colors.text} />
+        <ScrollView style={{ flex: 1, backgroundColor: '#000' }} contentContainerStyle={{ padding: 16 }}>
+            {/* Header */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24 }}>
+                <TouchableOpacity onPress={onBack} style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', marginRight: 16 }}>
+                    <ArrowLeft size={20} color="#fff" />
                 </TouchableOpacity>
-                <View>
-                    <Text style={{ color: colors.text, fontSize: 22, fontWeight: 'bold' }}>New Aud</Text>
-                    <Text style={{ color: colors.secondary, fontSize: 12 }}>Audio with waveform</Text>
+                <View style={{ flex: 1 }}>
+                    <Text style={{ color: '#fff', fontSize: 20, fontWeight: '700', letterSpacing: 0.5 }}>New Aud</Text>
+                    <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>Audio with waveform preview</Text>
                 </View>
+                <Radio size={24} color="rgba(255,255,255,0.3)" />
             </View>
 
-            {/* Audio Picker */}
-            <View className="mb-6">
-                <Text style={{ color: colors.secondary, marginBottom: 8, fontWeight: '600' }}>Audio File</Text>
-                {audioUri ? (
-                    <View
-                        className="flex-row items-center p-4 rounded-2xl"
-                        style={{ backgroundColor: isDark ? '#1a1a1a' : '#f5f5f5' }}
-                    >
-                        <View className="w-12 h-12 rounded-xl items-center justify-center bg-indigo-500">
-                            <Music size={24} color="white" />
+            {/* Audio & Cover Row */}
+            <View style={{ flexDirection: 'row', marginBottom: 20, gap: 12 }}>
+                {/* Cover Art */}
+                <View>
+                    <Text style={{ color: 'rgba(255,255,255,0.5)', marginBottom: 8, fontWeight: '600', fontSize: 10, letterSpacing: 1 }}>COVER ART</Text>
+                    {coverImage ? (
+                        <View style={{ width: 100, height: 100, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+                            <Image source={{ uri: coverImage }} style={{ width: '100%', height: '100%' }} />
+                            <TouchableOpacity onPress={() => setCoverImage(null)} style={{ position: 'absolute', top: 4, right: 4, backgroundColor: '#000', borderRadius: 8, padding: 2 }}>
+                                <X size={10} color="#fff" />
+                            </TouchableOpacity>
                         </View>
-                        <View className="flex-1 ml-3">
-                            <Text style={{ color: colors.text, fontWeight: '600' }} numberOfLines={1}>{audioName}</Text>
-                            <Text style={{ color: colors.secondary, fontSize: 12 }}>Tap to change</Text>
-                        </View>
-                        <TouchableOpacity onPress={() => { setAudioUri(null); setAudioName(''); }}>
-                            <X size={20} color="#ef4444" />
+                    ) : (
+                        <TouchableOpacity onPress={pickCover} style={{ width: 100, height: 100, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(255,255,255,0.3)', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.02)' }}>
+                            <ImageIcon size={24} color="rgba(255,255,255,0.4)" />
                         </TouchableOpacity>
-                    </View>
-                ) : (
-                    <TouchableOpacity
-                        onPress={pickAudio}
-                        style={{
-                            padding: 32,
-                            backgroundColor: isDark ? '#1a1a1a' : '#f5f5f5',
-                            borderRadius: 16,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            borderWidth: 2,
-                            borderColor: '#6366f1',
-                            borderStyle: 'dashed',
-                        }}
-                    >
-                        <Upload size={48} color="#6366f1" />
-                        <Text style={{ color: '#6366f1', marginTop: 12, fontWeight: '600' }}>Select Audio</Text>
-                        <Text style={{ color: colors.secondary, fontSize: 12, marginTop: 4 }}>MP3, WAV, etc.</Text>
-                    </TouchableOpacity>
-                )}
-            </View>
+                    )}
+                </View>
 
-            {/* Cover Image */}
-            <View className="mb-6">
-                <Text style={{ color: colors.secondary, marginBottom: 8, fontWeight: '600' }}>Cover Art (Optional)</Text>
-                {coverImage ? (
-                    <View className="relative" style={{ width: 120, height: 120, borderRadius: 16, overflow: 'hidden' }}>
-                        <Image source={{ uri: coverImage }} style={{ width: '100%', height: '100%' }} />
-                        <TouchableOpacity
-                            onPress={() => setCoverImage(null)}
-                            className="absolute top-1 right-1 bg-red-500 rounded-full p-1"
-                        >
-                            <X size={12} color="white" />
+                {/* Audio File */}
+                <View style={{ flex: 1 }}>
+                    <Text style={{ color: 'rgba(255,255,255,0.5)', marginBottom: 8, fontWeight: '600', fontSize: 10, letterSpacing: 1 }}>AUDIO FILE</Text>
+                    {audioUri ? (
+                        <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', flexDirection: 'row', alignItems: 'center' }}>
+                            <View style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                                <Music size={20} color="rgba(255,255,255,0.6)" />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                                <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }} numberOfLines={1}>{audioName}</Text>
+                                <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10 }}>Ready to upload</Text>
+                            </View>
+                            <TouchableOpacity onPress={() => { setAudioUri(null); setAudioName(''); }} style={{ padding: 4 }}>
+                                <X size={16} color="rgba(255,255,255,0.5)" />
+                            </TouchableOpacity>
+                        </View>
+                    ) : (
+                        <TouchableOpacity onPress={pickAudio} style={{ flex: 1, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(255,255,255,0.3)', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.02)' }}>
+                            <Upload size={24} color="rgba(255,255,255,0.4)" />
+                            <Text style={{ color: 'rgba(255,255,255,0.4)', marginTop: 4, fontSize: 11, fontWeight: '600' }}>Select Audio</Text>
                         </TouchableOpacity>
-                    </View>
-                ) : (
-                    <TouchableOpacity
-                        onPress={pickCover}
-                        style={{
-                            width: 120,
-                            height: 120,
-                            backgroundColor: isDark ? '#1a1a1a' : '#f5f5f5',
-                            borderRadius: 16,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            borderWidth: 1,
-                            borderColor: colors.border,
-                        }}
-                    >
-                        <ImageIcon size={32} color={colors.secondary} />
-                        <Text style={{ color: colors.secondary, fontSize: 10, marginTop: 4 }}>Add Cover</Text>
-                    </TouchableOpacity>
-                )}
+                    )}
+                </View>
             </View>
 
             {/* Title */}
-            <View className="mb-4">
-                <Text style={{ color: colors.secondary, marginBottom: 8, fontWeight: '600' }}>Title *</Text>
-                <TextInput
-                    value={title}
-                    onChangeText={setTitle}
-                    placeholder="Track title..."
-                    placeholderTextColor={colors.secondary}
-                    style={{
-                        color: colors.text,
-                        backgroundColor: isDark ? '#1a1a1a' : '#f5f5f5',
-                        padding: 16,
-                        borderRadius: 16,
-                        borderWidth: 1,
-                        borderColor: colors.border,
-                    }}
-                />
+            <View style={{ marginBottom: 12 }}>
+                <Text style={{ color: 'rgba(255,255,255,0.5)', marginBottom: 8, fontWeight: '600', fontSize: 11, letterSpacing: 1 }}>TITLE</Text>
+                <TextInput value={title} onChangeText={setTitle} placeholder="Track title..." placeholderTextColor="rgba(255,255,255,0.3)" style={{ color: '#fff', backgroundColor: 'rgba(255,255,255,0.05)', padding: 14, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', fontSize: 15 }} />
             </View>
 
-            {/* Artist */}
-            <View className="mb-4">
-                <Text style={{ color: colors.secondary, marginBottom: 8, fontWeight: '600' }}>Artist</Text>
-                <TextInput
-                    value={artist}
-                    onChangeText={setArtist}
-                    placeholder="Artist name..."
-                    placeholderTextColor={colors.secondary}
-                    style={{
-                        color: colors.text,
-                        backgroundColor: isDark ? '#1a1a1a' : '#f5f5f5',
-                        padding: 16,
-                        borderRadius: 16,
-                        borderWidth: 1,
-                        borderColor: colors.border,
-                    }}
-                />
-            </View>
-
-            {/* Genre */}
-            <View className="mb-4">
-                <Text style={{ color: colors.secondary, marginBottom: 8, fontWeight: '600' }}>Genre</Text>
-                <TextInput
-                    value={genre}
-                    onChangeText={setGenre}
-                    placeholder="e.g. Pop, Rock, Electronic..."
-                    placeholderTextColor={colors.secondary}
-                    style={{
-                        color: colors.text,
-                        backgroundColor: isDark ? '#1a1a1a' : '#f5f5f5',
-                        padding: 16,
-                        borderRadius: 16,
-                        borderWidth: 1,
-                        borderColor: colors.border,
-                    }}
-                />
-            </View>
-
-            {/* Description */}
-            <View className="mb-6">
-                <Text style={{ color: colors.secondary, marginBottom: 8, fontWeight: '600' }}>Description</Text>
-                <TextInput
-                    value={description}
-                    onChangeText={setDescription}
-                    placeholder="What's this about?"
-                    placeholderTextColor={colors.secondary}
-                    multiline
-                    style={{
-                        color: colors.text,
-                        backgroundColor: isDark ? '#1a1a1a' : '#f5f5f5',
-                        padding: 16,
-                        borderRadius: 16,
-                        borderWidth: 1,
-                        borderColor: colors.border,
-                        minHeight: 80,
-                        textAlignVertical: 'top'
-                    }}
-                />
-            </View>
-
-            {/* Visibility */}
-            <View className="mb-6">
-                <Text style={{ color: colors.secondary, marginBottom: 8, fontWeight: '600' }}>Visibility</Text>
-                <View className="flex-row gap-2">
-                    <VisibilityOption value="PUBLIC" label="Public" icon={Globe} />
-                    <VisibilityOption value="FRIENDS" label="Friends" icon={Users} />
-                    <VisibilityOption value="PRIVATE" label="Private" icon={Lock} />
+            {/* Artist & Genre Row */}
+            <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
+                <View style={{ flex: 1 }}>
+                    <Text style={{ color: 'rgba(255,255,255,0.5)', marginBottom: 8, fontWeight: '600', fontSize: 11, letterSpacing: 1 }}>ARTIST</Text>
+                    <TextInput value={artist} onChangeText={setArtist} placeholder="Artist..." placeholderTextColor="rgba(255,255,255,0.3)" style={{ color: '#fff', backgroundColor: 'rgba(255,255,255,0.05)', padding: 14, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', fontSize: 15 }} />
+                </View>
+                <View style={{ flex: 1 }}>
+                    <Text style={{ color: 'rgba(255,255,255,0.5)', marginBottom: 8, fontWeight: '600', fontSize: 11, letterSpacing: 1 }}>GENRE</Text>
+                    <TextInput value={genre} onChangeText={setGenre} placeholder="Genre..." placeholderTextColor="rgba(255,255,255,0.3)" style={{ color: '#fff', backgroundColor: 'rgba(255,255,255,0.05)', padding: 14, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', fontSize: 15 }} />
                 </View>
             </View>
 
+            {/* Description */}
+            <View style={{ marginBottom: 20 }}>
+                <Text style={{ color: 'rgba(255,255,255,0.5)', marginBottom: 8, fontWeight: '600', fontSize: 11, letterSpacing: 1 }}>DESCRIPTION</Text>
+                <TextInput value={description} onChangeText={setDescription} placeholder="About this track..." placeholderTextColor="rgba(255,255,255,0.3)" multiline style={{ color: '#fff', backgroundColor: 'rgba(255,255,255,0.05)', padding: 14, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', minHeight: 70, textAlignVertical: 'top', fontSize: 15 }} />
+            </View>
+
+            {/* Visibility */}
+            <View style={{ marginBottom: 24 }}>
+                <Text style={{ color: 'rgba(255,255,255,0.5)', marginBottom: 12, fontWeight: '600', fontSize: 11, letterSpacing: 1 }}>VISIBILITY</Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                    {[{ value: 'PUBLIC', label: 'Public', Icon: Globe }, { value: 'FRIENDS', label: 'Friends', Icon: Users }, { value: 'PRIVATE', label: 'Private', Icon: Lock }].map(opt => (
+                        <TouchableOpacity key={opt.value} onPress={() => setVisibility(opt.value)} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 12, borderRadius: 8, borderWidth: 1, backgroundColor: visibility === opt.value ? '#fff' : 'transparent', borderColor: visibility === opt.value ? '#fff' : 'rgba(255,255,255,0.2)' }}>
+                            <opt.Icon size={14} color={visibility === opt.value ? '#000' : 'rgba(255,255,255,0.5)'} />
+                            <Text style={{ color: visibility === opt.value ? '#000' : 'rgba(255,255,255,0.5)', fontWeight: '600', fontSize: 11, marginLeft: 6 }}>{opt.label}</Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+            </View>
+
+            {/* Progress */}
+            {loading && (
+                <View style={{ marginBottom: 16 }}>
+                    <View style={{ height: 2, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 1, overflow: 'hidden' }}>
+                        <View style={{ width: `${uploadProgress}%`, height: '100%', backgroundColor: '#fff' }} />
+                    </View>
+                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, marginTop: 8, textAlign: 'center', letterSpacing: 0.5 }}>UPLOADING {Math.round(uploadProgress)}%</Text>
+                </View>
+            )}
+
             {/* Submit */}
-            <TouchableOpacity
-                onPress={handleSubmit}
-                disabled={loading || !audioUri || !title.trim()}
-                style={{
-                    backgroundColor: audioUri && title.trim() ? '#6366f1' : colors.border,
-                    padding: 18,
-                    borderRadius: 16,
-                    alignItems: 'center',
-                    marginBottom: 40,
-                    opacity: loading ? 0.6 : 1,
-                }}
-            >
-                {loading ? (
-                    <ActivityIndicator color="white" />
-                ) : (
-                    <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 18 }}>Post Aud</Text>
-                )}
+            <TouchableOpacity onPress={handleSubmit} disabled={loading || !audioUri || !title.trim()} style={{ backgroundColor: '#fff', padding: 16, borderRadius: 8, alignItems: 'center', marginBottom: 40, opacity: loading || !audioUri || !title.trim() ? 0.3 : 1 }}>
+                {loading ? <ActivityIndicator color="#000" /> : <Text style={{ color: '#000', fontWeight: '700', fontSize: 14, letterSpacing: 0.5 }}>POST AUD</Text>}
             </TouchableOpacity>
         </ScrollView>
     );

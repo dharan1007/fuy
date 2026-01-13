@@ -1,7 +1,8 @@
 // Mobile R2 Upload Helper
 // Uses web API presigned URLs for Cloudflare R2 uploads
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'https://fuy.vercel.app';
+
+const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org';
 
 type MediaType = 'IMAGE' | 'VIDEO' | 'AUDIO';
 

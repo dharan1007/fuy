@@ -4,13 +4,13 @@ let Video: any = null;
 let ImageCompressor: any = null;
 
 // Try to import react-native-compressor, but don't fail if it's not linked
-try {
-    const compressor = require('react-native-compressor');
-    Video = compressor.Video;
-    ImageCompressor = compressor.Image;
-} catch (e) {
-    console.warn('react-native-compressor not available, compression will be skipped');
-}
+// try {
+//     const compressor = require('react-native-compressor');
+//     Video = compressor.Video;
+//     ImageCompressor = compressor.Image;
+// } catch (e) {
+//     console.warn('react-native-compressor not available, compression will be skipped');
+// }
 
 export class CompressionService {
     /**

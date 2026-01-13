@@ -150,7 +150,7 @@ export default function NotificationsScreen() {
                     user: {
                         id: req.user?.id || req.userId,
                         name: req.user?.name || req.user?.profile?.displayName || 'Unknown User',
-                        avatar: req.user?.profile?.avatarUrl || 'https://api.dicebear.com/7.x/avataaars/png?seed=' + req.userId
+                        avatar: req.user?.profile?.avatarUrl || null
                     },
                     content: 'sent you a friend request',
                     time: new Date(req.createdAt).toLocaleDateString(),
@@ -172,7 +172,7 @@ export default function NotificationsScreen() {
                     user: {
                         id: 'system',
                         name: 'System',
-                        avatar: 'https://api.dicebear.com/7.x/initials/png?seed=Sys'
+                        avatar: null
                     },
                     content: cleanContent,
                     time: new Date(n.createdAt).toLocaleDateString(),
@@ -285,10 +285,16 @@ export default function NotificationsScreen() {
             >
                 <View className="p-5">
                     <View className="flex-row gap-4">
-                        <Image
-                            source={{ uri: item.user.avatar }}
-                            className="w-12 h-12 rounded-full border-2 border-white/20"
-                        />
+                        {item.user.avatar ? (
+                            <Image
+                                source={{ uri: item.user.avatar }}
+                                className="w-12 h-12 rounded-full border-2 border-white/20"
+                            />
+                        ) : (
+                            <View className="w-12 h-12 rounded-full border-2 border-white/20 items-center justify-center bg-gray-800">
+                                <Bell size={20} color="white" />
+                            </View>
+                        )}
                         <View className="flex-1">
                             <View className="flex-row justify-between items-start">
                                 <Text className="font-bold text-base flex-1 mr-2 text-white">{item.user.name}</Text>

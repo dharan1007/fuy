@@ -20,7 +20,7 @@ const DEMO_FRIENDS: Friend[] = Array.from({ length: 15 }).map((_, i) => ({
     id: `friend-${i}`,
     name: ['Emma', 'Liam', 'Olivia', 'Noah', 'Ava', 'Ethan', 'Sophia', 'Mason', 'Isabella', 'Lucas'][i % 10],
     displayName: [`emma_x`, `liam.dev`, `olivia.art`, `noah_photo`, `ava.creates`, `ethan_m`, `sophia.d`, `mason_w`, `bella.i`, `lucas.g`][i % 10],
-    avatarUrl: `https://api.dicebear.com/7.x/avataaars/png?seed=friend${i}`,
+    avatarUrl: '',
     status: i < 5 ? 'ACCEPTED' : i < 8 ? 'PENDING' : 'NONE',
     mutualFriends: Math.floor(Math.random() * 20),
 }));
@@ -104,7 +104,7 @@ export default function FriendsScreen() {
             }}
         >
             <Image
-                source={{ uri: item.avatarUrl || `https://api.dicebear.com/7.x/avataaars/png?seed=${item.name}` }}
+                source={{ uri: item.avatarUrl }}
                 style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: colors.secondary }}
             />
             <View style={{ flex: 1, marginLeft: 14 }}>

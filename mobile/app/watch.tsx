@@ -26,7 +26,7 @@ const DEMO_VIDEOS: WatchItem[] = Array.from({ length: 10 }).map((_, i) => ({
     title: ['Amazing sunset', 'City vibes', 'Adventure awaits', 'Creative flow', 'Night life'][i % 5],
     user: {
         name: ['Alex', 'Jordan', 'Sam', 'Taylor', 'Morgan'][i % 5],
-        avatarUrl: `https://api.dicebear.com/7.x/avataaars/png?seed=watch${i}`,
+        avatarUrl: '',
     },
     viewCount: Math.floor(Math.random() * 100000) + 1000,
     likeCount: Math.floor(Math.random() * 10000) + 100,

@@ -23,7 +23,7 @@ const DEMO_STORIES: Story[] = Array.from({ length: 8 }).map((_, i) => ({
     id: `story-${i}`,
     userId: `user-${i}`,
     userName: ['Alex', 'Jordan', 'Sam', 'Taylor', 'Morgan', 'Casey', 'Riley', 'Quinn'][i],
-    userAvatar: `https://api.dicebear.com/7.x/avataaars/png?seed=story${i}`,
+    userAvatar: '',
     media: Array.from({ length: 1 + (i % 3) }).map((_, j) => ({
         url: `https://picsum.photos/seed/${i}${j}/1080/1920`,
         type: 'image' as const,

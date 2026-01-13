@@ -1,16 +1,17 @@
-
-import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, Image, ActivityIndicator, Dimensions } from 'react-native';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { View, Text, FlatList, TouchableOpacity, Image, ActivityIndicator, Dimensions, StyleSheet, ViewToken } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Video, ResizeMode } from 'expo-av';
-import { ArrowLeft, Heart, MessageCircle, Share2 } from 'lucide-react-native';
+import { ArrowLeft, Heart, MessageCircle, Share2, Play } from 'lucide-react-native';
+import { useIsFocused } from '@react-navigation/native';
 import { supabase } from '../../../lib/supabase';
+import { useAuth } from '../../../context/AuthContext';
 
 const { width } = Dimensions.get('window');
 
-// Reusing FeedPost interface essentially
+// Data Types
 interface SimilarPost {
     id: string;
     content: string;
@@ -26,11 +27,137 @@ interface SimilarPost {
     overlap?: number;
 }
 
+// Card Component mimicking FloatingCard style
+const SimilarPostCard = React.memo(({ item, isActive, onPress }: { item: SimilarPost; isActive: boolean; onPress: () => void }) => {
+    const isFocused = useIsFocused();
+    const shouldPlay = isActive && isFocused;
+
+    let coverUrl: string | null = null;
+    let videoUrl: string | null = null;
+
+    if (item.postMedia && item.postMedia.length > 0) {
+        const firstMedia = item.postMedia[0];
+        if (firstMedia.type?.toUpperCase() === 'VIDEO') {
+            videoUrl = firstMedia.url;
+            // Try finding a cover image
+            const img = item.postMedia.find(m => m.type?.toUpperCase() === 'IMAGE');
+            coverUrl = img ? img.url : null; // Logic: specific cover or nothing (video handles poster if needed or we use fallback)
+        } else {
+            coverUrl = firstMedia.url;
+        }
+    }
+
+    return (
+        <View style={styles.cardContainer}>
+            <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={onPress}
+                style={styles.cardInner}
+            >
+                {/* Media Layer */}
+                <View style={styles.mediaContainer}>
+                    {shouldPlay && videoUrl ? (
+                        <Video
+                            source={{ uri: videoUrl }}
+                            style={styles.media}
+                            resizeMode={ResizeMode.COVER}
+                            shouldPlay={true}
+                            isLooping
+                            isMuted={true}
+                        />
+                    ) : (
+                        <>
+                            {coverUrl ? (
+                                <Image source={{ uri: coverUrl }} style={styles.media} resizeMode="cover" />
+                            ) : videoUrl ? (
+                                // Fallback if no cover but video exists (paused)
+                                <Video
+                                    source={{ uri: videoUrl }}
+                                    style={styles.media}
+                                    resizeMode={ResizeMode.COVER}
+                                    shouldPlay={false}
+                                    isMuted={true}
+                                />
+                            ) : (
+                                <View style={[styles.media, { backgroundColor: '#1a1a1a' }]} />
+                            )}
+
+                            {/* Play Icon Overlay for Video when not playing */}
+                            {videoUrl && !isActive && (
+                                <View style={styles.centerOverlay}>
+                                    <View style={styles.playIconContainer}>
+                                        <Play size={20} color="white" fill="white" />
+                                    </View>
+                                </View>
+                            )}
+                        </>
+                    )}
+
+                    <LinearGradient
+                        colors={['transparent', 'rgba(0,0,0,0.8)']}
+                        style={styles.gradient}
+                    />
+                </View>
+
+                {/* Content Overlay */}
+                <View style={styles.contentOverlay}>
+                    {/* Header: User & Badge */}
+                    <View style={styles.cardHeader}>
+                        <View style={styles.userInfo}>
+                            <Image
+                                source={{ uri: item.user.profile?.avatarUrl }}
+                                style={styles.avatar}
+                            />
+                            <View style={{ marginLeft: 8 }}>
+                                <Text style={styles.userName}>{item.user.profile?.displayName || item.user.name}</Text>
+                                {item.matchReason && (
+                                    <Text style={styles.matchReason}>{item.matchReason}</Text>
+                                )}
+                            </View>
+                        </View>
+                    </View>
+
+                    {/* Text Content */}
+                    {item.content ? (
+                        <Text style={styles.postContent} numberOfLines={2}>
+                            {item.content}
+                        </Text>
+                    ) : null}
+
+                    {/* Slashes/Tags */}
+                    {item.slashes && item.slashes.length > 0 && (
+                        <View style={styles.tagsContainer}>
+                            {item.slashes.slice(0, 3).map((slash, i) => (
+                                <Text key={i} style={styles.tag}>#{slash.tag}</Text>
+                            ))}
+                        </View>
+                    )}
+                </View>
+            </TouchableOpacity>
+        </View>
+    );
+});
+
 export default function SimilarPostsScreen() {
     const { id } = useLocalSearchParams();
     const router = useRouter();
+    const { session } = useAuth();
     const [posts, setPosts] = useState<SimilarPost[]>([]);
     const [loading, setLoading] = useState(true);
+    const [activeId, setActiveId] = useState<string | null>(null);
+
+    // Viewability Config
+    const viewabilityConfig = useRef({
+        itemVisiblePercentThreshold: 80, // High threshold to ensure focus
+        waitForInteraction: false,
+    });
+
+    const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+        if (viewableItems.length > 0) {
+            // Auto-play the first fully visible item
+            setActiveId(viewableItems[0].key);
+        }
+    }, []);
 
     useEffect(() => {
         if (id) fetchSimilarPosts();
@@ -39,11 +166,7 @@ export default function SimilarPostsScreen() {
     const fetchSourcePost = async () => {
         const { data } = await supabase
             .from('Post')
-            .select(`
-                id,
-                postType,
-                content
-            `)
+            .select('id, postType, content')
             .eq('id', id)
             .single();
         return data;
@@ -51,7 +174,28 @@ export default function SimilarPostsScreen() {
 
     const fetchSimilarPosts = async () => {
         try {
+            setLoading(true);
             const source = await fetchSourcePost();
+
+            // --- Safety Filtering ---
+            let excludedUserIds: string[] = [];
+            let hiddenPostIds: string[] = [];
+
+            // Get current user directly to avoid race condition
+            const { data: { user } } = await supabase.auth.getUser();
+            const myId = user?.id;
+
+            if (myId) {
+                const [muted, blocked, hidden] = await Promise.all([
+                    supabase.from('MutedUser').select('mutedUserId').eq('muterId', myId),
+                    supabase.from('BlockedUser').select('blockedId').eq('blockerId', myId),
+                    supabase.from('HiddenPost').select('postId').eq('userId', myId)
+                ]);
+
+                if (muted.data) excludedUserIds.push(...muted.data.map(m => m.mutedUserId));
+                if (blocked.data) excludedUserIds.push(...blocked.data.map(b => b.blockedId));
+                if (hidden.data) hiddenPostIds.push(...hidden.data.map(h => h.postId));
+            }
 
             let query = supabase
                 .from('Post')
@@ -69,25 +213,24 @@ export default function SimilarPostsScreen() {
                         media:Media (url, type, variant)
                     )
                 `)
-                .neq('id', id) // Exclude current
+                .neq('id', id)
                 .eq('visibility', 'PUBLIC')
                 .order('createdAt', { ascending: false })
                 .limit(50);
 
-            // Filter by same postType to match "Vibe" since Slashes are broken
-            if (source?.postType) {
-                // specific filtering if needed, otherwise recent public posts match "Explore" vibe
-                // query = query.eq('postType', source.postType); // Optional: enforcing this might reduce results too much.
+            // Apply safety filters
+            if (excludedUserIds.length > 0) {
+                query = query.not('userId', 'in', `(${excludedUserIds.join(',')})`);
+            }
+            if (hiddenPostIds.length > 0) {
+                query = query.not('id', 'in', `(${hiddenPostIds.join(',')})`);
             }
 
             const { data, error } = await query;
-
             if (error) throw error;
 
             let mapped: SimilarPost[] = (data || []).map((post: any) => {
-                // Determine if similar based on type?
                 const isSameType = source?.postType === post.postType;
-
                 return {
                     id: post.id,
                     content: post.content,
@@ -104,10 +247,12 @@ export default function SimilarPostsScreen() {
                 };
             });
 
-            // Sort by type match
             mapped = mapped.sort((a, b) => b.overlap - a.overlap);
-
             setPosts(mapped);
+
+            // Set initial active
+            if (mapped.length > 0) setActiveId(mapped[0].id);
+
         } catch (error) {
             console.error('Error fetching similar posts:', error);
             setPosts([]);
@@ -116,97 +261,178 @@ export default function SimilarPostsScreen() {
         }
     };
 
-    const renderItem = ({ item }: { item: SimilarPost }) => (
-        <View className="mb-6 rounded-2xl mx-4 overflow-hidden bg-zinc-900 border border-zinc-800">
-            {/* Match Reason Badge */}
-            {item.matchReason && (
-                <View className="flex-row items-center justify-center py-2 border-b border-white/10 bg-white/5">
-                    <Text className="text-[10px] font-bold uppercase tracking-widest text-white/60">
-                        {item.matchReason}
-                    </Text>
-                </View>
-            )}
-
-            {/* Header */}
-            <View className="flex-row items-center p-4">
-                <Image
-                    source={{ uri: item.user.profile?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/png?seed=${item.user.name}` }}
-                    className="w-10 h-10 rounded-full bg-zinc-800"
-                />
-                <View className="ml-3 flex-1">
-                    <Text className="font-bold text-base text-white">
-                        {item.user.profile?.displayName || item.user.name}
-                    </Text>
-                    {item.slashes && item.slashes.length > 0 && (
-                        <View className="flex-row flex-wrap gap-1 mt-1">
-                            {item.slashes.slice(0, 3).map((slash, i) => (
-                                <Text key={i} className="text-zinc-500 text-xs">/{slash.tag}</Text>
-                            ))}
-                        </View>
-                    )}
-                </View>
-            </View>
-
-            {/* Content */}
-            {item.content ? (
-                <Text className="px-4 pb-3 text-base leading-6 text-zinc-300">
-                    {item.content}
-                </Text>
-            ) : null}
-
-            {/* Media */}
-            {item.postMedia && item.postMedia.length > 0 && (
-                <View className="w-full bg-black relative" style={{ aspectRatio: item.postType === 'LILL' ? 9 / 16 : 16 / 9 }}>
-                    <Image
-                        source={{ uri: item.postMedia[0].url }}
-                        className="w-full h-full"
-                        resizeMode="cover"
-                    />
-                    {item.postMedia[0].type?.toUpperCase() === 'VIDEO' && (
-                        <View className="absolute inset-0 items-center justify-center bg-black/20">
-                            <View className="w-12 h-12 rounded-full bg-white/20 items-center justify-center backdrop-blur-sm">
-                                <View className="w-0 h-0 border-l-[14px] border-l-white border-t-[9px] border-t-transparent border-b-[9px] border-b-transparent ml-1" />
-                            </View>
-                        </View>
-                    )}
-                </View>
-            )}
-
-            {/* Footers */}
-            <View className="flex-row items-center justify-between px-4 py-3 border-t border-zinc-800">
-                <View className="flex-row gap-6">
-                    <Heart color="white" size={20} />
-                    <MessageCircle color="white" size={20} />
-                    <Share2 color="white" size={20} />
-                </View>
-            </View>
-        </View>
-    );
-
     return (
-        <View className="flex-1 bg-black">
-            <SafeAreaView className="flex-1" edges={['top']}>
+        <View style={styles.container}>
+            <SafeAreaView style={styles.safeArea} edges={['top']}>
                 {/* Header */}
-                <View className="flex-row items-center px-4 py-4 border-b border-zinc-900">
-                    <TouchableOpacity onPress={() => router.back()} className="mr-4">
+                <View style={styles.header}>
+                    <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                         <ArrowLeft color="white" size={24} />
                     </TouchableOpacity>
-                    <Text className="text-xl font-bold text-white">Similar Vibes</Text>
+                    <Text style={styles.headerTitle}>Similar Vibes</Text>
                 </View>
 
                 {loading ? (
-                    <View className="flex-1 items-center justify-center">
+                    <View style={styles.centered}>
                         <ActivityIndicator size="large" color="#fff" />
                     </View>
                 ) : (
                     <FlatList
                         data={posts}
-                        renderItem={renderItem}
+                        renderItem={({ item }) => (
+                            <SimilarPostCard
+                                item={item}
+                                isActive={item.id === activeId}
+                                onPress={() => router.push(`/post/${item.id}` as any)}
+                            />
+                        )}
                         keyExtractor={item => item.id}
-                        contentContainerStyle={{ paddingVertical: 20 }}
+                        contentContainerStyle={styles.listContent}
+                        onViewableItemsChanged={onViewableItemsChanged}
+                        viewabilityConfig={viewabilityConfig.current}
+                        showsVerticalScrollIndicator={false}
                     />
                 )}
             </SafeAreaView>
         </View>
     );
 }
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: 'black',
+    },
+    safeArea: {
+        flex: 1,
+    },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 16,
+        paddingBottom: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#1a1a1a',
+        backgroundColor: 'black',
+    },
+    backButton: {
+        marginRight: 16,
+    },
+    headerTitle: {
+        color: 'white',
+        fontSize: 20,
+        fontWeight: 'bold',
+    },
+    centered: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    listContent: {
+        padding: 16,
+        paddingBottom: 40,
+    },
+    // Card Styles
+    cardContainer: {
+        marginBottom: 24,
+        borderRadius: 24,
+        shadowColor: 'black',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.5,
+        shadowRadius: 8,
+        elevation: 5,
+    },
+    cardInner: {
+        backgroundColor: '#1a1a1a',
+        borderRadius: 24,
+        overflow: 'hidden',
+        width: '100%',
+        aspectRatio: 0.8, // Tall-ish Card ratio
+    },
+    mediaContainer: {
+        flex: 1,
+        position: 'relative',
+    },
+    media: {
+        width: '100%',
+        height: '100%',
+        backgroundColor: '#1a1a1a',
+    },
+    gradient: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: '50%',
+    },
+    centerOverlay: {
+        position: 'absolute',
+        inset: 0,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: 'rgba(0,0,0,0.2)',
+    },
+    playIconContainer: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    contentOverlay: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        padding: 16,
+    },
+    cardHeader: {
+        flexDirection: 'row',
+        marginBottom: 8,
+    },
+    userInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    avatar: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        borderWidth: 1.5,
+        borderColor: 'white',
+    },
+    userName: {
+        color: 'white',
+        fontWeight: 'bold',
+        fontSize: 14,
+        textShadowColor: 'rgba(0,0,0,0.5)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 3,
+    },
+    matchReason: {
+        color: '#ccc',
+        fontSize: 10,
+        fontWeight: '600',
+        textTransform: 'uppercase',
+    },
+    postContent: {
+        color: 'white',
+        fontSize: 14,
+        lineHeight: 20,
+        marginBottom: 8,
+        textShadowColor: 'rgba(0,0,0,0.8)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 2,
+    },
+    tagsContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 6,
+    },
+    tag: {
+        color: '#aaa',
+        fontSize: 12,
+        fontWeight: '600',
+    },
+});

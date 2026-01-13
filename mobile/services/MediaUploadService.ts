@@ -1,6 +1,6 @@
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://fuy.vercel.app';
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org';
 
 export interface UploadResult {
     url: string;

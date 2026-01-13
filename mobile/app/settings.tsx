@@ -86,10 +86,10 @@ export default function SettingsScreen() {
             onPress: () => router.push('/notifications')
         },
         {
-            label: 'Privacy & Security',
+            label: 'Safety & Privacy',
             icon: Lock,
             colorClass: 'bg-emerald-500',
-            onPress: () => Alert.alert("Coming Soon", "Privacy settings will be available in the next update.")
+            onPress: () => router.push('/safety')
         },
     ];
 

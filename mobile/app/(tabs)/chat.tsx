@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, TextInput, ScrollView, TouchableOpacity, Image, Modal, Animated, Dimensions, FlatList, ActivityIndicator, Alert, BackHandler, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, ScrollView, TouchableOpacity, Image, Modal, Animated, Dimensions, FlatList, ActivityIndicator, Alert, BackHandler, KeyboardAvoidingView, Platform, Keyboard, StatusBar } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useNavigation, useFocusEffect } from 'expo-router';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import { Mic, Send, Search, Settings, MoreVertical, Phone, Video, Image as ImageIcon, Smile, X, ChevronLeft, Sparkles, User as UserIcon, Sun, Moon, Anchor, Heart, Map as MapIcon, Book, Plus, Tag, Frown, AlertTriangle } from 'lucide-react-native';
+import { Mic, Send, Search, Settings, MoreVertical, Phone, Video, Image as ImageIcon, Smile, X, ChevronLeft, Sparkles, User as UserIcon, Sun, Moon, Anchor, Heart, Map as MapIcon, Book, Plus, Tag, Frown, AlertTriangle, Check, CheckCheck, Clock } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../lib/supabase';
@@ -15,8 +15,31 @@ import { MediaUploadService } from '../../services/MediaUploadService';
 import * as ImagePicker from 'expo-image-picker';
 import { Video as AVVideo, ResizeMode } from 'expo-av';
 import { Paperclip } from 'lucide-react-native';
+import Constants from 'expo-constants';
 
 const { width } = Dimensions.get('window');
+
+const getApiUrl = () => {
+    // Production / Explicit Override
+    if (process.env.EXPO_PUBLIC_API_URL) return process.env.EXPO_PUBLIC_API_URL;
+
+    // Development: Auto-detect LAN IP from Expo Go
+    if (__DEV__) {
+        const hostUri = Constants.expoConfig?.hostUri || Constants.manifest?.debuggerHost;
+        if (hostUri) {
+            const ip = hostUri.split(':')[0];
+            // Returns http://192.168.x.x:3000 for physical device or emulator
+            return `http://${ip}:3000`;
+        }
+        // Fallback for Android Emulator if detection fails
+        if (Platform.OS === 'android') return 'http://10.0.2.2:3000';
+    }
+
+    // Default Production
+    return 'https://www.fuymedia.org';
+};
+
+const API_URL = getApiUrl();
 
 type PersonaType = 'friend' | 'therapist' | 'coach' | 'mystic';
 
@@ -34,7 +57,7 @@ interface Message {
 interface ChatUser {
     id: string;
     name: string;
-    avatar: string;
+    avatar: string | null;
     status: 'online' | 'offline' | 'away';
     lastMessage?: string;
     lastMessageAt?: string;
@@ -62,6 +85,47 @@ export default function ChatScreen() {
     const [dbUserId, setDbUserId] = useState<string | null>(null);
     const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
     const [sortMode, setSortMode] = useState<'recent' | 'pinned' | 'followers'>('pinned');
+    const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+    // Keyboard visibility listener for Android pan mode
+    useEffect(() => {
+        const showSub = Keyboard.addListener('keyboardDidShow', () => setIsKeyboardVisible(true));
+        const hideSub = Keyboard.addListener('keyboardDidHide', () => setIsKeyboardVisible(false));
+        return () => {
+            showSub.remove();
+            hideSub.remove();
+        };
+    }, []);
+
+    // Nickname State
+    const [nicknames, setNicknames] = useState<Record<string, string>>({});
+    const [showNicknameModal, setShowNicknameModal] = useState(false);
+    const [editUser, setEditUser] = useState<ChatUser | null>(null);
+    const [tempNickname, setTempNickname] = useState('');
+
+    useEffect(() => {
+        AsyncStorage.getItem('chatNicknames').then(json => {
+            if (json) setNicknames(JSON.parse(json));
+        });
+    }, []);
+
+    const handleSaveNickname = async () => {
+        if (!editUser) return;
+        const newNicks = { ...nicknames, [editUser.id]: tempNickname.trim() };
+        if (!tempNickname.trim()) delete newNicks[editUser.id];
+        setNicknames(newNicks);
+        await AsyncStorage.setItem('chatNicknames', JSON.stringify(newNicks));
+        setShowNicknameModal(false);
+        setEditUser(null);
+    };
+
+    const [showOptionsModal, setShowOptionsModal] = useState(false);
+    const [optionsUser, setOptionsUser] = useState<ChatUser | null>(null);
+
+    const handleShowOptions = (user: ChatUser) => {
+        setOptionsUser(user);
+        setShowOptionsModal(true);
+    };
 
     const [currentUserAvatar, setCurrentUserAvatar] = useState<string | null>(null);
 
@@ -81,7 +145,25 @@ export default function ChatScreen() {
     const [chatBackground, setChatBackground] = useState<string | null>(null);
     const [messageRetention, setMessageRetention] = useState<'forever' | '1day' | 'viewonce' | 'custom'>('forever');
     const [customRetentionDays, setCustomRetentionDays] = useState(7);
+
     const [isUploading, setIsUploading] = useState(false);
+
+    // Safety: Blocked Users
+    const [blockedIds, setBlockedIds] = useState<Set<string>>(new Set());
+
+    useEffect(() => {
+        if (!dbUserId) return;
+        const fetchBlocks = async () => {
+            const { data: blocked } = await supabase.from('BlockedUser').select('blockedId').eq('blockerId', dbUserId);
+            const { data: blocker } = await supabase.from('BlockedUser').select('blockerId').eq('blockedId', dbUserId);
+
+            const ids = new Set<string>();
+            if (blocked) blocked.forEach((b: any) => ids.add(b.blockedId));
+            if (blocker) blocker.forEach((b: any) => ids.add(b.blockerId));
+            setBlockedIds(ids);
+        };
+        fetchBlocks();
+    }, [dbUserId]);
 
     // Resolve DB User ID from Email and Fetch Profile Avatar
     useEffect(() => {
@@ -129,12 +211,6 @@ export default function ChatScreen() {
     );
 
     // Dbot State
-    const [isVoiceMode, setIsVoiceMode] = useState(false);
-    const [persona, setPersona] = useState<PersonaType>('friend');
-    const [showPersonaSelector, setShowPersonaSelector] = useState(false);
-    const [showApps, setShowApps] = useState(false);
-
-
     const slideAnim = useRef(new Animated.Value(width)).current;
     const activeConversationIdRef = useRef<string | null>(null);
     // Load Pinned IDs
@@ -211,18 +287,42 @@ export default function ChatScreen() {
     }, [dbUserId]);
 
     // Subscribe to messages when a chat is open
+    // Ref to hold channel for broadcast sending
+    const chatChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
     useEffect(() => {
         if (!activeConversationIdRef.current || !dbUserId) return;
 
         const channel = supabase.channel(`chat:${activeConversationIdRef.current}`)
+            // FAST PATH: Listen for broadcast messages (instant delivery)
+            .on('broadcast', { event: 'new_message' }, (payload) => {
+                const newMsg = payload.payload;
+                // Skip if it's our own message (already added via optimistic update)
+                if (newMsg.senderId === dbUserId) return;
+                setMessages(prev => {
+                    if (prev.find(m => m.id === newMsg.id)) return prev;
+                    markAsRead(newMsg.id);
+                    return [...prev, {
+                        id: newMsg.id,
+                        role: 'assistant',
+                        content: newMsg.content,
+                        type: newMsg.type || 'text',
+                        mediaUrl: newMsg.mediaUrl,
+                        timestamp: newMsg.timestamp || Date.now(),
+                        senderId: newMsg.senderId,
+                        readAt: null
+                    }];
+                });
+            })
+            // FALLBACK PATH: Listen for postgres_changes (for offline users, ensures persistence)
             .on('postgres_changes',
                 { event: '*', schema: 'public', table: 'Message', filter: `conversationId=eq.${activeConversationIdRef.current}` },
                 (payload) => {
                     if (payload.eventType === 'INSERT') {
                         const newMsg = payload.new;
                         setMessages(prev => {
+                            // DEDUPLICATION: Skip if already received via broadcast
                             if (prev.find(m => m.id === newMsg.id)) return prev;
-                            // If received message from partner, mark as read immediately if we are here
                             if (newMsg.senderId !== dbUserId) {
                                 markAsRead(newMsg.id);
                             }
@@ -245,16 +345,22 @@ export default function ChatScreen() {
             )
             .subscribe();
 
+        chatChannelRef.current = channel;
+
         // Mark existing unread messages as read when opening
         markAllAsRead(activeConversationIdRef.current);
 
-        return () => { supabase.removeChannel(channel); };
+        return () => {
+            supabase.removeChannel(channel);
+            chatChannelRef.current = null;
+        };
     }, [activeConversationIdRef.current, dbUserId]);
 
     // --- Data Fetching ---
 
     const fetchConversations = async () => {
-        if (!dbUserId) return;
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        if (!currentUser) return;
 
         try {
             // Fetch conversations where user is A or B
@@ -267,29 +373,30 @@ export default function ChatScreen() {
                     lastMessageAt,
                     participantA,
                     participantB,
-                    participantB,
                     userA:participantA ( id, name, lastSeen, followersCount, profile:Profile(avatarUrl, displayName) ),
                     userB:participantB ( id, name, lastSeen, followersCount, profile:Profile(avatarUrl, displayName) )
                 `)
-                .or(`participantA.eq.${dbUserId},participantB.eq.${dbUserId}`)
+                .or(`participantA.eq.${currentUser.id},participantB.eq.${currentUser.id}`)
                 .order('lastMessageAt', { ascending: false });
 
             if (error) throw error;
 
+            if (error) throw error;
+
             const formatted: ChatUser[] = data.map((c: any) => {
-                const isA = c.participantA === dbUserId;
+                const isA = c.participantA === currentUser.id;
                 const partner = isA ? c.userB : c.userA;
 
                 // Safety check if partner user was deleted
                 if (!partner) return null;
 
                 const name = partner.profile?.displayName || partner.name || 'Unknown User';
-                const avatar = partner.profile?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/png?seed=${partner.id}`;
+                const avatar = partner.profile?.avatarUrl || null; // No fallback avatar
 
                 return {
                     id: partner.id,
                     name: name,
-                    avatar: avatar,
+                    avatar: avatar, // Type needs to update or handle empty string? ChatUser defines string. I can pass empty string.
                     status: (isUserOnline(partner.lastSeen) ? 'online' : 'offline') as 'online' | 'offline' | 'away',
                     lastMessage: c.lastMessage || 'Start a conversation',
                     lastMessageAt: c.lastMessageAt,
@@ -299,7 +406,7 @@ export default function ChatScreen() {
                     isPinned: pinnedIds.has(partner.id),
                     conversationId: c.id
                 };
-            }).filter(Boolean) as ChatUser[];
+            }).filter(Boolean).filter((u: any) => !blockedIds.has(u.id)) as ChatUser[];
 
             setConversations(formatted);
         } catch (err) {
@@ -350,10 +457,10 @@ export default function ChatScreen() {
             const formatted = data.map((u: any) => ({
                 id: u.id,
                 name: u.profile?.displayName || u.name || 'Unknown',
-                avatar: u.profile?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/png?seed=${u.id}`,
+                avatar: u.profile?.avatarUrl || '',
                 status: (isUserOnline(u.lastSeen) ? 'online' : 'offline') as 'online' | 'offline' | 'away',
                 lastSeen: u.lastSeen
-            }));
+            })).filter((u: any) => !blockedIds.has(u.id));
 
             setSearchResults(formatted);
         } catch (err) {
@@ -362,7 +469,9 @@ export default function ChatScreen() {
     };
 
     const fetchMessages = async (conversationId: string) => {
-        if (!dbUserId) return;
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
         try {
             const { data, error } = await supabase
                 .from('Message')
@@ -374,7 +483,7 @@ export default function ChatScreen() {
 
             setMessages(data.map((m: any) => ({
                 id: m.id,
-                role: m.senderId === dbUserId ? 'user' : 'assistant',
+                role: m.senderId === user.id ? 'user' : 'assistant',
                 content: m.content,
                 type: m.type,
                 mediaUrl: m.mediaUrl,
@@ -390,7 +499,11 @@ export default function ChatScreen() {
     // --- Actions ---
 
     const handleUserSelect = async (user: ChatUser) => {
-        if (!dbUserId) return;
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        if (!currentUser) {
+            Alert.alert("Error", "You must be logged in.");
+            return;
+        }
 
         setIsLoading(true);
         setSelectedUser(user);
@@ -404,17 +517,6 @@ export default function ChatScreen() {
             stiffness: 100,
         }).start();
 
-        if (user.id === 'dbot') {
-            setMessages([{
-                id: 'init', role: 'assistant',
-                content: `Hello! I'm dbot in ${persona} mode. How can I support you?`,
-                timestamp: Date.now()
-            }]);
-            activeConversationIdRef.current = null;
-            setIsLoading(false);
-            return;
-        }
-
         try {
             // Find existing conversation or create new one
             // First, check if we already fetched it in the list
@@ -425,7 +527,7 @@ export default function ChatScreen() {
                 const { data: existing, error } = await supabase
                     .from('Conversation')
                     .select('id')
-                    .or(`and(participantA.eq.${dbUserId},participantB.eq.${user.id}),and(participantA.eq.${user.id},participantB.eq.${dbUserId})`)
+                    .or(`and(participantA.eq.${currentUser.id},participantB.eq.${user.id}),and(participantA.eq.${user.id},participantB.eq.${currentUser.id})`)
                     .maybeSingle(); // Use maybeSingle to avoid error if not found
 
                 if (existing) {
@@ -435,7 +537,7 @@ export default function ChatScreen() {
                     const { data: newConv, error: createError } = await supabase
                         .from('Conversation')
                         .insert({
-                            participantA: dbUserId,
+                            participantA: currentUser.id,
                             participantB: user.id,
                             updatedAt: new Date().toISOString()
                         })
@@ -451,6 +553,7 @@ export default function ChatScreen() {
             await fetchMessages(conversationId);
         } catch (err) {
             console.error('Error selecting chat:', err);
+            Alert.alert("Error", "Failed to load chat.");
         } finally {
             setIsLoading(false);
         }
@@ -472,32 +575,45 @@ export default function ChatScreen() {
     };
 
     const sendMessage = async () => {
-        if (!inputText.trim() || !dbUserId) return;
+        if (!inputText.trim()) return;
+
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+            Alert.alert("Error", "You must be logged in to send messages");
+            return;
+        }
 
         const content = inputText.trim();
         setInputText('');
+        const senderId = user.id;
 
-        // Optimistic Update
-        const tempId = Date.now().toString();
+        // Generate cuid-style ID (similar to Prisma's default)
+        const messageId = `cm${Date.now().toString(36)}${Math.random().toString(36).substring(2, 11)}`;
+
+        const timestamp = Date.now();
+
+        // Optimistic Update - use the same ID that will be inserted
         setMessages(prev => [...prev, {
-            id: tempId,
+            id: messageId,
             role: 'user',
             content,
-            timestamp: Date.now(),
-            senderId: dbUserId
+            timestamp,
+            senderId: senderId
         }]);
 
-        if (selectedUser?.id === 'dbot') {
-            // Mock Dbot response for demo
-            setTimeout(() => {
-                setMessages(prev => [...prev, {
-                    id: Date.now().toString(),
-                    role: 'assistant',
-                    content: "I'm meant to be connected to an AI backend, but for now I'm just a demo bot on mobile! 🤖",
-                    timestamp: Date.now()
-                }]);
-            }, 1000);
-            return;
+        // FAST PATH: Broadcast message instantly to other clients
+        if (chatChannelRef.current) {
+            chatChannelRef.current.send({
+                type: 'broadcast',
+                event: 'new_message',
+                payload: {
+                    id: messageId,
+                    content,
+                    senderId,
+                    timestamp,
+                    type: 'text'
+                }
+            });
         }
 
         try {
@@ -506,12 +622,17 @@ export default function ChatScreen() {
             const { error } = await supabase
                 .from('Message')
                 .insert({
+                    id: messageId,
                     conversationId: activeConversationIdRef.current,
-                    senderId: dbUserId,
-                    content
+                    senderId: senderId,
+                    content,
+                    type: 'text'
                 });
 
-            if (error) throw error;
+            if (error) {
+                console.error("Supabase Message Insert Error:", JSON.stringify(error, null, 2));
+                throw error;
+            }
 
             // Update Conversation lastMessage
             await supabase
@@ -522,8 +643,10 @@ export default function ChatScreen() {
                 })
                 .eq('id', activeConversationIdRef.current);
 
-        } catch (err) {
+        } catch (err: any) {
             console.error('Error sending message:', err);
+            Alert.alert("Delivery Failed", `Could not send message: ${err.message || 'Unknown error'}`);
+            // Optionally remove the optimistic message here
         }
     };
 
@@ -691,10 +814,59 @@ export default function ChatScreen() {
         }
     };
 
-    const getGradientColors = (): [string, string, string] => {
-        return mode === 'light' ? ['#ffffff', '#f8f9fa', '#e9ecef'] :
-            mode === 'eye-care' ? ['#F5E6D3', '#E6D5C0', '#DBC4A0'] :
-                ['#000000', '#0a0a0a', '#171717'];
+
+
+
+
+    const handlePickMedia = async (type: 'image' | 'video') => {
+        try {
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: type === 'image' ? ImagePicker.MediaTypeOptions.Images : ImagePicker.MediaTypeOptions.Videos,
+                allowsEditing: true,
+                quality: 0.8,
+                videoMaxDuration: 60,
+            });
+
+            if (!result.canceled && result.assets[0] && dbUserId) {
+                setIsUploading(true);
+                try {
+                    const file = result.assets[0];
+                    let uploadResult;
+
+                    if (type === 'image') {
+                        uploadResult = await MediaUploadService.uploadImage(file.uri);
+                    } else {
+                        uploadResult = await MediaUploadService.uploadVideo(file.uri);
+                    }
+
+                    // Send the message with media
+                    if (activeConversationIdRef.current && session?.user?.id) {
+                        const { error } = await supabase.from('Message').insert({
+                            conversationId: activeConversationIdRef.current,
+                            senderId: session.user.id,
+                            content: type === 'image' ? '[Image]' : '[Video]',
+                            type: type,
+                            mediaUrl: uploadResult.url
+                        });
+
+                        if (error) throw error;
+
+                        // Update conversation last message
+                        await supabase.from('Conversation').update({
+                            lastMessage: type === 'image' ? '[Image]' : '[Video]',
+                            lastMessageAt: new Date().toISOString()
+                        }).eq('id', activeConversationIdRef.current);
+                    }
+                } catch (err) {
+                    Alert.alert('Upload Failed', 'Could not upload media');
+                    console.error(err);
+                } finally {
+                    setIsUploading(false);
+                }
+            }
+        } catch (err) {
+            console.error('Media picker error:', err);
+        }
     };
 
     // --- Render Components ---
@@ -703,11 +875,17 @@ export default function ChatScreen() {
         <View className="px-6 pt-4 pb-2 flex-row justify-between items-center z-10 pl-16">
             <Text className="text-3xl font-bold" style={{ color: colors.text }}>Messages</Text>
             <TouchableOpacity>
-                <Image
-                    source={{ uri: currentUserAvatar || session?.user?.user_metadata?.avatar_url || 'https://api.dicebear.com/7.x/avataaars/png?seed=Me' }}
-                    className="w-10 h-10 rounded-full border-2"
-                    style={{ borderColor: colors.border }}
-                />
+                {currentUserAvatar ? (
+                    <Image
+                        source={{ uri: currentUserAvatar }}
+                        className="w-10 h-10 rounded-full border-2"
+                        style={{ borderColor: colors.border }}
+                    />
+                ) : (
+                    <View className="w-10 h-10 rounded-full border-2 items-center justify-center bg-zinc-800" style={{ borderColor: colors.border }}>
+                        <UserIcon size={20} color={colors.text} />
+                    </View>
+                )}
             </TouchableOpacity>
         </View>
     );
@@ -744,276 +922,215 @@ export default function ChatScreen() {
     const renderUserList = () => (
         <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false}>
             {/* Dbot */}
-            <TouchableOpacity
-                onPress={() => handleUserSelect({ id: 'dbot', name: 'dbot AI', avatar: 'https://api.dicebear.com/7.x/bottts/png?seed=dbot', status: 'online' })}
-                className="mb-6"
-            >
-                <BlurView
-                    intensity={40}
-                    tint={mode === 'light' ? 'light' : 'dark'}
-                    className="p-4 rounded-3xl flex-row items-center overflow-hidden border"
-                    style={{ borderColor: colors.border }}
-                >
-                    <View className="w-14 h-14 rounded-full items-center justify-center border" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
-                        <Sparkles color={colors.text} size={28} />
-                    </View>
-                    <View className="flex-1 ml-4">
-                        <Text className="text-lg font-bold" style={{ color: colors.text }}>dbot AI</Text>
-                        <Text className="text-sm" style={{ color: colors.secondary }}>Your personal companion</Text>
-                    </View>
-                </BlurView>
-            </TouchableOpacity>
-
             <Text className="text-sm font-semibold mb-4" style={{ color: colors.secondary }}>
                 {searchQuery ? 'SEARCH RESULTS' : 'RECENT CONVERSATIONS'}
             </Text>
-
-            {(getSortedConversations()).map((user) => (
-                <TouchableOpacity
+            {getSortedConversations().map((user) => (
+                <View
                     key={user.id}
-                    onPress={() => handleUserSelect(user)}
-                    onLongPress={() => {
-                        Alert.alert(
-                            user.isPinned ? 'Unpin Chat' : 'Pin Chat',
-                            `Do you want to ${user.isPinned ? 'unpin' : 'pin'} specific chat?`,
-                            [
-                                { text: 'Cancel', style: 'cancel' },
-                                { text: user.isPinned ? 'Unpin' : 'Pin', onPress: () => handlePin(user.id) }
-                            ]
-                        );
-                    }}
                     className="flex-row items-center mb-5 p-3 rounded-2xl"
                     style={{ backgroundColor: user.isPinned ? (mode === 'light' ? '#f0f9ff' : '#1e3a8a30') : 'transparent' }}
                 >
-                    <Image source={{ uri: user.avatar }} className="w-14 h-14 rounded-2xl bg-gray-200" />
-                    <View className="flex-1 ml-4 border-b pb-4" style={{ borderColor: colors.border }}>
-                        <View className="flex-row justify-between items-center mb-1">
-                            <Text className="text-base font-bold" style={{ color: colors.text }}>
-                                {user.name} {user.isPinned && '📌'}
-                            </Text>
-                            {user.lastMessageAt && (
-                                <Text className="text-xs" style={{ color: colors.secondary }}>
-                                    {new Date(user.lastMessageAt).toLocaleDateString()}
+                    <TouchableOpacity
+                        onPress={() => handleUserSelect(user)}
+                        className="flex-1 flex-row items-center"
+                    >
+                        {user.avatar ? (
+                            <Image source={{ uri: user.avatar }} className="w-14 h-14 rounded-2xl bg-gray-200" />
+                        ) : (
+                            <View className="w-14 h-14 rounded-2xl bg-gray-200 items-center justify-center">
+                                <UserIcon size={24} color={colors.secondary} />
+                            </View>
+                        )}
+                        <View className="flex-1 ml-4 border-b pb-4" style={{ borderColor: colors.border }}>
+                            <View className="flex-row justify-between items-center mb-1">
+                                <Text className="text-base font-bold" style={{ color: colors.text }}>
+                                    {nicknames[user.id] || user.name} {user.isPinned && '📌'}
                                 </Text>
-                            )}
+                                {user.lastMessageAt && (
+                                    <Text className="text-xs" style={{ color: colors.secondary }}>
+                                        {new Date(user.lastMessageAt).toLocaleDateString()}
+                                    </Text>
+                                )}
+                            </View>
+                            <Text numberOfLines={1} className="text-sm font-semibold" style={{ color: colors.secondary }}>
+                                {user.lastMessage || 'Open to chat'}
+                            </Text>
                         </View>
-                        <Text numberOfLines={1} className="text-sm font-semibold" style={{ color: colors.secondary }}>
-                            {user.lastMessage || 'Open to chat'}
-                        </Text>
-                    </View>
-                </TouchableOpacity>
-            ))}
-
-            {!searchQuery && conversations.length === 0 && (
-                <View className="items-center mt-10 opacity-50">
-                    <Text style={{ color: colors.secondary }}>No conversations yet.</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => handleShowOptions(user)} className="p-2 ml-2">
+                        <MoreVertical size={20} color={colors.secondary} />
+                    </TouchableOpacity>
                 </View>
-            )}
+            ))}
         </ScrollView>
     );
+
+
 
     const renderChatRoom = () => {
         if (!selectedUser) return null;
         const isDbot = selectedUser.id === 'dbot';
 
         return (
-            <Animated.View style={{ transform: [{ translateX: slideAnim }] }} className="absolute inset-0 z-50">
-                <LinearGradient colors={getGradientColors()} className="flex-1">
-                    <KeyboardAvoidingView
-                        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                        className="flex-1"
-                        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-                    >
-                        <SafeAreaView className="flex-1">
-                            {/* Header */}
-                            <BlurView intensity={80} tint={mode === 'light' ? 'light' : 'dark'} className="flex-row items-center justify-between px-4 py-3 border-b" style={{ borderColor: colors.border }}>
-                                <View className="flex-row items-center flex-1">
-                                    <TouchableOpacity onPress={handleBack} className="mr-3 p-2 rounded-full">
-                                        <ChevronLeft color={colors.text} size={24} />
-                                    </TouchableOpacity>
-                                    <Image source={{ uri: selectedUser.avatar }} className="w-10 h-10 rounded-full bg-gray-200" />
-                                    <View className="ml-3 flex-1">
-                                        <View className="flex-row items-center gap-2">
-                                            <Text className="text-base font-bold" numberOfLines={1} style={{ color: colors.text }}>{selectedUser.name}</Text>
-                                        </View>
-                                        <Text className="text-xs" style={{ color: colors.secondary }}>{isDbot ? 'AI Companion' : selectedUser.status}</Text>
-                                    </View>
-                                </View>
+            <Animated.View style={{ transform: [{ translateX: slideAnim }], backgroundColor: colors.background, position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50 }}>
+                <SafeAreaView className="flex-1">
+                    {/* Header - OUTSIDE KeyboardAvoidingView to stay fixed */}
+                    <BlurView intensity={80} tint={mode === 'light' ? 'light' : 'dark'} className="flex-row items-center justify-between px-4 py-3 border-b" style={{ borderColor: colors.border }}>
+                        <View className="flex-row items-center flex-1">
+                            <TouchableOpacity onPress={handleBack} className="mr-3 p-2 rounded-full">
+                                <ChevronLeft color={colors.text} size={24} />
+                            </TouchableOpacity>
+                            <Image source={{ uri: selectedUser.avatar }} className="w-10 h-10 rounded-full bg-gray-200" />
+                            <View className="ml-3 flex-1">
                                 <View className="flex-row items-center gap-2">
-                                    <TouchableOpacity onPress={() => router.push({
-                                        pathname: '/bonding',
-                                        params: {
-                                            userId: selectedUser.id,
-                                            userName: selectedUser.name,
-                                            userAvatar: selectedUser.avatar
-                                        }
-                                    })} className="p-2 rounded-full bg-gray-200/20">
-                                        <Heart size={20} color={colors.text} />
-                                    </TouchableOpacity>
-                                    {/* Chat Settings */}
-                                    <TouchableOpacity onPress={() => setShowChatSettings(true)} className="p-2 rounded-full bg-gray-200/20">
-                                        <MoreVertical size={20} color={colors.text} />
-                                    </TouchableOpacity>
-                                    <TouchableOpacity onPress={() => setShowApps(!showApps)} className={`p-2 rounded-full ${showApps ? 'bg-indigo-500' : 'bg-gray-200/20'}`}>
-                                        <Plus size={20} color={showApps ? 'white' : colors.text} style={{ transform: [{ rotate: showApps ? '45deg' : '0deg' }] }} />
-                                    </TouchableOpacity>
+                                    <Text className="text-base font-bold" numberOfLines={1} style={{ color: colors.text }}>{selectedUser.name}</Text>
                                 </View>
-                            </BlurView>
+                                <Text className="text-xs" style={{ color: colors.secondary }}>{isDbot ? 'AI Companion' : selectedUser.status}</Text>
+                            </View>
+                        </View>
+                        <View className="flex-row items-center gap-2">
+                            <TouchableOpacity onPress={() => router.push({
+                                pathname: '/bonding',
+                                params: {
+                                    userId: selectedUser.id,
+                                    userName: selectedUser.name,
+                                    userAvatar: selectedUser.avatar
+                                }
+                            })} className="p-2 rounded-full bg-gray-200/20">
+                                <Heart size={20} color={colors.text} />
+                            </TouchableOpacity>
+                            {/* Chat Settings */}
+                            <TouchableOpacity onPress={() => setShowChatSettings(true)} className="p-2 rounded-full bg-gray-200/20">
+                                <MoreVertical size={20} color={colors.text} />
+                            </TouchableOpacity>
 
-                            {/* Collaborative Apps Toolbar */}
-                            {showApps && (
-                                <View className="flex-row justify-around py-4 border-b" style={{ borderColor: colors.border, backgroundColor: colors.card }}>
-                                    <TouchableOpacity onPress={() => router.push('/grounding')} className="items-center">
-                                        <View className="p-3 rounded-full bg-purple-100 dark:bg-purple-900/30 mb-1">
-                                            <Anchor size={20} color="#a855f7" />
-                                        </View>
-                                        <Text style={{ color: colors.secondary, fontSize: 10 }}>WREX</Text>
-                                    </TouchableOpacity>
+                        </View>
+                    </BlurView>
 
-                                    <TouchableOpacity onPress={() => router.push('/(tabs)/journal')} className="items-center">
-                                        <View className="p-3 rounded-full bg-violet-100 dark:bg-violet-900/30 mb-1">
-                                            <Book size={20} color="#8b5cf6" />
-                                        </View>
-                                        <Text style={{ color: colors.secondary, fontSize: 10 }}>Journal</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity onPress={() => router.push('/hopin')} className="items-center">
-                                        <View className="p-3 rounded-full bg-blue-100 dark:bg-blue-900/30 mb-1">
-                                            <MapIcon size={20} color="#3b82f6" />
-                                        </View>
-                                        <Text style={{ color: colors.secondary, fontSize: 10 }}>Hopin</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            )}
+                    {/* Messages and Input - Inside KeyboardAvoidingView */}
+                    <KeyboardAvoidingView
+                        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+                        className="flex-1"
+                        keyboardVerticalOffset={0}
+                    >
 
-                            {/* Messages */}
-                            {isLoading ? (
-                                <View className="flex-1 items-center justify-center">
-                                    <ActivityIndicator size="large" color={colors.primary} />
-                                </View>
-                            ) : (
-                                <ScrollView
-                                    className="flex-1 px-4 py-6"
-                                    contentContainerStyle={{ paddingBottom: 20 }}
-                                    ref={ref => ref?.scrollToEnd({ animated: true })}
-                                >
-                                    {messages.map((msg, index) => {
-                                        // Check if this is the last message sent by ME
-                                        const isMe = msg.role === 'user';
-                                        const isLastFromMe = isMe && index === messages.length - 1;
-                                        const isLast = index === messages.length - 1;
 
-                                        // Ghosted Logic: 
-                                        // If last message is from me, NOT read, and > 5 hours have passed
-                                        const isGhosted = isLastFromMe && !msg.readAt && (Date.now() - msg.timestamp > 5 * 60 * 60 * 1000);
 
-                                        return (
-                                            <View
-                                                key={msg.id}
-                                                className={`mb-4 max-w-[85%] ${isMe ? 'self-end' : 'self-start'}`}
-                                            >
-                                                <View className={`flex-row items-start gap-1 ${isMe ? 'flex-row-reverse' : ''}`}>
-                                                    {/* 3-dots menu for tagging (only for non-dbot) */}
-                                                    {selectedUser?.id !== 'dbot' && (
-                                                        <TouchableOpacity
-                                                            onPress={() => {
-                                                                setSelectedMessage(msg);
-                                                                setShowTagModal(true);
-                                                            }}
-                                                            className="p-1 mt-2"
-                                                        >
-                                                            <MoreVertical size={16} color={colors.secondary} />
-                                                        </TouchableOpacity>
+                        {/* Messages */}
+                        {isLoading ? (
+                            <View className="flex-1 items-center justify-center">
+                                <ActivityIndicator size="large" color={colors.primary} />
+                            </View>
+                        ) : (
+                            <ScrollView
+                                className="flex-1 px-4 py-6"
+                                contentContainerStyle={{ paddingBottom: 20 }}
+                                ref={ref => ref?.scrollToEnd({ animated: true })}
+                            >
+                                {messages.map((msg, index) => {
+                                    // Check if this is the last message sent by ME
+                                    const isMe = msg.role === 'user';
+                                    const isLastFromMe = isMe && index === messages.length - 1;
+                                    const isLast = index === messages.length - 1;
+
+                                    // Ghosted Logic: 
+                                    // If last message is from me, NOT read, and > 5 hours have passed
+                                    const isGhosted = isLastFromMe && !msg.readAt && (Date.now() - msg.timestamp > 5 * 60 * 60 * 1000);
+
+                                    return (
+                                        <View
+                                            key={msg.id}
+                                            className={`mb-4 max-w-[85%] ${isMe ? 'self-end' : 'self-start'}`}
+                                        >
+                                            <View className={`flex-row items-start gap-1 ${isMe ? 'flex-row-reverse' : ''}`}>
+                                                {/* 3-dots menu for tagging (only for non-dbot) */}
+                                                {selectedUser?.id !== 'dbot' && (
+                                                    <TouchableOpacity
+                                                        onPress={() => {
+                                                            setSelectedMessage(msg);
+                                                            setShowTagModal(true);
+                                                        }}
+                                                        className="p-1 mt-2"
+                                                    >
+                                                        <MoreVertical size={16} color={colors.secondary} />
+                                                    </TouchableOpacity>
+                                                )}
+
+                                                {/* Message bubble */}
+                                                {/* Standardized Chat Bubbles - High Contrast - Compact */}
+                                                <View
+                                                    className={`px-3 py-2 rounded-2xl overflow-hidden ${isMe ? 'rounded-br-none' : 'rounded-bl-none'}`}
+                                                    style={{
+                                                        backgroundColor: isMe ? (mode === 'light' ? '#000000' : '#FFFFFF') : (mode === 'light' ? '#E5E5EA' : '#262626'),
+                                                        borderWidth: 0
+                                                    }}
+                                                >
+                                                    {msg.type === 'image' && msg.mediaUrl ? (
+                                                        <Image source={{ uri: msg.mediaUrl }} style={{ width: 200, height: 260, borderRadius: 8 }} resizeMode="cover" />
+                                                    ) : msg.type === 'video' && msg.mediaUrl ? (
+                                                        <AVVideo
+                                                            source={{ uri: msg.mediaUrl }}
+                                                            style={{ width: 200, height: 260, borderRadius: 8 }}
+                                                            useNativeControls
+                                                            resizeMode={ResizeMode.COVER}
+                                                        />
+                                                    ) : (
+                                                        <Text className="text-sm" style={{ color: isMe ? (mode === 'light' ? '#FFFFFF' : '#000000') : (mode === 'light' ? '#000000' : '#FFFFFF') }}>{msg.content}</Text>
                                                     )}
 
-                                                    {/* Message bubble */}
-                                                    <View className="flex-1">
-                                                        {/* Message bubble - Android Fallback for BlurView visibility issues */}
-                                                        {Platform.OS === 'android' ? (
-                                                            <View className="px-5 py-3 rounded-2xl border overflow-hidden" style={{
-                                                                backgroundColor: colors.card,
-                                                                borderColor: colors.border,
-                                                                borderBottomRightRadius: isMe ? 0 : 16,
-                                                                borderBottomLeftRadius: isMe ? 16 : 0
-                                                            }}>
-                                                                {msg.type === 'image' && msg.mediaUrl ? (
-                                                                    <Image source={{ uri: msg.mediaUrl }} style={{ width: 240, height: 320, borderRadius: 8 }} resizeMode="cover" />
-                                                                ) : msg.type === 'video' && msg.mediaUrl ? (
-                                                                    <AVVideo
-                                                                        source={{ uri: msg.mediaUrl }}
-                                                                        style={{ width: 240, height: 320, borderRadius: 8 }}
-                                                                        useNativeControls
-                                                                        resizeMode={ResizeMode.COVER}
-                                                                    />
+                                                    {/* Time and Status Footer */}
+                                                    <View className="flex-row items-center justify-end mt-1 gap-1">
+                                                        <Text style={{ fontSize: 9, color: isMe ? (mode === 'light' ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)') : (mode === 'light' ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.6)') }}>
+                                                            {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                        </Text>
+                                                        {isMe && (
+                                                            <View>
+                                                                {msg.readAt ? (
+                                                                    <CheckCheck size={10} color="#3B82F6" />
                                                                 ) : (
-                                                                    <Text className="text-base" style={{ color: colors.text }}>{msg.content}</Text>
+                                                                    <Check size={10} color={mode === 'light' ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)'} />
                                                                 )}
                                                             </View>
-                                                        ) : (
-                                                            <BlurView intensity={40} tint={mode === 'light' ? 'light' : 'dark'} className="px-5 py-3 rounded-2xl border overflow-hidden" style={{
-                                                                backgroundColor: isMe ? colors.card : 'transparent',
-                                                                borderColor: colors.border,
-                                                                borderBottomRightRadius: isMe ? 0 : 16,
-                                                                borderBottomLeftRadius: isMe ? 16 : 0
-                                                            }}>
-                                                                {msg.type === 'image' && msg.mediaUrl ? (
-                                                                    <Image source={{ uri: msg.mediaUrl }} style={{ width: 240, height: 320, borderRadius: 8 }} resizeMode="cover" />
-                                                                ) : msg.type === 'video' && msg.mediaUrl ? (
-                                                                    <AVVideo
-                                                                        source={{ uri: msg.mediaUrl }}
-                                                                        style={{ width: 240, height: 320, borderRadius: 8 }}
-                                                                        useNativeControls
-                                                                        resizeMode={ResizeMode.COVER}
-                                                                    />
-                                                                ) : (
-                                                                    <Text className="text-base" style={{ color: colors.text }}>{msg.content}</Text>
-                                                                )}
-                                                            </BlurView>
-                                                        )}
-                                                        <View className={`flex-row items-center gap-1 mt-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
-                                                            <Text className="text-[10px]" style={{ color: colors.secondary }}>
-                                                                {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                            </Text>
-                                                            {isLastFromMe && msg.readAt && (
-                                                                <Text className="text-[10px] font-bold text-blue-500 ml-1">Seen</Text>
-                                                            )}
-                                                        </View>
-                                                        {isGhosted && (
-                                                            <Text className="text-[10px] text-red-500 text-right mt-1 font-bold">
-                                                                Ghosted for {Math.floor((Date.now() - msg.timestamp) / (60 * 60 * 1000))} hrs
-                                                            </Text>
                                                         )}
                                                     </View>
                                                 </View>
                                             </View>
-                                        );
-                                    })}
-                                </ScrollView>
-                            )}
-
-                            {/* Bonding Warning Display */}
-                            {showBondingWarning && (
-                                <View className="px-4 py-2" style={{ backgroundColor: '#fef2f2' }}>
-                                    {bondingWarnings.blacklist.length > 0 && (
-                                        <View className="flex-row items-center gap-2 mb-1">
-                                            <AlertTriangle size={14} color="#ef4444" />
-                                            <Text className="text-xs text-red-500 flex-1">
-                                                ⚠️ Blacklisted content detected
-                                            </Text>
                                         </View>
-                                    )}
-                                    {bondingWarnings.facts.length > 0 && (
-                                        <View className="flex-row items-center gap-2">
-                                            <AlertTriangle size={14} color="#f59e0b" />
-                                            <Text className="text-xs text-amber-600 flex-1">
-                                                💡 {bondingWarnings.facts.map(f => `"${f.keyword}": ${f.warningText}`).join(', ')}
-                                            </Text>
-                                        </View>
-                                    )}
-                                </View>
-                            )}
+                                    );
+                                })}
+                            </ScrollView>
+                        )}
 
-                            {/* Input */}
-                            <BlurView intensity={90} tint={mode === 'light' ? 'light' : 'dark'} className="px-4 py-4 border-t pb-8" style={{ borderColor: colors.border }}>
+                        {/* Bonding Warning Display */}
+                        {showBondingWarning && (
+                            <View className="px-4 py-2" style={{ backgroundColor: '#fef2f2' }}>
+                                {bondingWarnings.blacklist.length > 0 && (
+                                    <View className="flex-row items-center gap-2 mb-1">
+                                        <AlertTriangle size={14} color="#ef4444" />
+                                        <Text className="text-xs text-red-500 flex-1">
+                                            ⚠️ Blacklisted content detected
+                                        </Text>
+                                    </View>
+                                )}
+                                {bondingWarnings.facts.length > 0 && (
+                                    <View className="flex-row items-center gap-2">
+                                        <AlertTriangle size={14} color="#f59e0b" />
+                                        <Text className="text-xs text-amber-600 flex-1">
+                                            💡 {bondingWarnings.facts.map(f => `"${f.keyword}": ${f.warningText}`).join(', ')}
+                                        </Text>
+                                    </View>
+                                )}
+                            </View>
+                        )}
+
+                        {/* Input or Blocked Message */}
+                        {blockedIds.has(selectedUser.id) ? (
+                            <View className="px-4 py-6 border-t items-center justify-center" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
+                                <Text style={{ color: colors.secondary, fontWeight: '600' }}>You cannot message this user.</Text>
+                            </View>
+                        ) : (
+                            <BlurView intensity={90} tint={mode === 'light' ? 'light' : 'dark'} className="px-4 py-3 border-t" style={{ borderColor: colors.border }}>
                                 <View className="flex-row items-center gap-2">
                                     {/* Media button */}
                                     <TouchableOpacity className="p-2" onPress={() => {
@@ -1038,69 +1155,22 @@ export default function ChatScreen() {
                                         onChangeText={handleInputChange}
                                         className="flex-1 h-12 px-4 rounded-full border"
                                         style={{ backgroundColor: colors.card, borderColor: colors.border, color: colors.text }}
+                                        onSubmitEditing={sendMessage}
+                                        returnKeyType="send"
                                     />
                                     <TouchableOpacity onPress={sendMessage} className="w-12 h-12 rounded-full items-center justify-center shadow-lg" style={{ backgroundColor: colors.primary }}>
                                         <Send color={mode === 'light' ? '#fff' : '#000'} size={20} />
                                     </TouchableOpacity>
                                 </View>
                             </BlurView>
-                        </SafeAreaView>
+                        )}
                     </KeyboardAvoidingView>
-                </LinearGradient>
+                </SafeAreaView>
             </Animated.View>
         );
     };
 
-    const handlePickMedia = async (type: 'image' | 'video') => {
-        try {
-            const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: type === 'image' ? ImagePicker.MediaTypeOptions.Images : ImagePicker.MediaTypeOptions.Videos,
-                allowsEditing: true,
-                quality: 0.8,
-                videoMaxDuration: 60,
-            });
 
-            if (!result.canceled && result.assets[0] && dbUserId) {
-                setIsUploading(true);
-                try {
-                    const file = result.assets[0];
-                    let uploadResult;
-
-                    if (type === 'image') {
-                        uploadResult = await MediaUploadService.uploadImage(file.uri);
-                    } else {
-                        uploadResult = await MediaUploadService.uploadVideo(file.uri);
-                    }
-
-                    // Send the message with media
-                    if (activeConversationIdRef.current) {
-                        const { error } = await supabase.from('Message').insert({
-                            conversationId: activeConversationIdRef.current,
-                            senderId: dbUserId,
-                            content: type === 'image' ? '📷 Image' : '📹 Video',
-                            type: type,
-                            mediaUrl: uploadResult.url
-                        });
-
-                        if (error) throw error;
-
-                        // Update conversation last message
-                        await supabase.from('Conversation').update({
-                            lastMessage: type === 'image' ? '📷 Image' : '📹 Video',
-                            lastMessageAt: new Date().toISOString()
-                        }).eq('id', activeConversationIdRef.current);
-                    }
-                } catch (err) {
-                    Alert.alert('Upload Failed', 'Could not upload media');
-                    console.error(err);
-                } finally {
-                    setIsUploading(false);
-                }
-            }
-        } catch (err) {
-            console.error('Media picker error:', err);
-        }
-    };
 
     // Tag Modal
     const renderTagModal = () => (
@@ -1280,8 +1350,40 @@ export default function ChatScreen() {
         </Modal>
     );
 
+    const renderNicknameModal = () => (
+        <Modal
+            visible={showNicknameModal}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowNicknameModal(false)}
+        >
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1 justify-center items-center bg-black/50 px-6">
+                <View className="w-full bg-white dark:bg-zinc-900 rounded-3xl p-6">
+                    <Text className="text-xl font-bold mb-4" style={{ color: colors.text }}>Set Nickname</Text>
+                    <TextInput
+                        value={tempNickname}
+                        onChangeText={setTempNickname}
+                        placeholder="Enter nickname..."
+                        placeholderTextColor={colors.secondary}
+                        className="p-4 rounded-xl border mb-6 text-base"
+                        style={{ borderColor: colors.border, color: colors.text, backgroundColor: colors.card }}
+                        autoFocus
+                    />
+                    <View className="flex-row justify-end gap-4">
+                        <TouchableOpacity onPress={() => setShowNicknameModal(false)}>
+                            <Text className="text-base font-medium px-4 py-2" style={{ color: colors.secondary }}>Cancel</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={handleSaveNickname} className="bg-indigo-500 px-6 py-2 rounded-full">
+                            <Text className="text-white font-bold text-base">Save</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </KeyboardAvoidingView>
+        </Modal>
+    );
+
     return (
-        <LinearGradient colors={getGradientColors()} className="flex-1">
+        <View style={{ flex: 1, backgroundColor: colors.background }}>
             <SafeAreaView className="flex-1">
                 {renderHeader()}
                 {renderSearchBar()}
@@ -1289,7 +1391,71 @@ export default function ChatScreen() {
                 {renderChatRoom()}
                 {renderTagModal()}
                 {renderChatSettingsModal()}
+                {renderNicknameModal()}
+                {/* User Options Modal */}
+                <Modal visible={showOptionsModal} transparent animationType="fade" onRequestClose={() => setShowOptionsModal(false)}>
+                    <TouchableOpacity
+                        className="flex-1 bg-black/50 justify-center items-center p-6"
+                        activeOpacity={1}
+                        onPress={() => setShowOptionsModal(false)}
+                    >
+                        <BlurView intensity={90} tint={mode === 'light' ? 'light' : 'dark'} className="w-full max-w-sm rounded-3xl overflow-hidden p-6 border border-white/10">
+                            {optionsUser && (
+                                <>
+                                    <View className="items-center mb-6">
+                                        <Image
+                                            source={{ uri: optionsUser.avatar || '' }}
+                                            className="w-20 h-20 rounded-full mb-3 bg-gray-200"
+                                        />
+                                        <Text className="text-xl font-bold text-center" style={{ color: colors.text }}>
+                                            {nicknames[optionsUser.id] || optionsUser.name}
+                                        </Text>
+                                    </View>
+
+                                    <View className="gap-3">
+                                        <TouchableOpacity
+                                            onPress={() => {
+                                                handlePin(optionsUser.id);
+                                                setShowOptionsModal(false);
+                                            }}
+                                            className="flex-row items-center p-4 rounded-xl"
+                                            style={{ backgroundColor: colors.card }}
+                                        >
+                                            <Anchor size={20} color={colors.text} />
+                                            <Text className="ml-3 font-semibold text-base" style={{ color: colors.text }}>
+                                                {optionsUser.isPinned ? 'Unpin User' : 'Pin User'}
+                                            </Text>
+                                        </TouchableOpacity>
+
+                                        <TouchableOpacity
+                                            onPress={() => {
+                                                setShowOptionsModal(false);
+                                                setEditUser(optionsUser);
+                                                setTempNickname(nicknames[optionsUser.id] || '');
+                                                setShowNicknameModal(true);
+                                            }}
+                                            className="flex-row items-center p-4 rounded-xl"
+                                            style={{ backgroundColor: colors.card }}
+                                        >
+                                            <Tag size={20} color={colors.text} />
+                                            <Text className="ml-3 font-semibold text-base" style={{ color: colors.text }}>
+                                                Set Nickname
+                                            </Text>
+                                        </TouchableOpacity>
+
+                                        <TouchableOpacity
+                                            onPress={() => setShowOptionsModal(false)}
+                                            className="mt-2 py-4 items-center"
+                                        >
+                                            <Text className="text-base font-medium" style={{ color: colors.secondary }}>Cancel</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </>
+                            )}
+                        </BlurView>
+                    </TouchableOpacity>
+                </Modal>
             </SafeAreaView>
-        </LinearGradient>
+        </View>
     );
 }

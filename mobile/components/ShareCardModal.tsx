@@ -177,8 +177,8 @@ export default function ShareCardModal({ visible, onClose, cardCode, cardOwnerNa
                 }}
             >
                 <Image
-                    source={{ uri: item.avatarUrl || `https://api.dicebear.com/7.x/avataaars/png?seed=${item.name}` }}
-                    className="w-10 h-10 rounded-full mr-3"
+                    source={{ uri: item.avatarUrl }}
+                    className="w-10 h-10 rounded-full mr-3 bg-gray-200"
                 />
                 <Text className="flex-1 font-medium" style={{ color: colors.text }}>{item.name}</Text>
                 {isSelected && (

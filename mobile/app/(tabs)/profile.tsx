@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Image, Dimensions, FlatList, Modal, RefreshControl, Share, Alert } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Settings, Bell, Grid, List, Plus, Heart, MessageCircle, Share2, MoreHorizontal, Edit3, Camera, Users, ChevronLeft, LogOut, Eye } from 'lucide-react-native';
+import { Settings, Bell, Grid, List, Plus, Heart, MessageCircle, Share2, MoreHorizontal, Edit3, Camera, Users, ChevronLeft, LogOut, Eye, Play } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
@@ -15,7 +15,10 @@ const COLUMN_WIDTH = width / 3 - 2;
 
 interface Post {
     id: string;
-    media: { url: string; type: string }[];
+    media: { url: string; type: string }[] | null;
+    content?: string;
+    postType?: string;
+    createdAt?: string;
     likes?: number;
 }
 
@@ -40,7 +43,7 @@ export default function ProfileScreen() {
     const router = useRouter();
     const { session } = useAuth();
     const { colors, mode } = useTheme();
-    const [activeTab, setActiveTab] = useState<'grid' | 'list'>('grid');
+    const [activeTab, setActiveTab] = useState<'grid' | 'sixts' | 'media' | 'locker'>('grid');
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [profileData, setProfileData] = useState<ProfileData | null>(null);
@@ -67,149 +70,65 @@ export default function ProfileScreen() {
 
         try {
             const userId = session.user.id;
-            const userEmail = session.user.email;
+            setDbUserId(userId);
 
-            // 1. Fetch User details
-            let userResult = await supabase
+            // 1. Fetch User & Profile
+            const { data: userData, error: userError } = await supabase
                 .from('User')
-                .select(`
-                    id,
-                    name,
-                    profile:Profile (displayName, avatarUrl, bio)
-                `)
+                .select(`id, name, profile:Profile(displayName, avatarUrl, bio)`)
                 .eq('id', userId)
                 .single();
 
-            if (userResult.error && userEmail) {
-                userResult = await supabase
-                    .from('User')
-                    .select(`
-                        id,
-                        name,
-                        profile:Profile (displayName, avatarUrl, bio)
-                    `)
-                    .eq('email', userEmail)
-                    .single();
-            }
+            if (userError) console.log("User fetch error:", userError.message);
 
-            // Fallback to lowercase 'user' if capital failed completely
-            if (userResult.error) {
-                userResult = await supabase
-                    .from('user')
-                    .select(`
-                        id,
-                        name,
-                        profile:profile (displayName, avatarUrl, bio)
-                    `)
-                    .eq('id', userId)
-                    .single();
-            }
+            // 2. Counts
+            const { count: followersCount } = await supabase.from('Friendship').select('*', { count: 'exact', head: true }).eq('friendId', userId);
+            const { count: followingCount } = await supabase.from('Friendship').select('*', { count: 'exact', head: true }).eq('userId', userId);
 
-            let userData = userResult.data;
-
-            // Handle User Creation if missing
-            if (!userData && userEmail) {
-                console.log('Creating user...');
-                const { data: newUser } = await supabase
-                    .from('User')
-                    .insert({ id: userId, email: userEmail, name: userEmail.split('@')[0] })
-                    .select().single();
-                if (newUser) {
-                    userData = newUser;
-                    await supabase.from('Profile').insert({
-                        userId: userId,
-                        displayName: userEmail.split('@')[0],
-                        avatarUrl: `https://api.dicebear.com/7.x/avataaars/png?seed=${userId}`
-                    });
-                }
-            }
-
-            const targetId = userData?.id || userId;
-            setDbUserId(targetId);
-
-            // 2. Fetch Real Counts from Friendship table
-            const followersCountRes = await supabase
-                .from('Friendship')
-                .select('*', { count: 'exact', head: true })
-                .eq('friendId', targetId);
-
-            const followingCountRes = await supabase
-                .from('Friendship')
-                .select('*', { count: 'exact', head: true })
-                .eq('userId', targetId);
-
-            // 3. Fetch Posts
-            let postsResult = await supabase
+            // 3. Fetch ALL Posts (using Post table standard)
+            // We select enough data to determine type and media
+            const { data: postsData, error: postsError } = await supabase
                 .from('Post')
                 .select(`
                     id,
+                    content,
                     postType,
-                    media:Media(url, type),
-                    lillData:Lill(thumbnailUrl, videoUrl),
-                    fillData:Fill(thumbnailUrl, videoUrl),
-                    xrayData:Xray(topLayerUrl),
-                    audData:Aud(coverImageUrl),
-                    chanData:Chan(coverImageUrl)
+                    createdAt,
+                    postMedia:PostMedia(media:Media(url, type)),
+                    chanData:Chan(coverImageUrl),
+                    user:User(name, profile:Profile(displayName, avatarUrl))
                 `)
-                .eq('userId', targetId)
+                .eq('userId', userId)
                 .order('createdAt', { ascending: false });
 
-            // Fallback for posts
-            if (postsResult.error) {
-                postsResult = await supabase
-                    .from('post')
-                    .select(`
-                        id,
-                        postType,
-                        media:media(url, type),
-                        lillData:lill(thumbnailUrl, videoUrl),
-                        fillData:fill(thumbnailUrl, videoUrl),
-                        xrayData:xray(topLayerUrl),
-                        audData:aud(coverImageUrl),
-                        chanData:chan(coverImageUrl)
-                    `)
-                    .eq('userId', targetId)
-                    .order('createdAt', { ascending: false });
-            }
+            if (postsError) console.error("Posts fetch error:", postsError.message);
 
-            const postsData = postsResult.data || [];
+            const allPosts = (postsData || []).map((p: any) => {
+                // Extract media from PostMedia relationship
+                const mediaItems = (p.postMedia || []).map((pm: any) => pm.media).filter(Boolean);
+                return {
+                    id: p.id,
+                    content: p.content,
+                    postType: p.postType,
+                    media: mediaItems,
+                    likes: 0
+                };
+            });
+
+            // Handle potential array from Supabase relation
+            const profileObj = Array.isArray(userData?.profile) ? userData.profile[0] : userData?.profile;
 
             setProfileData({
-                name: userData?.name || session.user.email || 'User',
+                name: userData?.name || 'User',
                 profile: {
-                    displayName: (userData?.profile as any)?.displayName || userData?.name || 'Explorer',
-                    avatarUrl: (userData?.profile as any)?.avatarUrl || '',
-                    bio: (userData?.profile as any)?.bio || '',
-                    coverVideoUrl: undefined
+                    displayName: profileObj?.displayName || userData?.name || 'User',
+                    avatarUrl: profileObj?.avatarUrl || '',
+                    bio: profileObj?.bio || '',
                 },
-                followersCount: followersCountRes.count || 0,
-                followingCount: followingCountRes.count || 0,
-                stats: {
-                    posts: postsData.length,
-                    friends: 0
-                },
-                posts: postsData.map((p: any) => {
-                    // Resolve Thumbnail based on Post Type
-                    let thumb = '';
-                    if (p.media && p.media.length > 0) thumb = p.media[0].url;
-
-                    if (!thumb) {
-                        if (p.postType === 'LILL' && p.lillData) thumb = p.lillData.thumbnailUrl || p.lillData.videoUrl;
-                        else if (p.postType === 'FILL' && p.fillData) thumb = p.fillData.thumbnailUrl || p.fillData.videoUrl;
-                        else if (p.postType === 'XRAY' && p.xrayData) thumb = p.xrayData.topLayerUrl;
-                        else if (p.postType === 'AUD' && p.audData) thumb = p.audData.coverImageUrl;
-                        else if (p.postType === 'CHAN' && p.chanData) thumb = p.chanData.coverImageUrl;
-                    }
-
-                    // Fallback
-                    if (!thumb) thumb = `https://source.unsplash.com/random/400x400?sig=${p.id}`;
-
-                    return {
-                        id: p.id,
-                        media: [{ url: thumb, type: 'image' }], // Normalize for UI
-                        likes: 0
-                    };
-                })
+                followersCount: followersCount || 0,
+                followingCount: followingCount || 0,
+                stats: { posts: allPosts.length, friends: 0 },
+                posts: allPosts
             });
 
         } catch (e) {
@@ -348,7 +267,7 @@ export default function ProfileScreen() {
                     {/* Liquid Glass Avatar Border */}
                     <BlurView intensity={20} tint={mode === 'light' ? 'light' : 'dark'} className="p-1 rounded-[36px] overflow-hidden">
                         <Image
-                            source={{ uri: profile?.avatarUrl || 'https://api.dicebear.com/7.x/avataaars/png?seed=' + (profileData?.name || 'User') }}
+                            source={{ uri: profile?.avatarUrl }}
                             className="w-28 h-28 rounded-[32px]"
                             style={{ backgroundColor: colors.secondary }}
                         />
@@ -399,86 +318,103 @@ export default function ProfileScreen() {
             {/* Profile Card Action */}
             <View className="flex-row gap-2 mb-6">
                 <TouchableOpacity
-                    onPress={() => router.push('/profile-card/editor')}
-                    className="flex-1 py-3 rounded-2xl items-center justify-center flex-row gap-2"
-                    style={{ backgroundColor: colors.primary }}
+                    onPress={() => router.push('/settings')}
+                    className="flex-1 py-3 rounded-2xl items-center justify-center border"
+                    style={{ backgroundColor: colors.background, borderColor: colors.border }}
                 >
-                    <Text className="font-bold" style={{ color: mode === 'dark' ? '#000' : '#fff' }}>My Profile Card</Text>
+                    <Text className="font-bold" style={{ color: colors.text }}>Edit Profile</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                    onPress={() => {
-                        // Pass resolved DB user ID to view own card
-                        if (dbUserId) {
-                            router.push({ pathname: '/profile-card/view', params: { userId: dbUserId } });
-                        }
-                    }}
-                    className="aspect-square rounded-2xl items-center justify-center border"
-                    style={{ backgroundColor: colors.card, borderColor: colors.border }}
+                    onPress={() => router.push('/profile-card/editor')}
+                    className="flex-1 py-3 rounded-2xl items-center justify-center border"
+                    style={{ backgroundColor: colors.background, borderColor: colors.border }}
                 >
-                    <Eye size={20} color={colors.text} />
+                    <Text className="font-bold" style={{ color: colors.text }}>Card</Text>
                 </TouchableOpacity>
             </View>
         </View>
     );
 
-    const renderContent = () => (
-        <View className="flex-1 rounded-t-[40px] overflow-hidden min-h-[500px]" style={{ backgroundColor: colors.card }}>
-            {/* Tabs */}
-            <View className="flex-row justify-between items-center px-8 py-5 border-b" style={{ borderColor: colors.border }}>
-                <Text style={{ color: colors.text }} className="font-bold text-lg tracking-wide">Recent Posts</Text>
-                <View className="flex-row gap-4 p-1 rounded-xl" style={{ backgroundColor: colors.background }}>
-                    <TouchableOpacity
-                        onPress={() => setActiveTab('grid')}
-                        className={`p-2 rounded-lg`}
-                        style={{ backgroundColor: activeTab === 'grid' ? colors.border : 'transparent' }}
-                    >
-                        <Grid color={activeTab === 'grid' ? colors.text : colors.secondary} size={20} />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        onPress={() => setActiveTab('list')}
-                        className={`p-2 rounded-lg`}
-                        style={{ backgroundColor: activeTab === 'list' ? colors.border : 'transparent' }}
-                    >
-                        <List color={activeTab === 'list' ? colors.text : colors.secondary} size={20} />
-                    </TouchableOpacity>
-                </View>
-            </View>
+    const renderContent = () => {
+        // Filter posts based on tab
+        const displayPosts = (profileData?.posts || []).filter(p => {
+            if (activeTab === 'grid') return true; // Show all (or maybe exclude text only?)
+            if (activeTab === 'sixts') return p.postType === 'SIXT';
+            if (activeTab === 'media') return p.media && p.media.length > 0;
+            return true;
+        });
 
-            {/* Content Area */}
-            {profileData?.posts?.length === 0 ? (
-                <View className="py-20 items-center justify-center opacity-50">
-                    <Grid color={colors.secondary} size={48} />
-                    <Text style={{ color: colors.text }} className="mt-4 font-medium">No posts yet</Text>
+        return (
+            <View className="flex-1 rounded-t-[40px] overflow-hidden min-h-[500px]" style={{ backgroundColor: colors.card }}>
+                {/* Tabs */}
+                <View className="flex-row items-center px-4 py-3 border-b" style={{ borderColor: colors.border }}>
+                    {['grid', 'sixts', 'media'].map((tab) => (
+                        <TouchableOpacity
+                            key={tab}
+                            onPress={() => setActiveTab(tab as any)}
+                            className="mr-6 py-2"
+                            style={{ borderBottomWidth: activeTab === tab ? 2 : 0, borderColor: colors.text }}
+                        >
+                            <Text style={{
+                                color: activeTab === tab ? colors.text : colors.secondary,
+                                fontWeight: activeTab === tab ? 'bold' : 'normal',
+                                textTransform: 'capitalize'
+                            }}>
+                                {tab}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
                 </View>
-            ) : (
-                <View className="flex-row flex-wrap">
-                    {(profileData?.posts || []).map((post) => {
-                        const imageUrl = post.media && post.media.length > 0 ? post.media[0].url : `https://source.unsplash.com/random/400x400?sig=${post.id}`;
-                        return (
-                            <TouchableOpacity
-                                key={post.id}
-                                style={{ width: COLUMN_WIDTH, height: COLUMN_WIDTH, backgroundColor: colors.border }}
-                                className="m-[1px]"
-                            >
-                                <Image
-                                    source={{ uri: imageUrl }}
-                                    className="w-full h-full"
-                                    resizeMode="cover"
-                                />
-                                {activeTab === 'list' && (
-                                    <BlurView intensity={20} tint={mode === 'light' ? 'light' : 'dark'} className="absolute bottom-0 left-0 right-0 p-2 flex-row items-center gap-1">
-                                        <Heart color={colors.text} size={12} fill={colors.text} />
-                                        <Text style={{ color: colors.text }} className="text-xs font-bold">{post.likes || 0}</Text>
-                                    </BlurView>
-                                )}
-                            </TouchableOpacity>
-                        );
-                    })}
-                </View>
-            )}
-            <View className="h-24" />
-        </View>
-    );
+
+                {/* Content Area */}
+                {displayPosts.length === 0 ? (
+                    <View className="py-20 items-center justify-center opacity-50">
+                        <Grid color={colors.secondary} size={48} />
+                        <Text style={{ color: colors.text }} className="mt-4 font-medium">No posts yet</Text>
+                    </View>
+                ) : (
+                    <View className="flex-row flex-wrap p-[1px]">
+                        {displayPosts.map((post) => {
+                            // Text Post (Sixts) Style
+                            if (activeTab === 'sixts' || (!post.media?.length && post.postType === 'SIXT')) {
+                                return (
+                                    <View key={post.id} style={{ width: width, padding: 16, borderBottomWidth: 1, borderColor: colors.border }}>
+                                        <Text style={{ color: colors.text, fontSize: 16 }}>{post.content}</Text>
+                                        <Text style={{ color: colors.secondary, fontSize: 12, marginTop: 4 }}>
+                                            {new Date(post.createdAt).toLocaleDateString()}
+                                        </Text>
+                                    </View>
+                                )
+                            }
+
+                            // Media Grid Style
+                            const imageUrl = post.media && post.media.length > 0 ? post.media[0].url : `https://source.unsplash.com/random/400x400?sig=${post.id}`;
+                            return (
+                                <TouchableOpacity
+                                    key={post.id}
+                                    style={{ width: COLUMN_WIDTH, height: COLUMN_WIDTH, backgroundColor: colors.border }}
+                                    className="m-[1px]"
+                                    onPress={() => router.push(`/post/${post.id}` as any)}
+                                >
+                                    <Image
+                                        source={{ uri: imageUrl }}
+                                        className="w-full h-full"
+                                        resizeMode="cover"
+                                    />
+                                    {post.postType === 'VIDEO' && (
+                                        <View className="absolute top-2 right-2 bg-black/50 rounded-full p-1">
+                                            <Play size={10} color="white" fill="white" />
+                                        </View>
+                                    )}
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </View>
+                )}
+                <View className="h-24" />
+            </View>
+        );
+    };
 
     const renderSocialModal = () => (
         <Modal
@@ -507,7 +443,7 @@ export default function ProfileScreen() {
                             renderItem={({ item }) => (
                                 <TouchableOpacity className="flex-row items-center mb-4 p-3 rounded-2xl border" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
                                     <Image
-                                        source={{ uri: item.profile?.avatarUrl || item.avatar || 'https://api.dicebear.com/7.x/avataaars/png?seed=' + item.name }}
+                                        source={{ uri: item.profile?.avatarUrl || item.avatar }}
                                         className="w-12 h-12 rounded-full"
                                         style={{ backgroundColor: colors.secondary }}
                                     />

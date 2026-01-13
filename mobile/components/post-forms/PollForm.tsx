@@ -1,18 +1,19 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Switch } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Switch, Dimensions } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import { ArrowLeft, Globe, Users, Lock, BarChart2 } from 'lucide-react-native';
+import { ArrowLeft, Globe, Users, Lock, BarChart2, ChevronUp, ChevronDown } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3000';
+const { width } = Dimensions.get('window');
 
 interface PollFormProps {
     onBack: () => void;
 }
 
 export default function PollForm({ onBack }: PollFormProps) {
-    const { colors, isDark } = useTheme();
+    const { isDark } = useTheme();
     const { session } = useAuth();
     const [question, setQuestion] = useState('');
     const [optionA, setOptionA] = useState('');
@@ -38,12 +39,7 @@ export default function PollForm({ onBack }: PollFormProps) {
         setLoading(true);
 
         try {
-            const { data: userData } = await supabase
-                .from('User')
-                .select('id')
-                .eq('email', session.user.email)
-                .single();
-
+            const { data: userData } = await supabase.from('User').select('id').eq('email', session.user.email).single();
             if (!userData?.id) throw new Error('User not found');
 
             const response = await fetch(`${API_URL}/api/posts/create`, {
@@ -54,21 +50,12 @@ export default function PollForm({ onBack }: PollFormProps) {
                     postType: 'PULLUPDOWN',
                     content: question,
                     visibility,
-                    pullUpDownData: {
-                        question,
-                        optionA,
-                        optionB,
-                        allowMultiple,
-                    },
+                    pullUpDownData: { question, optionA, optionB, allowMultiple },
                 }),
             });
 
-            if (!response.ok) {
-                const errData = await response.json();
-                throw new Error(errData.error || 'Failed to create poll');
-            }
-
-            Alert.alert('Success', 'Poll posted!', [{ text: 'OK', onPress: onBack }]);
+            if (!response.ok) throw new Error((await response.json()).error || 'Failed');
+            Alert.alert('Done', 'Poll created', [{ text: 'OK', onPress: onBack }]);
         } catch (error: any) {
             Alert.alert('Error', error.message);
         } finally {
@@ -76,135 +63,112 @@ export default function PollForm({ onBack }: PollFormProps) {
         }
     };
 
-    const VisibilityOption = ({ value, label, icon: Icon }: any) => (
-        <TouchableOpacity
-            onPress={() => setVisibility(value)}
-            className={`flex-1 flex-row items-center justify-center p-3 rounded-xl border ${visibility === value ? 'bg-teal-500 border-teal-500' : 'bg-transparent border-gray-200 dark:border-white/10'}`}
-        >
-            <Icon size={16} color={visibility === value ? 'white' : colors.text} />
-            <Text style={{ color: visibility === value ? 'white' : colors.text, fontWeight: '600', marginLeft: 6 }}>{label}</Text>
-        </TouchableOpacity>
-    );
-
     return (
-        <ScrollView className="flex-1" contentContainerStyle={{ padding: 16 }}>
-            <View className="flex-row items-center mb-6">
-                <TouchableOpacity
-                    onPress={onBack}
-                    className={`p-3 rounded-full mr-4 ${isDark ? 'bg-white/10' : 'bg-gray-100'}`}
-                    style={{ width: 48, height: 48, alignItems: 'center', justifyContent: 'center' }}
-                >
-                    <ArrowLeft size={24} color={colors.text} />
+        <ScrollView style={{ flex: 1, backgroundColor: '#000' }} contentContainerStyle={{ padding: 16 }}>
+            {/* Header */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24 }}>
+                <TouchableOpacity onPress={onBack} style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', marginRight: 16 }}>
+                    <ArrowLeft size={20} color="#fff" />
                 </TouchableOpacity>
-                <View>
-                    <Text style={{ color: colors.text, fontSize: 22, fontWeight: 'bold' }}>New Poll</Text>
-                    <Text style={{ color: colors.secondary, fontSize: 12 }}>Pull Up or Pull Down voting</Text>
+                <View style={{ flex: 1 }}>
+                    <Text style={{ color: '#fff', fontSize: 20, fontWeight: '700', letterSpacing: 0.5 }}>New Poll</Text>
+                    <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>Pull Up or Pull Down voting</Text>
                 </View>
+                <BarChart2 size={24} color="rgba(255,255,255,0.3)" />
             </View>
 
             {/* Question */}
-            <View className="mb-6">
-                <Text style={{ color: colors.secondary, marginBottom: 8, fontWeight: '600' }}>Question</Text>
+            <View style={{ marginBottom: 24 }}>
+                <Text style={{ color: 'rgba(255,255,255,0.5)', marginBottom: 8, fontWeight: '600', fontSize: 11, letterSpacing: 1 }}>QUESTION</Text>
                 <TextInput
                     value={question}
                     onChangeText={setQuestion}
                     placeholder="Ask something..."
-                    placeholderTextColor={colors.secondary}
+                    placeholderTextColor="rgba(255,255,255,0.3)"
                     multiline
-                    style={{
-                        color: colors.text,
-                        backgroundColor: isDark ? '#1a1a1a' : '#f5f5f5',
-                        padding: 16,
-                        borderRadius: 16,
-                        borderWidth: 1,
-                        borderColor: colors.border,
-                        minHeight: 80,
-                        textAlignVertical: 'top'
-                    }}
+                    style={{ color: '#fff', backgroundColor: 'rgba(255,255,255,0.05)', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', minHeight: 80, textAlignVertical: 'top', fontSize: 16 }}
                 />
             </View>
 
-            {/* Option A (Pull Up) */}
-            <View className="mb-4">
-                <Text style={{ color: colors.secondary, marginBottom: 8, fontWeight: '600' }}>
-                    ⬆️ Option A (Pull Up)
-                </Text>
-                <TextInput
-                    value={optionA}
-                    onChangeText={setOptionA}
-                    placeholder="First option..."
-                    placeholderTextColor={colors.secondary}
-                    style={{
-                        color: colors.text,
-                        backgroundColor: isDark ? '#1a1a1a' : '#f5f5f5',
-                        padding: 16,
-                        borderRadius: 16,
-                        borderWidth: 2,
-                        borderColor: '#22c55e',
-                    }}
-                />
+            {/* Options */}
+            <View style={{ marginBottom: 24 }}>
+                <Text style={{ color: 'rgba(255,255,255,0.5)', marginBottom: 12, fontWeight: '600', fontSize: 11, letterSpacing: 1 }}>OPTIONS</Text>
+
+                {/* Option A - Pull Up */}
+                <View style={{ marginBottom: 12 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                        <View style={{ width: 24, height: 24, borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
+                            <ChevronUp size={14} color="rgba(255,255,255,0.6)" />
+                        </View>
+                        <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '600', letterSpacing: 0.5 }}>PULL UP</Text>
+                    </View>
+                    <TextInput
+                        value={optionA}
+                        onChangeText={setOptionA}
+                        placeholder="First option..."
+                        placeholderTextColor="rgba(255,255,255,0.3)"
+                        style={{ color: '#fff', backgroundColor: 'rgba(255,255,255,0.05)', padding: 14, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', fontSize: 15 }}
+                    />
+                </View>
+
+                {/* Option B - Pull Down */}
+                <View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                        <View style={{ width: 24, height: 24, borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
+                            <ChevronDown size={14} color="rgba(255,255,255,0.6)" />
+                        </View>
+                        <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '600', letterSpacing: 0.5 }}>PULL DOWN</Text>
+                    </View>
+                    <TextInput
+                        value={optionB}
+                        onChangeText={setOptionB}
+                        placeholder="Second option..."
+                        placeholderTextColor="rgba(255,255,255,0.3)"
+                        style={{ color: '#fff', backgroundColor: 'rgba(255,255,255,0.05)', padding: 14, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', fontSize: 15 }}
+                    />
+                </View>
             </View>
 
-            {/* Option B (Pull Down) */}
-            <View className="mb-6">
-                <Text style={{ color: colors.secondary, marginBottom: 8, fontWeight: '600' }}>
-                    ⬇️ Option B (Pull Down)
-                </Text>
-                <TextInput
-                    value={optionB}
-                    onChangeText={setOptionB}
-                    placeholder="Second option..."
-                    placeholderTextColor={colors.secondary}
-                    style={{
-                        color: colors.text,
-                        backgroundColor: isDark ? '#1a1a1a' : '#f5f5f5',
-                        padding: 16,
-                        borderRadius: 16,
-                        borderWidth: 2,
-                        borderColor: '#ef4444',
-                    }}
-                />
-            </View>
-
-            {/* Allow Multiple Votes */}
-            <View className="mb-6 flex-row items-center justify-between p-4 rounded-xl" style={{ backgroundColor: isDark ? '#1a1a1a' : '#f5f5f5' }}>
-                <Text style={{ color: colors.text, fontWeight: '600' }}>Allow multiple votes per user</Text>
-                <Switch
-                    value={allowMultiple}
-                    onValueChange={setAllowMultiple}
-                    trackColor={{ false: colors.border, true: '#14b8a6' }}
-                    thumbColor={allowMultiple ? '#fff' : '#f4f3f4'}
-                />
+            {/* Settings */}
+            <View style={{ marginBottom: 24, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <View>
+                        <Text style={{ color: '#fff', fontSize: 14, fontWeight: '600' }}>Allow multiple votes</Text>
+                        <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 2 }}>Users can vote more than once</Text>
+                    </View>
+                    <Switch
+                        value={allowMultiple}
+                        onValueChange={setAllowMultiple}
+                        trackColor={{ false: 'rgba(255,255,255,0.1)', true: 'rgba(255,255,255,0.3)' }}
+                        thumbColor={allowMultiple ? '#fff' : 'rgba(255,255,255,0.5)'}
+                    />
+                </View>
             </View>
 
             {/* Visibility */}
-            <View className="mb-6">
-                <Text style={{ color: colors.secondary, marginBottom: 8, fontWeight: '600' }}>Visibility</Text>
-                <View className="flex-row gap-2">
-                    <VisibilityOption value="PUBLIC" label="Public" icon={Globe} />
-                    <VisibilityOption value="FRIENDS" label="Friends" icon={Users} />
-                    <VisibilityOption value="PRIVATE" label="Private" icon={Lock} />
+            <View style={{ marginBottom: 24 }}>
+                <Text style={{ color: 'rgba(255,255,255,0.5)', marginBottom: 12, fontWeight: '600', fontSize: 11, letterSpacing: 1 }}>VISIBILITY</Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                    {[{ value: 'PUBLIC', label: 'Public', Icon: Globe }, { value: 'FRIENDS', label: 'Friends', Icon: Users }, { value: 'PRIVATE', label: 'Private', Icon: Lock }].map(opt => (
+                        <TouchableOpacity
+                            key={opt.value}
+                            onPress={() => setVisibility(opt.value)}
+                            style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 12, borderRadius: 8, borderWidth: 1, backgroundColor: visibility === opt.value ? '#fff' : 'transparent', borderColor: visibility === opt.value ? '#fff' : 'rgba(255,255,255,0.2)' }}
+                        >
+                            <opt.Icon size={14} color={visibility === opt.value ? '#000' : 'rgba(255,255,255,0.5)'} />
+                            <Text style={{ color: visibility === opt.value ? '#000' : 'rgba(255,255,255,0.5)', fontWeight: '600', fontSize: 11, marginLeft: 6 }}>{opt.label}</Text>
+                        </TouchableOpacity>
+                    ))}
                 </View>
             </View>
 
             {/* Submit */}
             <TouchableOpacity
                 onPress={handleSubmit}
-                disabled={loading}
-                style={{
-                    backgroundColor: '#14b8a6',
-                    padding: 18,
-                    borderRadius: 16,
-                    alignItems: 'center',
-                    marginBottom: 40,
-                    opacity: loading ? 0.6 : 1,
-                }}
+                disabled={loading || !question.trim() || !optionA.trim() || !optionB.trim()}
+                style={{ backgroundColor: '#fff', padding: 16, borderRadius: 8, alignItems: 'center', marginBottom: 40, opacity: loading || !question.trim() || !optionA.trim() || !optionB.trim() ? 0.3 : 1 }}
             >
-                {loading ? (
-                    <ActivityIndicator color="white" />
-                ) : (
-                    <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 18 }}>Create Poll</Text>
-                )}
+                {loading ? <ActivityIndicator color="#000" /> : <Text style={{ color: '#000', fontWeight: '700', fontSize: 14, letterSpacing: 0.5 }}>CREATE POLL</Text>}
             </TouchableOpacity>
         </ScrollView>
     );

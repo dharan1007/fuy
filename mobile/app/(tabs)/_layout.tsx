@@ -14,8 +14,13 @@ function TabLayoutContent() {
     // Track current route - cast segments to string[] to fix type issues
     useEffect(() => {
         const segArr = segments as string[];
+        // On the root tab screen, segments might be just ['(tabs)'].
+        // For sub-screens like /(tabs)/explore, it is ['(tabs)', 'explore'].
         if (segArr.length > 1 && segArr[1]) {
             setCurrentRoute(segArr[1]);
+        } else {
+            // Default to index if no second segment
+            setCurrentRoute('index');
         }
     }, [segments]);
 

@@ -7,10 +7,17 @@ import { useRouter, useSegments } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const BUTTON_SIZE = 48;
+// Updated to match image size (44) for a tighter fit
+const BUTTON_SIZE = 46;
 // FIX: Constrain width to 90% of screen, maxing out at 400px
 const EXPANDED_WIDTH = Math.min(SCREEN_WIDTH * 0.90, 400);
-const BOTTOM_PADDING = 1;
+const BOTTOM_PADDING = 10; // Slightly increased for better corner aesthetic
+const SIDE_MARGIN = 16;
+
+// Corner Positions
+const LEFT_X = SIDE_MARGIN;
+const RIGHT_X = SCREEN_WIDTH - BUTTON_SIZE - SIDE_MARGIN;
+const CENTER_X = (SCREEN_WIDTH - EXPANDED_WIDTH) / 2;
 
 // Use the user's uploaded image for the collapsed nav icon
 const NavIcon = require('../assets/nav-icon.png');
@@ -23,35 +30,107 @@ interface FloatingNavBarProps {
 export default function FloatingNavBar({ currentRoute, onNavigate }: FloatingNavBarProps) {
     const { colors, mode } = useTheme();
     const segments = useSegments();
-    const insets = useSafeAreaInsets(); // FIX: Use safe area insets
+    const insets = useSafeAreaInsets();
 
     const [isExpanded, setIsExpanded] = useState(true);
     const isExpandedRef = useRef(true);
+    // Track side preference: 'left' or 'right'
+    const sideRef = useRef<'left' | 'right'>('left');
 
     useEffect(() => { isExpandedRef.current = isExpanded; }, [isExpanded]);
 
     const expandAnim = useRef(new Animated.Value(1)).current;
 
+    // X Position state for dragging (independent of expansion)
+    // Initialized to Center because we start Expanded
+    const panX = useRef(new Animated.Value(CENTER_X)).current;
+
     const collapse = () => {
-        Animated.spring(expandAnim, {
-            toValue: 0,
-            useNativeDriver: false,
-            friction: 8,
-        }).start();
+        // Target X based on last side preference
+        const targetX = sideRef.current === 'right' ? RIGHT_X : LEFT_X;
+
+        Animated.parallel([
+            Animated.spring(expandAnim, {
+                toValue: 0,
+                useNativeDriver: false,
+                friction: 8,
+            }),
+            Animated.spring(panX, {
+                toValue: targetX,
+                useNativeDriver: false,
+                friction: 8,
+            })
+        ]).start();
         setIsExpanded(false);
     };
 
     const expand = () => {
-        Animated.spring(expandAnim, {
-            toValue: 1,
-            useNativeDriver: false,
-            friction: 8,
-        }).start();
+        Animated.parallel([
+            Animated.spring(expandAnim, {
+                toValue: 1,
+                useNativeDriver: false,
+                friction: 8,
+            }),
+            Animated.spring(panX, {
+                toValue: CENTER_X,
+                useNativeDriver: false,
+                friction: 8,
+            })
+        ]).start();
         setIsExpanded(true);
     };
 
-    // Swipe to collapse when expanded
+    // PanResponder for Dragging (Only when Collapsed)
     const panResponder = useRef(
+        PanResponder.create({
+            onStartShouldSetPanResponder: () => !isExpandedRef.current,
+            onMoveShouldSetPanResponder: (_, gesture) => !isExpandedRef.current && (Math.abs(gesture.dx) > 5 || Math.abs(gesture.dy) > 5),
+            onPanResponderGrant: () => {
+                // Determine start value based on current side
+                // We don't use extractOffset to simplify "snap to corner" logic logic reset
+                const currentVal = (panX as any)._value; // Access internal value or keep track
+                panX.setOffset(currentVal);
+                panX.setValue(0);
+            },
+            onPanResponderMove: Animated.event(
+                [null, { dx: panX }],
+                { useNativeDriver: false }
+            ),
+            onPanResponderRelease: (_, gesture) => {
+                panX.flattenOffset();
+
+                // Determine closest corner
+                // Current absolute position
+                const currentX = (panX as any)._value;
+                const midPoint = SCREEN_WIDTH / 2;
+
+                // Default to Left if closer to left, Right if closer to right
+                // NEVER Center
+                let targetSide: 'left' | 'right' = 'left';
+                let targetX = LEFT_X;
+
+                // Center of the button
+                const buttonCenter = currentX + (BUTTON_SIZE / 2);
+
+                if (buttonCenter > midPoint) {
+                    targetSide = 'right';
+                    targetX = RIGHT_X;
+                }
+
+                sideRef.current = targetSide;
+
+                Animated.spring(panX, {
+                    toValue: targetX,
+                    useNativeDriver: false,
+                    friction: 7,
+                    tension: 50
+                }).start();
+            },
+        })
+    ).current;
+
+    // Swipe to collapse logic (when expanded) - kept simple
+    const expandPanResponder = useRef(
         PanResponder.create({
             onStartShouldSetPanResponder: () => false,
             onMoveShouldSetPanResponder: (_, gesture) =>
@@ -90,11 +169,6 @@ export default function FloatingNavBar({ currentRoute, onNavigate }: FloatingNav
         outputRange: [BUTTON_SIZE / 2, 30],
     });
 
-    const iconOpacity = expandAnim.interpolate({
-        inputRange: [0, 0.5, 1],
-        outputRange: [1, 0, 0],
-    });
-
     const navOpacity = expandAnim.interpolate({
         inputRange: [0, 0.5, 1],
         outputRange: [0, 0, 1],
@@ -106,18 +180,24 @@ export default function FloatingNavBar({ currentRoute, onNavigate }: FloatingNav
                 styles.container,
                 {
                     width: animatedWidth,
-                    // FIX: Add safe area bottom inset to base padding
+                    left: panX, // Controlled by PanResponder/Animation
+                    // Fixed bottom position
                     bottom: BOTTOM_PADDING + (Platform.OS === 'ios' ? 0 : insets.bottom),
                 }
             ]}
-            {...panResponder.panHandlers}
+            {...(isExpanded ? expandPanResponder.panHandlers : panResponder.panHandlers)}
         >
             <Animated.View style={{
                 width: animatedWidth,
                 borderRadius: animatedBorderRadius,
                 overflow: 'hidden',
-                height: '100%' // FIX: Ensure height is inherited so it doesn't collapse
-                // FIX: Ensure height is inherited so it doesn't collapse
+                height: '100%',
+                // Shadow for visibility
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.3,
+                shadowRadius: 4.65,
+                elevation: 8,
             }}>
                 <View style={[styles.blurView, { backgroundColor: '#000000', borderColor: colors.border }]}>
                     {/* Collapsed state - tap to expand */}
@@ -144,7 +224,7 @@ export default function FloatingNavBar({ currentRoute, onNavigate }: FloatingNav
                                         style={styles.navItem}
                                     >
                                         <IconComponent
-                                            color={isFocused ? '#ffffff' : '#888888'} // Clear white/gray icons
+                                            color={isFocused ? '#ffffff' : '#888888'}
                                             size={24}
                                         />
                                     </TouchableOpacity>
@@ -161,12 +241,9 @@ export default function FloatingNavBar({ currentRoute, onNavigate }: FloatingNav
 const styles = StyleSheet.create({
     container: {
         position: 'absolute',
-        // alignSelf: 'center' automatically centers it horizontally
-        alignSelf: 'center',
         zIndex: 1000,
         height: BUTTON_SIZE,
-        // FIX: Ensure it never exceeds 400px even if calculation fails
-        maxWidth: 400,
+        // Removed alignSelf: 'center' to allow positioning via 'left'
     },
     blurView: {
         borderRadius: 30,

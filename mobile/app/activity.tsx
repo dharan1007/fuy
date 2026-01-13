@@ -16,7 +16,7 @@ interface ActivityItem {
 const DEMO: ActivityItem[] = Array.from({ length: 15 }).map((_, i) => ({
     id: `a-${i}`,
     type: (['like', 'comment', 'follow'] as const)[i % 3],
-    user: { name: ['Alex', 'Sam', 'Jordan'][i % 3], avatarUrl: `https://api.dicebear.com/7.x/avataaars/png?seed=act${i}` },
+    user: { name: ['Alex', 'Sam', 'Jordan'][i % 3], avatarUrl: '' },
     timestamp: ['Just now', '5m ago', '1h ago'][i % 3],
 }));
 

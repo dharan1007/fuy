@@ -114,13 +114,7 @@ export default function EditProfileScreen() {
         }
     };
 
-    const generateRandomAvatar = () => {
-        const seed = Math.random().toString(36).substring(7);
-        setForm(prev => ({
-            ...prev,
-            avatarUrl: `https://api.dicebear.com/7.x/avataaars/png?seed=${seed}`
-        }));
-    };
+
 
     const renderInput = (label: string, value: string, key: string, icon: any, multiline = false) => (
         <View className="mb-5">
@@ -182,7 +176,7 @@ export default function EditProfileScreen() {
                     <View className="items-center mb-8">
                         <View className="relative">
                             <Image
-                                source={{ uri: form.avatarUrl || 'https://api.dicebear.com/7.x/avataaars/png?seed=user' }}
+                                source={{ uri: form.avatarUrl }}
                                 className="w-28 h-28 rounded-full border-4"
                                 style={{ borderColor: colors.card }}
                             />
@@ -194,13 +188,7 @@ export default function EditProfileScreen() {
                                 >
                                     <ImageIcon color="white" size={18} />
                                 </TouchableOpacity>
-                                <TouchableOpacity
-                                    onPress={generateRandomAvatar}
-                                    className="p-2 rounded-full shadow-lg"
-                                    style={{ backgroundColor: colors.card }}
-                                >
-                                    <Camera color={colors.text} size={18} />
-                                </TouchableOpacity>
+
                             </View>
                         </View>
                         <Text className="mt-3 text-sm" style={{ color: colors.secondary }}>Pick from gallery or randomize</Text>

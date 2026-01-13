@@ -105,7 +105,7 @@ export default function ProfileCardView() {
                         <BlurView intensity={40} tint={mode === 'light' ? 'light' : 'dark'} className="flex-1 p-6 items-center justify-center border" style={{ borderColor: colors.border }}>
                             <View className="w-28 h-28 rounded-full overflow-hidden mb-4 border-4" style={{ borderColor: colors.card }}>
                                 <Image
-                                    source={{ uri: userProfile?.profile?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/png?seed=${basicInfo.name}` }}
+                                    source={{ uri: userProfile?.profile?.avatarUrl }}
                                     className="w-full h-full"
                                 />
                             </View>

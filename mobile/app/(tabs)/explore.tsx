@@ -1,13 +1,16 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image, TextInput, Dimensions, FlatList, Alert, RefreshControl, StyleSheet, Animated } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TouchableWithoutFeedback, Image, TextInput, Dimensions, FlatList, Alert, RefreshControl, StyleSheet, Animated } from 'react-native';
 import { Video, ResizeMode } from 'expo-av';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Search, X, UserPlus, Check, Clock, Grid, User, Compass, Bell, Zap, Star, Circle } from 'lucide-react-native';
+import { Search, X, UserPlus, Check, Clock, Grid, User, Compass, Bell, Zap, Star, Circle, Play, Pause } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
+import { useFocusEffect as useNavFocusEffect } from '@react-navigation/native';
+import { getSafetyFilters, applySafetyFilters } from '../../services/SafetyService';
 import { supabase } from '../../lib/supabase';
 import { useTheme } from '../../context/ThemeContext';
+import XrayScratch from '../../components/XrayScratch';
 
 const { width, height } = Dimensions.get('window');
 
@@ -15,18 +18,21 @@ const PADDING = 16;
 
 interface Post {
     id: string;
-    media: { url: string; type: string }[] | null;
+    media: { url: string; type: string; variant?: string }[] | null;
     content: string;
     postType?: string;
-    postMedia?: { media: { url: string; type: string } }[];
-    chanData?: { channelName?: string; description?: string; coverImageUrl?: string };
-    user?: { profile?: { avatarUrl?: string } };
+    postMedia?: { media: { url: string; type: string; variant?: string } }[];
+    chanData?: { id?: string; channelName?: string; description?: string; coverImageUrl?: string };
+    user?: { name?: string; profile?: { avatarUrl?: string; displayName?: string } };
 }
 
-interface UserResult {
+interface SearchResult {
+    type: 'USER' | 'SLASH';
     id: string;
-    name: string;
-    profile: { displayName: string; avatarUrl: string } | null;
+    title: string;
+    subtitle?: string;
+    avatar?: string;
+    data?: any;
     friendshipStatus?: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'NONE';
 }
 
@@ -87,16 +93,31 @@ const DECORATION_CONFIGS = [
     { top: 1100, left: 50, type: 'zap', size: 20, rotate: 5 },
 ];
 
-const AnimatedDecoration = ({ config, index }: { config: typeof DECORATION_CONFIGS[0], index: number }) => {
+const AnimatedDecoration = ({ config, index, customEmoji, isPaused }: { config: typeof DECORATION_CONFIGS[0]; index: number; customEmoji?: string | null; isPaused: boolean }) => {
+    const { colors } = useTheme();
     // Wandering animation
     const translateX = useRef(new Animated.Value(0)).current;
     const translateY = useRef(new Animated.Value(0)).current;
+    const opacity = useRef(new Animated.Value(0)).current; // For fade in
 
     useEffect(() => {
-        // Random durations to create chaotic/organic movement
-        const durationX = 10000 + (index % 7) * 2000;
-        const durationY = 12000 + (index % 5) * 2000;
-        const range = 150 + (index % 4) * 50; // Move 150-300px
+        // Fade in
+        Animated.timing(opacity, {
+            toValue: customEmoji ? 0.6 : 0.3,
+            duration: 1000,
+            useNativeDriver: true
+        }).start();
+
+        if (isPaused) {
+            translateX.stopAnimation();
+            translateY.stopAnimation();
+            return;
+        }
+
+        // SLOWER Random durations (Increased by ~3x)
+        const durationX = 30000 + (index % 7) * 5000;
+        const durationY = 35000 + (index % 5) * 5000;
+        const range = 150 + (index % 4) * 50;
 
         // Loop X movement
         Animated.loop(
@@ -139,7 +160,7 @@ const AnimatedDecoration = ({ config, index }: { config: typeof DECORATION_CONFI
                 }),
             ])
         ).start();
-    }, []);
+    }, [isPaused, customEmoji]);
 
     return (
         <Animated.View
@@ -150,32 +171,65 @@ const AnimatedDecoration = ({ config, index }: { config: typeof DECORATION_CONFI
                 transform: [
                     { translateX },
                     { translateY },
-                    { rotate: `${config.rotate}deg` } // Keep static rotation, move position
+                    { rotate: `${config.rotate}deg` }
                 ],
-                opacity: 0.3
+                opacity: opacity
             }}
         >
-            {config.type === 'star' && <Star size={config.size} color="white" fill="white" />}
-            {config.type === 'circle' && <Circle size={config.size} color="white" fill="white" />}
-            {config.type === 'zap' && <Zap size={config.size} color="white" fill="white" />}
+            {customEmoji ? (
+                <Text style={{ fontSize: config.size }}>{customEmoji}</Text>
+            ) : (
+                <>
+                    {config.type === 'star' && <Star size={config.size} color="white" fill="white" />}
+                    {config.type === 'circle' && <Circle size={config.size} color="white" fill="white" />}
+                    {config.type === 'zap' && <Zap size={config.size} color="white" fill="white" />}
+                </>
+            )}
         </Animated.View>
     );
 };
+
+
 
 const CONTENT_WIDTH = 900;
 const CONTENT_HEIGHT = 2000;
 
 // Floating Post Card
-const FloatingCard = ({ post, config, index, onPress, isActive }: { post: Post; config: typeof CARD_CONFIGS[0]; index: number; onPress: () => void; isActive: boolean }) => {
+// Floating Post Card
+const FloatingCard = ({ post, config, index, onPress, onToggleScroll, isActive }: { post: Post; config: typeof CARD_CONFIGS[0]; index: number; onPress: () => void; onToggleScroll: (enabled: boolean) => void; isActive: boolean }) => {
     // Determine media:
     // If XRAY: media[0] is Cover (Image usually), media[1] is Content.
     // If VIDEO: media[0] is Video. Cover might be missing.
+    // Local Playback Control
+    const [isPaused, setIsPaused] = useState(false);
+    const shouldPlay = isActive && !isPaused;
+
+    const togglePlayback = () => {
+        setIsPaused(prev => !prev);
+    };
 
     let coverUrl: string | null = null;
     let videoUrl: string | null = null;
+    let contentUrl: string | null = null;
+    let coverType: string = 'IMAGE';
+    let contentType: string = 'IMAGE';
 
-    if (post.postType === 'XRAY' && post.media && post.media.length > 0) {
-        coverUrl = post.media[0].url; // Top layer is cover
+    if (post.postType === 'XRAY' && post.media && post.media.length >= 2) {
+        // Intelligent Media Assignment - SWAPPED
+        let cover = post.media.find(m => m.variant === 'xray-bottom' || (m as any).variant === 'xray-bottom');
+        let content = post.media.find(m => m.variant === 'xray-top' || (m as any).variant === 'xray-top');
+
+        if (!cover || !content) {
+            cover = post.media[0];
+            content = post.media[1];
+        }
+
+        if (cover && content) {
+            coverUrl = cover.url;
+            contentUrl = content.url;
+            coverType = cover.type || 'IMAGE';
+            contentType = content.type || 'IMAGE';
+        }
     } else if (post.media && post.media.length > 0) {
         const item = post.media[0];
         if (item.type?.toUpperCase() === 'VIDEO') {
@@ -191,6 +245,9 @@ const FloatingCard = ({ post, config, index, onPress, isActive }: { post: Post; 
     // Fallback: If no media, return null
     if (!coverUrl && !videoUrl) return null;
 
+    const userAvatar = post.user?.profile?.avatarUrl;
+    const userName = post.user?.profile?.displayName || post.user?.name || 'User';
+
     return (
         <View
             style={{
@@ -202,9 +259,7 @@ const FloatingCard = ({ post, config, index, onPress, isActive }: { post: Post; 
                 transform: [{ rotate: `${config.rotate}deg` }],
             }}
         >
-            <TouchableOpacity
-                activeOpacity={0.9}
-                onPress={onPress}
+            <View
                 style={{
                     width: '100%',
                     height: '100%',
@@ -218,91 +273,101 @@ const FloatingCard = ({ post, config, index, onPress, isActive }: { post: Post; 
                     elevation: 5,
                 }}
             >
-                {/* 
-                   Logic - Optimized for Stability:
-                   1. Video only mounts if it's the ACTIVE card (playing).
-                   2. If not active, priority is Cover Image.
-                   3. If not active SAME TIME no Cover, we MUST mount video (paused) but let's try to avoid this for all cards.
-                   To prevent "confusion"/flicker, we strictly render based on state.
-                */}
+                {/* Media Layer with Tap-to-Toggle */}
+                <TouchableWithoutFeedback onPress={videoUrl ? togglePlayback : onPress}>
+                    <View style={{ flex: 1 }}>
+                        {(() => {
+                            // CASE 1: Active Card -> Play Video if available and not paused
+                            if (shouldPlay && videoUrl && videoUrl.length > 5) {
+                                return (
+                                    <Video
+                                        source={{ uri: videoUrl }}
+                                        style={{ width: '100%', height: '100%' }}
+                                        resizeMode={ResizeMode.COVER}
+                                        shouldPlay={true}
+                                        isLooping
+                                        isMuted={true}
+                                        useNativeControls={false}
+                                        onError={(e) => console.log("Video Error Explore:", e)}
+                                    />
+                                );
+                            }
 
-                {(() => {
-                    // CASE 1: Active Card -> Always Play Video (if available)
-                    if (isActive && videoUrl) {
-                        return (
-                            <Video
-                                source={{ uri: videoUrl }}
-                                style={{ width: '100%', height: '100%' }}
-                                resizeMode={ResizeMode.COVER}
-                                shouldPlay={true}
-                                isLooping
-                                isMuted={true} // User requested preview (often muted) or sound? Usually preview is muted.
-                                useNativeControls={false}
-                            />
-                        );
-                    }
+                            // CASE 2: Inactive Card -> Prefer Cover Image
+                            if (coverUrl) {
+                                return (
+                                    <Image
+                                        source={{ uri: coverUrl }}
+                                        style={{ width: '100%', height: '100%' }}
+                                        resizeMode="cover"
+                                    />
+                                );
+                            }
 
-                    // CASE 2: Inactive Card -> Prefer Cover Image
-                    if (coverUrl) {
-                        return (
-                            <Image
-                                source={{ uri: coverUrl }}
-                                style={{ width: '100%', height: '100%' }}
-                                resizeMode="cover"
-                            />
-                        );
-                    }
+                            // CASE 3: Inactive & No Cover -> Fallback to Paused Video
+                            if (videoUrl && videoUrl.length > 5) {
+                                return (
+                                    <Video
+                                        source={{ uri: videoUrl }}
+                                        style={{ width: '100%', height: '100%' }}
+                                        resizeMode={ResizeMode.COVER}
+                                        shouldPlay={false}
+                                        isMuted={true}
+                                        useNativeControls={false}
+                                    />
+                                );
+                            }
 
-                    // CASE 3: Inactive & No Cover -> Fallback to Paused Video
-                    // This is the heavy part. We accept it but only if absolutely necessary.
-                    if (videoUrl) {
-                        return (
-                            <Video
-                                source={{ uri: videoUrl }}
-                                style={{ width: '100%', height: '100%' }}
-                                resizeMode={ResizeMode.COVER}
-                                shouldPlay={false}
-                                isMuted={true}
-                                useNativeControls={false}
-                            />
-                        );
-                    }
+                            // CASE 4: No Media
+                            return <View className="bg-zinc-800 w-full h-full" />;
+                        })()}
 
-                    // CASE 4: No Media -> Placeholder (shouldn't happen with filter)
-                    return <View className="bg-zinc-800 w-full h-full" />;
-                })()}
+                        {/* Play indication if paused manually on active card */}
+                        {isActive && isPaused && videoUrl && (
+                            <View style={{ position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.2)' }}>
+                                {/* Optional: Play Icon */}
+                            </View>
+                        )}
+                    </View>
+                </TouchableWithoutFeedback>
 
-                {/* Gradient overlay */}
-                <LinearGradient
-                    colors={['transparent', 'rgba(0,0,0,0.7)']}
-                    style={{
-                        position: 'absolute',
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        height: '40%',
-                        justifyContent: 'flex-end',
-                        padding: 12,
-                    }}
-                >
-                    {post.content && (
-                        <Text
-                            numberOfLines={2}
-                            style={{
-                                color: 'white',
-                                fontSize: 11,
-                                fontWeight: '600',
-                                textShadowColor: 'rgba(0,0,0,0.5)',
-                                textShadowOffset: { width: 0, height: 1 },
-                                textShadowRadius: 2,
-                            }}
+                {/* XRAY Layer - Overlay if applicable */}
+                {post.postType === 'XRAY' && coverUrl && contentUrl && (
+                    <View style={{ position: 'absolute', inset: 0, zIndex: 10 }}>
+                        <XrayScratch
+                            coverUrl={coverUrl}
+                            contentUrl={contentUrl}
+                            coverType={coverType}
+                            contentType={contentType}
+                            isActive={isActive}
+                            onToggleScroll={onToggleScroll}
+                        />
+                    </View>
+                )}
+
+                {/* Overlays - Interactable for Navigation (Only for non-Xray or passive Xray areas) */}
+                {post.postType !== 'XRAY' && (
+                    <View
+                        style={{ position: 'absolute', inset: 0, justifyContent: 'flex-end' }}
+                        pointerEvents="box-none"
+                    >
+                        <TouchableOpacity
+                            activeOpacity={0.9}
+                            onPress={onPress}
                         >
-                            {post.content}
-                        </Text>
-                    )}
-                </LinearGradient>
-            </TouchableOpacity>
-        </View>
+                            {/* Gradient overlay - Removed Text as per request, kept interactive area */}
+                            <View
+                                style={{
+                                    height: config.height * 0.5,
+                                    justifyContent: 'flex-end',
+                                    padding: 12,
+                                }}
+                            />
+                        </TouchableOpacity>
+                    </View>
+                )}
+            </View>
+        </View >
     );
 };
 
@@ -316,7 +381,7 @@ export default function ExploreScreen() {
     const { colors, mode } = useTheme();
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedQuery, setDebouncedQuery] = useState('');
-    const [searchResults, setSearchResults] = useState<UserResult[]>([]);
+    const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
     const [isSearching, setIsSearching] = useState(false);
     const [posts, setPosts] = useState<Post[]>([]);
     const [loading, setLoading] = useState(true);
@@ -327,6 +392,14 @@ export default function ExploreScreen() {
     const [scrollY, setScrollY] = useState(0);
     const [activeCardIndex, setActiveCardIndex] = useState<number | null>(null);
     const [isScreenFocused, setIsScreenFocused] = useState(true);
+    const [scrollEnabled, setScrollEnabled] = useState(true);
+
+    // Emoji/Background State
+    const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null);
+    const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
+    const [isBackgroundPaused, setIsBackgroundPaused] = useState(false);
+    const [customEmojiText, setCustomEmojiText] = useState('');
+    const EMOJI_OPTIONS = ['✨', '🔥', '💧', '🍀', '🚀', '👾', '💎', '🌙', '🦋', '❤️'];
 
     // Global Pause when leaving tab (Crash Fix)
     useFocusEffect(
@@ -336,14 +409,25 @@ export default function ExploreScreen() {
         }, [])
     );
 
-    // Fetch posts based on filter
+    const [allSlashes, setAllSlashes] = useState<{ tag: string, count: number }[]>([]);
 
-    // Using real data from Supabase - no demo fallback
+    const fetchSlashes = async () => {
+        try {
+            const { data } = await supabase.from('Slash').select('tag, count').order('count', { ascending: false });
+            if (data) setAllSlashes(data);
+        } catch (e) {
+            console.error('Fetch slashes error:', e);
+        }
+    };
 
     useEffect(() => {
-        fetchPosts(currentTab);
+        if (currentTab === 'Slashes') {
+            fetchSlashes();
+        } else {
+            fetchPosts(currentTab);
+        }
         getCurrentUser();
-    }, [currentTab]); // Re-fetch when tab changes
+    }, [currentTab]);
 
     const getCurrentUser = async () => {
         const { data: { user } } = await supabase.auth.getUser();
@@ -365,22 +449,39 @@ export default function ExploreScreen() {
 
     const fetchPosts = async (tab = 'ALL') => {
         try {
+            // --- Safety Filtering ---
+            // --- Safety Filtering ---
+            // Get current user directly to avoid race condition
+            const { data: { user } } = await supabase.auth.getUser();
+            const userId = user?.id;
+
+            let filters = { excludedUserIds: [], hiddenPostIds: [] };
+            if (userId) {
+                filters = await getSafetyFilters(userId);
+                setCurrentUserId(userId);
+            }
+
             // Direct Supabase query with service role to bypass RLS
             let query = supabase
                 .from('Post')
                 .select(`
-                    id,
-                    content,
-                    postType,
-                    user:User(profile:Profile(avatarUrl)),
-                    chan_data:Chan(*),
-                    postMedia:PostMedia (
-                        media:Media (url, type)
-                    )
-                `)
+            id,
+            content,
+            postType,
+            user:User(name, profile:Profile(displayName, avatarUrl)),
+            chan_data:Chan(*),
+            postMedia:PostMedia (
+                media:Media (url, type)
+            )
+            `)
                 .eq('visibility', 'PUBLIC')
                 .order('createdAt', { ascending: false })
                 .limit(20);
+
+            // Apply safety filters
+            if (userId) {
+                query = applySafetyFilters(query, filters);
+            }
 
             // Map tabs to PostTypes
 
@@ -392,11 +493,14 @@ export default function ExploreScreen() {
                 case 'Auds':
                     query = query.eq('postType', 'AUD');
                     break;
-                case 'Chaptes':
+                case 'Chapters':
                     query = query.eq('postType', 'CHAPTER');
                     break;
                 case 'Puds':
                     query = query.eq('postType', 'PULLUPDOWN');
+                    break;
+                case 'sixts':
+                    query = query.eq('postType', 'SIXT');
                     break;
                 case 'Posts':
                 default:
@@ -452,25 +556,48 @@ export default function ExploreScreen() {
                 .from('Profile')
                 .select(`userId, displayName, avatarUrl, user:User(name)`)
                 .ilike('displayName', `%${text}%`)
-                .limit(20);
+                .limit(10);
 
-            let mappedUsers: UserResult[] = (profileResults || []).map((p: any) => ({
+            const { data: slashResults } = await supabase
+                .from('Slash')
+                .select('*')
+                .ilike('tag', `%${text}%`)
+                .limit(5);
+
+            let results: SearchResult[] = [];
+
+            // Map Slashes
+            if (slashResults) {
+                results = slashResults.map((s: any) => ({
+                    type: 'SLASH',
+                    id: s.id,
+                    title: `#${s.tag}`,
+                    subtitle: `${s.count || 0} posts`,
+                    data: s
+                }));
+            }
+
+            // Map Users
+            let mappedUsers: SearchResult[] = (profileResults || []).map((p: any) => ({
+                type: 'USER',
                 id: p.userId,
-                name: p.user?.name || 'Unknown',
-                profile: { displayName: p.displayName, avatarUrl: p.avatarUrl },
+                title: p.user?.name || 'Unknown',
+                subtitle: `@${p.displayName}`,
+                avatar: p.avatarUrl,
                 friendshipStatus: 'NONE'
             }));
 
             if (currentUserId) {
                 mappedUsers = mappedUsers.filter(u => u.id !== currentUserId);
             }
-            setSearchResults(mappedUsers);
+
+            setSearchResults([...results, ...mappedUsers]);
         } catch (e) {
             setSearchResults([]);
         }
     };
 
-    const handleFollow = async (item: UserResult) => {
+    const handleFollow = async (item: SearchResult) => {
         if (!currentUserId) return;
         setSearchResults(prev => prev.map(u => u.id === item.id ? { ...u, friendshipStatus: 'PENDING' } : u));
 
@@ -527,50 +654,111 @@ export default function ExploreScreen() {
     }, [scrollX, scrollY]);
 
     return (
-        <View style={{ flex: 1, backgroundColor: '#000' }}>
+        <View style={{ flex: 1, backgroundColor: colors.background }}>
             <SafeAreaView style={{ flex: 1 }} edges={['top']}>
                 {/* Header - Removed Profile Circle as requested */}
                 <View style={[styles.header, { paddingRight: 20 }]}>
                     <TouchableOpacity
                         onPress={() => setIsSearching(true)}
-                        style={[styles.iconButton, { backgroundColor: 'rgba(255,255,255,0.1)' }]}
+                        style={[styles.iconButton, { backgroundColor: colors.card }]}
                     >
-                        <Search color="white" size={20} />
+                        <Search color={colors.text} size={20} />
                     </TouchableOpacity>
-
-                    <Text style={styles.title}>Explore</Text>
-
-                    {/* Placeholder to balance header if needed, or just standard title alignment */}
-                    <View style={{ width: 40 }} />
+                    {/* Tabs - Smaller sizing */}
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ maxHeight: 36, marginBottom: 8 }} contentContainerStyle={{ paddingHorizontal: PADDING, gap: 6 }}>
+                        {['Posts', 'Slashes', 'Chans', 'Auds', 'Chapters', 'sixts', 'Puds'].map((tab) => (
+                            <TouchableOpacity
+                                key={tab}
+                                onPress={() => setCurrentTab(tab)}
+                                style={{
+                                    paddingHorizontal: 10, // Reduced from 12
+                                    paddingVertical: 5,   // Reduced from 6
+                                    borderRadius: 10,
+                                    backgroundColor: currentTab === tab ? 'white' : 'rgba(255,255,255,0.08)',
+                                    borderWidth: 0.5,
+                                    borderColor: currentTab === tab ? 'white' : 'rgba(255,255,255,0.15)'
+                                }}
+                            >
+                                <Text style={{
+                                    color: currentTab === tab ? 'black' : 'rgba(255,255,255,0.7)',
+                                    fontWeight: '600',
+                                    fontSize: 10, // Reduced from 11
+                                    textTransform: 'uppercase',
+                                    letterSpacing: 0.5
+                                }}>
+                                    {tab}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
                 </View>
 
-                {/* Tabs - Smaller sizing */}
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ maxHeight: 36, marginBottom: 8 }} contentContainerStyle={{ paddingHorizontal: PADDING, gap: 6 }}>
-                    {['Posts', 'Slashes', 'Chans', 'Auds', 'Chaptes', 'sixts', 'Puds'].map((tab) => (
-                        <TouchableOpacity
-                            key={tab}
-                            onPress={() => setCurrentTab(tab)}
-                            style={{
-                                paddingHorizontal: 10, // Reduced from 12
-                                paddingVertical: 5,   // Reduced from 6
-                                borderRadius: 10,
-                                backgroundColor: currentTab === tab ? 'white' : 'rgba(255,255,255,0.08)',
-                                borderWidth: 0.5,
-                                borderColor: currentTab === tab ? 'white' : 'rgba(255,255,255,0.15)'
-                            }}
-                        >
-                            <Text style={{
-                                color: currentTab === tab ? 'black' : 'rgba(255,255,255,0.7)',
-                                fontWeight: '600',
-                                fontSize: 10, // Reduced from 11
-                                textTransform: 'uppercase',
-                                letterSpacing: 0.5
-                            }}>
-                                {tab}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                </ScrollView>
+                {/* Background Settings Toggle */}
+                <View style={{ position: 'absolute', top: 120, right: 20, zIndex: 100, alignItems: 'flex-end' }}>
+                    <TouchableOpacity
+                        onPress={() => setIsEmojiPickerOpen(prev => !prev)}
+                        style={{
+                            width: 40, height: 40, borderRadius: 20,
+                            backgroundColor: colors.card,
+                            justifyContent: 'center', alignItems: 'center',
+                            borderWidth: 1, borderColor: colors.border,
+                            shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84, elevation: 5
+                        }}
+                    >
+                        <Zap color={colors.text} size={20} fill={selectedEmoji ? "none" : colors.text} />
+                    </TouchableOpacity>
+
+                    {isEmojiPickerOpen && (
+                        <View style={{ marginTop: 10, backgroundColor: colors.card, borderRadius: 16, padding: 12, width: 220, borderWidth: 1, borderColor: colors.border }}>
+                            {/* Header Info */}
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, borderBottomWidth: 1, borderBottomColor: colors.border, paddingBottom: 8 }}>
+                                <View style={{ width: 16, height: 16, borderRadius: 8, borderWidth: 1, borderColor: colors.text, alignItems: 'center', justifyContent: 'center', marginRight: 6 }}>
+                                    <Text style={{ color: colors.text, fontSize: 10, fontWeight: 'bold' }}>i</Text>
+                                </View>
+                                <Text style={{ color: colors.text, fontSize: 12, fontWeight: '600' }}>Background Effects</Text>
+                            </View>
+
+                            {/* Pause Toggle */}
+                            <TouchableOpacity
+                                onPress={() => setIsBackgroundPaused(prev => !prev)}
+                                style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16, backgroundColor: colors.background, padding: 8, borderRadius: 8 }}
+                            >
+                                {isBackgroundPaused ? <Play size={16} color={colors.text} /> : <Pause size={16} color={colors.text} />}
+                                <Text style={{ color: colors.text, marginLeft: 8, fontSize: 13 }}>{isBackgroundPaused ? "Resume Animation" : "Pause Animation"}</Text>
+                            </TouchableOpacity>
+
+                            {/* Custom Emoji Input */}
+                            <View style={{ flexDirection: 'row', marginBottom: 12 }}>
+                                <TextInput
+                                    placeholder="Add emoji..."
+                                    placeholderTextColor={colors.text + '80'}
+                                    value={customEmojiText}
+                                    onChangeText={setCustomEmojiText}
+                                    maxLength={2}
+                                    style={{ flex: 1, backgroundColor: colors.background, color: colors.text, borderRadius: 6, paddingHorizontal: 8, height: 36, fontSize: 16 }}
+                                />
+                                <TouchableOpacity
+                                    onPress={() => { if (customEmojiText) { setSelectedEmoji(customEmojiText); setCustomEmojiText(''); } }}
+                                    style={{ marginLeft: 8, backgroundColor: colors.primary, borderRadius: 6, width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}
+                                >
+                                    <Check color="white" size={16} />
+                                </TouchableOpacity>
+                            </View>
+
+                            {/* Presets */}
+                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
+                                <TouchableOpacity onPress={() => setSelectedEmoji(null)} style={{ width: 30, height: 30, borderRadius: 15, borderWidth: 1, borderColor: colors.text, alignItems: 'center', justifyContent: 'center', backgroundColor: !selectedEmoji ? colors.primary + '20' : 'transparent' }}>
+                                    <Zap size={14} color={colors.text} />
+                                </TouchableOpacity>
+                                {EMOJI_OPTIONS.map(emoji => (
+                                    <TouchableOpacity key={emoji} onPress={() => setSelectedEmoji(emoji)} style={{ width: 30, height: 30, alignItems: 'center', justifyContent: 'center', backgroundColor: selectedEmoji === emoji ? colors.primary + '20' : 'transparent', borderRadius: 15 }}>
+                                        <Text style={{ fontSize: 18 }}>{emoji}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        </View>
+                    )}
+                </View>
 
                 {/* Search Overlay */}
                 {isSearching && (
@@ -580,18 +768,18 @@ export default function ExploreScreen() {
                         style={StyleSheet.absoluteFill}
                     >
                         <SafeAreaView style={{ flex: 1, paddingHorizontal: PADDING }}>
-                            <View style={styles.searchBar}>
-                                <Search color="rgba(255,255,255,0.5)" size={18} />
+                            <View style={[styles.searchBar, { backgroundColor: colors.card }]}>
+                                <Search color={colors.text} size={18} />
                                 <TextInput
                                     autoFocus
                                     placeholder="Search users..."
-                                    placeholderTextColor="rgba(255,255,255,0.4)"
+                                    placeholderTextColor={colors.text + '80'}
                                     value={searchQuery}
                                     onChangeText={setSearchQuery}
-                                    style={styles.searchInput}
+                                    style={[styles.searchInput, { color: colors.text }]}
                                 />
                                 <TouchableOpacity onPress={() => { setIsSearching(false); setSearchQuery(''); setSearchResults([]); }}>
-                                    <X color="white" size={20} />
+                                    <X color={colors.text} size={20} />
                                 </TouchableOpacity>
                             </View>
 
@@ -600,23 +788,31 @@ export default function ExploreScreen() {
                                 keyExtractor={item => item.id}
                                 keyboardShouldPersistTaps="handled"
                                 renderItem={({ item }) => (
-                                    <View style={styles.searchResultItem}>
-                                        <Image
-                                            source={{ uri: item.profile?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/png?seed=${item.name}` }}
-                                            style={styles.searchAvatar}
-                                        />
+                                    <View style={[styles.searchResultItem, { backgroundColor: colors.card }]}>
+                                        {item.type === 'USER' ? (
+                                            <Image
+                                                source={{ uri: item.avatar }}
+                                                style={styles.searchAvatar}
+                                            />
+                                        ) : (
+                                            <View style={[styles.searchAvatar, { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary + '20' }]}>
+                                                <Text style={{ color: colors.text, fontSize: 20, fontWeight: 'bold' }}>#</Text>
+                                            </View>
+                                        )}
                                         <View style={{ flex: 1, marginLeft: 12 }}>
-                                            <Text style={styles.searchName}>{item.name}</Text>
-                                            <Text style={styles.searchHandle}>@{item.profile?.displayName || 'user'}</Text>
+                                            <Text style={[styles.searchName, { color: colors.text }]}>{item.title}</Text>
+                                            <Text style={[styles.searchHandle, { color: colors.text + '80' }]}>{item.subtitle}</Text>
                                         </View>
-                                        <TouchableOpacity
-                                            onPress={() => handleFollow(item)}
-                                            style={[styles.followButton, item.friendshipStatus === 'PENDING' && { backgroundColor: 'rgba(250,204,21,0.2)' }]}
-                                        >
-                                            <Text style={styles.followText}>
-                                                {item.friendshipStatus === 'PENDING' ? 'Requested' : item.friendshipStatus === 'ACCEPTED' ? 'Following' : 'Follow'}
-                                            </Text>
-                                        </TouchableOpacity>
+                                        {item.type === 'USER' && (
+                                            <TouchableOpacity
+                                                onPress={() => handleFollow(item)}
+                                                style={[styles.followButton, { backgroundColor: item.friendshipStatus === 'PENDING' ? colors.primary + '20' : colors.primary }]}
+                                            >
+                                                <Text style={[styles.followText, { color: 'white' }]}>
+                                                    {item.friendshipStatus === 'PENDING' ? 'Requested' : item.friendshipStatus === 'ACCEPTED' ? 'Following' : 'Follow'}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        )}
                                     </View>
                                 )}
                             />
@@ -630,10 +826,10 @@ export default function ExploreScreen() {
                     // ------------------ SPECIALIZED CHANS UI (NETFLIX STYLE) ----------
                     // ------------------------------------------------------------------
                     <ScrollView
-                        style={{ flex: 1, backgroundColor: 'black' }}
+                        style={{ flex: 1, backgroundColor: colors.background }}
                         contentContainerStyle={{ paddingBottom: 100 }}
                         showsVerticalScrollIndicator={false}
-                        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="white" />}
+                        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.text} />}
                     >
                         {/* Hero Section */}
                         {posts.length > 0 && (
@@ -644,24 +840,30 @@ export default function ExploreScreen() {
                                     resizeMode="cover"
                                 />
                                 <LinearGradient
-                                    colors={['transparent', 'black']}
+                                    colors={['transparent', colors.background]}
                                     style={StyleSheet.absoluteFill}
                                 />
                                 <View style={{ position: 'absolute', bottom: 40, left: 20, right: 20 }}>
-                                    <Text style={{ color: 'white', fontSize: 12, fontWeight: '800', letterSpacing: 2, marginBottom: 8, textTransform: 'uppercase' }}>
+                                    <Text style={{ color: colors.text, fontSize: 12, fontWeight: '800', letterSpacing: 2, marginBottom: 8, textTransform: 'uppercase' }}>
                                         Featured Channel
                                     </Text>
-                                    <Text style={{ color: 'white', fontSize: 42, fontWeight: '900', marginBottom: 16 }}>
+                                    <Text style={{ color: colors.text, fontSize: 42, fontWeight: '900', marginBottom: 16 }}>
                                         {posts[0].chanData?.channelName || 'Untitled Channel'}
                                     </Text>
-                                    <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 14, marginBottom: 24, lineHeight: 20 }} numberOfLines={2}>
+                                    <Text style={{ color: colors.text + 'CC', fontSize: 14, marginBottom: 24, lineHeight: 20 }} numberOfLines={2}>
                                         {posts[0].chanData?.description || posts[0].content}
                                     </Text>
                                     <TouchableOpacity
-                                        style={{ backgroundColor: 'white', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8, alignSelf: 'flex-start' }}
-                                        onPress={() => router.push(`/post/${posts[0].id}` as any)}
+                                        style={{ backgroundColor: colors.text, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8, alignSelf: 'flex-start' }}
+                                        onPress={() => {
+                                            if (posts[0].chanData?.id) {
+                                                router.push(`/chan/${posts[0].chanData.id}` as any);
+                                            } else {
+                                                router.push(`/post/${posts[0].id}` as any);
+                                            }
+                                        }}
                                     >
-                                        <Text style={{ color: 'black', fontWeight: 'bold', marginRight: 8 }}>WATCH NOW</Text>
+                                        <Text style={{ color: colors.background, fontWeight: 'bold', marginRight: 8 }}>WATCH NOW</Text>
                                     </TouchableOpacity>
                                 </View>
                             </View>
@@ -669,20 +871,26 @@ export default function ExploreScreen() {
 
                         {/* Section: Trending Channels */}
                         <View style={{ marginBottom: 32 }}>
-                            <Text style={{ color: 'white', fontSize: 18, fontWeight: '700', marginLeft: 20, marginBottom: 16 }}>Trending Channels</Text>
+                            <Text style={{ color: colors.text, fontSize: 18, fontWeight: '700', marginLeft: 20, marginBottom: 16 }}>Trending Channels</Text>
                             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 16 }}>
                                 {posts.slice(1).map((post) => (
                                     <TouchableOpacity
                                         key={post.id}
                                         style={{ width: 160 }}
-                                        onPress={() => router.push(`/post/${post.id}` as any)}
+                                        onPress={() => {
+                                            if (post.chanData?.id) {
+                                                router.push(`/chan/${post.chanData.id}` as any);
+                                            } else {
+                                                router.push(`/post/${post.id}` as any);
+                                            }
+                                        }}
                                     >
                                         <Image
                                             source={{ uri: post.chanData?.coverImageUrl || post.user?.profile?.avatarUrl || post.media?.[0]?.url || 'https://via.placeholder.com/150' }}
-                                            style={{ width: 160, height: 220, borderRadius: 12, marginBottom: 8, backgroundColor: '#111' }}
+                                            style={{ width: 160, height: 220, borderRadius: 12, marginBottom: 8, backgroundColor: colors.card }}
                                         />
-                                        <Text style={{ color: 'white', fontWeight: '600', fontSize: 14 }} numberOfLines={1}>{post.chanData?.channelName || 'Channel'}</Text>
-                                        <Text style={{ color: '#666', fontSize: 12 }} numberOfLines={1}>324 Episodes</Text>
+                                        <Text style={{ color: colors.text, fontWeight: '600', fontSize: 14 }} numberOfLines={1}>{post.chanData?.channelName || 'Channel'}</Text>
+                                        <Text style={{ color: colors.text + '80', fontSize: 12 }} numberOfLines={1}>324 Episodes</Text>
                                     </TouchableOpacity>
                                 ))}
                             </ScrollView>
@@ -690,26 +898,43 @@ export default function ExploreScreen() {
 
                         {/* Section: New Shows */}
                         <View style={{ marginBottom: 32 }}>
-                            <Text style={{ color: 'white', fontSize: 18, fontWeight: '700', marginLeft: 20, marginBottom: 16 }}>New Shows</Text>
+                            <Text style={{ color: colors.text, fontSize: 18, fontWeight: '700', marginLeft: 20, marginBottom: 16 }}>New Shows</Text>
                             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 16 }}>
                                 {[...posts].reverse().map((post) => (
                                     <TouchableOpacity
                                         key={post.id}
                                         style={{ width: 280 }}
-                                        onPress={() => router.push(`/post/${post.id}` as any)}
+                                        onPress={() => {
+                                            if (post.chanData?.id) {
+                                                router.push(`/chan/${post.chanData.id}` as any);
+                                            } else {
+                                                router.push(`/post/${post.id}` as any);
+                                            }
+                                        }}
                                     >
                                         <Image
                                             source={{ uri: post.chanData?.coverImageUrl || post.user?.profile?.avatarUrl || post.media?.[0]?.url || 'https://via.placeholder.com/300' }}
-                                            style={{ width: 280, height: 160, borderRadius: 12, marginBottom: 8, backgroundColor: '#111' }}
+                                            style={{ width: 280, height: 160, borderRadius: 12, marginBottom: 8, backgroundColor: colors.card }}
                                         />
-                                        <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }} numberOfLines={1}>{post.chanData?.channelName || post.content.substring(0, 20)}</Text>
-                                        <Text style={{ color: '#888', fontSize: 13 }} numberOfLines={1}>{post.chanData?.description || 'Exclusive Content'}</Text>
+                                        <Text style={{ color: colors.text, fontWeight: 'bold', fontSize: 16 }} numberOfLines={1}>{post.chanData?.channelName || post.content.substring(0, 20)}</Text>
+                                        <Text style={{ color: colors.text + '60', fontSize: 13 }} numberOfLines={1}>{post.chanData?.description || 'Exclusive Content'}</Text>
                                     </TouchableOpacity>
                                 ))}
                             </ScrollView>
                         </View>
 
                         {/* Episodes section removed */}
+                    </ScrollView>
+                ) : currentTab === 'Slashes' ? (
+                    <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 16 }}>
+                        <Text style={{ color: colors.text, fontSize: 24, fontWeight: 'bold', marginBottom: 16 }}>All Slashes</Text>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+                            {allSlashes.map((slash, idx) => (
+                                <TouchableOpacity key={idx} style={{ backgroundColor: 'rgba(255,255,255,0.1)', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }}>
+                                    <Text style={{ color: colors.text, fontWeight: '600' }}>#{slash.tag} <Text style={{ opacity: 0.5 }}>{slash.count}</Text></Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
                     </ScrollView>
                 ) : (
                     // ------------------------------------------------------------------
@@ -722,6 +947,7 @@ export default function ExploreScreen() {
                         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="white" />}
                         onScroll={(e) => setScrollY(e.nativeEvent.contentOffset.y)}
                         scrollEventThrottle={100}
+                        scrollEnabled={scrollEnabled}
                     >
                         <ScrollView
                             horizontal
@@ -729,6 +955,7 @@ export default function ExploreScreen() {
                             contentContainerStyle={{ width: CONTENT_WIDTH, height: CONTENT_HEIGHT }}
                             onScroll={(e) => setScrollX(e.nativeEvent.contentOffset.x)}
                             scrollEventThrottle={100}
+                            scrollEnabled={scrollEnabled}
                         >
                             <View style={{ width: CONTENT_WIDTH, height: CONTENT_HEIGHT }}>
                                 {/* Render Animated Decorations (Background) - Virtualized */}
@@ -741,10 +968,10 @@ export default function ExploreScreen() {
                                     const viewportCy = scrollY + height / 2;
                                     const dist = Math.hypot(deco.left - viewportCx, deco.top - viewportCy);
 
-                                    // Tighter buffer (1500px -> 1200px) to save memory
-                                    if (dist > 1200) return null;
+                                    // Tighter buffer (1200px -> 800px) to save memory
+                                    if (dist > 800) return null;
 
-                                    return <AnimatedDecoration key={`deco-${i}`} config={deco} index={i} />;
+                                    return <AnimatedDecoration key={`deco-${i}`} config={deco} index={i} customEmoji={selectedEmoji} isPaused={isBackgroundPaused} />;
                                 })}
 
                                 {/* Render Posts - Strict Virtualization */}
@@ -761,7 +988,7 @@ export default function ExploreScreen() {
                                     // 1000px radius covers screen + significant margin.
                                     const dist = Math.hypot(cardCx - viewportCx, cardCy - viewportCy);
 
-                                    if (dist > 800) {
+                                    if (dist > 600) {
                                         return null; // CRASH FIX: Unmount completely
                                     }
 
@@ -772,6 +999,7 @@ export default function ExploreScreen() {
                                             config={config}
                                             index={index}
                                             onPress={() => router.push(`/post/${post.id}/similar` as any)}
+                                            onToggleScroll={setScrollEnabled}
                                             isActive={isScreenFocused && activeCardIndex === index}
                                         />
                                     );

@@ -31,7 +31,7 @@ const DEMO_FEED: FeedPost[] = Array.from({ length: 10 }).map((_, i) => ({
         name: ['Alex', 'Jordan', 'Sam', 'Taylor', 'Morgan'][i % 5],
         profile: {
             displayName: ['alex_photo', 'jordan.creates', 'sam.design', 'taylor_art', 'morganx'][i % 5],
-            avatarUrl: `https://api.dicebear.com/7.x/avataaars/png?seed=user${i}`
+            avatarUrl: ''
         }
     },
     likeCount: Math.floor(Math.random() * 500) + 10,
@@ -48,7 +48,7 @@ export default function FeedScreen() {
 
     const fetchFeed = async () => {
         try {
-            const response = await fetch('https://fuy.vercel.app/api/feed');
+            const response = await fetch('https://www.fuymedia.org/api/feed');
             if (response.ok) {
                 const data = await response.json();
                 if (data.posts?.length > 0) {
@@ -94,7 +94,7 @@ export default function FeedScreen() {
             <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 }}>
                 <TouchableOpacity onPress={() => router.push(`/profile/${item.user.profile?.displayName}`)}>
                     <Image
-                        source={{ uri: item.user.profile?.avatarUrl || 'https://api.dicebear.com/7.x/avataaars/png?seed=default' }}
+                        source={{ uri: item.user.profile?.avatarUrl }}
                         style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.card }}
                     />
                 </TouchableOpacity>

@@ -133,7 +133,7 @@ export default function BondingScreen() {
                     return {
                         id: partner.id,
                         name: profileData?.displayName || partner.name || 'Unknown',
-                        avatar: profileData?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/png?seed=${partner.id}`,
+                        avatar: profileData?.avatarUrl || '',
                         lastMessageAt: conv.lastMessageAt,
                     };
                 });
@@ -272,7 +272,7 @@ export default function BondingScreen() {
                 setSelectedProfile({
                     id: params.userId,
                     name: params.userName,
-                    avatar: params.userAvatar || `https://api.dicebear.com/7.x/avataaars/png?seed=${params.userId}`,
+                    avatar: params.userAvatar || '',
                 });
             }
 

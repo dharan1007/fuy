@@ -18,7 +18,7 @@ interface Channel {
 const DEMO: Channel[] = Array.from({ length: 8 }).map((_, i) => ({
     id: `ch-${i}`,
     name: ['Tech Hub', 'Music World', 'Art Studio', 'Travel Vibes', 'Fitness Pro'][i % 5],
-    avatarUrl: `https://api.dicebear.com/7.x/shapes/png?seed=chan${i}`,
+    avatarUrl: '',
     subscriberCount: Math.floor(Math.random() * 100000) + 1000,
     isSubscribed: i < 3,
     latestVideo: { title: 'Latest Video Title', thumbnail: `https://picsum.photos/seed/chanvid${i}/400/225` }

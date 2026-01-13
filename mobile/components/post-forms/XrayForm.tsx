@@ -1,20 +1,21 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Image, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Image, Alert, ActivityIndicator, Dimensions } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import { ArrowLeft, Globe, Users, Lock, Plus, X, Layers } from 'lucide-react-native';
+import { ArrowLeft, Globe, Users, Lock, Search, Layers, Plus } from 'lucide-react-native';
 import { MediaUploadService } from '../../services/MediaUploadService';
 import { supabase } from '../../lib/supabase';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:3000';
+const { width } = Dimensions.get('window');
 
 interface XrayFormProps {
     onBack: () => void;
 }
 
 export default function XrayForm({ onBack }: XrayFormProps) {
-    const { colors, isDark } = useTheme();
+    const { isDark } = useTheme();
     const { session } = useAuth();
     const [description, setDescription] = useState('');
     const [visibility, setVisibility] = useState('PUBLIC');
@@ -22,6 +23,7 @@ export default function XrayForm({ onBack }: XrayFormProps) {
     const [bottomLayer, setBottomLayer] = useState<string | null>(null);
     const [scratchPattern, setScratchPattern] = useState('RANDOM');
     const [loading, setLoading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
 
     const pickImage = async (type: 'top' | 'bottom') => {
         const result = await ImagePicker.launchImageLibraryAsync({
@@ -38,7 +40,7 @@ export default function XrayForm({ onBack }: XrayFormProps) {
 
     const handleSubmit = async () => {
         if (!topLayer || !bottomLayer) {
-            Alert.alert('Error', 'Please select both top and bottom layer images');
+            Alert.alert('Error', 'Please select both layers');
             return;
         }
         if (!session?.user?.email) {
@@ -47,21 +49,18 @@ export default function XrayForm({ onBack }: XrayFormProps) {
         }
 
         setLoading(true);
+        setUploadProgress(0);
 
         try {
-            const { data: userData } = await supabase
-                .from('User')
-                .select('id')
-                .eq('email', session.user.email)
-                .single();
-
+            const { data: userData } = await supabase.from('User').select('id').eq('email', session.user.email).single();
             if (!userData?.id) throw new Error('User not found');
 
-            // Upload both images
+            setUploadProgress(30);
             const [topResult, bottomResult] = await Promise.all([
-                MediaUploadService.uploadImage(topLayer, `xray_top_${Date.now()}.jpg`),
-                MediaUploadService.uploadImage(bottomLayer, `xray_bottom_${Date.now()}.jpg`),
+                MediaUploadService.uploadImage(topLayer),
+                MediaUploadService.uploadImage(bottomLayer),
             ]);
+            setUploadProgress(80);
 
             const response = await fetch(`${API_URL}/api/posts/create`, {
                 method: 'POST',
@@ -81,12 +80,9 @@ export default function XrayForm({ onBack }: XrayFormProps) {
                 }),
             });
 
-            if (!response.ok) {
-                const errData = await response.json();
-                throw new Error(errData.error || 'Failed to create X-Ray');
-            }
-
-            Alert.alert('Success', 'X-Ray posted!', [{ text: 'OK', onPress: onBack }]);
+            setUploadProgress(100);
+            if (!response.ok) throw new Error((await response.json()).error || 'Failed');
+            Alert.alert('Done', 'Posted successfully', [{ text: 'OK', onPress: onBack }]);
         } catch (error: any) {
             Alert.alert('Error', error.message);
         } finally {
@@ -94,165 +90,121 @@ export default function XrayForm({ onBack }: XrayFormProps) {
         }
     };
 
-    const VisibilityOption = ({ value, label, icon: Icon }: any) => (
-        <TouchableOpacity
-            onPress={() => setVisibility(value)}
-            className={`flex-1 flex-row items-center justify-center p-3 rounded-xl border ${visibility === value ? 'bg-cyan-500 border-cyan-500' : 'bg-transparent border-gray-200 dark:border-white/10'}`}
-        >
-            <Icon size={16} color={visibility === value ? 'white' : colors.text} />
-            <Text style={{ color: visibility === value ? 'white' : colors.text, fontWeight: '600', marginLeft: 6 }}>{label}</Text>
-        </TouchableOpacity>
+    const ImagePicker_ = ({ uri, onPick, onClear, label, icon: Icon }: { uri: string | null; onPick: () => void; onClear: () => void; label: string; icon: any }) => (
+        <View style={{ flex: 1, marginHorizontal: 4 }}>
+            <Text style={{ color: 'rgba(255,255,255,0.5)', marginBottom: 8, fontWeight: '600', fontSize: 10, letterSpacing: 1 }}>{label}</Text>
+            {uri ? (
+                <View style={{ aspectRatio: 1, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+                    <Image source={{ uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                    <TouchableOpacity
+                        onPress={onClear}
+                        style={{ position: 'absolute', top: 6, right: 6, backgroundColor: '#000', borderRadius: 10, padding: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' }}
+                    >
+                        <Text style={{ color: '#fff', fontSize: 10, fontWeight: '600' }}>X</Text>
+                    </TouchableOpacity>
+                </View>
+            ) : (
+                <TouchableOpacity
+                    onPress={onPick}
+                    style={{ aspectRatio: 1, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(255,255,255,0.3)', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.02)' }}
+                >
+                    <Icon size={24} color="rgba(255,255,255,0.4)" />
+                    <Text style={{ color: 'rgba(255,255,255,0.4)', marginTop: 8, fontSize: 11, fontWeight: '600' }}>Add</Text>
+                </TouchableOpacity>
+            )}
+        </View>
     );
 
     return (
-        <ScrollView className="flex-1" contentContainerStyle={{ padding: 16 }}>
-            <View className="flex-row items-center mb-6">
-                <TouchableOpacity
-                    onPress={onBack}
-                    className={`p-3 rounded-full mr-4 ${isDark ? 'bg-white/10' : 'bg-gray-100'}`}
-                    style={{ width: 48, height: 48, alignItems: 'center', justifyContent: 'center' }}
-                >
-                    <ArrowLeft size={24} color={colors.text} />
+        <ScrollView style={{ flex: 1, backgroundColor: '#000' }} contentContainerStyle={{ padding: 16 }}>
+            {/* Header */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24 }}>
+                <TouchableOpacity onPress={onBack} style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', marginRight: 16 }}>
+                    <ArrowLeft size={20} color="#fff" />
                 </TouchableOpacity>
-                <View>
-                    <Text style={{ color: colors.text, fontSize: 22, fontWeight: 'bold' }}>New X-Ray</Text>
-                    <Text style={{ color: colors.secondary, fontSize: 12 }}>Scratch to reveal hidden content</Text>
+                <View style={{ flex: 1 }}>
+                    <Text style={{ color: '#fff', fontSize: 20, fontWeight: '700', letterSpacing: 0.5 }}>New Xray</Text>
+                    <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>Scratch to reveal hidden content</Text>
+                </View>
+                <Search size={24} color="rgba(255,255,255,0.3)" />
+            </View>
+
+            {/* Layers */}
+            <View style={{ marginBottom: 20 }}>
+                <Text style={{ color: 'rgba(255,255,255,0.5)', marginBottom: 12, fontWeight: '600', fontSize: 11, letterSpacing: 1 }}>LAYERS</Text>
+                <View style={{ flexDirection: 'row', marginHorizontal: -4 }}>
+                    <ImagePicker_ uri={topLayer} onPick={() => pickImage('top')} onClear={() => setTopLayer(null)} label="TOP (VISIBLE)" icon={Plus} />
+                    <ImagePicker_ uri={bottomLayer} onPick={() => pickImage('bottom')} onClear={() => setBottomLayer(null)} label="HIDDEN (REVEAL)" icon={Layers} />
                 </View>
             </View>
 
-            {/* Top Layer (Initial visible) */}
-            <View className="mb-4">
-                <Text style={{ color: colors.secondary, marginBottom: 8, fontWeight: '600' }}>Top Layer (Visible First)</Text>
-                {topLayer ? (
-                    <View className="relative" style={{ aspectRatio: 1, borderRadius: 16, overflow: 'hidden' }}>
-                        <Image source={{ uri: topLayer }} style={{ width: '100%', height: '100%' }} />
-                        <TouchableOpacity
-                            onPress={() => setTopLayer(null)}
-                            className="absolute top-2 right-2 bg-red-500 rounded-full p-2"
-                        >
-                            <X size={16} color="white" />
-                        </TouchableOpacity>
-                    </View>
-                ) : (
-                    <TouchableOpacity
-                        onPress={() => pickImage('top')}
-                        style={{
-                            aspectRatio: 1,
-                            backgroundColor: isDark ? '#1a1a1a' : '#f5f5f5',
-                            borderRadius: 16,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            borderWidth: 2,
-                            borderColor: '#06b6d4',
-                            borderStyle: 'dashed',
-                        }}
-                    >
-                        <Plus size={48} color="#06b6d4" />
-                        <Text style={{ color: '#06b6d4', marginTop: 8, fontWeight: '600' }}>Add Top Layer</Text>
-                    </TouchableOpacity>
-                )}
-            </View>
-
-            {/* Bottom Layer (Revealed on scratch) */}
-            <View className="mb-6">
-                <Text style={{ color: colors.secondary, marginBottom: 8, fontWeight: '600' }}>Bottom Layer (Revealed)</Text>
-                {bottomLayer ? (
-                    <View className="relative" style={{ aspectRatio: 1, borderRadius: 16, overflow: 'hidden' }}>
-                        <Image source={{ uri: bottomLayer }} style={{ width: '100%', height: '100%' }} />
-                        <TouchableOpacity
-                            onPress={() => setBottomLayer(null)}
-                            className="absolute top-2 right-2 bg-red-500 rounded-full p-2"
-                        >
-                            <X size={16} color="white" />
-                        </TouchableOpacity>
-                    </View>
-                ) : (
-                    <TouchableOpacity
-                        onPress={() => pickImage('bottom')}
-                        style={{
-                            aspectRatio: 1,
-                            backgroundColor: isDark ? '#1a1a1a' : '#f5f5f5',
-                            borderRadius: 16,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            borderWidth: 2,
-                            borderColor: '#06b6d4',
-                            borderStyle: 'dashed',
-                        }}
-                    >
-                        <Layers size={48} color="#06b6d4" />
-                        <Text style={{ color: '#06b6d4', marginTop: 8, fontWeight: '600' }}>Add Hidden Layer</Text>
-                    </TouchableOpacity>
-                )}
-            </View>
-
-            {/* Scratch Pattern */}
-            <View className="mb-6">
-                <Text style={{ color: colors.secondary, marginBottom: 8, fontWeight: '600' }}>Scratch Pattern</Text>
-                <View className="flex-row gap-2">
-                    {['RANDOM', 'GRID', 'CUSTOM'].map((pattern) => (
+            {/* Pattern */}
+            <View style={{ marginBottom: 20 }}>
+                <Text style={{ color: 'rgba(255,255,255,0.5)', marginBottom: 12, fontWeight: '600', fontSize: 11, letterSpacing: 1 }}>SCRATCH PATTERN</Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                    {['RANDOM', 'GRID', 'CUSTOM'].map(pattern => (
                         <TouchableOpacity
                             key={pattern}
                             onPress={() => setScratchPattern(pattern)}
-                            className={`flex-1 py-3 rounded-xl items-center ${scratchPattern === pattern ? 'bg-cyan-500' : ''}`}
-                            style={{ backgroundColor: scratchPattern === pattern ? '#06b6d4' : isDark ? '#1a1a1a' : '#f5f5f5' }}
+                            style={{
+                                flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center',
+                                backgroundColor: scratchPattern === pattern ? '#fff' : 'rgba(255,255,255,0.05)',
+                                borderWidth: 1, borderColor: scratchPattern === pattern ? '#fff' : 'rgba(255,255,255,0.1)',
+                            }}
                         >
-                            <Text style={{ color: scratchPattern === pattern ? 'white' : colors.text, fontWeight: '600' }}>{pattern}</Text>
+                            <Text style={{ color: scratchPattern === pattern ? '#000' : 'rgba(255,255,255,0.5)', fontWeight: '600', fontSize: 11 }}>{pattern}</Text>
                         </TouchableOpacity>
                     ))}
                 </View>
             </View>
 
-            {/* Description */}
-            <View className="mb-6">
-                <Text style={{ color: colors.secondary, marginBottom: 8, fontWeight: '600' }}>Caption</Text>
+            {/* Caption */}
+            <View style={{ marginBottom: 20 }}>
+                <Text style={{ color: 'rgba(255,255,255,0.5)', marginBottom: 8, fontWeight: '600', fontSize: 11, letterSpacing: 1 }}>CAPTION</Text>
                 <TextInput
                     value={description}
                     onChangeText={setDescription}
-                    placeholder="What's hiding underneath?"
-                    placeholderTextColor={colors.secondary}
+                    placeholder="What is hidden underneath..."
+                    placeholderTextColor="rgba(255,255,255,0.3)"
                     multiline
-                    style={{
-                        color: colors.text,
-                        backgroundColor: isDark ? '#1a1a1a' : '#f5f5f5',
-                        padding: 16,
-                        borderRadius: 16,
-                        borderWidth: 1,
-                        borderColor: colors.border,
-                        minHeight: 80,
-                        textAlignVertical: 'top'
-                    }}
+                    style={{ color: '#fff', backgroundColor: 'rgba(255,255,255,0.05)', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', minHeight: 80, textAlignVertical: 'top', fontSize: 15 }}
                 />
             </View>
 
             {/* Visibility */}
-            <View className="mb-6">
-                <Text style={{ color: colors.secondary, marginBottom: 8, fontWeight: '600' }}>Visibility</Text>
-                <View className="flex-row gap-2">
-                    <VisibilityOption value="PUBLIC" label="Public" icon={Globe} />
-                    <VisibilityOption value="FRIENDS" label="Friends" icon={Users} />
-                    <VisibilityOption value="PRIVATE" label="Private" icon={Lock} />
+            <View style={{ marginBottom: 24 }}>
+                <Text style={{ color: 'rgba(255,255,255,0.5)', marginBottom: 12, fontWeight: '600', fontSize: 11, letterSpacing: 1 }}>VISIBILITY</Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                    {[{ value: 'PUBLIC', label: 'Public', Icon: Globe }, { value: 'FRIENDS', label: 'Friends', Icon: Users }, { value: 'PRIVATE', label: 'Private', Icon: Lock }].map(opt => (
+                        <TouchableOpacity
+                            key={opt.value}
+                            onPress={() => setVisibility(opt.value)}
+                            style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 12, borderRadius: 8, borderWidth: 1, backgroundColor: visibility === opt.value ? '#fff' : 'transparent', borderColor: visibility === opt.value ? '#fff' : 'rgba(255,255,255,0.2)' }}
+                        >
+                            <opt.Icon size={14} color={visibility === opt.value ? '#000' : 'rgba(255,255,255,0.5)'} />
+                            <Text style={{ color: visibility === opt.value ? '#000' : 'rgba(255,255,255,0.5)', fontWeight: '600', fontSize: 11, marginLeft: 6 }}>{opt.label}</Text>
+                        </TouchableOpacity>
+                    ))}
                 </View>
             </View>
+
+            {/* Progress */}
+            {loading && (
+                <View style={{ marginBottom: 16 }}>
+                    <View style={{ height: 2, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 1, overflow: 'hidden' }}>
+                        <View style={{ width: `${uploadProgress}%`, height: '100%', backgroundColor: '#fff' }} />
+                    </View>
+                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, marginTop: 8, textAlign: 'center', letterSpacing: 0.5 }}>UPLOADING {Math.round(uploadProgress)}%</Text>
+                </View>
+            )}
 
             {/* Submit */}
             <TouchableOpacity
                 onPress={handleSubmit}
                 disabled={loading || !topLayer || !bottomLayer}
-                style={{
-                    backgroundColor: topLayer && bottomLayer ? '#06b6d4' : colors.border,
-                    padding: 18,
-                    borderRadius: 16,
-                    alignItems: 'center',
-                    marginBottom: 40,
-                    opacity: loading ? 0.6 : 1,
-                }}
+                style={{ backgroundColor: '#fff', padding: 16, borderRadius: 8, alignItems: 'center', marginBottom: 40, opacity: loading || !topLayer || !bottomLayer ? 0.3 : 1 }}
             >
-                {loading ? (
-                    <ActivityIndicator color="white" />
-                ) : (
-                    <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 18 }}>Post X-Ray</Text>
-                )}
+                {loading ? <ActivityIndicator color="#000" /> : <Text style={{ color: '#000', fontWeight: '700', fontSize: 14, letterSpacing: 0.5 }}>POST XRAY</Text>}
             </TouchableOpacity>
         </ScrollView>
     );

@@ -19,7 +19,7 @@ const DEMO_BONDS: Bond[] = Array.from({ length: 12 }).map((_, i) => ({
     id: `bond-${i}`,
     user: {
         name: ['Emma', 'Liam', 'Olivia', 'Noah', 'Ava', 'Mason'][i % 6],
-        avatarUrl: `https://api.dicebear.com/7.x/avataaars/png?seed=bond${i}`,
+        avatarUrl: '',
     },
     bondType: i < 3 ? 'close' : i < 7 ? 'regular' : 'new',
     lastInteraction: ['Just now', '2h ago', '1d ago', '3d ago', '1w ago'][i % 5],
