@@ -1474,10 +1474,14 @@ export default function ChatScreen() {
     );
 
     // Chat Settings Modal
+    // Background Picker Modal State
+    const [showBackgroundPicker, setShowBackgroundPicker] = useState(false);
+
     const handleChangeBackground = async () => {
+        setShowBackgroundPicker(false);
         try {
             const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                mediaTypes: ['images'],
                 allowsEditing: true,
                 aspect: [9, 16],
                 quality: 0.8,
@@ -1486,9 +1490,9 @@ export default function ChatScreen() {
             if (!result.canceled && result.assets[0]) {
                 setIsUploading(true);
                 try {
-                    // Get presigned URL
+                    // Get presigned URL using API_URL
                     const filename = `wallpaper_${Date.now()}.jpg`;
-                    const presignedRes = await fetch('/api/upload/presigned', {
+                    const presignedRes = await fetch(`${API_URL}/api/upload/presigned`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -1521,7 +1525,7 @@ export default function ChatScreen() {
                     Alert.alert('Success', 'Chat background updated!');
                 } catch (err) {
                     console.error('Upload failed:', err);
-                    Alert.alert('Error', 'Failed to upload background');
+                    Alert.alert('Error', 'Failed to upload background. Please try again.');
                 } finally {
                     setIsUploading(false);
                 }
@@ -1529,6 +1533,15 @@ export default function ChatScreen() {
         } catch (err) {
             console.error('Image picker error:', err);
         }
+    };
+
+    const handleRemoveBackground = async () => {
+        setShowBackgroundPicker(false);
+        setChatBackground(null);
+        if (activeConversationIdRef.current) {
+            await supabase.from('Conversation').update({ wallpaperUrl: null }).eq('id', activeConversationIdRef.current);
+        }
+        Alert.alert('Removed', 'Chat background has been removed.');
     };
 
     const handleBlockUser = async () => {
