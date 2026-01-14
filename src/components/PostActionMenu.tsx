@@ -4,7 +4,9 @@
 import React, { useState } from 'react';
 import { MoreVertical, Flag, EyeOff, VolumeX, Trash2, Copy, Ban, Share as ShareIcon, PauseCircle } from 'lucide-react';
 import ReportModal from '@/components/ReportModal';
-import MuteOptionsModal from '@/components/MuteOptionsModal';
+import dynamic from 'next/dynamic';
+
+const MuteOptionsModal = dynamic(() => import('@/components/MuteOptionsModal').then(mod => mod.MuteOptionsModal), { ssr: false });
 
 import { useFeedItem } from '@/context/FeedItemContext';
 

@@ -14,17 +14,18 @@ export async function POST(req: NextRequest) {
         const session = await getServerSession(authOptions);
         if (!session?.user) return new NextResponse("Unauthorized", { status: 401 });
 
+        const user = session.user as { id: string; name?: string | null; email?: string | null; image?: string | null };
         const body = await req.json();
         const { userId } = blockSchema.parse(body);
 
-        if (userId === session.user.id) {
+        if (userId === user.id) {
             return new NextResponse("Cannot block yourself", { status: 400 });
         }
 
         // Create BlockedUser entry
         await prisma.blockedUser.create({
             data: {
-                blockerId: session.user.id,
+                blockerId: user.id,
                 blockedId: userId,
             },
         });
@@ -34,8 +35,8 @@ export async function POST(req: NextRequest) {
         await prisma.friendship.deleteMany({
             where: {
                 OR: [
-                    { userId: session.user.id, friendId: userId },
-                    { userId: userId, friendId: session.user.id }
+                    { userId: user.id, friendId: userId },
+                    { userId: userId, friendId: user.id }
                 ]
             }
         });
@@ -44,8 +45,8 @@ export async function POST(req: NextRequest) {
         await prisma.subscription.deleteMany({
             where: {
                 OR: [
-                    { subscriberId: session.user.id, subscribedToId: userId },
-                    { subscriberId: userId, subscribedToId: session.user.id }
+                    { subscriberId: user.id, subscribedToId: userId },
+                    { subscriberId: userId, subscribedToId: user.id }
                 ]
             }
         });

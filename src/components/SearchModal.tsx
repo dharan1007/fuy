@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import styles from './SearchModal.module.css';
 
 interface Post {
@@ -65,6 +66,8 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
   const [error, setError] = useState<string | null>(null);
   const [followingStates, setFollowingStates] = useState<Record<string, { status: "PENDING" | "ACCEPTED" | null; loading: boolean }>>({});
 
+  const router = useRouter();
+
   const handleFollow = async (userId: string) => {
     setFollowingStates(prev => ({
       ...prev,
@@ -72,19 +75,18 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
     }));
 
     try {
-      const response = await fetch('/api/users/follow-request', {
+      const response = await fetch('/api/users/follow', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ friendId: userId }),
+        body: JSON.stringify({ targetUserId: userId }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        const newStatus = data.autoAccepted ? "ACCEPTED" : "PENDING";
         setFollowingStates(prev => ({
           ...prev,
-          [userId]: { status: newStatus, loading: false }
+          [userId]: { status: "ACCEPTED", loading: false }
         }));
 
         // Update results if available
@@ -93,7 +95,7 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
             ...results,
             users: results.users.map(u =>
               u.id === userId
-                ? { ...u, isFollowing: newStatus === "ACCEPTED", friendshipStatus: newStatus, friendshipId: data.friendship?.id }
+                ? { ...u, isFollowing: true, friendshipStatus: "ACCEPTED" }
                 : u
             ),
           });
@@ -103,14 +105,14 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
           ...prev,
           [userId]: { status: null, loading: false }
         }));
-        console.error('Failed to send friend request:', data.error);
+        console.error('Failed to follow:', data.error);
       }
     } catch (err) {
       setFollowingStates(prev => ({
         ...prev,
         [userId]: { status: null, loading: false }
       }));
-      console.error('Error sending friend request:', err);
+      console.error('Error following user:', err);
     }
   };
 
@@ -275,7 +277,12 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
                       const isLoading = followState.loading;
 
                       return (
-                        <div key={user.id} className={styles.userCard}>
+                        <div
+                          key={user.id}
+                          className={styles.userCard}
+                          onClick={() => { onClose(); router.push(`/profile/${user.id}`); }}
+                          style={{ cursor: 'pointer' }}
+                        >
                           <img src={user.avatar} alt={user.name} className={styles.avatar} />
                           <div className={styles.userInfo}>
                             <h4 className={styles.userName}>{user.name}</h4>
@@ -286,7 +293,7 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
                           {isFollowing ? (
                             <button
                               className={`${styles.followButton} ${styles.following}`}
-                              onClick={() => handleUnfollow(user.id, user.friendshipId)}
+                              onClick={(e) => { e.stopPropagation(); handleUnfollow(user.id, user.friendshipId); }}
                               disabled={isLoading}
                             >
                               {isLoading ? '...' : 'Following'}
@@ -295,13 +302,14 @@ export default function SearchModal({ isOpen, onClose }: SearchModalProps) {
                             <button
                               className={`${styles.followButton} ${styles.pending}`}
                               disabled={true}
+                              onClick={(e) => e.stopPropagation()}
                             >
                               Pending
                             </button>
                           ) : (
                             <button
                               className={styles.followButton}
-                              onClick={() => handleFollow(user.id)}
+                              onClick={(e) => { e.stopPropagation(); handleFollow(user.id); }}
                               disabled={isLoading}
                             >
                               {isLoading ? '...' : 'Follow'}

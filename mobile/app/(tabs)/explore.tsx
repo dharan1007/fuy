@@ -564,14 +564,33 @@ export default function ExploreScreen() {
                 }));
             }
 
-            // Map Users
+            // Get user IDs to check follow status
+            const userIds = (profileResults || []).map((p: any) => p.userId).filter((id: string) => id !== currentUserId);
+
+            // Check if current user is following these users (via Subscription table)
+            let followingMap: Record<string, boolean> = {};
+            if (currentUserId && userIds.length > 0) {
+                const { data: subscriptions } = await supabase
+                    .from('Subscription')
+                    .select('subscribedToId')
+                    .eq('subscriberId', currentUserId)
+                    .in('subscribedToId', userIds);
+
+                if (subscriptions) {
+                    subscriptions.forEach((sub: any) => {
+                        followingMap[sub.subscribedToId] = true;
+                    });
+                }
+            }
+
+            // Map Users with follow status
             let mappedUsers: SearchResult[] = (profileResults || []).map((p: any) => ({
                 type: 'USER',
                 id: p.userId,
                 title: p.user?.name || 'Unknown',
                 subtitle: `@${p.displayName}`,
                 avatar: p.avatarUrl,
-                friendshipStatus: 'NONE'
+                friendshipStatus: followingMap[p.userId] ? 'ACCEPTED' : 'NONE'
             }));
 
             if (currentUserId) {
@@ -580,36 +599,51 @@ export default function ExploreScreen() {
 
             setSearchResults([...results, ...mappedUsers]);
         } catch (e) {
+            console.error('Search error:', e);
             setSearchResults([]);
         }
     };
 
     const handleFollow = async (item: SearchResult) => {
         if (!currentUserId) return;
+
+        // Optimistic UI update
         setSearchResults(prev => prev.map(u => u.id === item.id ? { ...u, friendshipStatus: 'PENDING' } : u));
 
-        // Insert friendship request
-        const { data: friendship, error } = await supabase.from('Friendship').insert({
-            userId: currentUserId,
-            friendId: item.id,
-            status: 'PENDING'
-        }).select().single();
+        try {
+            // Get auth token for API call
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session?.access_token) {
+                Alert.alert("Error", "Not authenticated");
+                setSearchResults(prev => prev.map(u => u.id === item.id ? { ...u, friendshipStatus: 'NONE' } : u));
+                return;
+            }
 
-        if (error) {
+            // Use API endpoint instead of direct Supabase access
+            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org'}/api/users/follow`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`
+                },
+                body: JSON.stringify({ targetUserId: item.id })
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                console.error('Follow error:', result);
+                setSearchResults(prev => prev.map(u => u.id === item.id ? { ...u, friendshipStatus: 'NONE' } : u));
+                Alert.alert("Error", result.error || "Could not follow user");
+                return;
+            }
+
+            // Success - update UI to show following
+            setSearchResults(prev => prev.map(u => u.id === item.id ? { ...u, friendshipStatus: 'ACCEPTED' } : u));
+        } catch (error) {
             console.error('Follow error:', error);
             setSearchResults(prev => prev.map(u => u.id === item.id ? { ...u, friendshipStatus: 'NONE' } : u));
-            Alert.alert("Error", "Could not send request");
-            return;
-        }
-
-        // Create notification for the target user
-        if (friendship) {
-            await supabase.from('Notification').insert({
-                userId: item.id,
-                type: 'FRIEND_REQUEST',
-                message: 'You have a new follow request',
-                read: false
-            });
+            Alert.alert("Error", "Could not follow user");
         }
     };
 
@@ -788,7 +822,18 @@ export default function ExploreScreen() {
                                 keyExtractor={item => item.id}
                                 keyboardShouldPersistTaps="handled"
                                 renderItem={({ item }) => (
-                                    <View style={[styles.searchResultItem, { backgroundColor: colors.card }]}>
+                                    <TouchableOpacity
+                                        style={[styles.searchResultItem, { backgroundColor: colors.card }]}
+                                        onPress={() => {
+                                            if (item.type === 'USER') {
+                                                setIsSearching(false);
+                                                router.push(`/profile/${item.id}` as any);
+                                            } else if (item.type === 'SLASH') {
+                                                setIsSearching(false);
+                                                router.push(`/slash/${item.data?.tag}` as any);
+                                            }
+                                        }}
+                                    >
                                         {item.type === 'USER' ? (
                                             <Image
                                                 source={{ uri: item.avatar }}
@@ -803,9 +848,9 @@ export default function ExploreScreen() {
                                             <Text style={[styles.searchName, { color: colors.text }]}>{item.title}</Text>
                                             <Text style={[styles.searchHandle, { color: colors.text + '80' }]}>{item.subtitle}</Text>
                                         </View>
-                                        {item.type === 'USER' && (
+                                        {item.type === 'USER' && item.friendshipStatus !== 'ACCEPTED' && (
                                             <TouchableOpacity
-                                                onPress={() => handleFollow(item)}
+                                                onPress={(e) => { e.stopPropagation(); handleFollow(item); }}
                                                 style={[styles.followButton, {
                                                     backgroundColor: item.friendshipStatus === 'PENDING' ? 'rgba(255,255,255,0.2)' : 'white'
                                                 }]}
@@ -813,11 +858,16 @@ export default function ExploreScreen() {
                                                 <Text style={[styles.followText, {
                                                     color: item.friendshipStatus === 'PENDING' ? 'white' : 'black'
                                                 }]}>
-                                                    {item.friendshipStatus === 'PENDING' ? 'Requested' : item.friendshipStatus === 'ACCEPTED' ? 'Following' : 'Follow'}
+                                                    {item.friendshipStatus === 'PENDING' ? 'Requested' : 'Follow'}
                                                 </Text>
                                             </TouchableOpacity>
                                         )}
-                                    </View>
+                                        {item.type === 'USER' && item.friendshipStatus === 'ACCEPTED' && (
+                                            <View style={[styles.followButton, { backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' }]}>
+                                                <Text style={[styles.followText, { color: 'rgba(255,255,255,0.7)' }]}>Following</Text>
+                                            </View>
+                                        )}
+                                    </TouchableOpacity>
                                 )}
                             />
                         </SafeAreaView>

@@ -1,371 +1,599 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image, Dimensions, RefreshControl, ActivityIndicator, Alert, Animated, Easing } from 'react-native';
-import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
-import { ChevronLeft, Check, X, Ghost, ThumbsUp, Bell, Settings } from 'lucide-react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, FlatList, TouchableOpacity, Image, RefreshControl, ActivityIndicator, Alert } from 'react-native';
+import { ChevronLeft, Check, X, UserPlus, Bell, Heart, MessageCircle, Users, EyeOff } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useTheme } from '../context/ThemeContext';
 import { supabase } from '../lib/supabase';
 
-const { width, height } = Dimensions.get('window');
-
-// Starfield Component
-const StarField = () => {
-    // Generate static stars
-    const stars = Array.from({ length: 50 }).map((_, i) => ({
-        id: i,
-        top: Math.random() * height,
-        left: Math.random() * width,
-        size: Math.random() * 3 + 1,
-        opacity: Math.random() * 0.7 + 0.3,
-    }));
-
-    return (
-        <View className="absolute inset-0 z-0">
-            {stars.map(star => (
-                <View
-                    key={star.id}
-                    className="absolute bg-white rounded-full"
-                    style={{
-                        top: star.top,
-                        left: star.left,
-                        width: star.size,
-                        height: star.size,
-                        opacity: star.opacity
-                    }}
-                />
-            ))}
-        </View>
-    );
-};
-
-// Asteroid Component
-const Asteroid = () => {
-    const anim = useRef(new Animated.Value(0)).current;
-
-    useEffect(() => {
-        const runAnimation = () => {
-            anim.setValue(0);
-            Animated.timing(anim, {
-                toValue: 1,
-                duration: 8000,
-                useNativeDriver: true,
-                easing: Easing.linear
-            }).start(() => runAnimation());
-        };
-        runAnimation();
-    }, []);
-
-    const translateX = anim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [-100, width + 100]
-    });
-
-    const translateY = anim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [50, height / 2]
-    });
-
-    return (
-        <Animated.View
-            className="absolute z-0 w-2 h-2 bg-white rounded-full shadow-lg shadow-white"
-            style={{
-                transform: [{ translateX }, { translateY }],
-                opacity: 0.8,
-                shadowOpacity: 0.8,
-                shadowRadius: 10,
-                elevation: 5
-            }}
-        >
-            {/* Trail */}
-            <View className="absolute right-0 top-0 w-20 h-2 bg-gradient-to-l from-transparent to-white opacity-20 transform -rotate-12 origin-right" />
-        </Animated.View>
-    );
-};
-
-// Combined type for UI
-interface NotificationItem {
-    id: string; // This matches Friendship ID for requests, Notification ID for alerts
-    type: 'request' | 'notification' | 'alert';
-    user: {
+interface NotificationData {
+    id: string;
+    type: string;
+    message: string;
+    read: boolean;
+    createdAt: string;
+    friendshipId?: string;
+    friendshipStatus?: string;
+    isGhosted?: boolean;
+    isFollowing?: boolean;
+    sender?: {
         id: string;
-        name: string;
-        avatar: string;
+        name: string | null;
+        avatarUrl: string | null;
+        displayName: string | null;
     };
-    content: string;
-    time: string;
-    read?: boolean;
-    data?: any;
+    _actionTaken?: 'ACCEPT' | 'REJECT' | 'GHOST' | 'FOLLOWED_BACK';
 }
 
 export default function NotificationsScreen() {
     const router = useRouter();
-    // Force dark space theme regardless of system mode for this screen
-    const colors = { text: '#ffffff', secondary: '#9ca3af', card: 'rgba(255,255,255,0.05)', border: 'rgba(255,255,255,0.1)' };
-    const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+    const [notifications, setNotifications] = useState<NotificationData[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [filter, setFilter] = useState<'all' | 'unread'>('all');
+    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
     useEffect(() => {
-        fetchData();
-    }, []);
+        loadNotifications();
+    }, [filter]);
 
-    const fetchData = async () => {
+    const loadNotifications = async () => {
         try {
             const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
+            if (!user) {
+                setLoading(false);
+                return;
+            }
+            setCurrentUserId(user.id);
 
-            // 1. Fetch Friend Requests (Pending Friendships where friendId == currentUser)
-            const { data: requests, error: reqError } = await supabase
+            // 1. Fetch ALL Friend Requests (including accepted, rejected, ghosted for history)
+            const { data: requests } = await supabase
                 .from('Friendship')
                 .select(`
                     id,
                     userId,
-                    user:userId (id, name, profile:Profile(avatarUrl, displayName)),
+                    status,
                     createdAt,
-                    isGhosted
+                    isGhosted,
+                    ghostedBy,
+                    user:userId (id, name, profile:Profile(avatarUrl, displayName))
                 `)
                 .eq('friendId', user.id)
-                .eq('status', 'PENDING');
-
-            if (reqError) console.error('Error fetching requests:', reqError);
+                .order('createdAt', { ascending: false });
 
             // 2. Fetch General Notifications
-            const { data: notifs, error: notifError } = await supabase
+            let notifQuery = supabase
                 .from('Notification')
                 .select('*')
                 .eq('userId', user.id)
                 .order('createdAt', { ascending: false })
-                .limit(20);
+                .limit(50);
 
-            if (notifError) console.error('Error fetching notifs:', notifError);
+            if (filter === 'unread') {
+                notifQuery = notifQuery.eq('read', false);
+            }
 
-            // Transform Requests to UI model
-            const mappedRequests: NotificationItem[] = (requests || [])
-                .filter((req: any) => !req.isGhosted)
-                .map((req: any) => ({
-                    id: req.id,
-                    type: 'request',
-                    user: {
-                        id: req.user?.id || req.userId,
-                        name: req.user?.name || req.user?.profile?.displayName || 'Unknown User',
-                        avatar: req.user?.profile?.avatarUrl || null
-                    },
-                    content: 'wants to follow you',
-                    time: new Date(req.createdAt).toLocaleDateString(),
-                    data: req
-                }));
+            const { data: notifs } = await notifQuery;
 
-            // Transform Notifs to UI model
-            const mappedNotifs: NotificationItem[] = (notifs || []).map((n: any) => {
-                // Fix "Someone" text issue here
+            // 3. Get sender info for FOLLOW notifications
+            const senderIds = [...new Set((notifs || [])
+                .filter((n: any) => n.type === 'FOLLOW' && n.postId)
+                .map((n: any) => n.postId))];
+
+            let senderMap: Record<string, any> = {};
+            if (senderIds.length > 0) {
+                const { data: senders } = await supabase
+                    .from('User')
+                    .select('id, name, profile:Profile(avatarUrl, displayName)')
+                    .in('id', senderIds);
+
+                if (senders) {
+                    senders.forEach((s: any) => {
+                        const profile = Array.isArray(s.profile) ? s.profile[0] : s.profile;
+                        senderMap[s.id] = {
+                            id: s.id,
+                            name: s.name,
+                            avatarUrl: profile?.avatarUrl,
+                            displayName: profile?.displayName
+                        };
+                    });
+                }
+            }
+
+            // 4. Check follow status
+            let followingSet = new Set<string>();
+            if (senderIds.length > 0) {
+                const { data: subs } = await supabase
+                    .from('Subscription')
+                    .select('subscribedToId')
+                    .eq('subscriberId', user.id)
+                    .in('subscribedToId', senderIds);
+
+                if (subs) {
+                    subs.forEach((s: any) => followingSet.add(s.subscribedToId));
+                }
+            }
+
+            // Transform Friend Requests (show all statuses for history)
+            const mappedRequests: NotificationData[] = (requests || [])
+                .filter((req: any) => !req.isGhosted || req.ghostedBy === user.id) // Show if not ghosted OR I ghosted it
+                .map((req: any) => {
+                    const userProfile = Array.isArray(req.user?.profile) ? req.user.profile[0] : req.user?.profile;
+
+                    let message = 'wants to follow you';
+                    if (req.status === 'ACCEPTED') message = 'is now following you';
+                    if (req.status === 'REJECTED') message = 'request was declined';
+                    if (req.isGhosted) message = 'request was hidden';
+
+                    return {
+                        id: `req_${req.id}`,
+                        type: 'FRIEND_REQUEST',
+                        message: message,
+                        read: req.status !== 'PENDING',
+                        createdAt: req.createdAt,
+                        friendshipId: req.id,
+                        friendshipStatus: req.status,
+                        isGhosted: req.isGhosted,
+                        sender: {
+                            id: req.user?.id || req.userId,
+                            name: req.user?.name,
+                            avatarUrl: userProfile?.avatarUrl,
+                            displayName: userProfile?.displayName
+                        }
+                    };
+                });
+
+            // Transform Notifications
+            const mappedNotifs: NotificationData[] = (notifs || []).map((n: any) => {
                 let cleanContent = n.message || '';
-                // If it starts with "Someone ", strip it.
                 cleanContent = cleanContent.replace(/^Someone\s+/, '');
-                // Also capitalize first letter if needed
                 cleanContent = cleanContent.charAt(0).toUpperCase() + cleanContent.slice(1);
+
+                const sender = n.type === 'FOLLOW' && n.postId ? senderMap[n.postId] : null;
 
                 return {
                     id: n.id,
-                    type: 'alert',
-                    user: {
-                        id: 'system',
-                        name: 'System',
-                        avatar: null
-                    },
-                    content: cleanContent,
-                    time: new Date(n.createdAt).toLocaleDateString(),
+                    type: n.type,
+                    message: cleanContent,
                     read: n.read,
-                    data: n
+                    createdAt: n.createdAt,
+                    sender: sender,
+                    isFollowing: sender ? followingSet.has(sender.id) : false
                 };
             });
 
-            setNotifications([...mappedRequests, ...mappedNotifs]);
+            // Combine and sort
+            const combined = [...mappedRequests, ...mappedNotifs].sort((a, b) =>
+                new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            );
+
+            setNotifications(filter === 'unread' ? combined.filter(n => !n.read) : combined);
+
+            // Mark all as read
+            if (notifs?.some((n: any) => !n.read)) {
+                await supabase
+                    .from('Notification')
+                    .update({ read: true })
+                    .eq('userId', user.id)
+                    .eq('read', false);
+            }
 
         } catch (e) {
-            console.error(e);
+            console.error('Load notifications error:', e);
         } finally {
             setLoading(false);
             setRefreshing(false);
         }
     };
 
-    const updateCounts = async (senderId: string, receiverId: string) => {
-        try {
-            // 1. Sender (Following + 1)
-            const { data: sender } = await supabase.from('User').select('followingCount').eq('id', senderId).single();
-            if (sender) {
-                await supabase.from('User').update({ followingCount: (sender.followingCount || 0) + 1 }).eq('id', senderId);
-            }
+    const handleFriendAction = async (friendshipId: string, action: 'ACCEPT' | 'REJECT' | 'GHOST', notificationId: string) => {
+        if (!currentUserId) return;
 
-            // 2. Receiver (Followers + 1)
-            const { data: receiver } = await supabase.from('User').select('followersCount').eq('id', receiverId).single();
-            if (receiver) {
-                await supabase.from('User').update({ followersCount: (receiver.followersCount || 0) + 1 }).eq('id', receiverId);
+        // Optimistic UI
+        setNotifications(prev => prev.map(n =>
+            n.id === notificationId ? {
+                ...n,
+                _actionTaken: action,
+                friendshipStatus: action === 'ACCEPT' ? 'ACCEPTED' : action === 'REJECT' ? 'REJECTED' : n.friendshipStatus,
+                isGhosted: action === 'GHOST' ? true : n.isGhosted,
+                message: action === 'ACCEPT' ? 'is now following you' : action === 'REJECT' ? 'request was declined' : 'request was hidden'
+            } : n
+        ));
+
+        try {
+            if (action === 'ACCEPT') {
+                // Update friendship status
+                await supabase.from('Friendship').update({ status: 'ACCEPTED' }).eq('id', friendshipId);
+
+                // Create subscription
+                const { data: friendship } = await supabase.from('Friendship').select('userId').eq('id', friendshipId).single();
+                if (friendship) {
+                    await supabase.from('Subscription').upsert({
+                        subscriberId: friendship.userId,
+                        subscribedToId: currentUserId
+                    }, { onConflict: 'subscriberId,subscribedToId' });
+                }
+
+                Alert.alert('Accepted', 'You are now connected');
+            } else if (action === 'REJECT') {
+                await supabase.from('Friendship').update({ status: 'REJECTED' }).eq('id', friendshipId);
+                Alert.alert('Declined', 'Request has been declined');
+            } else if (action === 'GHOST') {
+                await supabase.from('Friendship').update({ isGhosted: true, ghostedBy: currentUserId }).eq('id', friendshipId);
+                Alert.alert('Hidden', 'Request has been hidden');
             }
         } catch (e) {
-            console.error("Failed to update counts", e);
+            console.error('Friend action error:', e);
+            Alert.alert('Error', 'Action failed');
+            loadNotifications();
         }
     };
 
-    const handleAction = async (id: string, action: 'accept' | 'reject' | 'ghost', item: NotificationItem) => {
+    const handleFollowBack = async (targetUserId: string, notificationId: string) => {
+        if (!currentUserId) return;
+
+        setNotifications(prev => prev.map(n =>
+            n.id === notificationId ? { ...n, _actionTaken: 'FOLLOWED_BACK', isFollowing: true } : n
+        ));
+
         try {
-            if (item.type === 'request') {
-                const { data: { user } } = await supabase.auth.getUser();
-                if (!user) return;
+            await supabase.from('Subscription').upsert({
+                subscriberId: currentUserId,
+                subscribedToId: targetUserId
+            }, { onConflict: 'subscriberId,subscribedToId' });
 
-                if (action === 'accept') {
-                    const { error } = await supabase
-                        .from('Friendship')
-                        .update({ status: 'ACCEPTED' })
-                        .eq('id', id);
-
-                    if (error) throw error;
-                    await updateCounts(item.data.userId, user.id);
-                    Alert.alert("Success", "You are now connected!");
-                }
-                else if (action === 'reject') {
-                    const { error } = await supabase
-                        .from('Friendship')
-                        .update({ status: 'REJECTED' })
-                        .eq('id', id);
-                    if (error) throw error;
-                    Alert.alert("Rejected", "Request rejected.");
-                }
-                else if (action === 'ghost') {
-                    const { error } = await supabase
-                        .from('Friendship')
-                        .update({
-                            isGhosted: true,
-                            ghostedBy: user.id
-                        })
-                        .eq('id', id);
-                    if (error) throw error;
-                    Alert.alert("Ghosted", "This request won't bother you again.");
-                }
-
-                // Remove from list
-                setNotifications(prev => prev.filter(n => n.id !== id));
-            }
-        } catch (e: any) {
-            Alert.alert("Error", e.message);
+            Alert.alert('Following', 'You are now following this user');
+        } catch (e) {
+            console.error('Follow back error:', e);
+            loadNotifications();
         }
     };
 
-    const renderHeader = () => (
-        <View className="px-6 pt-4 pb-6 flex-row justify-between items-center pl-16 rounded-b-[30px] z-10">
-            <View className="flex-row items-center gap-4">
-                <TouchableOpacity onPress={() => router.back()} className="p-2 rounded-full bg-white/10 backdrop-blur-md">
-                    <ChevronLeft color="white" size={24} />
-                </TouchableOpacity>
-                <Text className="text-3xl font-bold text-white tracking-widest" style={{ textShadowColor: '#000', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 }}>
-                    NOTIFICATIONS
-                </Text>
-            </View>
-            <TouchableOpacity className="p-2 rounded-full bg-white/10 backdrop-blur-md">
-                <Settings color="white" size={24} />
-            </TouchableOpacity>
-        </View>
-    );
+    const deleteNotification = async (notificationId: string) => {
+        setNotifications(prev => prev.filter(n => n.id !== notificationId));
 
-    const renderNotificationItem = (item: NotificationItem) => (
-        <View key={item.id} className="mb-4">
-            {/* Transparent Card with white border/glow */}
+        if (!notificationId.startsWith('req_')) {
+            await supabase.from('Notification').delete().eq('id', notificationId);
+        }
+    };
+
+    const navigateToProfile = (userId: string | undefined) => {
+        if (userId) {
+            router.push(`/profile/${userId}` as any);
+        }
+    };
+
+    const getDisplayName = (sender: any) => {
+        return sender?.displayName || sender?.name || 'Unknown';
+    };
+
+    const getNotificationIcon = (type: string) => {
+        switch (type) {
+            case 'FRIEND_REQUEST':
+                return <UserPlus size={18} color="#fff" />;
+            case 'FRIEND_ACCEPT':
+            case 'FOLLOW':
+                return <Users size={18} color="#fff" />;
+            case 'POST_LIKE':
+            case 'REACTION':
+                return <Heart size={18} color="#fff" />;
+            case 'POST_COMMENT':
+            case 'COMMENT_REPLY':
+                return <MessageCircle size={18} color="#fff" />;
+            default:
+                return <Bell size={18} color="#fff" />;
+        }
+    };
+
+    const renderNotification = ({ item }: { item: NotificationData }) => {
+        const displayName = item.sender ? getDisplayName(item.sender) : null;
+
+        // Check if this is a pending request that hasn't been acted on
+        const isPendingRequest = item.type === 'FRIEND_REQUEST' &&
+            item.friendshipStatus === 'PENDING' &&
+            !item._actionTaken &&
+            !item.isGhosted;
+
+        // Check various states
+        const wasAccepted = item.friendshipStatus === 'ACCEPTED' || item._actionTaken === 'ACCEPT';
+        const wasRejected = item.friendshipStatus === 'REJECTED' || item._actionTaken === 'REJECT';
+        const wasGhosted = item.isGhosted || item._actionTaken === 'GHOST';
+
+        // For FOLLOW type notifications
+        const showFollowBack = item.type === 'FOLLOW' && !item.isFollowing && item._actionTaken !== 'FOLLOWED_BACK' && item.sender;
+        const isFollowing = item.isFollowing || item._actionTaken === 'FOLLOWED_BACK';
+
+        return (
             <View
-                className="rounded-3xl overflow-hidden border backdrop-blur-md"
                 style={{
-                    borderColor: 'rgba(255,255,255,0.1)',
-                    backgroundColor: 'rgba(0,0,0,0.4)', // Slightly darker transparency for contrast
-                    shadowColor: 'white',
-                    shadowOffset: { width: 0, height: 0 },
-                    shadowOpacity: 0.1,
-                    shadowRadius: 10
+                    backgroundColor: item.read ? 'transparent' : 'rgba(255,255,255,0.03)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(255,255,255,0.08)',
+                    borderRadius: 16,
+                    marginBottom: 12,
+                    overflow: 'hidden'
                 }}
             >
-                <View className="p-5">
-                    <View className="flex-row gap-4">
-                        {item.user.avatar ? (
+                <TouchableOpacity
+                    style={{ padding: 16, flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}
+                    onPress={() => navigateToProfile(item.sender?.id)}
+                    activeOpacity={0.7}
+                >
+                    {/* Avatar/Icon */}
+                    <View style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: 22,
+                        backgroundColor: 'rgba(255,255,255,0.08)',
+                        borderWidth: 1,
+                        borderColor: 'rgba(255,255,255,0.15)',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        overflow: 'hidden'
+                    }}>
+                        {item.sender?.avatarUrl ? (
                             <Image
-                                source={{ uri: item.user.avatar }}
-                                className="w-12 h-12 rounded-full border-2 border-white/20"
+                                source={{ uri: item.sender.avatarUrl }}
+                                style={{ width: 44, height: 44, borderRadius: 22 }}
                             />
                         ) : (
-                            <View className="w-12 h-12 rounded-full border-2 border-white/20 items-center justify-center bg-gray-800">
-                                <Bell size={20} color="white" />
+                            getNotificationIcon(item.type)
+                        )}
+                    </View>
+
+                    {/* Content */}
+                    <View style={{ flex: 1 }}>
+                        <Text style={{ color: '#fff', fontSize: 14, lineHeight: 20 }}>
+                            {displayName && <Text style={{ fontWeight: '700' }}>{displayName} </Text>}
+                            <Text style={{ color: 'rgba(255,255,255,0.7)' }}>{item.message}</Text>
+                        </Text>
+
+                        {/* PENDING REQUEST: Show Accept, Reject, Ghost buttons */}
+                        {isPendingRequest && item.friendshipId && (
+                            <View style={{ flexDirection: 'row', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                                <TouchableOpacity
+                                    onPress={() => handleFriendAction(item.friendshipId!, 'ACCEPT', item.id)}
+                                    style={{
+                                        backgroundColor: '#fff',
+                                        paddingHorizontal: 14,
+                                        paddingVertical: 8,
+                                        borderRadius: 8,
+                                        flexDirection: 'row',
+                                        alignItems: 'center',
+                                        gap: 6
+                                    }}
+                                >
+                                    <Check size={14} color="#000" />
+                                    <Text style={{ color: '#000', fontWeight: '700', fontSize: 11 }}>ACCEPT</Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    onPress={() => handleFriendAction(item.friendshipId!, 'REJECT', item.id)}
+                                    style={{
+                                        borderWidth: 1,
+                                        borderColor: 'rgba(255,255,255,0.3)',
+                                        paddingHorizontal: 14,
+                                        paddingVertical: 8,
+                                        borderRadius: 8,
+                                        flexDirection: 'row',
+                                        alignItems: 'center',
+                                        gap: 6
+                                    }}
+                                >
+                                    <X size={14} color="#fff" />
+                                    <Text style={{ color: '#fff', fontWeight: '700', fontSize: 11 }}>REJECT</Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    onPress={() => handleFriendAction(item.friendshipId!, 'GHOST', item.id)}
+                                    style={{
+                                        borderWidth: 1,
+                                        borderColor: 'rgba(255,255,255,0.2)',
+                                        paddingHorizontal: 14,
+                                        paddingVertical: 8,
+                                        borderRadius: 8,
+                                        flexDirection: 'row',
+                                        alignItems: 'center',
+                                        gap: 6
+                                    }}
+                                >
+                                    <EyeOff size={14} color="rgba(255,255,255,0.6)" />
+                                    <Text style={{ color: 'rgba(255,255,255,0.6)', fontWeight: '700', fontSize: 11 }}>GHOST</Text>
+                                </TouchableOpacity>
                             </View>
                         )}
-                        <View className="flex-1">
-                            <View className="flex-row justify-between items-start">
-                                <Text className="font-bold text-base flex-1 mr-2 text-white">{item.user.name}</Text>
-                                <Text className="text-xs text-blue-200">{item.time}</Text>
+
+                        {/* Status Badges */}
+                        {wasAccepted && (
+                            <View style={{
+                                backgroundColor: 'rgba(255,255,255,0.1)',
+                                paddingHorizontal: 10,
+                                paddingVertical: 4,
+                                borderRadius: 6,
+                                alignSelf: 'flex-start',
+                                marginTop: 12
+                            }}>
+                                <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>ACCEPTED</Text>
                             </View>
+                        )}
 
-                            <Text className="mt-1 leading-5 text-gray-300">
-                                {item.content}
-                            </Text>
+                        {wasRejected && (
+                            <View style={{
+                                backgroundColor: 'rgba(255,255,255,0.05)',
+                                paddingHorizontal: 10,
+                                paddingVertical: 4,
+                                borderRadius: 6,
+                                alignSelf: 'flex-start',
+                                marginTop: 12
+                            }}>
+                                <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: '700' }}>DECLINED</Text>
+                            </View>
+                        )}
 
-                            {item.type === 'request' && (
-                                <View className="flex-row gap-3 mt-4">
-                                    <TouchableOpacity
-                                        onPress={() => handleAction(item.id, 'accept', item)}
-                                        className="flex-1 bg-white py-3 rounded-xl items-center flex-row justify-center gap-2"
-                                    >
-                                        <Check color="black" size={16} />
-                                        <Text className="text-black font-bold">Accept</Text>
-                                    </TouchableOpacity>
+                        {wasGhosted && (
+                            <View style={{
+                                backgroundColor: 'rgba(255,255,255,0.05)',
+                                paddingHorizontal: 10,
+                                paddingVertical: 4,
+                                borderRadius: 6,
+                                alignSelf: 'flex-start',
+                                marginTop: 12
+                            }}>
+                                <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: '700' }}>HIDDEN</Text>
+                            </View>
+                        )}
 
-                                    <TouchableOpacity
-                                        onPress={() => handleAction(item.id, 'reject', item)}
-                                        className="flex-1 py-3 rounded-xl items-center flex-row justify-center gap-2 border border-white/20"
-                                        style={{ backgroundColor: 'rgba(0,0,0,0.3)' }}
-                                    >
-                                        <X color="white" size={16} />
-                                        <Text className="font-bold text-white">Reject</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            )}
-                        </View>
+                        {/* Follow Back Button for FOLLOW notifications */}
+                        {showFollowBack && item.sender?.id && (
+                            <TouchableOpacity
+                                onPress={() => handleFollowBack(item.sender!.id, item.id)}
+                                style={{
+                                    backgroundColor: '#fff',
+                                    paddingHorizontal: 14,
+                                    paddingVertical: 8,
+                                    borderRadius: 8,
+                                    alignSelf: 'flex-start',
+                                    marginTop: 12
+                                }}
+                            >
+                                <Text style={{ color: '#000', fontWeight: '700', fontSize: 11 }}>FOLLOW BACK</Text>
+                            </TouchableOpacity>
+                        )}
+
+                        {/* Following Badge */}
+                        {isFollowing && item.type === 'FOLLOW' && (
+                            <View style={{
+                                backgroundColor: 'rgba(255,255,255,0.1)',
+                                paddingHorizontal: 10,
+                                paddingVertical: 4,
+                                borderRadius: 6,
+                                alignSelf: 'flex-start',
+                                marginTop: 12
+                            }}>
+                                <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>FOLLOWING</Text>
+                            </View>
+                        )}
+
+                        {/* Timestamp */}
+                        <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: '600', marginTop: 10, textTransform: 'uppercase', letterSpacing: 1 }}>
+                            {new Date(item.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </Text>
                     </View>
-                </View>
+
+                    {/* Delete Button */}
+                    <TouchableOpacity onPress={() => deleteNotification(item.id)} style={{ padding: 4 }}>
+                        <X size={16} color="rgba(255,255,255,0.3)" />
+                    </TouchableOpacity>
+                </TouchableOpacity>
             </View>
-        </View>
-    );
+        );
+    };
 
     return (
-        <View className="flex-1 bg-black">
-            {/* Space Background */}
-            <LinearGradient
-                colors={['#000000', '#111827', '#1e1b4b']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                className="absolute inset-0 z-0"
-            />
-            <StarField />
-            <Asteroid />
+        <View style={{ flex: 1, backgroundColor: '#000' }}>
+            <SafeAreaView style={{ flex: 1 }}>
+                {/* Header */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                        <TouchableOpacity
+                            onPress={() => router.back()}
+                            style={{
+                                width: 40,
+                                height: 40,
+                                borderRadius: 20,
+                                borderWidth: 1,
+                                borderColor: 'rgba(255,255,255,0.15)',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                        >
+                            <ChevronLeft size={20} color="#fff" />
+                        </TouchableOpacity>
+                        <Text style={{ color: '#fff', fontSize: 18, fontWeight: '700', letterSpacing: 2 }}>NOTIFICATIONS</Text>
+                    </View>
+                </View>
 
-            <SafeAreaView className="flex-1 z-10">
-                {renderHeader()}
+                {/* Filter Tabs */}
+                <View style={{
+                    flexDirection: 'row',
+                    marginHorizontal: 16,
+                    marginBottom: 16,
+                    borderWidth: 1,
+                    borderColor: 'rgba(255,255,255,0.1)',
+                    borderRadius: 12,
+                    padding: 4
+                }}>
+                    <TouchableOpacity
+                        onPress={() => setFilter('all')}
+                        style={{
+                            flex: 1,
+                            paddingVertical: 10,
+                            borderRadius: 8,
+                            backgroundColor: filter === 'all' ? '#fff' : 'transparent'
+                        }}
+                    >
+                        <Text style={{
+                            textAlign: 'center',
+                            fontWeight: '700',
+                            fontSize: 12,
+                            color: filter === 'all' ? '#000' : 'rgba(255,255,255,0.5)'
+                        }}>ALL</Text>
+                    </TouchableOpacity>
 
+                    <TouchableOpacity
+                        onPress={() => setFilter('unread')}
+                        style={{
+                            flex: 1,
+                            paddingVertical: 10,
+                            borderRadius: 8,
+                            backgroundColor: filter === 'unread' ? '#fff' : 'transparent'
+                        }}
+                    >
+                        <Text style={{
+                            textAlign: 'center',
+                            fontWeight: '700',
+                            fontSize: 12,
+                            color: filter === 'unread' ? '#000' : 'rgba(255,255,255,0.5)'
+                        }}>UNREAD</Text>
+                    </TouchableOpacity>
+                </View>
+
+                {/* Content */}
                 {loading ? (
-                    <View className="flex-1 items-center justify-center">
-                        <ActivityIndicator size="large" color="white" />
+                    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                        <ActivityIndicator size="large" color="#fff" />
+                        <Text style={{ color: 'rgba(255,255,255,0.5)', marginTop: 12, fontSize: 10, fontWeight: '600', letterSpacing: 2 }}>LOADING</Text>
                     </View>
                 ) : (
-                    <ScrollView
-                        showsVerticalScrollIndicator={false}
-                        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} tintColor="white" />}
-                        contentContainerStyle={{ paddingBottom: 50, paddingHorizontal: 16 }}
-                    >
-                        {notifications.length === 0 ? (
-                            <View className="items-center py-20 opacity-50">
-                                <Bell color="white" size={48} />
-                                <Text className="mt-4 text-lg text-white">No signals from space...</Text>
+                    <FlatList
+                        data={notifications}
+                        keyExtractor={item => item.id}
+                        renderItem={renderNotification}
+                        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
+                        refreshControl={
+                            <RefreshControl
+                                refreshing={refreshing}
+                                onRefresh={() => { setRefreshing(true); loadNotifications(); }}
+                                tintColor="#fff"
+                            />
+                        }
+                        ListEmptyComponent={
+                            <View style={{ alignItems: 'center', paddingVertical: 80, opacity: 0.5 }}>
+                                <View style={{
+                                    width: 64,
+                                    height: 64,
+                                    borderRadius: 32,
+                                    borderWidth: 1,
+                                    borderColor: 'rgba(255,255,255,0.15)',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    marginBottom: 16
+                                }}>
+                                    <Bell size={28} color="rgba(255,255,255,0.3)" />
+                                </View>
+                                <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14, fontWeight: '600' }}>NO NOTIFICATIONS</Text>
                             </View>
-                        ) : (
-                            notifications.map(renderNotificationItem)
-                        )}
-                    </ScrollView>
+                        }
+                    />
                 )}
             </SafeAreaView>
         </View>

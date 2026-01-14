@@ -3,17 +3,37 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "@/lib/auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { decodeJwt } from 'jose';
 
 export const dynamic = 'force-dynamic';
 
+async function getUserId(req: Request) {
+    // 1. Try NextAuth Session (Web)
+    const session = await getServerSession(authOptions);
+    if (session?.user?.id) return session.user.id;
+
+    // 2. Try Supabase Token (Mobile)
+    const authHeader = req.headers.get('authorization');
+    if (authHeader?.startsWith('Bearer ')) {
+        const token = authHeader.split(' ')[1];
+        try {
+            // Decode token to get sub (userId)
+            const decoded = decodeJwt(token);
+            if (decoded?.sub) return decoded.sub;
+        } catch (e) {
+            console.error('Mobile auth failed:', e);
+        }
+    }
+    return null;
+}
+
 export async function GET(req: Request) {
     try {
-        const session = await getServerSession(authOptions);
-        if (!session?.user?.id) {
+        const userId = await getUserId(req);
+
+        if (!userId) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
-
-        const userId = session.user.id;
 
         // --- 1. Chat Friends (By Time) ---
         // Fetch user's conversation logs

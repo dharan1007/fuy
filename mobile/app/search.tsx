@@ -43,6 +43,16 @@ export default function SearchScreen() {
         return <FileText size={18} color={colors.secondary} />;
     };
 
+    const handleResultPress = (item: SearchResult) => {
+        if (item.type === 'user') {
+            router.push(`/profile/${item.id}` as any);
+        } else if (item.type === 'tag') {
+            router.push(`/slash/${item.title}` as any);
+        } else if (item.type === 'post') {
+            router.push(`/post/${item.id}` as any);
+        }
+    };
+
     return (
         <View style={{ flex: 1, backgroundColor: colors.background }}>
             <LinearGradient colors={mode === 'light' ? ['#fff', '#f5f5f5'] : ['#000', '#0a0a0a']} style={{ position: 'absolute', inset: 0 }} />
@@ -74,7 +84,10 @@ export default function SearchScreen() {
                     contentContainerStyle={{ padding: 16 }}
                     ListEmptyComponent={query.length > 1 ? <Text style={{ color: colors.secondary, textAlign: 'center', marginTop: 40 }}>No results found</Text> : null}
                     renderItem={({ item }) => (
-                        <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', padding: 14, backgroundColor: colors.card, borderRadius: 14, marginBottom: 10, borderWidth: 1, borderColor: colors.border }}>
+                        <TouchableOpacity
+                            style={{ flexDirection: 'row', alignItems: 'center', padding: 14, backgroundColor: colors.card, borderRadius: 14, marginBottom: 10, borderWidth: 1, borderColor: colors.border }}
+                            onPress={() => handleResultPress(item)}
+                        >
                             {item.image ? <Image source={{ uri: item.image }} style={{ width: 44, height: 44, borderRadius: 22 }} /> : <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.secondary, justifyContent: 'center', alignItems: 'center' }}>{getIcon(item.type)}</View>}
                             <View style={{ flex: 1, marginLeft: 12 }}>
                                 <Text style={{ color: colors.text, fontWeight: '600' }}>{item.title}</Text>

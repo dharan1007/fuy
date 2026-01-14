@@ -185,8 +185,8 @@ export default function DashboardAnalytics() {
     return (
         <div className="w-full space-y-8 animate-in fade-in duration-700">
             <div className="flex flex-col space-y-1">
-                <h2 className="text-2xl font-bold text-white tracking-tight">Mission Report</h2>
-                <p className="text-gray-400 text-sm">Performance metrics and crew interactions.</p>
+                <h2 className="text-2xl font-bold text-white tracking-tight">Analytics</h2>
+                <p className="text-gray-400 text-sm">Performance metrics and interactions.</p>
             </div>
 
             {/* CHANNEL ANALYTICS (NEW) */}
@@ -308,7 +308,7 @@ export default function DashboardAnalytics() {
 
 
             {/* BUDDY GRIDS */}
-            <h3 className="text-xl font-bold text-white pt-4">Crew Manifest</h3>
+            <h3 className="text-xl font-bold text-white pt-4">Contacts</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <BuddyList title="Comms (Chat)" buddies={data.buddies.chat} type="chatTime" redirect={(id) => router.push(`/chat?userId=${id}`)} />
                 <BuddyList title="Broadcasting (Shares)" buddies={data.buddies.shares} type="shares" redirect={(id) => router.push(`/chat?userId=${id}`)} />
@@ -320,7 +320,7 @@ export default function DashboardAnalytics() {
 
 
             {/* CONTENT BREAKDOWN */}
-            <h3 className="text-xl font-bold text-white pt-4">Transmission Logs</h3>
+            <h3 className="text-xl font-bold text-white pt-4">Posts</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {/* Total Posts Card */}
                 <div className="bg-transparent p-6 rounded-2xl border border-white/20 flex flex-col justify-between hover:border-white/40 transition-all backdrop-blur-sm">
@@ -435,11 +435,11 @@ export default function DashboardAnalytics() {
             </div>
 
             {/* Top Lists Row */}
-            <h3 className="text-xl font-bold text-white pt-4">Records</h3>
+            <h3 className="text-xl font-bold text-white pt-4">Highlights</h3>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Top Posts Rankings */}
                 <div className="bg-transparent p-6 rounded-2xl border border-white/20 col-span-2 backdrop-blur-sm">
-                    <h3 className="text-sm font-bold text-white uppercase tracking-widest mb-4">Hall of Fame</h3>
+                    <h3 className="text-sm font-bold text-white uppercase tracking-widest mb-4">Best Posts</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         {/* Most W */}
                         <div className="p-4 rounded-xl bg-white/5 border border-white/10 cursor-pointer hover:bg-white/10 transition-colors"
@@ -490,7 +490,7 @@ export default function DashboardAnalytics() {
 
                 {/* History Timeline */}
                 <div className="bg-transparent p-6 rounded-2xl border border-white/20 col-span-1 backdrop-blur-sm">
-                    <h3 className="text-sm font-bold text-white uppercase tracking-widest mb-6">Recent Logs</h3>
+                    <h3 className="text-sm font-bold text-white uppercase tracking-widest mb-6">Activity</h3>
 
                     <div className="relative border-l border-white/20 ml-3 space-y-6">
                         {/* Merge and sort history */}

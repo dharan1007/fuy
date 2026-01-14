@@ -112,13 +112,24 @@ const DotItem = ({ item, isActive, autoScroll, onVideoEnd, onToggleAutoScroll, o
     }, [item]);
 
     // Handle Follow
-    // Handle Follow
     const handleSubscribe = async () => {
         if (!session?.user) return;
         setIsSubscribed(true); // Optimistic UI update
 
         try {
-            await supabase.from('Friendship').insert({ userId: session.user.id, friendId: item.userId, status: 'ACCEPTED' });
+            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org'}/api/users/follow`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`
+                },
+                body: JSON.stringify({ targetUserId: item.userId })
+            });
+
+            if (!response.ok) {
+                console.error('Follow error:', await response.json());
+                setIsSubscribed(false); // Revert on failure
+            }
         } catch (e) {
             console.error('Follow error:', e);
             setIsSubscribed(false); // Revert on failure

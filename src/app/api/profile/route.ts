@@ -56,10 +56,10 @@ export async function GET(req: Request) {
     ]);
 
     const stats = {
-      followers: statsData?._count?.friendshipsB || 0,
-      following: statsData?._count?.friendshipsA || 0,
+      followers: statsData?.followersCount || 0,
+      following: statsData?.followingCount || 0,
       posts: postsCount,
-      friends: (statsData?._count?.friendshipsA || 0) + (statsData?._count?.friendshipsB || 0)
+      friends: 0  // Friends system removed - using following/followers now
     };
 
     // 3. Fetch Recent Posts (Limit 12)

@@ -70,11 +70,11 @@ export default function DashboardPage() {
       {/* TOP NAVBAR */}
       <div className="relative z-10 w-full flex items-center justify-between px-6 py-6 sm:px-8 sm:py-8">
         <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight drop-shadow-[0_0_15px_rgba(255,255,255,0.5)]">
-          COMMAND DECK
+          DASHBOARD
         </h1>
         <div className="flex items-center gap-3 bg-white/10 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
           <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_10px_#22c55e]" />
-          <span className="text-xs font-bold uppercase tracking-widest text-green-400">Systems Online</span>
+          <span className="text-xs font-bold uppercase tracking-widest text-green-400">Active</span>
         </div>
       </div>
 

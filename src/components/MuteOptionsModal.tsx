@@ -21,7 +21,7 @@ const POST_TYPES = [
     { id: "NOTE", label: "Notes" }
 ];
 
-export default function MuteOptionsModal({ isOpen, onClose, targetUserId, targetUserName, onMuteComplete }: MuteOptionsModalProps) {
+export function MuteOptionsModal({ isOpen, onClose, targetUserId, targetUserName, onMuteComplete }: MuteOptionsModalProps) {
     const [muteAll, setMuteAll] = useState(true);
     const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);

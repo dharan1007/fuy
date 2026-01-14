@@ -189,22 +189,18 @@ export async function GET(req: NextRequest) {
         take: 10,
       });
 
-      // Fetch friendships for current user with these search results
-      const friendships = user.id ? await prisma.friendship.findMany({
+      // Fetch subscriptions (follows) for current user with these search results
+      const subscriptions = user.id ? await prisma.subscription.findMany({
         where: {
-          OR: [
-            { userId: user.id, friendId: { in: dbUsers.map(u => u.id) } },
-            { userId: { in: dbUsers.map(u => u.id) }, friendId: user.id },
-          ],
+          subscriberId: user.id,
+          subscribedToId: { in: dbUsers.map(u => u.id) }
         },
       }) : [];
 
+      const followingSet = new Set(subscriptions.map(s => s.subscribedToId));
+
       users = dbUsers.map((dbUser) => {
-        // Find friendship relationship
-        const friendship = friendships.find(f =>
-          (f.userId === user.id && f.friendId === dbUser.id) ||
-          (f.userId === dbUser.id && f.friendId === user.id)
-        );
+        const isFollowing = followingSet.has(dbUser.id);
 
         return {
           id: dbUser.id,
@@ -212,10 +208,10 @@ export async function GET(req: NextRequest) {
           handle: `@${(dbUser.name || dbUser.email).toLowerCase().replace(/\s+/g, "")}`,
           avatar: dbUser.profile?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${dbUser.id}`,
           bio: dbUser.profile?.bio || "No bio yet",
-          followers: Math.floor(Math.random() * 5000), // Mock followers count
-          isFollowing: friendship?.status === "ACCEPTED",
-          friendshipId: friendship?.id,
-          friendshipStatus: friendship?.status as "PENDING" | "ACCEPTED" | undefined,
+          followers: dbUser.followersCount || 0,
+          isFollowing: isFollowing,
+          friendshipId: undefined,
+          friendshipStatus: isFollowing ? "ACCEPTED" : undefined,
         };
       });
     }

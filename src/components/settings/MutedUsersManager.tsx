@@ -3,7 +3,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { VolumeX, ChevronDown, ChevronRight, Settings2 } from 'lucide-react';
-import MuteOptionsModal from '@/components/MuteOptionsModal';
+import dynamic from 'next/dynamic';
+
+const MuteOptionsModal = dynamic(() => import('@/components/MuteOptionsModal').then(mod => mod.MuteOptionsModal), { ssr: false });
 
 export default function MutedUsersManager() {
     const [isOpen, setIsOpen] = useState(false);

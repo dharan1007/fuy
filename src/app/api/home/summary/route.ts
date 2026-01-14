@@ -74,21 +74,20 @@ export async function GET() {
             })
         ]);
 
-        // Extra stats fetches for the sidebar
-        const [friendCount, followersCount, followingCount] = await Promise.all([
-            prisma.friendship.count({ where: { status: "ACCEPTED", OR: [{ userId }, { friendId: userId }] } }),
-            prisma.friendship.count({ where: { friendId: userId, status: "ACCEPTED" } }),
-            prisma.friendship.count({ where: { userId, status: "ACCEPTED" } }),
-        ]);
+        // Extra stats fetches for the sidebar - use User model counts (updated by follow API)
+        const userStats = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { followersCount: true, followingCount: true }
+        });
 
         return NextResponse.json({
             profile: {
                 ...userData,
                 stats: {
-                    friends: friendCount,
+                    friends: 0, // Friends system removed
                     posts: userData?._count?.posts || 0,
-                    followers: followersCount,
-                    following: followingCount
+                    followers: userStats?.followersCount || 0,
+                    following: userStats?.followingCount || 0
                 }
             },
             unreadCount: unreadNotifCount,

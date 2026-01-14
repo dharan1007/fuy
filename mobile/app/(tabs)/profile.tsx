@@ -2,13 +2,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Image, Dimensions, FlatList, Modal, RefreshControl, Share, Alert } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Settings, Bell, Grid, List, Plus, Heart, MessageCircle, Share2, MoreHorizontal, Edit3, Camera, Users, ChevronLeft, LogOut, Eye, Play } from 'lucide-react-native';
+import { Settings, Bell, Grid, List, Plus, Heart, MessageCircle, Share2, MoreHorizontal, Edit3, Camera, Users, ChevronLeft, LogOut, Eye, Play, MapPin, Tag } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import ShareCardModal from '../../components/ShareCardModal';
+import { Video as ExpoVideo, ResizeMode } from 'expo-av';
 
 const { width } = Dimensions.get('window');
 const COLUMN_WIDTH = width / 3 - 2;
@@ -28,13 +29,16 @@ interface ProfileData {
         displayName: string;
         avatarUrl: string;
         bio: string;
-        coverVideoUrl?: string; // Or cover image
+        coverVideoUrl: string;
+        coverImageUrl: string;
+        location: string;
+        tags: string;
     };
     followersCount: number;
     followingCount: number;
     stats: {
         posts: number;
-        friends: number; // Mapping friends to followers/following logic usually, but here keeping backend stats
+        friends: number;
     };
     posts: Post[];
 }
@@ -56,6 +60,7 @@ export default function ProfileScreen() {
     const [dbUserId, setDbUserId] = useState<string | null>(null);
     const [showShareModal, setShowShareModal] = useState(false);
     const [myCardCode, setMyCardCode] = useState<string | null>(null);
+    const [postFilter, setPostFilter] = useState<'ALL' | 'FILLS' | 'LILLS' | 'SIMPLE' | 'AUDIO' | 'CHANNELS'>('ALL');
 
     useEffect(() => {
         if (session) {
@@ -72,18 +77,18 @@ export default function ProfileScreen() {
             const userId = session.user.id;
             setDbUserId(userId);
 
-            // 1. Fetch User & Profile
+            // 1. Fetch User & Profile with all fields
             const { data: userData, error: userError } = await supabase
                 .from('User')
-                .select(`id, name, profile:Profile(displayName, avatarUrl, bio)`)
+                .select(`id, name, profile:Profile(displayName, avatarUrl, bio, coverImageUrl, coverVideoUrl, location, tags)`)
                 .eq('id', userId)
                 .single();
 
             if (userError) console.log("User fetch error:", userError.message);
 
-            // 2. Counts
-            const { count: followersCount } = await supabase.from('Friendship').select('*', { count: 'exact', head: true }).eq('friendId', userId);
-            const { count: followingCount } = await supabase.from('Friendship').select('*', { count: 'exact', head: true }).eq('userId', userId);
+            // 2. Counts - Use Subscription table (where follow API stores data)
+            const { count: followersCount } = await supabase.from('Subscription').select('*', { count: 'exact', head: true }).eq('subscribedToId', userId);
+            const { count: followingCount } = await supabase.from('Subscription').select('*', { count: 'exact', head: true }).eq('subscriberId', userId);
 
             // 3. Fetch ALL Posts (using Post table standard)
             // We select enough data to determine type and media
@@ -124,6 +129,10 @@ export default function ProfileScreen() {
                     displayName: profileObj?.displayName || userData?.name || 'User',
                     avatarUrl: profileObj?.avatarUrl || '',
                     bio: profileObj?.bio || '',
+                    coverVideoUrl: profileObj?.coverVideoUrl || '',
+                    coverImageUrl: profileObj?.coverImageUrl || '',
+                    location: profileObj?.location || '',
+                    tags: profileObj?.tags || '',
                 },
                 followersCount: followersCount || 0,
                 followingCount: followingCount || 0,
@@ -151,35 +160,37 @@ export default function ProfileScreen() {
             let data: any[] = [];
 
             if (type === 'following') {
+                // Get users I'm following (subscribedToId = the user I follow)
                 const { data: followingData } = await supabase
-                    .from('Friendship')
+                    .from('Subscription')
                     .select(`
-                        friend:friendId (
+                        subscribedTo:subscribedToId (
                             id,
                             name,
                             profile:Profile (displayName, avatarUrl)
                         )
                     `)
-                    .eq('userId', myId);
+                    .eq('subscriberId', myId);
 
                 if (followingData) {
-                    data = followingData.map((item: any) => item.friend);
+                    data = followingData.map((item: any) => item.subscribedTo).filter(Boolean);
                 }
 
             } else {
+                // Get users following me (subscriberId = the user following me)
                 const { data: followersData } = await supabase
-                    .from('Friendship')
+                    .from('Subscription')
                     .select(`
-                        user:userId (
+                        subscriber:subscriberId (
                             id,
                             name,
                             profile:Profile (displayName, avatarUrl)
                         )
                     `)
-                    .eq('friendId', myId);
+                    .eq('subscribedToId', myId);
 
                 if (followersData) {
-                    data = followersData.map((item: any) => item.user);
+                    data = followersData.map((item: any) => item.subscriber).filter(Boolean);
                 }
             }
             setSocialList(data.filter(u => u));
@@ -235,12 +246,23 @@ export default function ProfileScreen() {
 
     const renderHeader = () => (
         <View className="relative h-72">
-            {/* Cover Image/Video Placeholder */}
-            <Image
-                source={{ uri: profile?.coverVideoUrl || 'https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=1000&auto=format&fit=crop&q=60' }}
-                className="w-full h-full"
-                resizeMode="cover"
-            />
+            {/* Cover Video or Image */}
+            {profile?.coverVideoUrl ? (
+                <ExpoVideo
+                    source={{ uri: profile.coverVideoUrl }}
+                    style={{ width: '100%', height: '100%' }}
+                    resizeMode={ResizeMode.COVER}
+                    shouldPlay
+                    isLooping
+                    isMuted
+                />
+            ) : (
+                <Image
+                    source={{ uri: profile?.coverImageUrl || 'https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=1000&auto=format&fit=crop&q=60' }}
+                    style={{ width: '100%', height: '100%' }}
+                    resizeMode="cover"
+                />
+            )}
             <LinearGradient
                 colors={['transparent', colors.background]}
                 className="absolute inset-0"
@@ -284,15 +306,30 @@ export default function ProfileScreen() {
     const renderStats = () => (
         <View className="mt-16 px-6">
             <View className="flex-row justify-between items-start mb-4">
-                <View>
+                <View style={{ flex: 1 }}>
                     <Text style={{ color: colors.text }} className="text-2xl font-bold mb-1">{profile?.displayName || 'User'}</Text>
+                    {profile?.location && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                            <MapPin size={12} color={colors.secondary} />
+                            <Text style={{ color: colors.secondary, marginLeft: 4, fontSize: 12 }}>{profile.location}</Text>
+                        </View>
+                    )}
                     {profile?.bio ? (
                         <Text style={{ color: colors.secondary }} className="text-sm leading-5 max-w-[280px]">{profile.bio}</Text>
                     ) : (
-                        <TouchableOpacity className="flex-row items-center gap-2 mt-1">
+                        <TouchableOpacity className="flex-row items-center gap-2 mt-1" onPress={() => router.push('/edit-profile')}>
                             <Edit3 color={colors.secondary} size={14} />
                             <Text style={{ color: colors.secondary }} className="text-sm italic">Add a bio...</Text>
                         </TouchableOpacity>
+                    )}
+                    {profile?.tags && (
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 8, gap: 6 }}>
+                            {profile.tags.split(',').map((tag, i) => (
+                                <View key={i} style={{ backgroundColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
+                                    <Text style={{ color: colors.secondary, fontSize: 11 }}>{tag.trim()}</Text>
+                                </View>
+                            ))}
+                        </View>
                     )}
                 </View>
             </View>
@@ -315,10 +352,10 @@ export default function ProfileScreen() {
                 </View>
             </BlurView>
 
-            {/* Profile Card Action */}
+            {/* Profile Actions */}
             <View className="flex-row gap-2 mb-6">
                 <TouchableOpacity
-                    onPress={() => router.push('/settings')}
+                    onPress={() => router.push('/edit-profile')}
                     className="flex-1 py-3 rounded-2xl items-center justify-center border"
                     style={{ backgroundColor: colors.background, borderColor: colors.border }}
                 >
@@ -335,84 +372,264 @@ export default function ProfileScreen() {
         </View>
     );
 
+
     const renderContent = () => {
-        // Filter posts based on tab
+        // Filter posts based on type filter
         const displayPosts = (profileData?.posts || []).filter(p => {
-            if (activeTab === 'grid') return true; // Show all (or maybe exclude text only?)
-            if (activeTab === 'sixts') return p.postType === 'SIXT';
-            if (activeTab === 'media') return p.media && p.media.length > 0;
+            if (postFilter === 'ALL') return true;
+            if (postFilter === 'FILLS') return p.postType === 'FILL';
+            if (postFilter === 'LILLS') return p.postType === 'LILL';
+            if (postFilter === 'SIMPLE') return !p.postType || p.postType === 'TEXT' || p.postType === 'SIMPLE' || p.postType === 'SIMPLE_TEXT';
+            if (postFilter === 'AUDIO') return p.postType === 'AUD';
+            if (postFilter === 'CHANNELS') return p.postType === 'CHAN';
             return true;
         });
 
+        const filters: Array<'ALL' | 'FILLS' | 'LILLS' | 'SIMPLE' | 'AUDIO' | 'CHANNELS'> = ['ALL', 'FILLS', 'LILLS', 'SIMPLE', 'AUDIO', 'CHANNELS'];
+
         return (
-            <View className="flex-1 rounded-t-[40px] overflow-hidden min-h-[500px]" style={{ backgroundColor: colors.card }}>
-                {/* Tabs */}
-                <View className="flex-row items-center px-4 py-3 border-b" style={{ borderColor: colors.border }}>
-                    {['grid', 'sixts', 'media'].map((tab) => (
+            <View style={{ flex: 1, borderTopLeftRadius: 32, borderTopRightRadius: 32, overflow: 'hidden', minHeight: 500, backgroundColor: colors.card }}>
+                {/* Filter Tabs - Horizontal Scroll */}
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={{ borderBottomWidth: 1, borderColor: colors.border }}
+                    contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 12, gap: 16 }}
+                >
+                    {filters.map((tab) => (
                         <TouchableOpacity
                             key={tab}
-                            onPress={() => setActiveTab(tab as any)}
-                            className="mr-6 py-2"
-                            style={{ borderBottomWidth: activeTab === tab ? 2 : 0, borderColor: colors.text }}
+                            onPress={() => setPostFilter(tab)}
+                            style={{
+                                paddingBottom: 8,
+                                borderBottomWidth: postFilter === tab ? 2 : 0,
+                                borderColor: colors.text
+                            }}
                         >
                             <Text style={{
-                                color: activeTab === tab ? colors.text : colors.secondary,
-                                fontWeight: activeTab === tab ? 'bold' : 'normal',
-                                textTransform: 'capitalize'
+                                color: postFilter === tab ? colors.text : colors.secondary,
+                                fontWeight: postFilter === tab ? '700' : '400',
+                                fontSize: 11,
+                                textTransform: 'uppercase',
+                                letterSpacing: 1
                             }}>
                                 {tab}
                             </Text>
                         </TouchableOpacity>
                     ))}
-                </View>
+                    <Text style={{ color: colors.secondary, fontSize: 10, alignSelf: 'center', marginLeft: 8 }}>
+                        {displayPosts.length} posts
+                    </Text>
+                </ScrollView>
 
                 {/* Content Area */}
                 {displayPosts.length === 0 ? (
-                    <View className="py-20 items-center justify-center opacity-50">
+                    <View style={{ paddingVertical: 80, alignItems: 'center', justifyContent: 'center', opacity: 0.5 }}>
                         <Grid color={colors.secondary} size={48} />
-                        <Text style={{ color: colors.text }} className="mt-4 font-medium">No posts yet</Text>
+                        <Text style={{ color: colors.text, marginTop: 16, fontWeight: '500' }}>No posts yet</Text>
                     </View>
                 ) : (
-                    <View className="flex-row flex-wrap p-[1px]">
-                        {displayPosts.map((post) => {
-                            // Text Post (Sixts) Style
-                            if (activeTab === 'sixts' || (!post.media?.length && post.postType === 'SIXT')) {
-                                return (
-                                    <View key={post.id} style={{ width: width, padding: 16, borderBottomWidth: 1, borderColor: colors.border }}>
-                                        <Text style={{ color: colors.text, fontSize: 16 }}>{post.content}</Text>
-                                        <Text style={{ color: colors.secondary, fontSize: 12, marginTop: 4 }}>
-                                            {new Date(post.createdAt).toLocaleDateString()}
-                                        </Text>
-                                    </View>
-                                )
-                            }
-
-                            // Media Grid Style
-                            const imageUrl = post.media && post.media.length > 0 ? post.media[0].url : `https://source.unsplash.com/random/400x400?sig=${post.id}`;
-                            return (
-                                <TouchableOpacity
-                                    key={post.id}
-                                    style={{ width: COLUMN_WIDTH, height: COLUMN_WIDTH, backgroundColor: colors.border }}
-                                    className="m-[1px]"
-                                    onPress={() => router.push(`/post/${post.id}` as any)}
-                                >
-                                    <Image
-                                        source={{ uri: imageUrl }}
-                                        className="w-full h-full"
-                                        resizeMode="cover"
-                                    />
-                                    {post.postType === 'VIDEO' && (
-                                        <View className="absolute top-2 right-2 bg-black/50 rounded-full p-1">
-                                            <Play size={10} color="white" fill="white" />
-                                        </View>
-                                    )}
-                                </TouchableOpacity>
-                            );
-                        })}
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', padding: 4 }}>
+                        {displayPosts.map((post) => (
+                            <PostCard key={post.id} post={post} colors={colors} router={router} width={width} />
+                        ))}
                     </View>
                 )}
-                <View className="h-24" />
+                <View style={{ height: 100 }} />
             </View>
+        );
+    };
+
+    // Adaptive Post Card Component
+    const PostCard = ({ post, colors, router, width: screenWidth }: { post: any; colors: any; router: any; width: number }) => {
+        const cardWidth = (screenWidth - 24) / 2; // 2 columns with padding
+        const isVideo = post.media?.[0]?.type === 'VIDEO' || post.postType === 'FILL' || post.postType === 'LILL';
+        const isAudio = post.postType === 'AUD';
+        const isChannel = post.postType === 'CHAN';
+        const isText = !post.media?.length && (!post.postType || post.postType === 'SIMPLE' || post.postType === 'SIMPLE_TEXT' || post.postType === 'TEXT');
+
+        // Get media URL
+        const mediaUrl = post.media?.[0]?.url;
+
+        // Text/Simple Post Card
+        if (isText) {
+            return (
+                <TouchableOpacity
+                    onPress={() => router.push(`/post/${post.id}`)}
+                    style={{
+                        width: cardWidth,
+                        margin: 4,
+                        padding: 16,
+                        backgroundColor: 'rgba(255,255,255,0.05)',
+                        borderRadius: 16,
+                        borderWidth: 1,
+                        borderColor: 'rgba(255,255,255,0.1)',
+                        minHeight: 120,
+                        justifyContent: 'space-between'
+                    }}
+                >
+                    <Text style={{ color: colors.text, fontSize: 14, lineHeight: 20 }} numberOfLines={4}>
+                        {post.content}
+                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 }}>
+                        <View style={{ backgroundColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 }}>
+                            <Text style={{ color: colors.secondary, fontSize: 9, fontWeight: '700', textTransform: 'uppercase' }}>SIXT</Text>
+                        </View>
+                        <Text style={{ color: colors.secondary, fontSize: 10 }}>
+                            {new Date(post.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                        </Text>
+                    </View>
+                </TouchableOpacity>
+            );
+        }
+
+        // Audio Post Card
+        if (isAudio) {
+            return (
+                <TouchableOpacity
+                    onPress={() => router.push(`/post/${post.id}`)}
+                    style={{
+                        width: cardWidth,
+                        margin: 4,
+                        backgroundColor: 'rgba(255,255,255,0.05)',
+                        borderRadius: 16,
+                        borderWidth: 1,
+                        borderColor: 'rgba(255,255,255,0.1)',
+                        overflow: 'hidden'
+                    }}
+                >
+                    <View style={{
+                        height: cardWidth * 0.8,
+                        backgroundColor: 'rgba(255,255,255,0.03)',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                    }}>
+                        <View style={{
+                            width: 60,
+                            height: 60,
+                            borderRadius: 30,
+                            backgroundColor: 'rgba(255,255,255,0.1)',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}>
+                            <Heart size={24} color={colors.secondary} />
+                        </View>
+                    </View>
+                    <View style={{ padding: 12 }}>
+                        <Text style={{ color: colors.text, fontSize: 12, fontWeight: '600' }} numberOfLines={1}>
+                            {post.content || 'Audio'}
+                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
+                            <View style={{ backgroundColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 }}>
+                                <Text style={{ color: colors.secondary, fontSize: 9, fontWeight: '700' }}>AUD</Text>
+                            </View>
+                        </View>
+                    </View>
+                </TouchableOpacity>
+            );
+        }
+
+        // Channel Post Card
+        if (isChannel) {
+            return (
+                <TouchableOpacity
+                    onPress={() => router.push(`/post/${post.id}`)}
+                    style={{
+                        width: screenWidth - 32,
+                        margin: 4,
+                        backgroundColor: 'rgba(255,255,255,0.05)',
+                        borderRadius: 16,
+                        borderWidth: 1,
+                        borderColor: 'rgba(255,255,255,0.1)',
+                        overflow: 'hidden',
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        padding: 16
+                    }}
+                >
+                    <View style={{
+                        width: 56,
+                        height: 56,
+                        borderRadius: 12,
+                        backgroundColor: 'rgba(255,255,255,0.1)',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                    }}>
+                        {mediaUrl ? (
+                            <Image source={{ uri: mediaUrl }} style={{ width: 56, height: 56, borderRadius: 12 }} />
+                        ) : (
+                            <Settings size={24} color={colors.secondary} />
+                        )}
+                    </View>
+                    <View style={{ flex: 1, marginLeft: 16 }}>
+                        <Text style={{ color: colors.text, fontSize: 16, fontWeight: '700' }} numberOfLines={1}>
+                            {post.content || 'Channel'}
+                        </Text>
+                        <Text style={{ color: colors.secondary, fontSize: 12, marginTop: 4 }}>
+                            Channel
+                        </Text>
+                    </View>
+                    <View style={{ backgroundColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
+                        <Text style={{ color: colors.secondary, fontSize: 9, fontWeight: '700' }}>CHAN</Text>
+                    </View>
+                </TouchableOpacity>
+            );
+        }
+
+        // Video/Image Post Card (FILL, LILL, or media posts)
+        return (
+            <TouchableOpacity
+                onPress={() => router.push(`/post/${post.id}`)}
+                style={{
+                    width: cardWidth,
+                    height: post.postType === 'FILL' ? cardWidth * 1.5 : cardWidth,
+                    margin: 4,
+                    borderRadius: 16,
+                    overflow: 'hidden',
+                    backgroundColor: 'rgba(255,255,255,0.05)'
+                }}
+            >
+                {mediaUrl ? (
+                    <Image
+                        source={{ uri: mediaUrl }}
+                        style={{ width: '100%', height: '100%' }}
+                        resizeMode="cover"
+                    />
+                ) : (
+                    <View style={{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
+                        <Grid size={24} color={colors.secondary} />
+                    </View>
+                )}
+
+                {/* Post Type Badge */}
+                <View style={{
+                    position: 'absolute',
+                    top: 8,
+                    left: 8,
+                    backgroundColor: 'rgba(0,0,0,0.7)',
+                    paddingHorizontal: 8,
+                    paddingVertical: 3,
+                    borderRadius: 8
+                }}>
+                    <Text style={{ color: '#fff', fontSize: 9, fontWeight: '700', textTransform: 'uppercase' }}>
+                        {post.postType || 'POST'}
+                    </Text>
+                </View>
+
+                {/* Video indicator */}
+                {isVideo && (
+                    <View style={{
+                        position: 'absolute',
+                        top: 8,
+                        right: 8,
+                        backgroundColor: 'rgba(0,0,0,0.7)',
+                        padding: 6,
+                        borderRadius: 20
+                    }}>
+                        <Play size={12} color="#fff" fill="#fff" />
+                    </View>
+                )}
+            </TouchableOpacity>
         );
     };
 

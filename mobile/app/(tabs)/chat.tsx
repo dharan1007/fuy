@@ -143,10 +143,11 @@ export default function ChatScreen() {
     // Chat settings state
     const [showChatSettings, setShowChatSettings] = useState(false);
     const [chatBackground, setChatBackground] = useState<string | null>(null);
-    const [messageRetention, setMessageRetention] = useState<'forever' | '1day' | 'viewonce' | 'custom'>('forever');
+    const [messageRetention, setMessageRetention] = useState<'immediately' | 'forever' | '1day' | 'custom'>('immediately');
     const [customRetentionDays, setCustomRetentionDays] = useState(7);
 
     const [isUploading, setIsUploading] = useState(false);
+    const [tempAccepted, setTempAccepted] = useState(false);
 
     // Safety: Blocked Users
     const [blockedIds, setBlockedIds] = useState<Set<string>>(new Set());
@@ -508,6 +509,7 @@ export default function ChatScreen() {
         setIsLoading(true);
         setSelectedUser(user);
         setMessages([]);
+        setTempAccepted(false);
 
         // Animation
         Animated.spring(slideAnim, {
@@ -534,9 +536,11 @@ export default function ChatScreen() {
                     conversationId = existing.id;
                 } else {
                     // Create new conversation
+                    const newId = `c${Date.now().toString(36)}${Math.random().toString(36).substring(2, 8)}`;
                     const { data: newConv, error: createError } = await supabase
                         .from('Conversation')
                         .insert({
+                            id: newId,
                             participantA: currentUser.id,
                             participantB: user.id,
                             updatedAt: new Date().toISOString()
@@ -551,6 +555,18 @@ export default function ChatScreen() {
 
             activeConversationIdRef.current = conversationId;
             await fetchMessages(conversationId);
+
+            // Fetch wallpaper for this conversation
+            const { data: convData } = await supabase
+                .from('Conversation')
+                .select('wallpaperUrl')
+                .eq('id', conversationId)
+                .single();
+            if (convData?.wallpaperUrl) {
+                setChatBackground(convData.wallpaperUrl);
+            } else {
+                setChatBackground(null);
+            }
         } catch (err) {
             console.error('Error selecting chat:', err);
             Alert.alert("Error", "Failed to load chat.");
@@ -919,50 +935,211 @@ export default function ChatScreen() {
         </View>
     );
 
+    // --- Quick Reply Logic ---
+    const [quickReplyTexts, setQuickReplyTexts] = useState<Record<string, string>>({});
+    const [sendingReply, setSendingReply] = useState<Record<string, boolean>>({});
+
+    const handleQuickReply = async (user: ChatUser) => {
+        const text = quickReplyTexts[user.id]?.trim();
+        if (!text || !dbUserId) return;
+
+        setSendingReply(prev => ({ ...prev, [user.id]: true }));
+
+        try {
+            let conversationId = (user as any).conversationId;
+
+            // Ensure conversation exists
+            if (!conversationId) {
+                const { data: existing } = await supabase
+                    .from('Conversation')
+                    .select('id')
+                    .or(`and(participantA.eq.${dbUserId},participantB.eq.${user.id}),and(participantA.eq.${user.id},participantB.eq.${dbUserId})`)
+                    .maybeSingle();
+
+                if (existing) {
+                    conversationId = existing.id;
+                } else {
+                    const newId = `c${Date.now().toString(36)}${Math.random().toString(36).substring(2, 8)}`;
+                    const { data: newConv, error: createError } = await supabase
+                        .from('Conversation')
+                        .insert({
+                            id: newId, // Explicitly provide ID
+                            participantA: dbUserId,
+                            participantB: user.id,
+                            updatedAt: new Date().toISOString()
+                        })
+                        .select()
+                        .single();
+                    if (createError) throw createError;
+                    conversationId = newConv.id;
+                }
+            }
+
+            // Send Message
+            const messageId = `cm${Date.now().toString(36)}${Math.random().toString(36).substring(2, 11)}`;
+            const timestamp = new Date().toISOString();
+
+            const { error: msgError } = await supabase.from('Message').insert({
+                id: messageId,
+                conversationId: conversationId,
+                senderId: dbUserId,
+                content: text,
+                type: 'text'
+            });
+
+            if (msgError) throw msgError;
+
+            // Update Conversation lastMessage
+            await supabase
+                .from('Conversation')
+                .update({
+                    lastMessage: text,
+                    lastMessageAt: timestamp
+                })
+                .eq('id', conversationId);
+
+            // Clear input
+            setQuickReplyTexts(prev => ({ ...prev, [user.id]: '' }));
+
+            // Optimistic update of the list item
+            setConversations(prev => prev.map(c => {
+                if (c.id === user.id) {
+                    return {
+                        ...c,
+                        lastMessage: text,
+                        lastMessageAt: timestamp,
+                        conversationId // Ensure ID is saved
+                    };
+                }
+                return c;
+            }));
+
+        } catch (err) {
+            console.error("Quick reply failed", err);
+            Alert.alert("Error", "Failed to send reply");
+        } finally {
+            setSendingReply(prev => ({ ...prev, [user.id]: false }));
+        }
+    };
+
     const renderUserList = () => (
-        <ScrollView className="flex-1 px-6" showsVerticalScrollIndicator={false}>
-            {/* Dbot */}
-            <Text className="text-sm font-semibold mb-4" style={{ color: colors.secondary }}>
-                {searchQuery ? 'SEARCH RESULTS' : 'RECENT CONVERSATIONS'}
+        <ScrollView className="flex-1 px-4 pt-2" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+            {/* Section Title */}
+            <Text className="text-xs font-bold mb-4 ml-2 tracking-widest text-zinc-500 uppercase">
+                {searchQuery ? 'SEARCH RESULTS' : 'CHATS'}
             </Text>
+
             {getSortedConversations().map((user) => (
                 <View
                     key={user.id}
-                    className="flex-row items-center mb-5 p-3 rounded-2xl"
-                    style={{ backgroundColor: user.isPinned ? (mode === 'light' ? '#f0f9ff' : '#1e3a8a30') : 'transparent' }}
+                    className="mb-3 relative"
                 >
-                    <TouchableOpacity
-                        onPress={() => handleUserSelect(user)}
-                        className="flex-1 flex-row items-center"
+                    {/* Main Card */}
+                    <View
+                        className="flex-row items-start p-4 rounded-3xl bg-zinc-900 border border-zinc-800"
+                        style={{ overflow: 'hidden' }}
                     >
-                        {user.avatar ? (
-                            <Image source={{ uri: user.avatar }} className="w-14 h-14 rounded-2xl bg-gray-200" />
-                        ) : (
-                            <View className="w-14 h-14 rounded-2xl bg-gray-200 items-center justify-center">
-                                <UserIcon size={24} color={colors.secondary} />
-                            </View>
-                        )}
-                        <View className="flex-1 ml-4 border-b pb-4" style={{ borderColor: colors.border }}>
-                            <View className="flex-row justify-between items-center mb-1">
-                                <Text className="text-base font-bold" style={{ color: colors.text }}>
-                                    {nicknames[user.id] || user.name} {user.isPinned && '📌'}
-                                </Text>
-                                {user.lastMessageAt && (
-                                    <Text className="text-xs" style={{ color: colors.secondary }}>
-                                        {new Date(user.lastMessageAt).toLocaleDateString()}
+                        {/* Avatar Section */}
+                        <TouchableOpacity onPress={() => handleUserSelect(user)} className="relative mr-4">
+                            {user.avatar ? (
+                                <Image
+                                    source={{ uri: user.avatar }}
+                                    className="w-14 h-14 rounded-full border-2 border-white/10"
+                                />
+                            ) : (
+                                <View className="w-14 h-14 rounded-full border-2 border-white/10 bg-zinc-800 items-center justify-center">
+                                    <UserIcon size={24} color="#52525b" />
+                                </View>
+                            )}
+                            {user.status === 'online' && (
+                                <View className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-zinc-900" />
+                            )}
+                        </TouchableOpacity>
+
+                        {/* Content Section */}
+                        <View className="flex-1 pr-8">
+                            {/* Top Row: Name & Time */}
+                            <View className="flex-row justify-between items-start mb-1">
+                                <TouchableOpacity onPress={() => handleUserSelect(user)} className="flex-1 mr-2">
+                                    <Text className="text-base font-bold text-white tracking-tight" numberOfLines={1}>
+                                        {nicknames[user.id] || user.name}
                                     </Text>
-                                )}
+                                </TouchableOpacity>
+
+                                <View className="flex-row items-center gap-2">
+                                    {/* Pinned Icon */}
+                                    {user.isPinned && <Anchor size={12} color="#fff" style={{ transform: [{ rotate: '45deg' }] }} />}
+
+                                    {/* Date & Time */}
+                                    {user.lastMessageAt && (
+                                        <Text className="text-[10px] font-medium text-zinc-500 text-right">
+                                            {new Date(user.lastMessageAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                            {', '}
+                                            {new Date(user.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }).toLowerCase()}
+                                        </Text>
+                                    )}
+                                </View>
                             </View>
-                            <Text numberOfLines={1} className="text-sm font-semibold" style={{ color: colors.secondary }}>
-                                {user.lastMessage || 'Open to chat'}
-                            </Text>
+
+                            {/* Second Row: Last Message */}
+                            <TouchableOpacity onPress={() => handleUserSelect(user)} className="mb-3">
+                                <Text
+                                    numberOfLines={1}
+                                    className={`text-sm ${user.unreadCount && user.unreadCount > 0 ? 'text-white font-bold' : 'text-zinc-500 font-medium'}`}
+                                >
+                                    {user.lastMessage || 'New connection'}
+                                </Text>
+                            </TouchableOpacity>
+
+                            {/* Quick Reply Row */}
+                            <View className="flex-row items-center gap-2">
+                                <View className="flex-1 h-9 bg-zinc-800 rounded-full flex-row items-center px-4 border border-white/5 focus:border-white/20 transition-all">
+                                    <TextInput
+                                        placeholder="Message..."
+                                        placeholderTextColor="#52525b"
+                                        className="flex-1 text-sm text-white h-full pb-1.5"
+                                        value={quickReplyTexts[user.id] || ''}
+                                        onChangeText={text => setQuickReplyTexts(prev => ({ ...prev, [user.id]: text }))}
+                                        onSubmitEditing={() => handleQuickReply(user)}
+                                    />
+                                </View>
+
+                                <TouchableOpacity
+                                    onPress={() => handleQuickReply(user)}
+                                    disabled={!quickReplyTexts[user.id]?.trim() || sendingReply[user.id]}
+                                    className={`w-9 h-9 rounded-full items-center justify-center ${quickReplyTexts[user.id]?.trim() ? 'bg-white' : 'bg-zinc-800'}`}
+                                >
+                                    {sendingReply[user.id] ? (
+                                        <ActivityIndicator size="small" color="#000" />
+                                    ) : (
+                                        <Plus
+                                            size={20}
+                                            color={quickReplyTexts[user.id]?.trim() ? '#000' : '#52525b'}
+                                            style={{ transform: [{ rotate: '0deg' }] }}
+                                        />
+                                    )}
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </View>
+
+                    {/* 3-Dots Menu (Absolute positioned to right side overlap or distinct button) */}
+                    <TouchableOpacity
+                        onPress={() => handleShowOptions(user)}
+                        className="absolute top-4 right-4 p-2 z-10"
+                    >
+                        <View className="flex-row gap-[3px]">
+                            <View className="w-1 h-1 rounded-full bg-zinc-600" />
+                            <View className="w-1 h-1 rounded-full bg-zinc-600" />
+                            <View className="w-1 h-1 rounded-full bg-zinc-600" />
                         </View>
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleShowOptions(user)} className="p-2 ml-2">
-                        <MoreVertical size={20} color={colors.secondary} />
-                    </TouchableOpacity>
+
                 </View>
             ))}
+
+            {/* Visual Spacer at bottom */}
+            <View className="h-20" />
         </ScrollView>
     );
 
@@ -971,6 +1148,38 @@ export default function ChatScreen() {
     const renderChatRoom = () => {
         if (!selectedUser) return null;
         const isDbot = selectedUser.id === 'dbot';
+
+        // Message Request Logic
+        // It is a request if:
+        // 1. Not Dbot
+        // 2. We have messages (so it's not a blank "Start Conversation")
+        // 3. None of the messages are from ME (dbUserId)
+        // 4. User hasn't clicked "Accept" yet in this session
+        const hasSentMessage = messages.some(m => m.senderId === dbUserId);
+        const isMessageRequest = !isDbot && messages.length > 0 && !hasSentMessage && !tempAccepted;
+
+        const handleBlock = async () => {
+            Alert.alert(
+                "Block User",
+                "Are you sure? They won't be able to message you again.",
+                [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                        text: "Block",
+                        style: "destructive",
+                        onPress: async () => {
+                            if (!dbUserId) return;
+                            await supabase.from('BlockedUser').insert({
+                                blockerId: dbUserId,
+                                blockedId: selectedUser.id
+                            });
+                            setBlockedIds(prev => new Set(prev).add(selectedUser.id));
+                            handleBack();
+                        }
+                    }
+                ]
+            );
+        };
 
         return (
             <Animated.View style={{ transform: [{ translateX: slideAnim }], backgroundColor: colors.background, position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50 }}>
@@ -1014,92 +1223,100 @@ export default function ChatScreen() {
                         className="flex-1"
                         keyboardVerticalOffset={0}
                     >
-
-
-
                         {/* Messages */}
                         {isLoading ? (
                             <View className="flex-1 items-center justify-center">
                                 <ActivityIndicator size="large" color={colors.primary} />
                             </View>
                         ) : (
-                            <ScrollView
-                                className="flex-1 px-4 py-6"
-                                contentContainerStyle={{ paddingBottom: 20 }}
-                                ref={ref => ref?.scrollToEnd({ animated: true })}
-                            >
-                                {messages.map((msg, index) => {
-                                    // Check if this is the last message sent by ME
-                                    const isMe = msg.role === 'user';
-                                    const isLastFromMe = isMe && index === messages.length - 1;
-                                    const isLast = index === messages.length - 1;
+                            <>
+                                <ScrollView
+                                    className="flex-1 px-4 py-6"
+                                    contentContainerStyle={{ paddingBottom: 20 }}
+                                    ref={ref => ref?.scrollToEnd({ animated: true })}
+                                >
 
-                                    // Ghosted Logic: 
-                                    // If last message is from me, NOT read, and > 5 hours have passed
-                                    const isGhosted = isLastFromMe && !msg.readAt && (Date.now() - msg.timestamp > 5 * 60 * 60 * 1000);
+                                    {/* Empty State / Start Conversation */}
+                                    {messages.length === 0 && !isDbot && (
+                                        <View className="flex-1 items-center justify-center py-20 opacity-50">
+                                            <View className="w-20 h-20 rounded-full bg-zinc-800 items-center justify-center mb-4">
+                                                <Image source={{ uri: selectedUser.avatar }} className="w-20 h-20 rounded-full opacity-50" />
+                                            </View>
+                                            <Text className="text-lg font-bold text-zinc-400">Start a conversation</Text>
+                                            <Text className="text-sm text-zinc-600 text-center mt-2 px-10">
+                                                Say hello to {selectedUser.name}!
+                                            </Text>
+                                        </View>
+                                    )}
 
-                                    return (
-                                        <View
-                                            key={msg.id}
-                                            className={`mb-4 max-w-[85%] ${isMe ? 'self-end' : 'self-start'}`}
-                                        >
-                                            <View className={`flex-row items-start gap-1 ${isMe ? 'flex-row-reverse' : ''}`}>
-                                                {/* 3-dots menu for tagging (only for non-dbot) */}
-                                                {selectedUser?.id !== 'dbot' && (
-                                                    <TouchableOpacity
-                                                        onPress={() => {
-                                                            setSelectedMessage(msg);
-                                                            setShowTagModal(true);
-                                                        }}
-                                                        className="p-1 mt-2"
-                                                    >
-                                                        <MoreVertical size={16} color={colors.secondary} />
-                                                    </TouchableOpacity>
-                                                )}
+                                    {messages.map((msg, index) => {
+                                        // Check if this is the last message sent by ME
+                                        const isMe = msg.role === 'user';
+                                        const isLastFromMe = isMe && index === messages.length - 1;
+                                        // const isLast = index === messages.length - 1;
 
-                                                {/* Message bubble */}
-                                                {/* Standardized Chat Bubbles - High Contrast - Compact */}
-                                                <View
-                                                    className={`px-3 py-2 rounded-2xl overflow-hidden ${isMe ? 'rounded-br-none' : 'rounded-bl-none'}`}
-                                                    style={{
-                                                        backgroundColor: isMe ? (mode === 'light' ? '#000000' : '#FFFFFF') : (mode === 'light' ? '#E5E5EA' : '#262626'),
-                                                        borderWidth: 0
-                                                    }}
-                                                >
-                                                    {msg.type === 'image' && msg.mediaUrl ? (
-                                                        <Image source={{ uri: msg.mediaUrl }} style={{ width: 200, height: 260, borderRadius: 8 }} resizeMode="cover" />
-                                                    ) : msg.type === 'video' && msg.mediaUrl ? (
-                                                        <AVVideo
-                                                            source={{ uri: msg.mediaUrl }}
-                                                            style={{ width: 200, height: 260, borderRadius: 8 }}
-                                                            useNativeControls
-                                                            resizeMode={ResizeMode.COVER}
-                                                        />
-                                                    ) : (
-                                                        <Text className="text-sm" style={{ color: isMe ? (mode === 'light' ? '#FFFFFF' : '#000000') : (mode === 'light' ? '#000000' : '#FFFFFF') }}>{msg.content}</Text>
+                                        return (
+                                            <View
+                                                key={msg.id}
+                                                className={`mb-4 max-w-[85%] ${isMe ? 'self-end' : 'self-start'}`}
+                                            >
+                                                <View className={`flex-row items-start gap-1 ${isMe ? 'flex-row-reverse' : ''}`}>
+                                                    {/* 3-dots menu for tagging (only for non-dbot) */}
+                                                    {selectedUser?.id !== 'dbot' && (
+                                                        <TouchableOpacity
+                                                            onPress={() => {
+                                                                setSelectedMessage(msg);
+                                                                setShowTagModal(true);
+                                                            }}
+                                                            className="p-1 mt-2"
+                                                        >
+                                                            <MoreVertical size={16} color={colors.secondary} />
+                                                        </TouchableOpacity>
                                                     )}
 
-                                                    {/* Time and Status Footer */}
-                                                    <View className="flex-row items-center justify-end mt-1 gap-1">
-                                                        <Text style={{ fontSize: 9, color: isMe ? (mode === 'light' ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)') : (mode === 'light' ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.6)') }}>
-                                                            {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                        </Text>
-                                                        {isMe && (
-                                                            <View>
-                                                                {msg.readAt ? (
-                                                                    <CheckCheck size={10} color="#3B82F6" />
-                                                                ) : (
-                                                                    <Check size={10} color={mode === 'light' ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)'} />
-                                                                )}
-                                                            </View>
+                                                    {/* Message bubble */}
+                                                    <View
+                                                        className={`px-3 py-2 rounded-2xl overflow-hidden ${isMe ? 'rounded-br-none' : 'rounded-bl-none'}`}
+                                                        style={{
+                                                            backgroundColor: isMe ? (mode === 'light' ? '#000000' : '#FFFFFF') : (mode === 'light' ? '#E5E5EA' : '#262626'),
+                                                            borderWidth: 0
+                                                        }}
+                                                    >
+                                                        {msg.type === 'image' && msg.mediaUrl ? (
+                                                            <Image source={{ uri: msg.mediaUrl }} style={{ width: 200, height: 260, borderRadius: 8 }} resizeMode="cover" />
+                                                        ) : msg.type === 'video' && msg.mediaUrl ? (
+                                                            <AVVideo
+                                                                source={{ uri: msg.mediaUrl }}
+                                                                style={{ width: 200, height: 260, borderRadius: 8 }}
+                                                                useNativeControls
+                                                                resizeMode={ResizeMode.COVER}
+                                                            />
+                                                        ) : (
+                                                            <Text className="text-sm" style={{ color: isMe ? (mode === 'light' ? '#FFFFFF' : '#000000') : (mode === 'light' ? '#000000' : '#FFFFFF') }}>{msg.content}</Text>
                                                         )}
+
+                                                        {/* Time and Status Footer */}
+                                                        <View className="flex-row items-center justify-end mt-1 gap-1">
+                                                            <Text style={{ fontSize: 9, color: isMe ? (mode === 'light' ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)') : (mode === 'light' ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.6)') }}>
+                                                                {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                            </Text>
+                                                            {isMe && (
+                                                                <View>
+                                                                    {msg.readAt ? (
+                                                                        <CheckCheck size={10} color="#3B82F6" />
+                                                                    ) : (
+                                                                        <Check size={10} color={mode === 'light' ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)'} />
+                                                                    )}
+                                                                </View>
+                                                            )}
+                                                        </View>
                                                     </View>
                                                 </View>
                                             </View>
-                                        </View>
-                                    );
-                                })}
-                            </ScrollView>
+                                        );
+                                    })}
+                                </ScrollView>
+                            </>
                         )}
 
                         {/* Bonding Warning Display */}
@@ -1124,11 +1341,32 @@ export default function ChatScreen() {
                             </View>
                         )}
 
-                        {/* Input or Blocked Message */}
+                        {/* Input or Blocked or Message Request */}
                         {blockedIds.has(selectedUser.id) ? (
                             <View className="px-4 py-6 border-t items-center justify-center" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
                                 <Text style={{ color: colors.secondary, fontWeight: '600' }}>You cannot message this user.</Text>
                             </View>
+                        ) : isMessageRequest ? (
+                            <BlurView intensity={90} tint={mode === 'light' ? 'light' : 'dark'} className="px-6 py-6 border-t items-center" style={{ borderColor: colors.border }}>
+                                <Text className="font-bold text-lg mb-2" style={{ color: colors.text }}>Message Request</Text>
+                                <Text className="text-center text-sm mb-4" style={{ color: colors.secondary }}>
+                                    {selectedUser.name} wants to message you. You won't see their messages until you accept.
+                                </Text>
+                                <View className="flex-row gap-4 w-full">
+                                    <TouchableOpacity
+                                        onPress={handleBlock}
+                                        className="flex-1 py-3 bg-red-500/10 rounded-xl items-center border border-red-500/20"
+                                    >
+                                        <Text className="font-bold text-red-500">Block</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        onPress={() => setTempAccepted(true)}
+                                        className="flex-1 py-3 bg-white rounded-xl items-center"
+                                    >
+                                        <Text className="font-bold text-black">Accept</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </BlurView>
                         ) : (
                             <BlurView intensity={90} tint={mode === 'light' ? 'light' : 'dark'} className="px-4 py-3 border-t" style={{ borderColor: colors.border }}>
                                 <View className="flex-row items-center gap-2">
@@ -1236,34 +1474,163 @@ export default function ChatScreen() {
     );
 
     // Chat Settings Modal
+    const handleChangeBackground = async () => {
+        try {
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [9, 16],
+                quality: 0.8,
+            });
+
+            if (!result.canceled && result.assets[0]) {
+                setIsUploading(true);
+                try {
+                    // Get presigned URL
+                    const filename = `wallpaper_${Date.now()}.jpg`;
+                    const presignedRes = await fetch('/api/upload/presigned', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            filename,
+                            contentType: 'image/jpeg',
+                            folder: 'chat-wallpapers'
+                        })
+                    });
+
+                    if (!presignedRes.ok) throw new Error('Failed to get upload URL');
+                    const { uploadUrl, publicUrl } = await presignedRes.json();
+
+                    // Upload the image
+                    const imageBlob = await fetch(result.assets[0].uri).then(r => r.blob());
+                    await fetch(uploadUrl, {
+                        method: 'PUT',
+                        body: imageBlob,
+                        headers: { 'Content-Type': 'image/jpeg' }
+                    });
+
+                    // Update conversation in DB
+                    if (activeConversationIdRef.current) {
+                        await supabase
+                            .from('Conversation')
+                            .update({ wallpaperUrl: publicUrl })
+                            .eq('id', activeConversationIdRef.current);
+                    }
+
+                    setChatBackground(publicUrl);
+                    Alert.alert('Success', 'Chat background updated!');
+                } catch (err) {
+                    console.error('Upload failed:', err);
+                    Alert.alert('Error', 'Failed to upload background');
+                } finally {
+                    setIsUploading(false);
+                }
+            }
+        } catch (err) {
+            console.error('Image picker error:', err);
+        }
+    };
+
+    const handleBlockUser = async () => {
+        if (!dbUserId || !selectedUser) return;
+
+        try {
+            const blockId = `bl${Date.now().toString(36)}${Math.random().toString(36).substring(2, 8)}`;
+            await supabase.from('BlockedUser').insert({
+                id: blockId,
+                blockerId: dbUserId,
+                blockedId: selectedUser.id
+            });
+            setBlockedIds(prev => new Set(prev).add(selectedUser.id));
+            Alert.alert('Blocked', `${selectedUser.name} has been blocked`);
+            setShowChatSettings(false);
+            handleBack();
+        } catch (err) {
+            console.error('Block failed:', err);
+            Alert.alert('Error', 'Failed to block user');
+        }
+    };
+
+    const handleSaveSettings = async () => {
+        if (!activeConversationIdRef.current) {
+            setShowChatSettings(false);
+            return;
+        }
+
+        try {
+            // Handle message retention
+            if (messageRetention === 'immediately') {
+                // Delete all messages in this conversation
+                await supabase
+                    .from('Message')
+                    .delete()
+                    .eq('conversationId', activeConversationIdRef.current);
+                setMessages([]);
+                Alert.alert('Messages Deleted', 'All messages have been deleted.');
+            } else if (messageRetention === '1day') {
+                // Delete messages older than 24 hours
+                const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+                await supabase
+                    .from('Message')
+                    .delete()
+                    .eq('conversationId', activeConversationIdRef.current)
+                    .lt('createdAt', cutoff);
+                Alert.alert('Settings Saved', 'Messages older than 24 hours will be deleted.');
+            } else if (messageRetention === 'custom') {
+                // Delete messages older than custom days
+                const cutoff = new Date(Date.now() - customRetentionDays * 24 * 60 * 60 * 1000).toISOString();
+                await supabase
+                    .from('Message')
+                    .delete()
+                    .eq('conversationId', activeConversationIdRef.current)
+                    .lt('createdAt', cutoff);
+                Alert.alert('Settings Saved', `Messages older than ${customRetentionDays} days will be deleted.`);
+            } else {
+                Alert.alert('Settings Saved', 'Your chat settings have been updated.');
+            }
+
+            setShowChatSettings(false);
+        } catch (err) {
+            console.error('Save settings failed:', err);
+            Alert.alert('Error', 'Failed to save settings');
+        }
+    };
+
     const renderChatSettingsModal = () => (
         <Modal visible={showChatSettings} transparent animationType="slide">
             <View className="flex-1 bg-black/50 justify-end">
-                <BlurView intensity={90} tint={mode === 'light' ? 'light' : 'dark'} className="rounded-t-3xl overflow-hidden p-6 pb-10">
+                <View className="rounded-t-3xl overflow-hidden p-6 pb-10 bg-zinc-900">
                     <View className="flex-row justify-between items-center mb-6">
-                        <Text className="text-xl font-bold" style={{ color: colors.text }}>Chat Settings</Text>
+                        <Text className="text-xl font-bold text-white">Chat Settings</Text>
                         <TouchableOpacity onPress={() => setShowChatSettings(false)}>
-                            <X size={24} color={colors.text} />
+                            <X size={24} color="#fff" />
                         </TouchableOpacity>
                     </View>
 
                     {/* Chat Background */}
                     <TouchableOpacity
-                        onPress={() => Alert.alert('Change Background', 'Choose an image or video for chat background', [
-                            { text: 'Remove Background', onPress: () => setChatBackground(null) },
-                            { text: 'Choose Image', onPress: () => Alert.alert('Coming Soon', 'Image picker will be available soon') },
+                        onPress={() => Alert.alert('Change Background', 'Choose an option', [
+                            {
+                                text: 'Remove Background', onPress: () => {
+                                    setChatBackground(null);
+                                    if (activeConversationIdRef.current) {
+                                        supabase.from('Conversation').update({ wallpaperUrl: null }).eq('id', activeConversationIdRef.current);
+                                    }
+                                }
+                            },
+                            { text: 'Choose Image', onPress: handleChangeBackground },
                             { text: 'Cancel', style: 'cancel' }
                         ])}
-                        className="flex-row items-center py-4 border-b"
-                        style={{ borderColor: colors.border }}
+                        className="flex-row items-center py-4 border-b border-zinc-700"
                     >
-                        <ImageIcon size={22} color={colors.primary} />
+                        <ImageIcon size={22} color="#3b82f6" />
                         <View className="ml-4 flex-1">
-                            <Text className="font-medium" style={{ color: colors.text }}>Chat Background</Text>
-                            <Text className="text-xs" style={{ color: colors.secondary }}>
+                            <Text className="font-medium text-white">Chat Background</Text>
+                            <Text className="text-xs text-zinc-400">
                                 {chatBackground ? 'Custom background set' : 'Default background'}
                             </Text>
                         </View>
+                        {isUploading && <ActivityIndicator size="small" color="#3b82f6" />}
                     </TouchableOpacity>
 
                     {/* Block User */}
@@ -1273,22 +1640,15 @@ export default function ChatScreen() {
                             `Are you sure you want to block ${selectedUser?.name}? They won't be able to message you.`,
                             [
                                 { text: 'Cancel', style: 'cancel' },
-                                {
-                                    text: 'Block', style: 'destructive', onPress: () => {
-                                        Alert.alert('Blocked', `${selectedUser?.name} has been blocked`);
-                                        setShowChatSettings(false);
-                                        handleBack();
-                                    }
-                                }
+                                { text: 'Block', style: 'destructive', onPress: handleBlockUser }
                             ]
                         )}
-                        className="flex-row items-center py-4 border-b"
-                        style={{ borderColor: colors.border }}
+                        className="flex-row items-center py-4 border-b border-zinc-700"
                     >
                         <X size={22} color="#ef4444" />
                         <View className="ml-4 flex-1">
                             <Text className="font-medium text-red-500">Block User</Text>
-                            <Text className="text-xs" style={{ color: colors.secondary }}>
+                            <Text className="text-xs text-zinc-400">
                                 Prevent this user from messaging you
                             </Text>
                         </View>
@@ -1296,36 +1656,34 @@ export default function ChatScreen() {
 
                     {/* Message Retention */}
                     <View className="py-4">
-                        <Text className="font-medium mb-3" style={{ color: colors.text }}>Message Retention</Text>
-                        <Text className="text-xs mb-3" style={{ color: colors.secondary }}>
+                        <Text className="font-medium mb-3 text-white">Message Retention</Text>
+                        <Text className="text-xs mb-3 text-zinc-400">
                             Messages will auto-delete after the selected time
                         </Text>
 
                         <View className="flex-row flex-wrap gap-2">
                             {[
-                                { value: 'forever', label: 'Forever' },
+                                { value: 'immediately', label: 'Immediately' },
                                 { value: '1day', label: '24 Hours' },
-                                { value: 'viewonce', label: 'View Once' },
                                 { value: 'custom', label: `${customRetentionDays} Days` },
+                                { value: 'forever', label: 'Forever' },
                             ].map((option) => (
                                 <TouchableOpacity
                                     key={option.value}
                                     onPress={() => {
                                         if (option.value === 'custom') {
-                                            // Alert.prompt is iOS only, so use a simpler approach
                                             Alert.alert(
                                                 'Custom Retention',
-                                                `Messages will be deleted after ${customRetentionDays} days. You can change this value in the settings.`
+                                                `Messages will be deleted after ${customRetentionDays} days.`
                                             );
                                         }
                                         setMessageRetention(option.value as any);
                                     }}
-                                    className={`px-4 py-2 rounded-full ${messageRetention === option.value ? 'bg-indigo-500' : ''}`}
-                                    style={{ backgroundColor: messageRetention === option.value ? colors.primary : colors.card }}
+                                    className={`px-4 py-2 rounded-full ${messageRetention === option.value ? 'bg-white' : 'bg-zinc-800'}`}
                                 >
                                     <Text
                                         className="text-sm font-medium"
-                                        style={{ color: messageRetention === option.value ? '#fff' : colors.text }}
+                                        style={{ color: messageRetention === option.value ? '#000' : '#fff' }}
                                     >
                                         {option.label}
                                     </Text>
@@ -1336,16 +1694,12 @@ export default function ChatScreen() {
 
                     {/* Save Button */}
                     <TouchableOpacity
-                        onPress={() => {
-                            Alert.alert('Settings Saved', 'Your chat settings have been updated');
-                            setShowChatSettings(false);
-                        }}
-                        className="mt-4 py-4 rounded-xl items-center"
-                        style={{ backgroundColor: colors.primary }}
+                        onPress={handleSaveSettings}
+                        className="mt-4 py-4 rounded-xl items-center bg-white"
                     >
-                        <Text className="font-bold text-white">Save Settings</Text>
+                        <Text className="font-bold text-black">Save Settings</Text>
                     </TouchableOpacity>
-                </BlurView>
+                </View>
             </View>
         </Modal>
     );
