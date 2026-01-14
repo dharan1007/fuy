@@ -1611,42 +1611,78 @@ export default function ChatScreen() {
 
     const renderChatSettingsModal = () => (
         <Modal visible={showChatSettings} transparent animationType="slide">
-            <View className="flex-1 bg-black/50 justify-end">
+            <View className="flex-1 bg-black/60 justify-end">
                 <View className="rounded-t-3xl overflow-hidden p-6 pb-10 bg-zinc-900">
+                    {/* Header */}
                     <View className="flex-row justify-between items-center mb-6">
                         <Text className="text-xl font-bold text-white">Chat Settings</Text>
-                        <TouchableOpacity onPress={() => setShowChatSettings(false)}>
-                            <X size={24} color="#fff" />
+                        <TouchableOpacity onPress={() => setShowChatSettings(false)} className="p-2 rounded-full bg-zinc-800">
+                            <X size={20} color="#fff" />
                         </TouchableOpacity>
                     </View>
 
-                    {/* Chat Background */}
-                    <TouchableOpacity
-                        onPress={() => Alert.alert('Change Background', 'Choose an option', [
-                            {
-                                text: 'Remove Background', onPress: () => {
-                                    setChatBackground(null);
-                                    if (activeConversationIdRef.current) {
-                                        supabase.from('Conversation').update({ wallpaperUrl: null }).eq('id', activeConversationIdRef.current);
-                                    }
-                                }
-                            },
-                            { text: 'Choose Image', onPress: handleChangeBackground },
-                            { text: 'Cancel', style: 'cancel' }
-                        ])}
-                        className="flex-row items-center py-4 border-b border-zinc-700"
-                    >
-                        <ImageIcon size={22} color="#3b82f6" />
-                        <View className="ml-4 flex-1">
-                            <Text className="font-medium text-white">Chat Background</Text>
-                            <Text className="text-xs text-zinc-400">
-                                {chatBackground ? 'Custom background set' : 'Default background'}
-                            </Text>
+                    {/* Chat Background - Aesthetic Card */}
+                    <View className="bg-zinc-800 rounded-2xl p-4 mb-4">
+                        <View className="flex-row items-center mb-4">
+                            <View className="w-10 h-10 rounded-full bg-blue-500/20 items-center justify-center">
+                                <ImageIcon size={20} color="#3b82f6" />
+                            </View>
+                            <View className="ml-3 flex-1">
+                                <Text className="font-semibold text-white">Chat Wallpaper</Text>
+                                <Text className="text-xs text-zinc-400">
+                                    {chatBackground ? 'Custom wallpaper active' : 'Using default theme'}
+                                </Text>
+                            </View>
+                            {isUploading && <ActivityIndicator size="small" color="#3b82f6" />}
                         </View>
-                        {isUploading && <ActivityIndicator size="small" color="#3b82f6" />}
-                    </TouchableOpacity>
 
-                    {/* Block User */}
+                        {/* Background Action Buttons */}
+                        <View className="flex-row gap-3">
+                            <TouchableOpacity
+                                onPress={handleChangeBackground}
+                                className="flex-1 py-3 rounded-xl bg-blue-500 items-center"
+                            >
+                                <Text className="font-semibold text-white">Choose Photo</Text>
+                            </TouchableOpacity>
+                            {chatBackground && (
+                                <TouchableOpacity
+                                    onPress={handleRemoveBackground}
+                                    className="py-3 px-4 rounded-xl bg-zinc-700 items-center"
+                                >
+                                    <Text className="font-semibold text-zinc-300">Remove</Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                    </View>
+
+                    {/* Message Retention - Simplified */}
+                    <View className="bg-zinc-800 rounded-2xl p-4 mb-4">
+                        <Text className="font-semibold text-white mb-1">Delete Messages</Text>
+                        <Text className="text-xs text-zinc-400 mb-4">
+                            Choose when messages should be deleted
+                        </Text>
+
+                        <View className="flex-row gap-3">
+                            <TouchableOpacity
+                                onPress={() => setMessageRetention('immediately')}
+                                className={`flex-1 py-3 rounded-xl items-center ${messageRetention === 'immediately' ? 'bg-white' : 'bg-zinc-700'}`}
+                            >
+                                <Text className={`font-semibold ${messageRetention === 'immediately' ? 'text-black' : 'text-white'}`}>
+                                    Immediately
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                onPress={() => setMessageRetention('1day')}
+                                className={`flex-1 py-3 rounded-xl items-center ${messageRetention === '1day' ? 'bg-white' : 'bg-zinc-700'}`}
+                            >
+                                <Text className={`font-semibold ${messageRetention === '1day' ? 'text-black' : 'text-white'}`}>
+                                    24 Hours
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+
+                    {/* Block User - Danger Zone */}
                     <TouchableOpacity
                         onPress={() => Alert.alert(
                             'Block User',
@@ -1656,61 +1692,25 @@ export default function ChatScreen() {
                                 { text: 'Block', style: 'destructive', onPress: handleBlockUser }
                             ]
                         )}
-                        className="flex-row items-center py-4 border-b border-zinc-700"
+                        className="bg-red-500/10 rounded-2xl p-4 flex-row items-center border border-red-500/20"
                     >
-                        <X size={22} color="#ef4444" />
-                        <View className="ml-4 flex-1">
-                            <Text className="font-medium text-red-500">Block User</Text>
+                        <View className="w-10 h-10 rounded-full bg-red-500/20 items-center justify-center">
+                            <X size={20} color="#ef4444" />
+                        </View>
+                        <View className="ml-3 flex-1">
+                            <Text className="font-semibold text-red-500">Block User</Text>
                             <Text className="text-xs text-zinc-400">
-                                Prevent this user from messaging you
+                                Stop receiving messages from this user
                             </Text>
                         </View>
                     </TouchableOpacity>
 
-                    {/* Message Retention */}
-                    <View className="py-4">
-                        <Text className="font-medium mb-3 text-white">Message Retention</Text>
-                        <Text className="text-xs mb-3 text-zinc-400">
-                            Messages will auto-delete after the selected time
-                        </Text>
-
-                        <View className="flex-row flex-wrap gap-2">
-                            {[
-                                { value: 'immediately', label: 'Immediately' },
-                                { value: '1day', label: '24 Hours' },
-                                { value: 'custom', label: `${customRetentionDays} Days` },
-                                { value: 'forever', label: 'Forever' },
-                            ].map((option) => (
-                                <TouchableOpacity
-                                    key={option.value}
-                                    onPress={() => {
-                                        if (option.value === 'custom') {
-                                            Alert.alert(
-                                                'Custom Retention',
-                                                `Messages will be deleted after ${customRetentionDays} days.`
-                                            );
-                                        }
-                                        setMessageRetention(option.value as any);
-                                    }}
-                                    className={`px-4 py-2 rounded-full ${messageRetention === option.value ? 'bg-white' : 'bg-zinc-800'}`}
-                                >
-                                    <Text
-                                        className="text-sm font-medium"
-                                        style={{ color: messageRetention === option.value ? '#000' : '#fff' }}
-                                    >
-                                        {option.label}
-                                    </Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-                    </View>
-
                     {/* Save Button */}
                     <TouchableOpacity
                         onPress={handleSaveSettings}
-                        className="mt-4 py-4 rounded-xl items-center bg-white"
+                        className="mt-6 py-4 rounded-2xl items-center bg-white"
                     >
-                        <Text className="font-bold text-black">Save Settings</Text>
+                        <Text className="font-bold text-black text-base">Save Settings</Text>
                     </TouchableOpacity>
                 </View>
             </View>
