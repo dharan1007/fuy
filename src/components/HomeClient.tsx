@@ -57,6 +57,7 @@ interface PostData {
         };
     };
     media?: Array<{ type: string; url: string }>;
+    postType: string; // Added to support filtering
     createdAt: string;
     likes: number;
     likedByMe: boolean;
@@ -444,14 +445,16 @@ export default function HomeClient({ isAdmin = false }: { isAdmin?: boolean }) {
                             ) : (
                                 <FeedRefreshProvider onRefresh={fetchPosts}>
                                     <FeedPlaybackProvider>
-                                        {posts.map((post: any) => (
-                                            <FeedPostItem
-                                                key={post.id}
-                                                post={post}
-                                                currentUserId={session?.user?.id}
-                                                className="w-full"
-                                            />
-                                        ))}
+                                        {posts
+                                            .filter((post) => post.postType !== 'STORY')
+                                            .map((post: any) => (
+                                                <FeedPostItem
+                                                    key={post.id}
+                                                    post={post}
+                                                    currentUserId={session?.user?.id}
+                                                    className="w-full"
+                                                />
+                                            ))}
                                     </FeedPlaybackProvider>
                                 </FeedRefreshProvider>
                             )}
