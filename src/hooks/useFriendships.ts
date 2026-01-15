@@ -262,6 +262,10 @@ export function useFollow() {
     ghostFollowRequest,
     unGhostRequest,
     unfollow,
+    // Aliases for backward compatibility
+    acceptFriendRequest: acceptFollowRequest,
+    rejectFriendRequest: rejectFollowRequest,
+    ghostFriendRequest: ghostFollowRequest,
   };
 }
 
