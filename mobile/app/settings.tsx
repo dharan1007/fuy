@@ -7,30 +7,23 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../context/ThemeContext';
 import { supabase } from '../lib/supabase';
+import ConfirmModal from '../components/ConfirmModal';
+import { useToast } from '../context/ToastContext';
 
 export default function SettingsScreen() {
     const router = useRouter();
     const { mode, setMode, colors } = useTheme();
     const [loading, setLoading] = useState(false);
 
+    const { showToast } = useToast();
+    const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
     const handleLogout = async () => {
-        Alert.alert(
-            "Log Out",
-            "Are you sure you want to log out?",
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Log Out",
-                    style: "destructive",
-                    onPress: async () => {
-                        setLoading(true);
-                        const { error } = await supabase.auth.signOut();
-                        if (error) Alert.alert("Error", error.message);
-                        router.replace('/(auth)/login');
-                    }
-                }
-            ]
-        );
+        setShowLogoutConfirm(false);
+        setLoading(true);
+        const { error } = await supabase.auth.signOut();
+        if (error) showToast(error.message, 'error');
+        router.replace('/(auth)/login');
     };
 
     const renderSection = (title: string, items: any[]) => (
@@ -125,13 +118,14 @@ export default function SettingsScreen() {
             label: 'Help & Support',
             icon: HelpCircle,
             colorClass: 'bg-slate-500',
-            onPress: () => Alert.alert("Support", "Contact support@fuy.com")
+
+            onPress: () => showToast("Contact support@fuy.com", 'info')
         },
         {
             label: 'Log Out',
             icon: LogOut,
             colorClass: 'bg-red-500',
-            onPress: handleLogout
+            onPress: () => setShowLogoutConfirm(true)
         },
     ];
 
@@ -157,6 +151,16 @@ export default function SettingsScreen() {
                     <Text className="text-center text-xs mb-8" style={{ color: colors.secondary }}>Version 1.0.0</Text>
                 </ScrollView>
             </SafeAreaView>
-        </View>
+
+            <ConfirmModal
+                visible={showLogoutConfirm}
+                title="Log Out"
+                message="Are you sure you want to log out of the universe?"
+                onConfirm={handleLogout}
+                onCancel={() => setShowLogoutConfirm(false)}
+                confirmText="Log Out"
+                isDestructive
+            />
+        </View >
     );
 }

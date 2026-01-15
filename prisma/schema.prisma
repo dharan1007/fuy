@@ -1414,6 +1414,8 @@ model ConversationState {
   isMuted        Boolean   @default(false)
   isGhosted      Boolean   @default(false)
   isPinned       Boolean   @default(false)
+  isHidden       Boolean   @default(false)  // Hide from chat list
+  isLocked       Boolean   @default(false)  // Require auth to view
   pinnedAt       DateTime?
   nickname       String?   // User-specific nickname for the other participant
   lastDeletedAt  DateTime? // To hide messages before this date if "deleted"

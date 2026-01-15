@@ -26,7 +26,7 @@ interface PostOptionsModalProps {
 export default function PostOptionsModal({ visible, onClose, post, onReport, onDelete, onBlock, onHide, onMute }: PostOptionsModalProps & { onHide?: () => void, onMute?: () => void }) {
     const { session } = useAuth();
     const { colors, mode } = useTheme();
-    const [view, setView] = React.useState<'options' | 'report'>('options');
+    const [view, setView] = React.useState<'options' | 'report' | 'delete_confirm'>('options');
     const [reportReason, setReportReason] = React.useState<string | null>(null);
     const [reportDetails, setReportDetails] = React.useState('');
     const [submitting, setSubmitting] = React.useState(false);
@@ -185,28 +185,50 @@ export default function PostOptionsModal({ visible, onClose, post, onReport, onD
     };
 
     const handleDelete = () => {
-        Alert.alert(
-            "Delete Post",
-            "Are you sure you want to delete this post?",
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Delete",
-                    style: "destructive",
-                    onPress: async () => {
-                        try {
-                            const { error } = await supabase.from('Post').delete().eq('id', post.id);
-                            if (error) throw error;
-                            Alert.alert("Deleted", "Post has been deleted.");
-                            if (onDelete) onDelete();
-                            onClose();
-                        } catch (e: any) {
-                            Alert.alert("Error", `Failed to delete: ${e.message}`);
-                        }
-                    }
-                }
-            ]
-        );
+        setView('delete_confirm');
+    };
+
+    const confirmDelete = async () => {
+        setSubmitting(true);
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session?.access_token) throw new Error("Not authenticated");
+
+            // Optimistic update - notify parent immediately
+            if (onDelete) onDelete();
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
+            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org'}/api/posts/delete`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`
+                },
+                body: JSON.stringify({ postId: post.id }),
+                signal: controller.signal
+            });
+
+            clearTimeout(timeoutId);
+
+            if (!response.ok) {
+                const result = await response.json();
+                throw new Error(result.error || "Failed to delete post");
+            }
+
+            onClose();
+
+        } catch (e: any) {
+            console.error("API Delete Error:", e);
+            if (e.name === 'AbortError') {
+                Alert.alert("Timeout", "Server is not reachable. Ensure your computer and device are on the same Wi-Fi and the backend server is running.");
+            } else {
+                Alert.alert("Error", `Failed to delete: ${e.message}`);
+            }
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     const submitReport = async () => {
@@ -324,6 +346,66 @@ export default function PostOptionsModal({ visible, onClose, post, onReport, onD
                         <TouchableOpacity onPress={onClose} style={[styles.cancelButton, { borderTopColor: colors.border }]}>
                             <Text style={[styles.cancelText, { color: colors.text }]}>Cancel</Text>
                         </TouchableOpacity>
+                    </View>
+                ) : view === 'delete_confirm' ? (
+                    <View style={[styles.sheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                        <View style={styles.handle} />
+                        <View style={{ width: '100%', alignItems: 'center', paddingVertical: 16 }}>
+                            <View style={{
+                                width: 64,
+                                height: 64,
+                                borderRadius: 32,
+                                backgroundColor: '#fee2e2',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                marginBottom: 16
+                            }}>
+                                <Trash size={32} color="#ef4444" />
+                            </View>
+                            <Text style={[styles.title, { color: colors.text, marginBottom: 8 }]}>Delete Post?</Text>
+                            <Text style={{ color: colors.secondary, textAlign: 'center', marginBottom: 24, paddingHorizontal: 24 }}>
+                                Are you sure you want to delete this post? This action cannot be undone.
+                            </Text>
+
+                            <View style={{ width: '100%', gap: 12 }}>
+                                <TouchableOpacity
+                                    onPress={confirmDelete}
+                                    disabled={submitting}
+                                    style={{
+                                        backgroundColor: '#ef4444',
+                                        borderRadius: 16,
+                                        paddingVertical: 16,
+                                        alignItems: 'center',
+                                        flexDirection: 'row',
+                                        justifyContent: 'center',
+                                        gap: 8,
+                                        opacity: submitting ? 0.7 : 1
+                                    }}
+                                >
+                                    {submitting ? (
+                                        <Text style={{ color: 'white', fontWeight: 'bold' }}>Deleting...</Text>
+                                    ) : (
+                                        <>
+                                            <Trash size={18} color="white" />
+                                            <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>Yes, Delete</Text>
+                                        </>
+                                    )}
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    onPress={() => setView('options')}
+                                    disabled={submitting}
+                                    style={{
+                                        backgroundColor: mode === 'light' ? '#f5f5f5' : '#1a1a1a',
+                                        borderRadius: 16,
+                                        paddingVertical: 16,
+                                        alignItems: 'center'
+                                    }}
+                                >
+                                    <Text style={{ color: colors.text, fontWeight: 'bold', fontSize: 16 }}>Cancel</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
                     </View>
                 ) : (
                     <View style={[styles.sheet, { backgroundColor: colors.card, borderColor: colors.border, height: '80%' }]}>

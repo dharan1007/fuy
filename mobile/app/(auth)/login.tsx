@@ -5,18 +5,23 @@ import { supabase } from '../../lib/supabase';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Mail, Lock, ArrowRight } from 'lucide-react-native';
+import { Mail, Lock, ArrowRight, CheckSquare, Square } from 'lucide-react-native';
+import { useToast } from '../../context/ToastContext';
 
 export default function LoginScreen() {
     const router = useRouter();
+    const { showToast } = useToast();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [rememberMe, setRememberMe] = useState(false);
     const [loading, setLoading] = useState(false);
 
     const handleLogin = async () => {
         if (!email || !password) {
-            Alert.alert('Error', 'Please fill in all fields');
-            return;
+            if (!email || !password) {
+                showToast('Please fill in all fields', 'error');
+                return;
+            }
         }
 
         setLoading(true);
@@ -35,7 +40,8 @@ export default function LoginScreen() {
             // Auth state listener in _layout.tsx will handle redirect
         } catch (error: any) {
             console.error("Login Error details:", error);
-            Alert.alert('Login Failed', error.message || 'An unknown error occurred');
+            console.error("Login Error details:", error);
+            showToast(error.message || 'Login failed', 'error');
         } finally {
             setLoading(false);
         }
@@ -91,6 +97,21 @@ export default function LoginScreen() {
                                         />
                                     </View>
                                 </View>
+
+                                {/* Remember Me */}
+                                <TouchableOpacity
+                                    onPress={() => setRememberMe(!rememberMe)}
+                                    className="flex-row items-center"
+                                >
+                                    {rememberMe ? (
+                                        <CheckSquare color="white" size={20} />
+                                    ) : (
+                                        <Square color="rgba(255,255,255,0.4)" size={20} />
+                                    )}
+                                    <Text className={`ml-2 text-sm ${rememberMe ? 'text-white' : 'text-white/40'}`}>
+                                        Remember me
+                                    </Text>
+                                </TouchableOpacity>
 
                                 <TouchableOpacity
                                     onPress={handleLogin}

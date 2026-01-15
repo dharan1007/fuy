@@ -1,6 +1,8 @@
 import * as FileSystem from 'expo-file-system/legacy';
+import { supabase } from '../lib/supabase';
+import { getApiUrl } from '../lib/api';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org';
+const API_URL = getApiUrl();
 
 export interface UploadResult {
     url: string;
@@ -18,13 +20,20 @@ export class MediaUploadService {
     /**
      * Unified upload method for Image, Video, and Audio using R2 Presigned URLs
      */
+    /**
+     * Unified upload method for Image, Video, and Audio using R2 Presigned URLs
+     */
     static async uploadMedia(
         uri: string,
         type: 'IMAGE' | 'VIDEO' | 'AUDIO',
         onProgress?: (progress: UploadProgress) => void
     ): Promise<UploadResult> {
+        const startTime = Date.now();
+        console.log(`[MediaUpload] Starting upload for ${type} at ${new Date(startTime).toISOString()}`);
+
         try {
             // 1. Get file info
+            console.log(`[MediaUpload] 1. Getting file info for ${uri}`);
             const fileInfo = await FileSystem.getInfoAsync(uri);
             if (!fileInfo.exists) throw new Error("File does not exist");
 
@@ -37,61 +46,80 @@ export class MediaUploadService {
             if (type === 'VIDEO') contentType = `video/${ext || 'mp4'}`;
             if (type === 'AUDIO') contentType = `audio/${ext || 'mpeg'}`;
 
-            // 2. Get Presigned URL
+            // Get Supabase session for authentication
+            const { data: { session } } = await supabase.auth.getSession();
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+            if (session?.access_token) {
+                headers['Authorization'] = `Bearer ${session.access_token}`;
+            }
+
+            // 2. Get Presigned URL with timeout
+            console.log(`[MediaUpload] 2. Getting presigned URL from: ${API_URL}/api/upload/presigned`);
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout for API (increased for dev latency)
+
             const presignedRes = await fetch(`${API_URL}/api/upload/presigned`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 body: JSON.stringify({
                     filename: fileName,
                     contentType,
                     type
-                })
+                }),
+                signal: controller.signal
             });
+            clearTimeout(timeoutId);
 
             if (!presignedRes.ok) {
-                const err = await presignedRes.json();
-                throw new Error(err.error || 'Failed to get upload URL');
+                const errText = await presignedRes.text();
+                console.error(`[MediaUpload] API Error: ${presignedRes.status} - ${errText}`);
+                try {
+                    const errJson = JSON.parse(errText);
+                    throw new Error(errJson.error || 'Failed to get upload URL');
+                } catch (e) {
+                    throw new Error(`Failed to get upload URL: ${errText}`);
+                }
             }
 
             const { signedUrl, publicUrl } = await presignedRes.json();
+            // 3. Upload directly to R2 using FileSystem.uploadAsync (Native, prevents OOM)
+            console.log(`[MediaUpload] 3. Uploading to R2 via FileSystem...`);
 
-            // 3. Upload directly to R2
-            const uploadRes = await FileSystem.uploadAsync(signedUrl, uri, {
+            const uploadResponse = await FileSystem.uploadAsync(signedUrl, uri, {
                 httpMethod: 'PUT',
-                uploadType: 1, // BINARY_CONTENT = 1
                 headers: {
-                    'Content-Type': contentType
-                }
+                    'Content-Type': contentType,
+                },
+                // uploadType: BINARY_CONTENT default for PUT
             });
 
-            if (uploadRes.status !== 200) {
-                throw new Error(`Upload failed with status ${uploadRes.status}`);
+            if (uploadResponse.status !== 200) {
+                throw new Error(`Upload failed: ${uploadResponse.status} ${uploadResponse.body}`);
             }
 
-            onProgress?.({ loaded: 100, total: 100, percentage: 100 });
+            console.log(`[MediaUpload] 4. Upload complete. Duration: ${(Date.now() - startTime) / 1000}s`);
 
+            // 4. Return the public URL
             return {
-                url: publicUrl,
-                type,
+                url: publicUrl, // The presigned endpoint should return the eventual public URL
+                type: type,
+                duration: 0 // TODO: Get duration from file info if possible
             };
-
-        } catch (error) {
-            console.error('Media upload error:', error);
+        } catch (error: any) {
+            console.error('[MediaUpload] Error:', error);
             throw error;
         }
     }
 
-    // Compat wrappers
-    static async uploadImage(uri: string, fileName?: string, onProgress?: any) {
-        return this.uploadMedia(uri, 'IMAGE', onProgress);
+    static async uploadImage(uri: string, filename?: string): Promise<UploadResult> {
+        return this.uploadMedia(uri, 'IMAGE');
     }
 
-    static async uploadVideo(uri: string, fileName?: string, onProgress?: any) {
+    static async uploadVideo(uri: string, filename?: string, onProgress?: (progress: UploadProgress) => void): Promise<UploadResult> {
         return this.uploadMedia(uri, 'VIDEO', onProgress);
     }
 
-    static async uploadAudio(uri: string, fileName?: string, onProgress?: any) {
-        return this.uploadMedia(uri, 'AUDIO', onProgress);
+    static async uploadAudio(uri: string, filename?: string): Promise<UploadResult> {
+        return this.uploadMedia(uri, 'AUDIO');
     }
 }
-

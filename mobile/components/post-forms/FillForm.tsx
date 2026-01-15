@@ -26,14 +26,28 @@ export default function FillForm({ onBack }: FillFormProps) {
     const [uploadProgress, setUploadProgress] = useState(0);
 
     const pickVideo = async () => {
-        const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-            allowsEditing: false,
-            quality: 0.8,
-        });
+        try {
+            // Fix deprecation: Use string array or MediaType enum if available. 
+            // Using ['videos'] is the modern standard for Expo ImagePicker.
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ['videos'],
+                allowsEditing: false,
+                quality: 0.8,
+            });
 
-        if (!result.canceled && result.assets[0]) {
-            setVideo(result.assets[0]);
+            if (!result.canceled && result.assets[0]) {
+                const asset = result.assets[0];
+                // Direct assignment without compression (Compressor requires native rebuild)
+                setVideo(asset);
+
+                // Warn if file is huge? Optional.
+                if (asset.fileSize && asset.fileSize > 200 * 1024 * 1024) {
+                    Alert.alert("Large Video", "This video is large and may take longer to process.");
+                }
+            }
+        } catch (e) {
+            Alert.alert('Error', 'Failed to select video');
+            console.error(e);
         }
     };
 
@@ -78,6 +92,8 @@ export default function FillForm({ onBack }: FillFormProps) {
                     postType: 'FILL',
                     content: description || title,
                     visibility,
+                    mediaUrls: [uploadResult.url],
+                    mediaTypes: ['VIDEO'],
                     fillData: {
                         videoUrl: uploadResult.url,
                         title,

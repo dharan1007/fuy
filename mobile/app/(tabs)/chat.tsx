@@ -1,17 +1,20 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, TextInput, ScrollView, TouchableOpacity, Image, Modal, Animated, Dimensions, FlatList, ActivityIndicator, Alert, BackHandler, KeyboardAvoidingView, Platform, Keyboard, StatusBar } from 'react-native';
+import { View, Text, TextInput, ScrollView, TouchableOpacity, Image, Modal, Animated, Dimensions, FlatList, ActivityIndicator, Alert, BackHandler, KeyboardAvoidingView, Platform, Keyboard, StatusBar, ImageBackground } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useNavigation, useFocusEffect } from 'expo-router';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import { Mic, Send, Search, Settings, MoreVertical, Phone, Video, Image as ImageIcon, Smile, X, ChevronLeft, Sparkles, User as UserIcon, Sun, Moon, Anchor, Heart, Map as MapIcon, Book, Plus, Tag, Frown, AlertTriangle, Check, CheckCheck, Clock } from 'lucide-react-native';
+import { Mic, Send, Search, Settings, MoreVertical, Phone, Video, Image as ImageIcon, Smile, X, ChevronLeft, Sparkles, User as UserIcon, Sun, Moon, Anchor, Heart, Map as MapIcon, Book, Plus, Tag, Frown, AlertTriangle, Check, CheckCheck, Clock, Trash2, EyeOff, Lock } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../lib/supabase';
 import { useNavVisibility } from '../../context/NavContext';
+import * as LocalAuthentication from 'expo-local-authentication';
+import * as SecureStore from 'expo-secure-store';
 
 import { MediaUploadService } from '../../services/MediaUploadService';
+import { uploadToR2 } from '../../lib/upload';
 import * as ImagePicker from 'expo-image-picker';
 import { Video as AVVideo, ResizeMode } from 'expo-av';
 import { Paperclip } from 'lucide-react-native';
@@ -65,6 +68,9 @@ interface ChatUser {
     lastSeen?: string;
     isPinned?: boolean;
     followersCount?: number;
+    conversationId?: string;
+    isHidden?: boolean;
+    isLocked?: boolean;
 }
 
 export default function ChatScreen() {
@@ -152,6 +158,16 @@ export default function ChatScreen() {
     // Safety: Blocked Users
     const [blockedIds, setBlockedIds] = useState<Set<string>>(new Set());
 
+    // Chat Management: Hidden & Locked
+    const [hiddenConversationIds, setHiddenConversationIds] = useState<Set<string>>(new Set());
+    const [lockedConversationIds, setLockedConversationIds] = useState<Set<string>>(new Set());
+    const [showLockModal, setShowLockModal] = useState(false);
+    const [lockModalConversationId, setLockModalConversationId] = useState<string | null>(null);
+    const [pinInput, setPinInput] = useState('');
+    const [isSettingPin, setIsSettingPin] = useState(false);
+    const [pendingUnlockConversationId, setPendingUnlockConversationId] = useState<string | null>(null);
+    const [showPinPrompt, setShowPinPrompt] = useState(false);
+
     useEffect(() => {
         if (!dbUserId) return;
         const fetchBlocks = async () => {
@@ -164,6 +180,29 @@ export default function ChatScreen() {
             setBlockedIds(ids);
         };
         fetchBlocks();
+    }, [dbUserId]);
+
+    // Fetch hidden and locked conversation states
+    useEffect(() => {
+        if (!dbUserId) return;
+        const fetchConversationStates = async () => {
+            const { data: states } = await supabase
+                .from('ConversationState')
+                .select('conversationId, isHidden, isLocked')
+                .eq('userId', dbUserId);
+
+            if (states) {
+                const hidden = new Set<string>();
+                const locked = new Set<string>();
+                states.forEach((s: any) => {
+                    if (s.isHidden) hidden.add(s.conversationId);
+                    if (s.isLocked) locked.add(s.conversationId);
+                });
+                setHiddenConversationIds(hidden);
+                setLockedConversationIds(locked);
+            }
+        };
+        fetchConversationStates();
     }, [dbUserId]);
 
     // Resolve DB User ID from Email and Fetch Profile Avatar
@@ -418,8 +457,21 @@ export default function ChatScreen() {
     const getSortedConversations = () => {
         let list = searchQuery ? searchResults : conversations;
 
-        // Update isPinned status dynamically
-        list = list.map(c => ({ ...c, isPinned: pinnedIds.has(c.id) }));
+        // Update flags dynamically
+        list = list.map(c => ({
+            ...c,
+            isPinned: pinnedIds.has(c.id),
+            isHidden: hiddenConversationIds.has(c.conversationId || c.id),
+            isLocked: lockedConversationIds.has(c.conversationId || c.id)
+        }));
+
+        // Filter out hidden chats UNLESS searching for "hidden" or the user's name
+        const searchLower = searchQuery.toLowerCase();
+        const showHidden = searchLower.includes('hidden') || (searchQuery.length > 0 && list.some(c => c.name?.toLowerCase().includes(searchLower)));
+
+        if (!showHidden) {
+            list = list.filter(c => !c.isHidden);
+        }
 
         if (sortMode === 'pinned') {
             return list.sort((a, b) => {
@@ -469,6 +521,162 @@ export default function ChatScreen() {
         }
     };
 
+    // Chat Management Handlers
+    const handleDeleteChat = async (conversationId: string) => {
+        if (!dbUserId) return;
+
+        try {
+            // Upsert ConversationState with isDeleted = true
+            await supabase.from('ConversationState').upsert({
+                conversationId,
+                userId: dbUserId,
+                isDeleted: true
+            }, { onConflict: 'conversationId,userId' });
+
+            // Remove from local list
+            setConversations(prev => prev.filter(c => (c.conversationId || c.id) !== conversationId));
+            setShowOptionsModal(false);
+        } catch (err) {
+            console.error('Error deleting chat:', err);
+            showError('Failed to delete chat');
+        }
+    };
+
+    const handleHideChat = async (conversationId: string) => {
+        if (!dbUserId) return;
+
+        try {
+            const isCurrentlyHidden = hiddenConversationIds.has(conversationId);
+
+            await supabase.from('ConversationState').upsert({
+                conversationId,
+                userId: dbUserId,
+                isHidden: !isCurrentlyHidden
+            }, { onConflict: 'conversationId,userId' });
+
+            // Update local state
+            setHiddenConversationIds(prev => {
+                const newSet = new Set(prev);
+                if (isCurrentlyHidden) {
+                    newSet.delete(conversationId);
+                } else {
+                    newSet.add(conversationId);
+                }
+                return newSet;
+            });
+            setShowOptionsModal(false);
+        } catch (err) {
+            console.error('Error hiding chat:', err);
+            showError('Failed to hide chat');
+        }
+    };
+
+    const handleLockChat = async (conversationId: string) => {
+        setLockModalConversationId(conversationId);
+        setIsSettingPin(true);
+        setPinInput('');
+        setShowLockModal(true);
+        setShowOptionsModal(false);
+    };
+
+    const handleSetPin = async () => {
+        if (!lockModalConversationId || !dbUserId || pinInput.length < 4) {
+            Alert.alert('Error', 'PIN must be at least 4 digits');
+            return;
+        }
+
+        try {
+            // Store PIN securely
+            await SecureStore.setItemAsync(`chat_pin_${lockModalConversationId}`, pinInput);
+
+            // Update database
+            await supabase.from('ConversationState').upsert({
+                conversationId: lockModalConversationId,
+                userId: dbUserId,
+                isLocked: true
+            }, { onConflict: 'conversationId,userId' });
+
+            // Update local state
+            setLockedConversationIds(prev => new Set(prev).add(lockModalConversationId));
+            setShowLockModal(false);
+            setPinInput('');
+        } catch (err) {
+            console.error('Error setting PIN:', err);
+            showError('Failed to set PIN');
+        }
+    };
+
+    const handleUnlockChat = async (conversationId: string) => {
+        if (!dbUserId) return;
+
+        try {
+            // Remove PIN
+            await SecureStore.deleteItemAsync(`chat_pin_${conversationId}`);
+
+            // Update database
+            await supabase.from('ConversationState').upsert({
+                conversationId,
+                userId: dbUserId,
+                isLocked: false
+            }, { onConflict: 'conversationId,userId' });
+
+            // Update local state
+            setLockedConversationIds(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(conversationId);
+                return newSet;
+            });
+        } catch (err) {
+            console.error('Error unlocking chat:', err);
+        }
+    };
+
+    const authenticateForChat = async (conversationId: string): Promise<boolean> => {
+        // Check if biometric is available
+        const hasHardware = await LocalAuthentication.hasHardwareAsync();
+        const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+
+        if (hasHardware && isEnrolled) {
+            const result = await LocalAuthentication.authenticateAsync({
+                promptMessage: 'Unlock Chat',
+                fallbackLabel: 'Use PIN',
+                cancelLabel: 'Cancel',
+            });
+
+            if (result.success) return true;
+        }
+
+        // Fallback to PIN
+        const storedPin = await SecureStore.getItemAsync(`chat_pin_${conversationId}`);
+        if (storedPin) {
+            setPendingUnlockConversationId(conversationId);
+            setPinInput('');
+            setShowPinPrompt(true);
+            return false; // Will be handled by PIN modal
+        }
+
+        return true; // No lock set
+    };
+
+    const verifyPin = async () => {
+        if (!pendingUnlockConversationId) return;
+
+        const storedPin = await SecureStore.getItemAsync(`chat_pin_${pendingUnlockConversationId}`);
+        if (storedPin === pinInput) {
+            setShowPinPrompt(false);
+            setPinInput('');
+            // Proceed to open chat
+            const user = conversations.find(c => (c.conversationId || c.id) === pendingUnlockConversationId);
+            if (user) {
+                handleUserSelect(user);
+            }
+            setPendingUnlockConversationId(null);
+        } else {
+            Alert.alert('Incorrect PIN', 'Please try again');
+            setPinInput('');
+        }
+    };
+
     const fetchMessages = async (conversationId: string) => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
@@ -504,6 +712,13 @@ export default function ChatScreen() {
         if (!currentUser) {
             Alert.alert("Error", "You must be logged in.");
             return;
+        }
+
+        // Check if chat is locked
+        const conversationId = (user as any).conversationId;
+        if (conversationId && lockedConversationIds.has(conversationId)) {
+            const authenticated = await authenticateForChat(conversationId);
+            if (!authenticated) return; // Will show PIN prompt
         }
 
         setIsLoading(true);
@@ -556,16 +771,25 @@ export default function ChatScreen() {
             activeConversationIdRef.current = conversationId;
             await fetchMessages(conversationId);
 
-            // Fetch wallpaper for this conversation
-            const { data: convData } = await supabase
-                .from('Conversation')
-                .select('wallpaperUrl')
-                .eq('id', conversationId)
-                .single();
-            if (convData?.wallpaperUrl) {
-                setChatBackground(convData.wallpaperUrl);
+            // Load wallpaper from local storage first (faster)
+            const wallpaperKey = `wallpaper_${conversationId}`;
+            const localWallpaper = await AsyncStorage.getItem(wallpaperKey);
+            if (localWallpaper) {
+                setChatBackground(localWallpaper);
             } else {
-                setChatBackground(null);
+                // Fallback to DB
+                const { data: convData } = await supabase
+                    .from('Conversation')
+                    .select('wallpaperUrl')
+                    .eq('id', conversationId)
+                    .single();
+                if (convData?.wallpaperUrl) {
+                    setChatBackground(convData.wallpaperUrl);
+                    // Cache locally for next time
+                    await AsyncStorage.setItem(wallpaperKey, convData.wallpaperUrl);
+                } else {
+                    setChatBackground(null);
+                }
             }
         } catch (err) {
             console.error('Error selecting chat:', err);
@@ -1223,13 +1447,22 @@ export default function ChatScreen() {
                         className="flex-1"
                         keyboardVerticalOffset={0}
                     >
-                        {/* Messages */}
-                        {isLoading ? (
-                            <View className="flex-1 items-center justify-center">
-                                <ActivityIndicator size="large" color={colors.primary} />
-                            </View>
-                        ) : (
-                            <>
+                        <View style={{ flex: 1 }}>
+                            {/* Optional Wallpaper Background */}
+                            {chatBackground && (
+                                <Image
+                                    source={{ uri: chatBackground }}
+                                    style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.3 }}
+                                    resizeMode="cover"
+                                />
+                            )}
+
+                            {/* Messages */}
+                            {isLoading ? (
+                                <View className="flex-1 items-center justify-center">
+                                    <ActivityIndicator size="large" color={colors.primary} />
+                                </View>
+                            ) : (
                                 <ScrollView
                                     className="flex-1 px-4 py-6"
                                     contentContainerStyle={{ paddingBottom: 20 }}
@@ -1316,92 +1549,91 @@ export default function ChatScreen() {
                                         );
                                     })}
                                 </ScrollView>
-                            </>
-                        )}
+                            )}
+                            {/* Bonding Warning Display */}
+                            {showBondingWarning && (
+                                <View className="px-4 py-2" style={{ backgroundColor: '#fef2f2' }}>
+                                    {bondingWarnings.blacklist.length > 0 && (
+                                        <View className="flex-row items-center gap-2 mb-1">
+                                            <AlertTriangle size={14} color="#ef4444" />
+                                            <Text className="text-xs text-red-500 flex-1">
+                                                ⚠️ Blacklisted content detected
+                                            </Text>
+                                        </View>
+                                    )}
+                                    {bondingWarnings.facts.length > 0 && (
+                                        <View className="flex-row items-center gap-2">
+                                            <AlertTriangle size={14} color="#f59e0b" />
+                                            <Text className="text-xs text-amber-600 flex-1">
+                                                💡 {bondingWarnings.facts.map(f => `"${f.keyword}": ${f.warningText}`).join(', ')}
+                                            </Text>
+                                        </View>
+                                    )}
+                                </View>
+                            )}
 
-                        {/* Bonding Warning Display */}
-                        {showBondingWarning && (
-                            <View className="px-4 py-2" style={{ backgroundColor: '#fef2f2' }}>
-                                {bondingWarnings.blacklist.length > 0 && (
-                                    <View className="flex-row items-center gap-2 mb-1">
-                                        <AlertTriangle size={14} color="#ef4444" />
-                                        <Text className="text-xs text-red-500 flex-1">
-                                            ⚠️ Blacklisted content detected
-                                        </Text>
+                            {/* Input or Blocked or Message Request */}
+                            {blockedIds.has(selectedUser.id) ? (
+                                <View className="px-4 py-6 border-t items-center justify-center" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
+                                    <Text style={{ color: colors.secondary, fontWeight: '600' }}>You cannot message this user.</Text>
+                                </View>
+                            ) : isMessageRequest ? (
+                                <BlurView intensity={90} tint={mode === 'light' ? 'light' : 'dark'} className="px-6 py-6 border-t items-center" style={{ borderColor: colors.border }}>
+                                    <Text className="font-bold text-lg mb-2" style={{ color: colors.text }}>Message Request</Text>
+                                    <Text className="text-center text-sm mb-4" style={{ color: colors.secondary }}>
+                                        {selectedUser.name} wants to message you. You won't see their messages until you accept.
+                                    </Text>
+                                    <View className="flex-row gap-4 w-full">
+                                        <TouchableOpacity
+                                            onPress={handleBlock}
+                                            className="flex-1 py-3 bg-red-500/10 rounded-xl items-center border border-red-500/20"
+                                        >
+                                            <Text className="font-bold text-red-500">Block</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            onPress={() => setTempAccepted(true)}
+                                            className="flex-1 py-3 bg-white rounded-xl items-center"
+                                        >
+                                            <Text className="font-bold text-black">Accept</Text>
+                                        </TouchableOpacity>
                                     </View>
-                                )}
-                                {bondingWarnings.facts.length > 0 && (
+                                </BlurView>
+                            ) : (
+                                <BlurView intensity={90} tint={mode === 'light' ? 'light' : 'dark'} className="px-4 py-3 border-t" style={{ borderColor: colors.border }}>
                                     <View className="flex-row items-center gap-2">
-                                        <AlertTriangle size={14} color="#f59e0b" />
-                                        <Text className="text-xs text-amber-600 flex-1">
-                                            💡 {bondingWarnings.facts.map(f => `"${f.keyword}": ${f.warningText}`).join(', ')}
-                                        </Text>
+                                        {/* Media button */}
+                                        <TouchableOpacity className="p-2" onPress={() => {
+                                            Alert.alert('Send Media', 'Choose media type', [
+                                                { text: 'Photo', onPress: () => handlePickMedia('image') },
+                                                { text: 'Video', onPress: () => handlePickMedia('video') },
+                                                { text: 'Cancel', style: 'cancel' }
+                                            ]);
+                                        }}>
+                                            <Paperclip size={22} color={colors.secondary} />
+                                        </TouchableOpacity>
+
+                                        {/* Emoji/Sticker button */}
+                                        <TouchableOpacity className="p-2" onPress={() => Alert.alert('Coming Soon', 'Sticker picker coming soon!')}>
+                                            <Smile size={22} color={colors.secondary} />
+                                        </TouchableOpacity>
+
+                                        <TextInput
+                                            placeholder="Type a message..."
+                                            placeholderTextColor={colors.secondary}
+                                            value={inputText}
+                                            onChangeText={handleInputChange}
+                                            className="flex-1 h-12 px-4 rounded-full border"
+                                            style={{ backgroundColor: colors.card, borderColor: colors.border, color: colors.text }}
+                                            onSubmitEditing={sendMessage}
+                                            returnKeyType="send"
+                                        />
+                                        <TouchableOpacity onPress={sendMessage} className="w-12 h-12 rounded-full items-center justify-center shadow-lg" style={{ backgroundColor: colors.primary }}>
+                                            <Send color={mode === 'light' ? '#fff' : '#000'} size={20} />
+                                        </TouchableOpacity>
                                     </View>
-                                )}
-                            </View>
-                        )}
-
-                        {/* Input or Blocked or Message Request */}
-                        {blockedIds.has(selectedUser.id) ? (
-                            <View className="px-4 py-6 border-t items-center justify-center" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
-                                <Text style={{ color: colors.secondary, fontWeight: '600' }}>You cannot message this user.</Text>
-                            </View>
-                        ) : isMessageRequest ? (
-                            <BlurView intensity={90} tint={mode === 'light' ? 'light' : 'dark'} className="px-6 py-6 border-t items-center" style={{ borderColor: colors.border }}>
-                                <Text className="font-bold text-lg mb-2" style={{ color: colors.text }}>Message Request</Text>
-                                <Text className="text-center text-sm mb-4" style={{ color: colors.secondary }}>
-                                    {selectedUser.name} wants to message you. You won't see their messages until you accept.
-                                </Text>
-                                <View className="flex-row gap-4 w-full">
-                                    <TouchableOpacity
-                                        onPress={handleBlock}
-                                        className="flex-1 py-3 bg-red-500/10 rounded-xl items-center border border-red-500/20"
-                                    >
-                                        <Text className="font-bold text-red-500">Block</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        onPress={() => setTempAccepted(true)}
-                                        className="flex-1 py-3 bg-white rounded-xl items-center"
-                                    >
-                                        <Text className="font-bold text-black">Accept</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </BlurView>
-                        ) : (
-                            <BlurView intensity={90} tint={mode === 'light' ? 'light' : 'dark'} className="px-4 py-3 border-t" style={{ borderColor: colors.border }}>
-                                <View className="flex-row items-center gap-2">
-                                    {/* Media button */}
-                                    <TouchableOpacity className="p-2" onPress={() => {
-                                        Alert.alert('Send Media', 'Choose media type', [
-                                            { text: 'Photo', onPress: () => handlePickMedia('image') },
-                                            { text: 'Video', onPress: () => handlePickMedia('video') },
-                                            { text: 'Cancel', style: 'cancel' }
-                                        ]);
-                                    }}>
-                                        <Paperclip size={22} color={colors.secondary} />
-                                    </TouchableOpacity>
-
-                                    {/* Emoji/Sticker button */}
-                                    <TouchableOpacity className="p-2" onPress={() => Alert.alert('Coming Soon', 'Sticker picker coming soon!')}>
-                                        <Smile size={22} color={colors.secondary} />
-                                    </TouchableOpacity>
-
-                                    <TextInput
-                                        placeholder="Type a message..."
-                                        placeholderTextColor={colors.secondary}
-                                        value={inputText}
-                                        onChangeText={handleInputChange}
-                                        className="flex-1 h-12 px-4 rounded-full border"
-                                        style={{ backgroundColor: colors.card, borderColor: colors.border, color: colors.text }}
-                                        onSubmitEditing={sendMessage}
-                                        returnKeyType="send"
-                                    />
-                                    <TouchableOpacity onPress={sendMessage} className="w-12 h-12 rounded-full items-center justify-center shadow-lg" style={{ backgroundColor: colors.primary }}>
-                                        <Send color={mode === 'light' ? '#fff' : '#000'} size={20} />
-                                    </TouchableOpacity>
-                                </View>
-                            </BlurView>
-                        )}
+                                </BlurView>
+                            )}
+                        </View>
                     </KeyboardAvoidingView>
                 </SafeAreaView>
             </Animated.View>
@@ -1474,11 +1706,17 @@ export default function ChatScreen() {
     );
 
     // Chat Settings Modal
-    // Background Picker Modal State
-    const [showBackgroundPicker, setShowBackgroundPicker] = useState(false);
+    // Block Confirmation Modal State
+    const [showBlockConfirm, setShowBlockConfirm] = useState(false);
+    const [showErrorModal, setShowErrorModal] = useState(false);
+    const [errorMessage, setErrorMessage] = useState('');
+
+    const showError = (message: string) => {
+        setErrorMessage(message);
+        setShowErrorModal(true);
+    };
 
     const handleChangeBackground = async () => {
-        setShowBackgroundPicker(false);
         try {
             const result = await ImagePicker.launchImageLibraryAsync({
                 mediaTypes: ['images'],
@@ -1488,64 +1726,38 @@ export default function ChatScreen() {
             });
 
             if (!result.canceled && result.assets[0]) {
-                setIsUploading(true);
-                try {
-                    // Get presigned URL using API_URL
-                    const filename = `wallpaper_${Date.now()}.jpg`;
-                    const presignedRes = await fetch(`${API_URL}/api/upload/presigned`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            filename,
-                            contentType: 'image/jpeg',
-                            folder: 'chat-wallpapers'
-                        })
-                    });
+                const asset = result.assets[0];
 
-                    if (!presignedRes.ok) throw new Error('Failed to get upload URL');
-                    const { uploadUrl, publicUrl } = await presignedRes.json();
+                // Store wallpaper locally per conversation (works offline)
+                if (activeConversationIdRef.current) {
+                    const wallpaperKey = `wallpaper_${activeConversationIdRef.current}`;
+                    await AsyncStorage.setItem(wallpaperKey, asset.uri);
 
-                    // Upload the image
-                    const imageBlob = await fetch(result.assets[0].uri).then(r => r.blob());
-                    await fetch(uploadUrl, {
-                        method: 'PUT',
-                        body: imageBlob,
-                        headers: { 'Content-Type': 'image/jpeg' }
-                    });
-
-                    // Update conversation in DB
-                    if (activeConversationIdRef.current) {
-                        await supabase
-                            .from('Conversation')
-                            .update({ wallpaperUrl: publicUrl })
-                            .eq('id', activeConversationIdRef.current);
-                    }
-
-                    setChatBackground(publicUrl);
-                    Alert.alert('Success', 'Chat background updated!');
-                } catch (err) {
-                    console.error('Upload failed:', err);
-                    Alert.alert('Error', 'Failed to upload background. Please try again.');
-                } finally {
-                    setIsUploading(false);
+                    // Also try to save to DB for sync (non-blocking)
+                    supabase
+                        .from('Conversation')
+                        .update({ wallpaperUrl: asset.uri })
+                        .eq('id', activeConversationIdRef.current);
                 }
+
+                setChatBackground(asset.uri);
             }
         } catch (err) {
             console.error('Image picker error:', err);
+            showError('Failed to select image. Please try again.');
         }
     };
 
     const handleRemoveBackground = async () => {
-        setShowBackgroundPicker(false);
         setChatBackground(null);
         if (activeConversationIdRef.current) {
             await supabase.from('Conversation').update({ wallpaperUrl: null }).eq('id', activeConversationIdRef.current);
         }
-        Alert.alert('Removed', 'Chat background has been removed.');
     };
 
     const handleBlockUser = async () => {
         if (!dbUserId || !selectedUser) return;
+        setShowBlockConfirm(false);
 
         try {
             const blockId = `bl${Date.now().toString(36)}${Math.random().toString(36).substring(2, 8)}`;
@@ -1555,12 +1767,11 @@ export default function ChatScreen() {
                 blockedId: selectedUser.id
             });
             setBlockedIds(prev => new Set(prev).add(selectedUser.id));
-            Alert.alert('Blocked', `${selectedUser.name} has been blocked`);
             setShowChatSettings(false);
             handleBack();
         } catch (err) {
             console.error('Block failed:', err);
-            Alert.alert('Error', 'Failed to block user');
+            showError('Failed to block user. Please try again.');
         }
     };
 
@@ -1570,44 +1781,96 @@ export default function ChatScreen() {
             return;
         }
 
+        const conversationId = activeConversationIdRef.current;
+        console.log('[ChatSettings] Saving settings, retention:', messageRetention, 'conversationId:', conversationId);
+
         try {
-            // Handle message retention
+            // Call API endpoint to delete messages (bypasses RLS)
+            const response = await fetch(
+                `${API_URL}/api/chat/${conversationId}/messages?retention=${messageRetention}`,
+                {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                }
+            );
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                console.error('[ChatSettings] API error:', errorData);
+                throw new Error(errorData.error || 'Failed to delete messages');
+            }
+
+            const result = await response.json();
+            console.log('[ChatSettings] Deleted messages:', result.deletedCount);
+
+            // Clear local message state
             if (messageRetention === 'immediately') {
-                // Delete all messages in this conversation
-                await supabase
-                    .from('Message')
-                    .delete()
-                    .eq('conversationId', activeConversationIdRef.current);
                 setMessages([]);
-                Alert.alert('Messages Deleted', 'All messages have been deleted.');
-            } else if (messageRetention === '1day') {
-                // Delete messages older than 24 hours
-                const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-                await supabase
-                    .from('Message')
-                    .delete()
-                    .eq('conversationId', activeConversationIdRef.current)
-                    .lt('createdAt', cutoff);
-                Alert.alert('Settings Saved', 'Messages older than 24 hours will be deleted.');
-            } else if (messageRetention === 'custom') {
-                // Delete messages older than custom days
-                const cutoff = new Date(Date.now() - customRetentionDays * 24 * 60 * 60 * 1000).toISOString();
-                await supabase
-                    .from('Message')
-                    .delete()
-                    .eq('conversationId', activeConversationIdRef.current)
-                    .lt('createdAt', cutoff);
-                Alert.alert('Settings Saved', `Messages older than ${customRetentionDays} days will be deleted.`);
             } else {
-                Alert.alert('Settings Saved', 'Your chat settings have been updated.');
+                // Refresh messages to show updated list
+                await fetchMessages(conversationId);
             }
 
             setShowChatSettings(false);
         } catch (err) {
             console.error('Save settings failed:', err);
-            Alert.alert('Error', 'Failed to save settings');
+            showError('Failed to delete messages. Please try again.');
         }
     };
+
+    // Error Modal UI
+    const renderErrorModal = () => (
+        <Modal visible={showErrorModal} transparent animationType="fade">
+            <View className="flex-1 bg-black/70 justify-center items-center px-6">
+                <View className="bg-zinc-900 rounded-3xl p-6 w-full max-w-sm border border-zinc-800">
+                    <View className="w-16 h-16 rounded-full bg-red-500/20 items-center justify-center self-center mb-4">
+                        <X size={32} color="#ef4444" />
+                    </View>
+                    <Text className="text-xl font-bold text-white text-center mb-2">Something went wrong</Text>
+                    <Text className="text-sm text-zinc-400 text-center mb-6">{errorMessage}</Text>
+                    <TouchableOpacity
+                        onPress={() => setShowErrorModal(false)}
+                        className="py-4 rounded-2xl bg-white items-center"
+                    >
+                        <Text className="font-bold text-black">Try Again</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        </Modal>
+    );
+
+    // Block Confirmation Modal UI
+    const renderBlockConfirmModal = () => (
+        <Modal visible={showBlockConfirm} transparent animationType="fade">
+            <View className="flex-1 bg-black/70 justify-center items-center px-6">
+                <View className="bg-zinc-900 rounded-3xl p-6 w-full max-w-sm border border-zinc-800">
+                    <View className="w-16 h-16 rounded-full bg-red-500/20 items-center justify-center self-center mb-4">
+                        <X size={32} color="#ef4444" />
+                    </View>
+                    <Text className="text-xl font-bold text-white text-center mb-2">Block {selectedUser?.name}?</Text>
+                    <Text className="text-sm text-zinc-400 text-center mb-6">
+                        They won't be able to message you or see your online status. You can unblock them later from settings.
+                    </Text>
+                    <View className="flex-row gap-3">
+                        <TouchableOpacity
+                            onPress={() => setShowBlockConfirm(false)}
+                            className="flex-1 py-4 rounded-2xl bg-zinc-800 items-center"
+                        >
+                            <Text className="font-bold text-white">Cancel</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            onPress={handleBlockUser}
+                            className="flex-1 py-4 rounded-2xl bg-red-500 items-center"
+                        >
+                            <Text className="font-bold text-white">Block</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </View>
+        </Modal>
+    );
 
     const renderChatSettingsModal = () => (
         <Modal visible={showChatSettings} transparent animationType="slide">
@@ -1621,11 +1884,11 @@ export default function ChatScreen() {
                         </TouchableOpacity>
                     </View>
 
-                    {/* Chat Background - Aesthetic Card */}
+                    {/* Chat Background - B/W Card */}
                     <View className="bg-zinc-800 rounded-2xl p-4 mb-4">
                         <View className="flex-row items-center mb-4">
-                            <View className="w-10 h-10 rounded-full bg-blue-500/20 items-center justify-center">
-                                <ImageIcon size={20} color="#3b82f6" />
+                            <View className="w-10 h-10 rounded-full bg-white/10 items-center justify-center">
+                                <ImageIcon size={20} color="#fff" />
                             </View>
                             <View className="ml-3 flex-1">
                                 <Text className="font-semibold text-white">Chat Wallpaper</Text>
@@ -1633,16 +1896,16 @@ export default function ChatScreen() {
                                     {chatBackground ? 'Custom wallpaper active' : 'Using default theme'}
                                 </Text>
                             </View>
-                            {isUploading && <ActivityIndicator size="small" color="#3b82f6" />}
+                            {isUploading && <ActivityIndicator size="small" color="#fff" />}
                         </View>
 
                         {/* Background Action Buttons */}
                         <View className="flex-row gap-3">
                             <TouchableOpacity
                                 onPress={handleChangeBackground}
-                                className="flex-1 py-3 rounded-xl bg-blue-500 items-center"
+                                className="flex-1 py-3 rounded-xl bg-white items-center"
                             >
-                                <Text className="font-semibold text-white">Choose Photo</Text>
+                                <Text className="font-semibold text-black">Choose Photo</Text>
                             </TouchableOpacity>
                             {chatBackground && (
                                 <TouchableOpacity
@@ -1684,14 +1947,7 @@ export default function ChatScreen() {
 
                     {/* Block User - Danger Zone */}
                     <TouchableOpacity
-                        onPress={() => Alert.alert(
-                            'Block User',
-                            `Are you sure you want to block ${selectedUser?.name}? They won't be able to message you.`,
-                            [
-                                { text: 'Cancel', style: 'cancel' },
-                                { text: 'Block', style: 'destructive', onPress: handleBlockUser }
-                            ]
-                        )}
+                        onPress={() => setShowBlockConfirm(true)}
                         className="bg-red-500/10 rounded-2xl p-4 flex-row items-center border border-red-500/20"
                     >
                         <View className="w-10 h-10 rounded-full bg-red-500/20 items-center justify-center">
@@ -1714,6 +1970,126 @@ export default function ChatScreen() {
                     </TouchableOpacity>
                 </View>
             </View>
+        </Modal>
+    );
+
+    // Lock Chat PIN Setup Modal
+    const renderLockModal = () => (
+        <Modal
+            visible={showLockModal}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowLockModal(false)}
+        >
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                className="flex-1 justify-center items-center bg-black/50 px-6"
+            >
+                <View className="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-3xl p-6">
+                    <View className="items-center mb-6">
+                        <View className="w-16 h-16 rounded-full bg-zinc-100 dark:bg-zinc-800 items-center justify-center mb-4">
+                            <Lock size={32} color={colors.text} />
+                        </View>
+                        <Text className="text-xl font-bold text-center" style={{ color: colors.text }}>
+                            Set Chat PIN
+                        </Text>
+                        <Text className="text-sm text-center mt-2" style={{ color: colors.secondary }}>
+                            Enter a 4+ digit PIN to lock this chat
+                        </Text>
+                    </View>
+
+                    <TextInput
+                        value={pinInput}
+                        onChangeText={setPinInput}
+                        placeholder="Enter PIN..."
+                        placeholderTextColor={colors.secondary}
+                        keyboardType="number-pad"
+                        secureTextEntry
+                        maxLength={6}
+                        className="p-4 rounded-xl border mb-6 text-center text-2xl tracking-widest"
+                        style={{ borderColor: colors.border, color: colors.text, backgroundColor: colors.card }}
+                        autoFocus
+                    />
+
+                    <View className="flex-row justify-end gap-4">
+                        <TouchableOpacity onPress={() => {
+                            setShowLockModal(false);
+                            setPinInput('');
+                        }}>
+                            <Text className="text-base font-medium px-4 py-2" style={{ color: colors.secondary }}>Cancel</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            onPress={handleSetPin}
+                            className="px-6 py-2 rounded-full"
+                            style={{ backgroundColor: colors.text }}
+                        >
+                            <Text className="font-bold text-base" style={{ color: colors.background }}>Set PIN</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </KeyboardAvoidingView>
+        </Modal>
+    );
+
+    // PIN Prompt Modal (for unlocking)
+    const renderPinPromptModal = () => (
+        <Modal
+            visible={showPinPrompt}
+            transparent
+            animationType="fade"
+            onRequestClose={() => {
+                setShowPinPrompt(false);
+                setPendingUnlockConversationId(null);
+            }}
+        >
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                className="flex-1 justify-center items-center bg-black/50 px-6"
+            >
+                <View className="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-3xl p-6">
+                    <View className="items-center mb-6">
+                        <View className="w-16 h-16 rounded-full bg-zinc-100 dark:bg-zinc-800 items-center justify-center mb-4">
+                            <Lock size={32} color={colors.text} />
+                        </View>
+                        <Text className="text-xl font-bold text-center" style={{ color: colors.text }}>
+                            Enter PIN
+                        </Text>
+                        <Text className="text-sm text-center mt-2" style={{ color: colors.secondary }}>
+                            This chat is locked. Enter your PIN to view.
+                        </Text>
+                    </View>
+
+                    <TextInput
+                        value={pinInput}
+                        onChangeText={setPinInput}
+                        placeholder="Enter PIN..."
+                        placeholderTextColor={colors.secondary}
+                        keyboardType="number-pad"
+                        secureTextEntry
+                        maxLength={6}
+                        className="p-4 rounded-xl border mb-6 text-center text-2xl tracking-widest"
+                        style={{ borderColor: colors.border, color: colors.text, backgroundColor: colors.card }}
+                        autoFocus
+                    />
+
+                    <View className="flex-row justify-end gap-4">
+                        <TouchableOpacity onPress={() => {
+                            setShowPinPrompt(false);
+                            setPinInput('');
+                            setPendingUnlockConversationId(null);
+                        }}>
+                            <Text className="text-base font-medium px-4 py-2" style={{ color: colors.secondary }}>Cancel</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            onPress={verifyPin}
+                            className="px-6 py-2 rounded-full"
+                            style={{ backgroundColor: colors.text }}
+                        >
+                            <Text className="font-bold text-base" style={{ color: colors.background }}>Unlock</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </KeyboardAvoidingView>
         </Modal>
     );
 
@@ -1758,7 +2134,11 @@ export default function ChatScreen() {
                 {renderChatRoom()}
                 {renderTagModal()}
                 {renderChatSettingsModal()}
+                {renderLockModal()}
+                {renderPinPromptModal()}
                 {renderNicknameModal()}
+                {renderErrorModal()}
+                {renderBlockConfirmModal()}
                 {/* User Options Modal */}
                 <Modal visible={showOptionsModal} transparent animationType="fade" onRequestClose={() => setShowOptionsModal(false)}>
                     <TouchableOpacity
@@ -1807,6 +2187,69 @@ export default function ChatScreen() {
                                             <Tag size={20} color={colors.text} />
                                             <Text className="ml-3 font-semibold text-base" style={{ color: colors.text }}>
                                                 Set Nickname
+                                            </Text>
+                                        </TouchableOpacity>
+
+                                        {/* Hide Chat */}
+                                        <TouchableOpacity
+                                            onPress={() => {
+                                                const convId = optionsUser.conversationId || optionsUser.id;
+                                                handleHideChat(convId);
+                                            }}
+                                            className="flex-row items-center p-4 rounded-xl"
+                                            style={{ backgroundColor: colors.card }}
+                                        >
+                                            <EyeOff size={20} color={colors.text} />
+                                            <Text className="ml-3 font-semibold text-base" style={{ color: colors.text }}>
+                                                {hiddenConversationIds.has(optionsUser.conversationId || optionsUser.id) ? 'Unhide Chat' : 'Hide Chat'}
+                                            </Text>
+                                        </TouchableOpacity>
+
+                                        {/* Lock Chat */}
+                                        <TouchableOpacity
+                                            onPress={() => {
+                                                const convId = optionsUser.conversationId || optionsUser.id;
+                                                if (lockedConversationIds.has(convId)) {
+                                                    handleUnlockChat(convId);
+                                                    setShowOptionsModal(false);
+                                                } else {
+                                                    handleLockChat(convId);
+                                                }
+                                            }}
+                                            className="flex-row items-center p-4 rounded-xl"
+                                            style={{ backgroundColor: colors.card }}
+                                        >
+                                            <Lock size={20} color={colors.text} />
+                                            <Text className="ml-3 font-semibold text-base" style={{ color: colors.text }}>
+                                                {lockedConversationIds.has(optionsUser.conversationId || optionsUser.id) ? 'Unlock Chat' : 'Lock Chat'}
+                                            </Text>
+                                        </TouchableOpacity>
+
+                                        {/* Delete Chat */}
+                                        <TouchableOpacity
+                                            onPress={() => {
+                                                Alert.alert(
+                                                    'Delete Chat',
+                                                    'Are you sure you want to delete this chat? This will hide it from your chat list.',
+                                                    [
+                                                        { text: 'Cancel', style: 'cancel' },
+                                                        {
+                                                            text: 'Delete',
+                                                            style: 'destructive',
+                                                            onPress: () => {
+                                                                const convId = optionsUser.conversationId || optionsUser.id;
+                                                                handleDeleteChat(convId);
+                                                            }
+                                                        }
+                                                    ]
+                                                );
+                                            }}
+                                            className="flex-row items-center p-4 rounded-xl"
+                                            style={{ backgroundColor: '#fef2f2' }}
+                                        >
+                                            <Trash2 size={20} color="#dc2626" />
+                                            <Text className="ml-3 font-semibold text-base" style={{ color: '#dc2626' }}>
+                                                Delete Chat
                                             </Text>
                                         </TouchableOpacity>
 

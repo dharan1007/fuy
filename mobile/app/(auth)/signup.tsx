@@ -4,18 +4,21 @@ import { useRouter, Link } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Mail, Lock, User, ArrowRight, ArrowLeft } from 'lucide-react-native';
+import { Mail, Lock, User, ArrowRight, ArrowLeft, CheckSquare, Square } from 'lucide-react-native';
+import { useToast } from '../../context/ToastContext';
 
 export default function SignupScreen() {
     const router = useRouter();
+    const { showToast } = useToast();
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [rememberMe, setRememberMe] = useState(false);
     const [loading, setLoading] = useState(false);
 
     const handleSignup = async () => {
         if (!email || !password || !name) {
-            Alert.alert('Error', 'Please fill in all fields');
+            showToast('Please fill in all fields', 'error');
             return;
         }
 
@@ -36,10 +39,10 @@ export default function SignupScreen() {
             // Optional: Create user record in public.User table if not handled by trigger
             // For now, we assume simple auth signup.
 
-            Alert.alert('Success', 'Check your email for the confirmation link.');
+            showToast('Check your email for the confirmation link.', 'success');
             router.back();
         } catch (error: any) {
-            Alert.alert('Signup Failed', error.message);
+            showToast(error.message || 'Signup failed', 'error');
         } finally {
             setLoading(false);
         }
@@ -107,18 +110,33 @@ export default function SignupScreen() {
                                         onChangeText={setPassword}
                                     />
                                 </View>
-
-                                <TouchableOpacity
-                                    onPress={handleSignup}
-                                    disabled={loading}
-                                    className="bg-white rounded-2xl py-4 items-center flex-row justify-center mt-4 active:opacity-90"
-                                >
-                                    <Text className="text-black font-bold text-lg mr-2">
-                                        {loading ? 'Creating...' : 'Create Account'}
-                                    </Text>
-                                    {!loading && <ArrowRight color="black" size={20} />}
-                                </TouchableOpacity>
                             </View>
+
+                            {/* Remember Me */}
+                            <TouchableOpacity
+                                onPress={() => setRememberMe(!rememberMe)}
+                                className="flex-row items-center mt-2"
+                            >
+                                {rememberMe ? (
+                                    <CheckSquare color="white" size={20} />
+                                ) : (
+                                    <Square color="rgba(255,255,255,0.4)" size={20} />
+                                )}
+                                <Text className={`ml-2 text-sm ${rememberMe ? 'text-white' : 'text-white/40'}`}>
+                                    Remember me
+                                </Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                onPress={handleSignup}
+                                disabled={loading}
+                                className="bg-white rounded-2xl py-4 items-center flex-row justify-center mt-4 active:opacity-90"
+                            >
+                                <Text className="text-black font-bold text-lg mr-2">
+                                    {loading ? 'Creating...' : 'Create Account'}
+                                </Text>
+                                {!loading && <ArrowRight color="black" size={20} />}
+                            </TouchableOpacity>
                         </View>
                     </ScrollView>
                 </KeyboardAvoidingView>

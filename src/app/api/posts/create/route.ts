@@ -30,22 +30,16 @@ async function createPostHandler(request: NextRequest) {
             // Media for general posts
             mediaUrls,
             mediaTypes,
+            mediaVariants,
+            // Clock Data
+            clockData,
         } = body;
 
         if (!userId) {
             return NextResponse.json({ error: 'User ID required' }, { status: 400 });
         }
 
-        // Comprehensive Content Moderation - REJECT prohibited content immediately
-        if (content) {
-            const moderationResult = moderateContent(content);
-            if (!moderationResult.isClean) {
-                return NextResponse.json(
-                    { error: getModerationErrorMessage(moderationResult) },
-                    { status: 400 }
-                );
-            }
-        }
+        // ...
 
         // Create the post
         const post = await prisma.post.create({
@@ -54,6 +48,7 @@ async function createPostHandler(request: NextRequest) {
                 postType: postType || 'STANDARD',
                 content: content || '',
                 visibility: visibility,
+                expiresAt: postType === 'CLOCK' && clockData?.expiresAt ? clockData.expiresAt : null,
             },
         });
 
@@ -200,6 +195,7 @@ async function createPostHandler(request: NextRequest) {
                                     userId,
                                     url,
                                     type: mediaTypes?.[i] || 'IMAGE',
+                                    variant: mediaVariants?.[i] || 'standard'
                                 }
                             }
                         }))

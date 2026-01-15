@@ -64,6 +64,39 @@ async function feedHandler(req: NextRequest) {
         }) : [];
         const likedPostIds = new Set(myLikes.map(l => l.postId));
 
+        // --- Fetch Reaction Bubbles ---
+        const bubbles = await prisma.reactionBubble.findMany({
+            where: { postId: { in: postIds } },
+            orderBy: { createdAt: 'desc' },
+            select: {
+                id: true,
+                postId: true,
+                mediaUrl: true,
+                mediaType: true,
+                user: {
+                    select: {
+                        id: true,
+                        profile: { select: { displayName: true, avatarUrl: true } }
+                    }
+                }
+            }
+        });
+
+        const bubbleCounts = await prisma.reactionBubble.groupBy({
+            by: ['postId'],
+            where: { postId: { in: postIds } },
+            _count: { id: true }
+        });
+
+        const bubblesMap: Record<string, typeof bubbles> = {};
+        bubbles.forEach(b => {
+            if (!bubblesMap[b.postId]) bubblesMap[b.postId] = [];
+            // Limit to top 5 per post for bandwidth optimization
+            if (bubblesMap[b.postId].length < 5) bubblesMap[b.postId].push(b);
+        });
+
+        const bubbleCountMap = Object.fromEntries(bubbleCounts.map(b => [b.postId, b._count.id]));
+
         // --- Transform to Frontend Format ---
         const posts = feedItems.map((item: any) => {
             let media = [];
@@ -101,6 +134,8 @@ async function feedHandler(req: NextRequest) {
                     },
                     media
                 ),
+                topBubbles: bubblesMap[item.postId] || [],
+                totalBubbles: bubbleCountMap[item.postId] || 0,
             };
         });
 

@@ -43,7 +43,7 @@ export default function SimpleForm({ onBack, initialData }: SimpleFormProps) {
         }
 
         const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.All,
+            mediaTypes: ['images', 'videos'],
             allowsMultipleSelection: true,
             selectionLimit: MAX_MEDIA - media.length,
             quality: 0.8,
@@ -146,7 +146,8 @@ export default function SimpleForm({ onBack, initialData }: SimpleFormProps) {
                     postType: postMode === 'TEXT' ? 'SIMPLE_TEXT' : 'SIMPLE',
                     content: content.trim() || 'New post',
                     visibility,
-                    media: uploadedMedia,
+                    mediaUrls: uploadedMedia.map(m => m.url),
+                    mediaTypes: uploadedMedia.map(m => m.type),
                 }),
             });
 
@@ -249,7 +250,7 @@ export default function SimpleForm({ onBack, initialData }: SimpleFormProps) {
                 <View style={{ marginBottom: 20 }}>
                     <Text style={{ color: 'rgba(255,255,255,0.5)', marginBottom: 12, fontWeight: '600', fontSize: 11, letterSpacing: 1 }}>MEDIA ({media.length}/{MAX_MEDIA})</Text>
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -2 }}>
-                        {media.map((item, index) => renderMediaItem({ item, index }))}
+                        {media.map((item, index) => <View key={`media-${index}`}>{renderMediaItem({ item, index })}</View>)}
                         {media.length < MAX_MEDIA && (
                             <TouchableOpacity
                                 onPress={pickMedia}

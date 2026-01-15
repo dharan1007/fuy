@@ -67,11 +67,17 @@ const MainLayout = () => {
     );
 };
 
+import { ToastProvider } from '../context/ToastContext';
+
+// ... (existing code)
+
 export default function RootLayout() {
     return (
         <AuthProvider>
             <ThemeProvider>
-                <MainLayout />
+                <ToastProvider>
+                    <MainLayout />
+                </ToastProvider>
             </ThemeProvider>
         </AuthProvider>
     );

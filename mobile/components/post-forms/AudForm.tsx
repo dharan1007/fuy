@@ -101,6 +101,9 @@ export default function AudForm({ onBack }: AudFormProps) {
                         artist: artist || null,
                         genre: genre || null,
                     },
+                    mediaUrls: coverUrl ? [audioResult.url, coverUrl] : [audioResult.url],
+                    mediaTypes: coverUrl ? ['AUDIO', 'IMAGE'] : ['AUDIO'],
+                    mediaVariants: coverUrl ? ['sometrack', 'thumbnail'] : ['sometrack'], // Helps frontend identify cover
                 }),
             });
 

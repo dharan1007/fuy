@@ -62,6 +62,8 @@ interface PostData {
     likedByMe: boolean;
     comments: number;
     shares: number;
+    topBubbles?: any[];
+    totalBubbles?: number;
 }
 
 type CreatePostTab = 'text' | 'media' | 'link';

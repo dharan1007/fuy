@@ -24,6 +24,7 @@ interface Post {
     postMedia?: { media: { url: string; type: string; variant?: string } }[];
     chanData?: { id?: string; channelName?: string; description?: string; coverImageUrl?: string };
     user?: { name?: string; profile?: { avatarUrl?: string; displayName?: string } };
+    topBubbles?: { mediaUrl: string; mediaType: string }[];
 }
 
 interface SearchResult {
@@ -287,7 +288,7 @@ const FloatingCard = ({ post, config, index, onPress, onToggleScroll, isActive }
                                 );
                             }
 
-                            // CASE 2: Inactive Card -> Prefer Cover Image
+                            // CASE 2: Inactive separate Cover Image
                             if (coverUrl) {
                                 return (
                                     <Image
@@ -298,8 +299,8 @@ const FloatingCard = ({ post, config, index, onPress, onToggleScroll, isActive }
                                 );
                             }
 
-                            // CASE 3: Inactive & No Cover -> Fallback to Paused Video
-                            if (videoUrl && videoUrl.length > 5) {
+                            // CASE 3: Inactive & No Cover -> Render Video Paused (for thumbnail)
+                            if (videoUrl) {
                                 return (
                                     <Video
                                         source={{ uri: videoUrl }}
@@ -312,7 +313,14 @@ const FloatingCard = ({ post, config, index, onPress, onToggleScroll, isActive }
                                 );
                             }
 
-                            // CASE 4: No Media
+                            // CASE 4: Truly no media -> Placeholder
+                            return (
+                                <View style={{ width: '100%', height: '100%', backgroundColor: '#2a2a2a', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Play size={32} color="rgba(255,255,255,0.3)" />
+                                </View>
+                            );
+
+                            // CASE 4: No Media (handled by validation, but safe fallback)
                             return <View className="bg-zinc-800 w-full h-full" />;
                         })()}
                     </View>
@@ -351,6 +359,45 @@ const FloatingCard = ({ post, config, index, onPress, onToggleScroll, isActive }
                                 }}
                             />
                         </TouchableOpacity>
+                    </View>
+                )}
+
+
+                {/* Reaction Bubbles (Mini) */}
+                {post.topBubbles && post.topBubbles.length > 0 && (
+                    <View style={{ position: 'absolute', bottom: 8, right: 8, flexDirection: 'row', alignItems: 'center' }}>
+                        <View style={{ flexDirection: 'row', marginLeft: 4 }}>
+                            {post.topBubbles.slice(0, 2).map((bubble, i) => (
+                                <View
+                                    key={i}
+                                    style={{
+                                        width: 24,
+                                        height: 24,
+                                        borderRadius: 12,
+                                        borderWidth: 1.5,
+                                        borderColor: '#1a1a1a',
+                                        backgroundColor: '#333',
+                                        overflow: 'hidden',
+                                        marginLeft: -8,
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                    }}
+                                >
+                                    {bubble.mediaType === 'VIDEO' ? (
+                                        <Video
+                                            source={{ uri: bubble.mediaUrl }}
+                                            style={{ width: '100%', height: '100%' }}
+                                            resizeMode={ResizeMode.COVER}
+                                            shouldPlay={isActive}
+                                            isLooping
+                                            isMuted={true}
+                                        />
+                                    ) : (
+                                        <Image source={{ uri: bubble.mediaUrl }} style={{ width: '100%', height: '100%' }} />
+                                    )}
+                                </View>
+                            ))}
+                        </View>
                     </View>
                 )}
             </View>
@@ -459,6 +506,10 @@ export default function ExploreScreen() {
             chan_data:Chan(*),
             postMedia:PostMedia (
                 media:Media (url, type)
+            ),
+            topBubbles:ReactionBubble (
+                mediaUrl,
+                mediaType
             )
             `)
                 .eq('visibility', 'PUBLIC')
@@ -517,8 +568,22 @@ export default function ExploreScreen() {
                 media: (p.postMedia || []).map((pm: any) => pm.media).filter(Boolean),
                 chanData: Array.isArray(p.chan_data) ? p.chan_data[0] : p.chan_data,
                 postMedia: p.postMedia,
-                user: Array.isArray(p.user) ? p.user[0] : p.user // Safely unwrap user
-            }));
+                user: Array.isArray(p.user) ? p.user[0] : p.user, // Safely unwrap user
+                topBubbles: p.topBubbles || []
+            })).filter(post => {
+                // Filter out broken posts to avoid empty spaces
+                if (post.postType === 'XRAY') {
+                    // XRAY needs at least 2 layers (cover + content)
+                    return post.media && post.media.length >= 2;
+                }
+                // Others need at least 1 media item
+                return post.media && post.media.length >= 0; // Keeping 0 for text posts if any... wait, query logic...
+                // Actually the query doesn't enforce media, but FloatingCard DOES return null if no media.
+                // So if we want to avoid gaps, we must filter out anything that FloatingCard returns null for.
+                // FloatingCard returns null if !coverUrl && !videoUrl.
+                // Let's use length > 0 as a safe baseline for these media-heavy types.
+                return post.media && post.media.length > 0;
+            });
 
             setPosts(transformedPosts);
         } catch (e) {

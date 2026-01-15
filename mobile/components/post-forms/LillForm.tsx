@@ -72,6 +72,8 @@ export default function LillForm({ onBack }: LillFormProps) {
                     postType: 'LILL',
                     content: description || 'New Lill',
                     visibility,
+                    mediaUrls: [uploadResult.url],
+                    mediaTypes: ['VIDEO'],
                     lillData: {
                         videoUrl: uploadResult.url,
                         duration: video.duration ? Math.floor(video.duration / 1000) : MAX_DURATION,

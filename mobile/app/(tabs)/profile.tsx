@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Image, Dimensions, FlatList, Modal, RefreshControl, Share, Alert } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Settings, Bell, Grid, List, Plus, Heart, MessageCircle, Share2, MoreHorizontal, Edit3, Camera, Users, ChevronLeft, LogOut, Eye, Play, MapPin, Tag } from 'lucide-react-native';
+import { Settings, Bell, Grid, List, Plus, Heart, MessageCircle, Share2, MoreHorizontal, Edit3, Camera, Users, ChevronLeft, LogOut, Eye, Play, MapPin, Tag, X } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
@@ -10,6 +10,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import ShareCardModal from '../../components/ShareCardModal';
 import { Video as ExpoVideo, ResizeMode } from 'expo-av';
+import { useToast } from '../../context/ToastContext';
 
 const { width } = Dimensions.get('window');
 const COLUMN_WIDTH = width / 3 - 2;
@@ -33,6 +34,7 @@ interface ProfileData {
         coverImageUrl: string;
         location: string;
         tags: string;
+        stalkMe: string;
     };
     followersCount: number;
     followingCount: number;
@@ -47,16 +49,18 @@ export default function ProfileScreen() {
     const router = useRouter();
     const { session } = useAuth();
     const { colors, mode } = useTheme();
+    const { showToast } = useToast();
     const [activeTab, setActiveTab] = useState<'grid' | 'sixts' | 'media' | 'locker'>('grid');
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [profileData, setProfileData] = useState<ProfileData | null>(null);
 
-    // Social Modal State
     const [showSocialModal, setShowSocialModal] = useState(false);
     const [socialType, setSocialType] = useState<'followers' | 'following'>('followers');
     const [socialList, setSocialList] = useState<any[]>([]);
     const [socialLoading, setSocialLoading] = useState(false);
+    const [showStalkMeModal, setShowStalkMeModal] = useState(false);
+    const [stalkMeImages, setStalkMeImages] = useState<string[]>([]);
     const [dbUserId, setDbUserId] = useState<string | null>(null);
     const [showShareModal, setShowShareModal] = useState(false);
     const [myCardCode, setMyCardCode] = useState<string | null>(null);
@@ -80,7 +84,7 @@ export default function ProfileScreen() {
             // 1. Fetch User & Profile with all fields
             const { data: userData, error: userError } = await supabase
                 .from('User')
-                .select(`id, name, profile:Profile(displayName, avatarUrl, bio, coverImageUrl, coverVideoUrl, location, tags)`)
+                .select(`id, name, profile:Profile(displayName, avatarUrl, bio, coverImageUrl, coverVideoUrl, location, tags, stalkMe)`)
                 .eq('id', userId)
                 .single();
 
@@ -132,7 +136,9 @@ export default function ProfileScreen() {
                     coverVideoUrl: profileObj?.coverVideoUrl || '',
                     coverImageUrl: profileObj?.coverImageUrl || '',
                     location: profileObj?.location || '',
+
                     tags: profileObj?.tags || '',
+                    stalkMe: profileObj?.stalkMe || '[]',
                 },
                 followersCount: followersCount || 0,
                 followingCount: followingCount || 0,
@@ -145,6 +151,16 @@ export default function ProfileScreen() {
         } finally {
             setLoading(false);
             setRefreshing(false);
+        }
+    }
+
+    const openStalkMe = () => {
+        try {
+            const images = JSON.parse(profileData?.profile?.stalkMe || '[]');
+            setStalkMeImages(Array.isArray(images) ? images : []);
+            setShowStalkMeModal(true);
+        } catch (e) {
+            setStalkMeImages([]);
         }
     };
 
@@ -222,11 +238,12 @@ export default function ProfileScreen() {
             if (cardData?.uniqueCode) {
                 setMyCardCode(cardData.uniqueCode);
                 setShowShareModal(true);
+                setShowShareModal(true);
             } else {
-                Alert.alert('No Profile Card', 'Create a profile card first to share it!');
+                showToast('Create a profile card first to share it!', 'info');
             }
         } catch (error) {
-            Alert.alert('No Profile Card', 'Create a profile card first to share it!');
+            showToast('Create a profile card first to share it!', 'info');
         }
     };
 
@@ -367,6 +384,13 @@ export default function ProfileScreen() {
                     style={{ backgroundColor: colors.background, borderColor: colors.border }}
                 >
                     <Text className="font-bold" style={{ color: colors.text }}>Card</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    onPress={openStalkMe}
+                    className="w-12 items-center justify-center rounded-2xl border"
+                    style={{ backgroundColor: colors.background, borderColor: colors.border }}
+                >
+                    <Grid color={colors.text} size={20} />
                 </TouchableOpacity>
             </View>
         </View>
@@ -683,6 +707,39 @@ export default function ProfileScreen() {
         </Modal>
     );
 
+    const renderStalkMeModal = () => (
+        <Modal
+            visible={showStalkMeModal}
+            animationType="fade"
+            transparent={true}
+            onRequestClose={() => setShowStalkMeModal(false)}
+        >
+            <View className="flex-1 bg-black/95">
+                <SafeAreaView className="flex-1">
+                    <View className="flex-row items-center justify-between px-4 py-4">
+                        <TouchableOpacity onPress={() => setShowStalkMeModal(false)} className="p-2 bg-white/10 rounded-full">
+                            <X color="#fff" size={24} />
+                        </TouchableOpacity>
+                        <Text className="text-white font-black tracking-widest">STALK ME</Text>
+                        <View className="w-10" />
+                    </View>
+
+                    <ScrollView contentContainerStyle={{ padding: 16, flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                        {stalkMeImages.length === 0 ? (
+                            <Text className="text-white/40 text-center w-full mt-20">No images found</Text>
+                        ) : (
+                            stalkMeImages.map((img, i) => (
+                                <View key={i} className="w-[48%] aspect-[9/16] rounded-xl overflow-hidden bg-white/5">
+                                    <Image source={{ uri: img }} className="w-full h-full" resizeMode="cover" />
+                                </View>
+                            ))
+                        )}
+                    </ScrollView>
+                </SafeAreaView>
+            </View>
+        </Modal>
+    );
+
     return (
         <View className="flex-1" style={{ backgroundColor: colors.background }}>
             <LinearGradient
@@ -701,6 +758,7 @@ export default function ProfileScreen() {
                 {renderContent()}
             </ScrollView>
             {renderSocialModal()}
+            {renderStalkMeModal()}
 
             {/* Share Modal */}
             {myCardCode && (

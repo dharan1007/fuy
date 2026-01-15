@@ -19,7 +19,13 @@ import PostOptionsModal from '../../components/PostOptionsModal';
 import { PanResponder } from 'react-native';
 import DraggableSidebar from '../../components/DraggableSidebar';
 import CommentsModal from '../../components/CommentsModal';
+import ClockViewer from '../../components/ClockViewer';
+import ClockRailItem from '../../components/ClockRailItem'; // Added
+import { MediaUploadService } from '../../services/MediaUploadService';
 import { getSafetyFilters, applySafetyFilters } from '../../services/SafetyService';
+import { getApiUrl } from '../../lib/api';
+
+const API_URL = getApiUrl();
 
 // Viewability Config Constant
 const VIEWABILITY_CONFIG = { itemVisiblePercentThreshold: 60 };
@@ -63,6 +69,8 @@ interface ClockStory {
     user: { id: string; name: string; profile: { avatarUrl: string; displayName: string } };
     media: { url: string; type: string }[];
     createdAt: string;
+    expiresAt?: string;
+    clockData?: { expiresAt?: string; duration?: number };
     viewed?: boolean;
 }
 
@@ -246,6 +254,34 @@ const FeedPostItem = React.memo(({
                                 </TouchableOpacity>
                             </View>
                         </View>
+
+                        {/* Floating Reaction Bubbles (Bottom Right) */}
+                        <View className="absolute bottom-4 right-16 flex-row items-end z-[2000]">
+                            <View className="flex-row -space-x-3 mr-2">
+                                {(item.topBubbles || []).map((bubble, i) => (
+                                    <View key={i} className="w-10 h-10 rounded-full border-2 border-white/20 overflow-hidden bg-black/50 items-center justify-center">
+                                        {bubble.mediaType === 'VIDEO' ? (
+                                            <Video
+                                                source={{ uri: bubble.mediaUrl }}
+                                                style={{ width: '100%', height: '100%' }}
+                                                resizeMode={ResizeMode.COVER}
+                                                shouldPlay={isActive && !isPaused}
+                                                isLooping
+                                                isMuted={true}
+                                            />
+                                        ) : (
+                                            <Image source={{ uri: bubble.mediaUrl }} className="w-full h-full" />
+                                        )}
+                                    </View>
+                                ))}
+                            </View>
+                            <TouchableOpacity
+                                onPress={() => onAddBubble(item.id)}
+                                className="w-10 h-10 rounded-full border-2 border-dashed border-white/40 items-center justify-center bg-black/30 backdrop-blur-md"
+                            >
+                                <Plus size={18} color="white" />
+                            </TouchableOpacity>
+                        </View>
                     </View>
                 </View>
             )}
@@ -296,20 +332,7 @@ const FeedPostItem = React.memo(({
             {/* Secondary Feature Row (Reactions & Bubbles) */}
             <View className="mt-2 flex-row items-center justify-between px-1">
                 <View className="flex-row items-center">
-                    <View className="flex-row -space-x-3 mr-3">
-                        {(item.topBubbles || []).map((bubble, i) => (
-                            <View key={i} className="w-8 h-8 rounded-full border-2 border-zinc-900 overflow-hidden bg-zinc-800">
-                                <Image source={{ uri: bubble.mediaUrl }} className="w-full h-full" />
-                            </View>
-                        ))}
-                    </View>
-                    <TouchableOpacity
-                        onPress={() => onAddBubble(item.id)}
-                        className="w-8 h-8 rounded-full items-center justify-center border border-dashed"
-                        style={{ backgroundColor: colors.card, borderColor: colors.border }}
-                    >
-                        <Plus size={14} color={colors.text} />
-                    </TouchableOpacity>
+                    {/* Bubbles Moved to Floating Overlay */}
                 </View>
 
                 <View className="flex-row gap-2">
@@ -374,6 +397,7 @@ export default function FeedScreen() {
     const { session } = useAuth(); // Use Auth Context
     const [posts, setPosts] = useState<FeedPost[]>([]);
     const [clocks, setClocks] = useState<ClockStory[]>([]);
+    const [selectedClock, setSelectedClock] = useState<ClockStory | null>(null); // Added state
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -412,35 +436,76 @@ export default function FeedScreen() {
                 if (data) setUserProfile(data);
             }
         };
-        fetchClocks();
+        // fetchClocks(); // Moved to useFocusEffect
         checkUser();
     }, [session]);
 
+    // Use useFocusEffect to refresh clocks whenever the screen comes into focus (e.g. after posting)
+    useFocusEffect(
+        React.useCallback(() => {
+            fetchClocks();
+        }, [])
+    );
+
     const fetchClocks = async () => {
         try {
-            const { data } = await supabase
+            const { data, error } = await supabase
                 .from('Post')
-                .select(`id, content, createdAt, postType, media: Media(url, type), user: User(id, name, profile: Profile(displayName, avatarUrl))`)
+                .select(`id, content, createdAt, postType, expiresAt, postMedia: PostMedia(media: Media(url, type)), user: User(id, name, profile: Profile(displayName, avatarUrl))`)
                 .eq('postType', 'CLOCK')
                 .order('createdAt', { ascending: false })
-                .limit(20);
+                .limit(50);
+
+            if (error) {
+                console.error("Fetch clocks error (Supabase):", error);
+                return;
+            }
 
             if (data) {
+                console.log("[fetchClocks] Raw Data Count:", data.length);
                 const uniqueUsers = new Map();
                 const stories: ClockStory[] = [];
+                const now = new Date();
+
                 data.forEach((post: any) => {
-                    // Handle potential array return for user
-                    const userObj = Array.isArray(post.user) ? post.user[0] : post.user;
-                    if (userObj && !uniqueUsers.has(userObj.id)) {
-                        uniqueUsers.set(userObj.id, true);
-                        stories.push({
-                            id: post.id,
-                            user: userObj,
-                            media: post.media || [],
-                            createdAt: post.createdAt
-                        });
+                    // Check expiry
+                    let expiresAt = post.expiresAt;
+                    console.log(`[fetchClocks] Post ${post.id} expiry raw:`, expiresAt);
+
+                    // Compatibility: If older post lacks expiresAt, assume 24h from createdAt
+                    if (!expiresAt) {
+                        const created = new Date(post.createdAt).getTime();
+                        expiresAt = new Date(created + 24 * 60 * 60 * 1000).toISOString();
+                    }
+
+                    const isExpired = new Date(expiresAt) <= now;
+                    console.log(`[fetchClocks] Post ${post.id} isExpired:`, isExpired, "ExpiresAt:", expiresAt, "Now:", now.toISOString());
+
+                    if (!isExpired) {
+                        const userObj = Array.isArray(post.user) ? post.user[0] : post.user;
+
+                        // Flatten media
+                        const media = post.postMedia?.map((pm: any) => pm.media) || [];
+
+                        if (userObj) {
+                            if (!uniqueUsers.has(userObj.id)) {
+                                uniqueUsers.set(userObj.id, true);
+                                stories.push({
+                                    id: post.id,
+                                    user: userObj,
+                                    media: media,
+                                    createdAt: post.createdAt,
+                                    expiresAt: expiresAt,
+                                });
+                            } else {
+                                console.log(`[fetchClocks] Skipping duplicate user ${userObj.id}`);
+                            }
+                        } else {
+                            console.log(`[fetchClocks] Missing user for post ${post.id}`);
+                        }
                     }
                 });
+                console.log("[fetchClocks] Final Stories Count:", stories.length);
                 setClocks(stories);
             }
         } catch (e) {
@@ -485,6 +550,7 @@ export default function FeedScreen() {
                     likes:PostLike(id)
                 `)
                 .eq('visibility', 'PUBLIC')
+                .neq('postType', 'CLOCK') // Exclude Clocks from main feed
                 .order('createdAt', { ascending: false })
                 .limit(20);
 
@@ -597,7 +663,7 @@ export default function FeedScreen() {
         }));
 
         try {
-            await fetch("https://fuymedia.org/api/posts/react", {
+            await fetch(`${API_URL}/api/posts/react`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ postId, type }),
@@ -615,96 +681,127 @@ export default function FeedScreen() {
         }
 
         const result = await ImagePicker.launchCameraAsync({
-            mediaTypes: ['images', 'videos'],
+            mediaTypes: ['images', 'videos'], // Fix deprecated enum
             allowsEditing: true,
             aspect: [1, 1],
             quality: 0.5,
+            videoMaxDuration: 3,
         });
 
         if (!result.canceled && result.assets[0].uri) {
-            setLoading(true);
-            try {
-                const base64Data = await FileSystem.readAsStringAsync(result.assets[0].uri, {
-                    encoding: 'base64',
-                });
-                const mimeType = result.assets[0].type === 'video' ? 'video/mp4' : 'image/jpeg';
-                const uploadUrl = `data:${mimeType}; base64, ${base64Data} `;
+            const asset = result.assets[0];
 
+            // Enforce duration locally if picker ignores it
+            if (asset.type === 'video' && asset.duration && asset.duration > 4000) {
+                Alert.alert("Video too long", "Please record a video under 3 seconds.");
+                return;
+            }
+
+            // Optimistic Update: Add bubble locally immediately
+            const tempBubble = {
+                mediaUrl: asset.uri,
+                mediaType: asset.type === 'video' ? 'VIDEO' : 'IMAGE',
+            };
+
+            setPosts(prev => prev.map(p => {
+                if (p.id === postId) {
+                    return { ...p, topBubbles: [...(p.topBubbles || []), tempBubble] };
+                }
+                return p;
+            }));
+
+            // Don't set global loading(true) to avoid blocking UI
+            // setLoading(true); 
+
+            try {
                 const { data: { session } } = await supabase.auth.getSession();
-                const res = await fetch("https://fuymedia.org/api/posts/bubble", {
+                if (!session?.user) throw new Error("Not authenticated");
+
+                // Upload using Service
+                const uploadResult = await MediaUploadService.uploadMedia(
+                    asset.uri,
+                    asset.type === 'video' ? 'VIDEO' : 'IMAGE'
+                );
+
+                const uploadUrl = uploadResult.url;
+
+                const res = await fetch(`${API_URL}/api/posts/bubble`, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
-                        "Authorization": `Bearer ${session?.access_token} `
+                        "Authorization": `Bearer ${session?.access_token}`
                     },
                     body: JSON.stringify({
                         postId,
                         mediaUrl: uploadUrl,
-                        mediaType: result.assets[0].type === 'video' ? 'VIDEO' : 'IMAGE'
+                        mediaType: asset.type === 'video' ? 'VIDEO' : 'IMAGE'
                     }),
                 });
 
                 if (res.ok) {
+                    // Success: Refresh feed silently to get real data (optional, or just keep optimistic)
+                    // fetchFeed(); 
+                    // We can skip fetchFeed to avoid redraw flicker, or call it later. 
+                    // Given reported "loading" issues, let's NOT call fetchFeed immediately but let strict update happen next refresh.
+                    // Actually, getting the real ID/Url is better. I'll call it but NO LOADING spinner.
                     fetchFeed();
                 } else {
                     const error = await res.json();
                     Alert.alert("Upload Failed", error.error || "Failed to upload reaction");
+                    // Revert optimistic update? (Complex, skip for now or trigger refresh)
+                    fetchFeed();
                 }
             } catch (error) {
                 console.error("Bubble upload failed:", error);
-            } finally {
-                setLoading(false);
+                Alert.alert("Error", "Failed to upload bubble.");
+                fetchFeed(); // Revert state
             }
         }
     }, [fetchFeed]);
 
     // ... (renderClockRail unchanged)
-    const renderClockRail = () => (
-        <View className="py-3 mb-2">
-            <FlatList
-                horizontal
-                data={[{ id: 'add-story' }, ...clocks]}
-                keyExtractor={(item: any) => item.id}
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{ paddingHorizontal: 16, gap: 14 }}
-                renderItem={({ item }: { item: any }) => {
-                    if (item.id === 'add-story') {
-                        return (
-                            <TouchableOpacity onPress={() => router.push('/(tabs)/create?type=CLOCK')} className="items-center gap-1">
-                                <View className="relative w-[60px] h-[60px] rounded-full border-2 border-dashed border-white/30 items-center justify-center bg-white/5">
-                                    <Plus size={20} color={colors.text} />
-                                    <View className="absolute bottom-0 right-0 bg-white rounded-full p-1 border border-black">
-                                        <Plus size={10} color="black" />
-                                    </View>
-                                </View>
-                                <Text style={{ color: colors.text, fontSize: 11, marginTop: 4 }}>Your Story</Text>
-                            </TouchableOpacity>
-                        );
-                    }
-                    return (
-                        <TouchableOpacity className="items-center gap-1">
-                            <View className="p-[2px] rounded-full border border-white">
-                                <View className="p-[2px] bg-black rounded-full">
-                                    {item.user.profile?.avatarUrl ? (
-                                        <Image
-                                            source={{ uri: item.user.profile.avatarUrl }}
-                                            className="w-[52px] h-[52px] rounded-full"
-                                            style={{ backgroundColor: '#222' }}
-                                        />
-                                    ) : (
-                                        <View className="w-[52px] h-[52px] rounded-full items-center justify-center" style={{ backgroundColor: '#222' }}>
-                                            <User size={24} color="white" />
+    const renderClockRail = () => {
+        return (
+            <View className="py-3 mb-2" style={{ borderBottomWidth: 1, borderBottomColor: mode === 'light' ? '#f0f0f0' : '#222' }}>
+                <Text style={{ paddingHorizontal: 16, marginBottom: 12, fontWeight: 'bold', color: colors.text, fontSize: 13, letterSpacing: 0.5 }}>CLOCKS</Text>
+                <FlatList
+                    horizontal
+                    data={[{ id: 'add-story' }, ...clocks]}
+                    keyExtractor={(item: any) => item.id}
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{ paddingHorizontal: 16, gap: 14 }}
+                    renderItem={({ item, index }: { item: any, index: number }) => {
+                        if (item.id === 'add-story') {
+                            return (
+                                <TouchableOpacity onPress={() => router.push('/(tabs)/create?type=CLOCK')} className="items-center gap-1">
+                                    <View className="relative w-[60px] h-[60px] rounded-full border-2 border-dashed border-white/30 items-center justify-center bg-white/5">
+                                        <Plus size={20} color={colors.text} />
+                                        <View className="absolute bottom-0 right-0 bg-white rounded-full p-1 border border-black">
+                                            <Plus size={10} color="black" />
                                         </View>
-                                    )}
-                                </View>
-                            </View>
-                            <Text style={{ color: colors.text, fontSize: 11, marginTop: 4 }} numberOfLines={1}>{item.user.profile?.displayName || item.user.name}</Text>
-                        </TouchableOpacity>
-                    );
-                }}
-            />
-        </View>
-    );
+                                    </View>
+                                    <Text style={{ color: colors.text, fontSize: 11, marginTop: 4 }}>Add Clock</Text>
+                                </TouchableOpacity>
+                            );
+                        }
+
+                        // Show seconds for the first 2 actual clocks (indices 1 and 2, since 0 is add button)
+                        const showSeconds = index >= 1 && index <= 2;
+
+                        return (
+                            <ClockRailItem
+                                item={item}
+                                showSeconds={showSeconds}
+                                onPress={() => setSelectedClock(item)}
+                                mode={mode as any}
+                                colors={colors}
+                            />
+                        );
+                    }}
+                />
+            </View>
+        );
+    };
 
     const renderHeader = () => (
         <View className="px-6 pt-4 pb-2 flex-row justify-between items-center">
@@ -745,7 +842,7 @@ export default function FeedScreen() {
     const renderItem = useCallback(({ item }: { item: FeedPost }) => (
         <FeedPostItem
             item={item}
-            isActive={activePostId === item.id}
+            isActive={activePostId === item.id && !selectedClock}
             colors={colors}
             mode={mode}
             onReact={handleReact}
@@ -756,7 +853,7 @@ export default function FeedScreen() {
             onCommentPress={handleCommentPress}
             isScreenFocused={isScreenFocused}
         />
-    ), [activePostId, colors, mode, handleReact, handleAddBubble, setScrollEnabled, isScreenFocused, handleMenuPress, handleCommentPress]);
+    ), [activePostId, colors, mode, handleReact, handleAddBubble, setScrollEnabled, isScreenFocused, handleMenuPress, handleCommentPress, selectedClock]);
 
     return (
         <View className="flex-1" style={{ backgroundColor: colors.background }}>
@@ -814,6 +911,13 @@ export default function FeedScreen() {
                 visible={commentsVisible}
                 onClose={() => setCommentsVisible(false)}
                 postId={commentPostId}
+            />
+
+            {/* Clock Viewer */}
+            <ClockViewer
+                visible={!!selectedClock}
+                clock={selectedClock}
+                onClose={() => setSelectedClock(null)}
             />
         </View>
     );

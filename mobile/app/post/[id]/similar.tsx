@@ -24,7 +24,9 @@ interface SimilarPost {
     postType?: string;
     matchReason?: string;
     slashes?: { tag: string }[];
+
     overlap?: number;
+    topBubbles?: { mediaUrl: string; mediaType: string }[];
 }
 
 // Card Component mimicking FloatingCard style
@@ -133,6 +135,44 @@ const SimilarPostCard = React.memo(({ item, isActive, onPress }: { item: Similar
                         </View>
                     )}
                 </View>
+
+                {/* Reaction Bubbles (Overlay) */}
+                {item.topBubbles && item.topBubbles.length > 0 && (
+                    <View style={{ position: 'absolute', bottom: 12, right: 12, flexDirection: 'row', alignItems: 'center', zIndex: 20 }}>
+                        <View style={{ flexDirection: 'row', marginLeft: 4 }}>
+                            {item.topBubbles.slice(0, 3).map((bubble, i) => (
+                                <View
+                                    key={i}
+                                    style={{
+                                        width: 28,
+                                        height: 28,
+                                        borderRadius: 14,
+                                        borderWidth: 1.5,
+                                        borderColor: '#1a1a1a',
+                                        backgroundColor: '#333',
+                                        overflow: 'hidden',
+                                        marginLeft: -10,
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                    }}
+                                >
+                                    {bubble.mediaType === 'VIDEO' ? (
+                                        <Video
+                                            source={{ uri: bubble.mediaUrl }}
+                                            style={{ width: '100%', height: '100%' }}
+                                            resizeMode={ResizeMode.COVER}
+                                            shouldPlay={isActive}
+                                            isLooping
+                                            isMuted={true}
+                                        />
+                                    ) : (
+                                        <Image source={{ uri: bubble.mediaUrl }} style={{ width: '100%', height: '100%' }} />
+                                    )}
+                                </View>
+                            ))}
+                        </View>
+                    </View>
+                )}
             </TouchableOpacity>
         </View>
     );
@@ -211,6 +251,10 @@ export default function SimilarPostsScreen() {
                     ),
                     postMedia:PostMedia (
                         media:Media (url, type, variant)
+                    ),
+                    topBubbles:ReactionBubble (
+                        mediaUrl,
+                        mediaType
                     )
                 `)
                 .neq('id', id)
@@ -243,7 +287,9 @@ export default function SimilarPostsScreen() {
                     postType: post.postType,
                     matchReason: isSameType ? 'Similar Vibe' : 'Recent',
                     slashes: [],
-                    overlap: isSameType ? 1 : 0
+
+                    overlap: isSameType ? 1 : 0,
+                    topBubbles: post.topBubbles || []
                 };
             });
 

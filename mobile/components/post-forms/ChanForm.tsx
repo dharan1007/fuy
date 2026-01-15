@@ -115,6 +115,9 @@ export default function ChanForm({ onBack }: ChanFormProps) {
                         duration: video.duration ? Math.floor(video.duration / 1000) : 0,
                         thumbnail: coverUrl,
                     },
+                    mediaUrls: coverUrl ? [uploadResult.url, coverUrl] : [uploadResult.url],
+                    mediaTypes: coverUrl ? ['VIDEO', 'IMAGE'] : ['VIDEO'],
+                    mediaVariants: coverUrl ? ['standard', 'thumbnail'] : ['standard'],
                 }),
             });
 

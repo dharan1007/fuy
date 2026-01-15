@@ -21,13 +21,12 @@ export default function XrayForm({ onBack }: XrayFormProps) {
     const [visibility, setVisibility] = useState('PUBLIC');
     const [topLayer, setTopLayer] = useState<string | null>(null);
     const [bottomLayer, setBottomLayer] = useState<string | null>(null);
-    const [scratchPattern, setScratchPattern] = useState('RANDOM');
     const [loading, setLoading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
 
     const pickImage = async (type: 'top' | 'bottom') => {
         const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            mediaTypes: ['images'],
             allowsEditing: true,
             quality: 0.8,
         });
@@ -70,12 +69,14 @@ export default function XrayForm({ onBack }: XrayFormProps) {
                     postType: 'XRAY',
                     content: description || 'Scratch to Reveal',
                     visibility,
+                    mediaUrls: [topResult.url, bottomResult.url],
+                    mediaTypes: ['IMAGE', 'IMAGE'],
+                    mediaVariants: ['xray-bottom', 'xray-top'], // Swapped to match Feed.tsx logic: Bottom=Cover, Top=Content
                     xrayData: {
                         topLayerUrl: topResult.url,
                         topLayerType: 'IMAGE',
                         bottomLayerUrl: bottomResult.url,
                         bottomLayerType: 'IMAGE',
-                        scratchPattern,
                     },
                 }),
             });
@@ -135,26 +136,6 @@ export default function XrayForm({ onBack }: XrayFormProps) {
                 <View style={{ flexDirection: 'row', marginHorizontal: -4 }}>
                     <ImagePicker_ uri={topLayer} onPick={() => pickImage('top')} onClear={() => setTopLayer(null)} label="TOP (VISIBLE)" icon={Plus} />
                     <ImagePicker_ uri={bottomLayer} onPick={() => pickImage('bottom')} onClear={() => setBottomLayer(null)} label="HIDDEN (REVEAL)" icon={Layers} />
-                </View>
-            </View>
-
-            {/* Pattern */}
-            <View style={{ marginBottom: 20 }}>
-                <Text style={{ color: 'rgba(255,255,255,0.5)', marginBottom: 12, fontWeight: '600', fontSize: 11, letterSpacing: 1 }}>SCRATCH PATTERN</Text>
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                    {['RANDOM', 'GRID', 'CUSTOM'].map(pattern => (
-                        <TouchableOpacity
-                            key={pattern}
-                            onPress={() => setScratchPattern(pattern)}
-                            style={{
-                                flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center',
-                                backgroundColor: scratchPattern === pattern ? '#fff' : 'rgba(255,255,255,0.05)',
-                                borderWidth: 1, borderColor: scratchPattern === pattern ? '#fff' : 'rgba(255,255,255,0.1)',
-                            }}
-                        >
-                            <Text style={{ color: scratchPattern === pattern ? '#000' : 'rgba(255,255,255,0.5)', fontWeight: '600', fontSize: 11 }}>{pattern}</Text>
-                        </TouchableOpacity>
-                    ))}
                 </View>
             </View>
 

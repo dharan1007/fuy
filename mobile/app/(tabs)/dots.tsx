@@ -258,8 +258,19 @@ const DotItem = ({ item, isActive, autoScroll, onVideoEnd, onToggleAutoScroll, o
                         {/* Reaction Bubbles (Vertical Stack) */}
                         <View style={{ alignItems: 'center', marginBottom: 6 }}>
                             {(item.topBubbles || []).slice(0, 3).map((bubble, i) => (
-                                <View key={i} style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 1, borderColor: '#121212', marginTop: -8, zIndex: 3 - i, overflow: 'hidden', backgroundColor: '#333' }}>
-                                    <Image source={{ uri: bubble.mediaUrl }} style={{ width: '100%', height: '100%' }} />
+                                <View key={i} style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 1, borderColor: '#121212', marginTop: -8, zIndex: 3 - i, overflow: 'hidden', backgroundColor: '#333', alignItems: 'center', justifyContent: 'center' }}>
+                                    {bubble.mediaType === 'VIDEO' ? (
+                                        <Video
+                                            source={{ uri: bubble.mediaUrl }}
+                                            style={{ width: '100%', height: '100%' }}
+                                            resizeMode={ResizeMode.COVER}
+                                            shouldPlay={isActive && isScreenFocused}
+                                            isLooping
+                                            isMuted={true}
+                                        />
+                                    ) : (
+                                        <Image source={{ uri: bubble.mediaUrl }} style={{ width: '100%', height: '100%' }} />
+                                    )}
                                 </View>
                             ))}
                             <TouchableOpacity style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center', borderStyle: 'dashed', borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)', marginTop: -4, zIndex: 0 }}>

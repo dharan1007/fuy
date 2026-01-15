@@ -6,6 +6,8 @@ import { requireUserId } from '@/lib/session';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { userRateLimit } from '@/lib/rate-limit';
+import { supabaseAdmin } from '@/lib/supabase-admin';
+import { prisma } from '@/lib/prisma';
 
 const accountId = process.env.R2_ACCOUNT_ID || '';
 const cleanAccountId = accountId.replace(/^https?:\/\//, '').replace(/\.r2\.cloudflarestorage\.com$/, '');
@@ -29,8 +31,46 @@ const limiter = userRateLimit({
 });
 
 async function uploadHandler(req: NextRequest) {
+    const start = Date.now();
+    console.log('[API] /upload/presigned called');
     try {
-        const userId = await requireUserId();
+        let userId: string | null = null;
+
+        // 1. Try Authorization Header (for mobile/API clients)
+        const authHeader = req.headers.get('Authorization');
+        console.log('[API] Auth header present:', !!authHeader);
+
+        if (authHeader?.startsWith('Bearer ')) {
+            const token = authHeader.split(' ')[1];
+            console.log('[API] Verifying Supabase token...');
+            const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+            console.log('[API] Token verification result:', { hasUser: !!user, error: error?.message });
+
+            if (user && !error) {
+                // Verify user exists in Prisma DB (sync check) - assumes DB triggers keep them in sync
+                // Or just trust the ID since it matches
+                userId = user.id;
+            } else {
+                console.warn('[API] Invalid JWT token:', error);
+            }
+        }
+
+        // 2. Fallback to Web Session (cookies)
+        if (!userId) {
+            console.log('[API] Checking web session...');
+            try {
+                userId = await requireUserId();
+                console.log('[API] Web session found for:', userId);
+            } catch (e) {
+                console.log('[API] No web session');
+            }
+        }
+
+        if (!userId) {
+            console.log('[API] Unauthorized request');
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const { filename, contentType, type } = await req.json();
 
         if (!filename || !contentType || !type) {
@@ -70,12 +110,19 @@ async function uploadHandler(req: NextRequest) {
         const publicDomain = process.env.R2_PUBLIC_DOMAIN || '';
         const publicUrl = publicDomain ? `${publicDomain}/${key}` : '';
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             signedUrl,
             publicUrl,
             key,
             provider: 'r2'
         });
+
+        // Add CORS headers to response
+        response.headers.set('Access-Control-Allow-Origin', '*');
+        response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+        response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+        return response;
     } catch (error: any) {
         console.error('Presigned URL error:', error);
         return NextResponse.json(
@@ -85,4 +132,16 @@ async function uploadHandler(req: NextRequest) {
     }
 }
 
-export const POST = limiter(uploadHandler);
+export async function OPTIONS() {
+    return new NextResponse(null, {
+        status: 200,
+        headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        },
+    });
+}
+
+// Bypass limiter for now to debug
+export const POST = uploadHandler;

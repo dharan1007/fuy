@@ -1,6 +1,22 @@
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as ImageManipulator from 'expo-image-manipulator';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org';
+
+// Compress image to reduce upload time
+async function compressImage(uri: string): Promise<string> {
+    try {
+        const result = await ImageManipulator.manipulateAsync(
+            uri,
+            [{ resize: { width: 1080 } }], // Max width 1080px
+            { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG }
+        );
+        return result.uri;
+    } catch (e) {
+        console.warn('[upload-helper] Image compression failed, using original:', e);
+        return uri; // Fallback to original
+    }
+}
 
 /**
  * Upload a file to Cloudflare R2 storage
@@ -11,14 +27,23 @@ export async function uploadFileToR2(
     type: 'IMAGE' | 'VIDEO' | 'AUDIO' = 'IMAGE',
     accessToken?: string
 ): Promise<string> {
+    let processedUri = fileUri;
+
+    // Compress images before upload
+    if (type === 'IMAGE') {
+        console.log('[upload-helper] Compressing image...');
+        processedUri = await compressImage(fileUri);
+        console.log('[upload-helper] Compression complete');
+    }
+
     // Read file info
-    const fileInfo = await FileSystem.getInfoAsync(fileUri);
+    const fileInfo = await FileSystem.getInfoAsync(processedUri);
     if (!fileInfo.exists) {
         throw new Error('File does not exist');
     }
 
     // Get file extension and generate filename
-    const ext = fileUri.split('.').pop()?.toLowerCase() || 'jpg';
+    const ext = type === 'IMAGE' ? 'jpg' : (fileUri.split('.').pop()?.toLowerCase() || 'mp4');
     const filename = `${Date.now()}.${ext}`;
 
     // Determine content type
@@ -38,37 +63,30 @@ export async function uploadFileToR2(
     const contentType = contentTypeMap[ext] || (type === 'IMAGE' ? 'image/jpeg' : type === 'VIDEO' ? 'video/mp4' : 'audio/mpeg');
 
     if (type === 'IMAGE') {
-        // Use proxy upload for images (simpler, handles CORS)
-        const base64 = await FileSystem.readAsStringAsync(fileUri, {
-            encoding: FileSystem.EncodingType.Base64,
-        });
+        // Use FileSystem.uploadAsync for more robust native uploads
+        console.log('[upload-helper] Uploading to server via FileSystem...');
 
-        const formData = new FormData();
-        formData.append('file', {
-            uri: fileUri,
-            name: filename,
-            type: contentType,
-        } as any);
-        formData.append('type', type);
+        try {
+            const uploadRes = await FileSystem.uploadAsync(`${API_URL}/api/upload/proxy`, processedUri, {
+                fieldName: 'file',
+                httpMethod: 'POST',
+                uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+                parameters: { type: 'IMAGE' },
+                headers: accessToken ? { 'Authorization': `Bearer ${accessToken}` } : {},
+            });
 
-        const headers: Record<string, string> = {};
-        if (accessToken) {
-            headers['Authorization'] = `Bearer ${accessToken}`;
+            if (uploadRes.status !== 200) {
+                console.error('[upload-helper] Upload failed status:', uploadRes.status, uploadRes.body);
+                throw new Error(`Upload failed with status ${uploadRes.status}`);
+            }
+
+            const data = JSON.parse(uploadRes.body);
+            console.log('[upload-helper] Upload complete');
+            return data.url;
+        } catch (error) {
+            console.error('[upload-helper] Upload error:', error);
+            throw error;
         }
-
-        const res = await fetch(`${API_URL}/api/upload/proxy`, {
-            method: 'POST',
-            body: formData,
-            headers,
-        });
-
-        if (!res.ok) {
-            const error = await res.json();
-            throw new Error(error.error || 'Upload failed');
-        }
-
-        const data = await res.json();
-        return data.url;
     } else {
         // Use presigned URL for video/audio
         const headers: Record<string, string> = {
