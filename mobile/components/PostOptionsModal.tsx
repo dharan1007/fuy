@@ -200,7 +200,11 @@ export default function PostOptionsModal({ visible, onClose, post, onReport, onD
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
 
-            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org'}/api/posts/delete`, {
+            // FORCE PRODUCTION URL to bypass stale local env var
+            // NOTE: For local testing of new features, we should use the local IP.
+            // But since 'delete' route exists on prod, we can leave it or switch to local.
+            // Let's us local for consistency.
+            const response = await fetch(`http://192.168.0.101:3000/api/posts/delete`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

@@ -146,6 +146,7 @@ export async function GET(req: NextRequest) {
             select: {
               id: true,
               name: true,
+              profileCode: true,
               profile: {
                 select: {
                   displayName: true,
@@ -182,6 +183,7 @@ export async function GET(req: NextRequest) {
           OR: [
             { name: { contains: query, mode: "insensitive" } },
             { email: { contains: query, mode: "insensitive" } },
+            { profileCode: { contains: query, mode: "insensitive" } },
             { profile: { bio: { contains: query, mode: "insensitive" } } },
           ],
         },
@@ -205,7 +207,7 @@ export async function GET(req: NextRequest) {
         return {
           id: dbUser.id,
           name: dbUser.name || "Anonymous",
-          handle: `@${(dbUser.name || dbUser.email).toLowerCase().replace(/\s+/g, "")}`,
+          handle: dbUser.profileCode ? `#${dbUser.profileCode}` : `@${(dbUser.name || dbUser.email).toLowerCase().replace(/\s+/g, "")}`,
           avatar: dbUser.profile?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${dbUser.id}`,
           bio: dbUser.profile?.bio || "No bio yet",
           followers: dbUser.followersCount || 0,

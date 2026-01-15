@@ -31,11 +31,18 @@ import { MoreVertical, Flag } from 'lucide-react';
 
 interface UserProfile {
     name: string | null;
+    profileCode?: string | null;
     profile: {
         displayName: string | null;
         avatarUrl: string | null;
         bio: string | null;
         location: string | null;
+        // Expanded fields for Identity Card
+        conversationStarter?: string | null;
+        dob?: string | null;
+        city?: string | null;
+        height?: string | null;
+        weight?: string | null;
     } | null;
     stats: {
         friends: number;

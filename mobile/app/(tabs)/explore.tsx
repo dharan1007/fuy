@@ -614,7 +614,15 @@ export default function ExploreScreen() {
                 .from('Slash')
                 .select('*')
                 .ilike('tag', `%${text}%`)
+                .ilike('tag', `%${text}%`)
                 .limit(5);
+
+            // Search by Profile Code (Exact Match)
+            const { data: codeUser } = await supabase
+                .from('User')
+                .select(`id, name, profileCode, profile:Profile(displayName, avatarUrl)`)
+                .eq('profileCode', text.replace('#', '')) // Clean input
+                .maybeSingle();
 
             let results: SearchResult[] = [];
 
@@ -657,6 +665,19 @@ export default function ExploreScreen() {
                 avatar: p.avatarUrl,
                 friendshipStatus: followingMap[p.userId] ? 'ACCEPTED' : 'NONE'
             }));
+
+            // Add Profile Code Match if found
+            if (codeUser && !mappedUsers.find(u => u.id === codeUser.id)) {
+                const profile = Array.isArray(codeUser.profile) ? codeUser.profile[0] : codeUser.profile;
+                mappedUsers.unshift({
+                    type: 'USER',
+                    id: codeUser.id,
+                    title: codeUser.name || 'Unknown',
+                    subtitle: `#${codeUser.profileCode}`, // Highlight code
+                    avatar: profile?.avatarUrl,
+                    friendshipStatus: followingMap[codeUser.id] ? 'ACCEPTED' : 'NONE' // Might need check
+                });
+            }
 
             if (currentUserId) {
                 mappedUsers = mappedUsers.filter(u => u.id !== currentUserId);

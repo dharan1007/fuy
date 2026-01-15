@@ -57,7 +57,7 @@ export default function ClockRailItem({ item, showSeconds, onPress, mode, colors
         <TouchableOpacity className="items-center gap-1" onPress={onPress}>
             <View className="relative">
                 {/* Monochrome Ring */}
-                <View className={`p-[2px] rounded-full border ${mode === 'dark' ? 'border-white' : 'border-black'}`}>
+                <View className={`p-[2px] rounded-full border-2 ${mode === 'dark' ? 'border-white' : 'border-black'}`}>
                     <View className="p-[2px] bg-black rounded-full">
                         {item.user.profile?.avatarUrl ? (
                             <Image

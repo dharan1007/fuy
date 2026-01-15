@@ -74,14 +74,14 @@ export default function ProfileCardView() {
             let targetUserId = userId as string;
 
             if (code) {
-                const { data: card } = await supabase
-                    .from('ProfileCard')
-                    .select('userId, uniqueCode')
-                    .eq('uniqueCode', code)
+                const { data: user } = await supabase
+                    .from('User')
+                    .select('id, profileCode')
+                    .eq('profileCode', code)
                     .single();
-                if (card) {
-                    targetUserId = card.userId;
-                    setProfileCode(card.uniqueCode);
+                if (user) {
+                    targetUserId = user.id;
+                    setProfileCode(user.profileCode || '');
                 }
             }
 
@@ -129,12 +129,12 @@ export default function ProfileCardView() {
             });
 
             if (!profileCode) {
-                const { data: card } = await supabase
-                    .from('ProfileCard')
-                    .select('uniqueCode')
-                    .eq('userId', targetUserId)
+                const { data: user } = await supabase
+                    .from('User')
+                    .select('profileCode')
+                    .eq('id', targetUserId)
                     .single();
-                if (card) setProfileCode(card.uniqueCode);
+                if (user?.profileCode) setProfileCode(user.profileCode);
             }
         } catch (e) {
             console.error('Error fetching profile:', e);

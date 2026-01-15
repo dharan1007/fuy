@@ -8,6 +8,15 @@ import { ArrowLeft, Heart, MessageCircle, Share2, Play } from 'lucide-react-nati
 import { useIsFocused } from '@react-navigation/native';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../context/AuthContext';
+import SharePostModal from '../../../components/SharePostModal';
+import FeedPostItem from '../../../components/FeedPostItem';
+import CommentsModal from '../../../components/CommentsModal';
+import PostOptionsModal from '../../../components/PostOptionsModal';
+import { useTheme } from '@react-navigation/native';
+import * as ImagePicker from 'expo-image-picker';
+import { MediaUploadService } from '../../../services/MediaUploadService';
+import { useColorScheme } from 'nativewind';
+import CustomToast from '../../../components/CustomToast';
 
 const { width } = Dimensions.get('window');
 
@@ -27,164 +36,40 @@ interface SimilarPost {
 
     overlap?: number;
     topBubbles?: { mediaUrl: string; mediaType: string }[];
+
+    // Add missing FeedPost fields
+    reactionCounts?: Record<string, number>;
+    userReaction?: string | null;
+    commentCount?: number;
+    shareCount?: number;
+    views?: number;
 }
 
-// Card Component mimicking FloatingCard style
-const SimilarPostCard = React.memo(({ item, isActive, onPress }: { item: SimilarPost; isActive: boolean; onPress: () => void }) => {
-    const isFocused = useIsFocused();
-    const shouldPlay = isActive && isFocused;
 
-    let coverUrl: string | null = null;
-    let videoUrl: string | null = null;
 
-    if (item.postMedia && item.postMedia.length > 0) {
-        const firstMedia = item.postMedia[0];
-        if (firstMedia.type?.toUpperCase() === 'VIDEO') {
-            videoUrl = firstMedia.url;
-            // Try finding a cover image
-            const img = item.postMedia.find(m => m.type?.toUpperCase() === 'IMAGE');
-            coverUrl = img ? img.url : null; // Logic: specific cover or nothing (video handles poster if needed or we use fallback)
-        } else {
-            coverUrl = firstMedia.url;
-        }
-    }
-
-    return (
-        <View style={styles.cardContainer}>
-            <TouchableOpacity
-                activeOpacity={0.9}
-                onPress={onPress}
-                style={styles.cardInner}
-            >
-                {/* Media Layer */}
-                <View style={styles.mediaContainer}>
-                    {shouldPlay && videoUrl ? (
-                        <Video
-                            source={{ uri: videoUrl }}
-                            style={styles.media}
-                            resizeMode={ResizeMode.COVER}
-                            shouldPlay={true}
-                            isLooping
-                            isMuted={true}
-                        />
-                    ) : (
-                        <>
-                            {coverUrl ? (
-                                <Image source={{ uri: coverUrl }} style={styles.media} resizeMode="cover" />
-                            ) : videoUrl ? (
-                                // Fallback if no cover but video exists (paused)
-                                <Video
-                                    source={{ uri: videoUrl }}
-                                    style={styles.media}
-                                    resizeMode={ResizeMode.COVER}
-                                    shouldPlay={false}
-                                    isMuted={true}
-                                />
-                            ) : (
-                                <View style={[styles.media, { backgroundColor: '#1a1a1a' }]} />
-                            )}
-
-                            {/* Play Icon Overlay for Video when not playing */}
-                            {videoUrl && !isActive && (
-                                <View style={styles.centerOverlay}>
-                                    <View style={styles.playIconContainer}>
-                                        <Play size={20} color="white" fill="white" />
-                                    </View>
-                                </View>
-                            )}
-                        </>
-                    )}
-
-                    <LinearGradient
-                        colors={['transparent', 'rgba(0,0,0,0.8)']}
-                        style={styles.gradient}
-                    />
-                </View>
-
-                {/* Content Overlay */}
-                <View style={styles.contentOverlay}>
-                    {/* Header: User & Badge */}
-                    <View style={styles.cardHeader}>
-                        <View style={styles.userInfo}>
-                            <Image
-                                source={{ uri: item.user.profile?.avatarUrl }}
-                                style={styles.avatar}
-                            />
-                            <View style={{ marginLeft: 8 }}>
-                                <Text style={styles.userName}>{item.user.profile?.displayName || item.user.name}</Text>
-                                {item.matchReason && (
-                                    <Text style={styles.matchReason}>{item.matchReason}</Text>
-                                )}
-                            </View>
-                        </View>
-                    </View>
-
-                    {/* Text Content */}
-                    {item.content ? (
-                        <Text style={styles.postContent} numberOfLines={2}>
-                            {item.content}
-                        </Text>
-                    ) : null}
-
-                    {/* Slashes/Tags */}
-                    {item.slashes && item.slashes.length > 0 && (
-                        <View style={styles.tagsContainer}>
-                            {item.slashes.slice(0, 3).map((slash, i) => (
-                                <Text key={i} style={styles.tag}>#{slash.tag}</Text>
-                            ))}
-                        </View>
-                    )}
-                </View>
-
-                {/* Reaction Bubbles (Overlay) */}
-                {item.topBubbles && item.topBubbles.length > 0 && (
-                    <View style={{ position: 'absolute', bottom: 12, right: 12, flexDirection: 'row', alignItems: 'center', zIndex: 20 }}>
-                        <View style={{ flexDirection: 'row', marginLeft: 4 }}>
-                            {item.topBubbles.slice(0, 3).map((bubble, i) => (
-                                <View
-                                    key={i}
-                                    style={{
-                                        width: 28,
-                                        height: 28,
-                                        borderRadius: 14,
-                                        borderWidth: 1.5,
-                                        borderColor: '#1a1a1a',
-                                        backgroundColor: '#333',
-                                        overflow: 'hidden',
-                                        marginLeft: -10,
-                                        alignItems: 'center',
-                                        justifyContent: 'center'
-                                    }}
-                                >
-                                    {bubble.mediaType === 'VIDEO' ? (
-                                        <Video
-                                            source={{ uri: bubble.mediaUrl }}
-                                            style={{ width: '100%', height: '100%' }}
-                                            resizeMode={ResizeMode.COVER}
-                                            shouldPlay={isActive}
-                                            isLooping
-                                            isMuted={true}
-                                        />
-                                    ) : (
-                                        <Image source={{ uri: bubble.mediaUrl }} style={{ width: '100%', height: '100%' }} />
-                                    )}
-                                </View>
-                            ))}
-                        </View>
-                    </View>
-                )}
-            </TouchableOpacity>
-        </View>
-    );
-});
 
 export default function SimilarPostsScreen() {
     const { id } = useLocalSearchParams();
     const router = useRouter();
     const { session } = useAuth();
+    const { colors } = useTheme();
+    const { colorScheme } = useColorScheme();
+    const isScreenFocused = useIsFocused(); // useIsFocused hook
+
     const [posts, setPosts] = useState<SimilarPost[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeId, setActiveId] = useState<string | null>(null);
+
+    const [shareModalVisible, setShareModalVisible] = useState(false);
+    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+    const [postToShare, setPostToShare] = useState<any>(null);
+
+    // Interaction State
+    const [commentsModalVisible, setCommentsModalVisible] = useState(false);
+    const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+    const [optionsModalVisible, setOptionsModalVisible] = useState(false);
+    const [postForOptions, setPostForOptions] = useState<any>(null);
+    const [uploadingBubble, setUploadingBubble] = useState(false);
 
     // Viewability Config
     const viewabilityConfig = useRef({
@@ -199,6 +84,16 @@ export default function SimilarPostsScreen() {
         }
     }, []);
 
+    const handleSharePress = useCallback((item: SimilarPost) => {
+        setPostToShare({
+            id: item.id,
+            content: item.content,
+            user: item.user,
+            postMedia: item.postMedia.map(m => ({ url: m.url, type: m.type?.toUpperCase() as any }))
+        });
+        setShareModalVisible(true);
+    }, []);
+
     useEffect(() => {
         if (id) fetchSimilarPosts();
     }, [id]);
@@ -206,7 +101,35 @@ export default function SimilarPostsScreen() {
     const fetchSourcePost = async () => {
         const { data } = await supabase
             .from('Post')
-            .select('id, postType, content')
+            .select(`
+                id,
+                content,
+                postType,
+                createdAt,
+                shareCount,
+                user:User (
+                    id,
+                    name,
+                    profile:Profile (displayName, avatarUrl, location)
+                ),
+                postMedia:PostMedia (
+                    media:Media (url, type, variant)
+                ),
+                topBubbles:ReactionBubble (
+                    mediaUrl,
+                    mediaType
+                ),
+                reactions:Reaction (
+                    type,
+                    userId
+                ),
+                comments:PostComment (
+                    id
+                ),
+                likes:PostLike (
+                    id
+                )
+            `)
             .eq('id', id)
             .single();
         return data;
@@ -249,13 +172,23 @@ export default function SimilarPostsScreen() {
                         name,
                         profile:Profile (displayName, avatarUrl)
                     ),
-                    postMedia:PostMedia (
                         media:Media (url, type, variant)
                     ),
                     topBubbles:ReactionBubble (
                         mediaUrl,
                         mediaType
-                    )
+                    ),
+                    reactions:Reaction (
+                        type,
+                        userId
+                    ),
+                    comments:PostComment (
+                        id
+                    ),
+                    likes:PostLike (
+                        id
+                    ),
+                    shareCount
                 `)
                 .neq('id', id)
                 .eq('visibility', 'PUBLIC')
@@ -273,8 +206,16 @@ export default function SimilarPostsScreen() {
             const { data, error } = await query;
             if (error) throw error;
 
-            let mapped: SimilarPost[] = (data || []).map((post: any) => {
-                const isSameType = source?.postType === post.postType;
+
+
+            const processPost = (post: any, isSameType: boolean): SimilarPost => {
+                const reactions = post.reactions || [];
+                const reactionCounts: Record<string, number> = {};
+                reactions.forEach((r: any) => {
+                    reactionCounts[r.type] = (reactionCounts[r.type] || 0) + 1;
+                });
+                const myReaction = reactions.find((r: any) => r.userId === myId);
+
                 return {
                     id: post.id,
                     content: post.content,
@@ -289,11 +230,39 @@ export default function SimilarPostsScreen() {
                     slashes: [],
 
                     overlap: isSameType ? 1 : 0,
-                    topBubbles: post.topBubbles || []
+                    topBubbles: post.topBubbles || [],
+
+                    reactionCounts,
+                    userReaction: myReaction ? myReaction.type : null,
+                    commentCount: post.comments?.length || 0, // In real app use count aggregate
+                    shareCount: post.shareCount || 0,
+                    views: 0
                 };
+            };
+
+            let mapped: SimilarPost[] = (data || []).map((post: any) => {
+                const isSameType = source?.postType === post.postType;
+                return processPost(post, isSameType);
             });
 
-            mapped = mapped.sort((a, b) => b.overlap - a.overlap);
+            mapped = mapped.sort((a, b) => (b.overlap || 0) - (a.overlap || 0));
+
+            // Prepend Source Post
+            if (source) {
+                const sourceUser = Array.isArray(source.user) ? source.user[0] : source.user;
+                // Fix source user mapping for consistent usage
+                const fixedSource = {
+                    ...source,
+                    user: sourceUser
+                };
+
+                const sourceMapped = processPost(fixedSource, true);
+                sourceMapped.matchReason = 'Source';
+                sourceMapped.overlap = 2; // Force top
+
+                mapped.unshift(sourceMapped);
+            }
+
             setPosts(mapped);
 
             // Set initial active
@@ -305,6 +274,125 @@ export default function SimilarPostsScreen() {
         } finally {
             setLoading(false);
         }
+    };
+
+    // --- Interaction Handlers ---
+
+    const handleReact = async (postId: string, type: string) => {
+        try {
+            // Optimistic Update
+            setPosts(prev => prev.map(p => {
+                if (p.id !== postId) return p;
+
+                const isRemoving = p.userReaction === type;
+                const newType = isRemoving ? null : type;
+
+                const newCounts = { ...p.reactionCounts };
+                if (isRemoving) {
+                    newCounts[type] = Math.max(0, (newCounts[type] || 1) - 1);
+                } else {
+                    if (p.userReaction) {
+                        // Switch reaction
+                        newCounts[p.userReaction] = Math.max(0, (newCounts[p.userReaction] || 1) - 1);
+                    }
+                    newCounts[type] = (newCounts[type] || 0) + 1;
+                }
+
+                return { ...p, userReaction: newType, reactionCounts: newCounts };
+            }));
+
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            // We need to check if we are removing or adding/switching
+            // But simpler to just call an API or do DB calls.
+            // For consistency with index.tsx let's assume direct DB access allowed here?
+            // Or use the same logic as index.tsx (which uses direct DB calls for reactions unless migrated).
+            // Based on index.tsx code (which I can't check right now but typically uses supabase), I will use supabase.
+
+            // Check existing
+            const { data: existing } = await supabase
+                .from('Reaction')
+                .select('id, type')
+                .eq('userId', user.id)
+                .eq('postId', postId)
+                .single();
+
+            if (existing) {
+                if (existing.type === type) {
+                    await supabase.from('Reaction').delete().eq('id', existing.id);
+                } else {
+                    await supabase.from('Reaction').update({ type }).eq('id', existing.id);
+                }
+            } else {
+                await supabase.from('Reaction').insert({ userId: user.id, postId, type });
+            }
+
+        } catch (error) {
+            console.error('Error reacting:', error);
+        }
+    };
+
+    const handleAddBubble = async (postId: string) => {
+        try {
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (status !== 'granted') {
+                alert('Permission denied');
+                return;
+            }
+
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.All,
+                allowsEditing: true,
+                quality: 0.8,
+            });
+
+            if (!result.canceled && result.assets[0]) {
+                setUploadingBubble(true);
+                const asset = result.assets[0];
+                const file = {
+                    uri: asset.uri,
+                    type: asset.type === 'video' ? 'video/mp4' : 'image/jpeg',
+                    name: `bubble-${Date.now()}.${asset.type === 'video' ? 'mp4' : 'jpg'}`,
+                } as any;
+
+                const urlObj = await MediaUploadService.uploadMedia(file.uri, asset.type === 'video' ? 'VIDEO' : 'IMAGE');
+                const url = urlObj.url;
+                if (!url) throw new Error('Upload failed');
+
+                const { error } = await supabase.from('ReactionBubble').insert({
+                    postId,
+                    userId: session?.user?.id,
+                    mediaUrl: url,
+                    mediaType: asset.type === 'video' ? 'VIDEO' : 'IMAGE'
+                });
+
+                if (error) throw error;
+
+
+
+                setToast({ message: 'Bubble Added!', type: 'success' });
+                // Refresh to show new bubble? Or optimistic?
+                // Optimistic hard for array of bubbles without structure, but we can try refresh for now.
+                fetchSimilarPosts();
+
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Failed to add bubble');
+        } finally {
+            setUploadingBubble(false);
+        }
+    };
+
+    const handleCommentPress = (postId: string) => {
+        setSelectedPostId(postId);
+        setCommentsModalVisible(true);
+    };
+
+    const handleMenuPress = (post: any) => {
+        setPostForOptions(post);
+        setOptionsModalVisible(true);
     };
 
     return (
@@ -323,24 +411,77 @@ export default function SimilarPostsScreen() {
                         <ActivityIndicator size="large" color="#fff" />
                     </View>
                 ) : (
-                    <FlatList
-                        data={posts}
-                        renderItem={({ item }) => (
-                            <SimilarPostCard
-                                item={item}
-                                isActive={item.id === activeId}
-                                onPress={() => router.push(`/post/${item.id}` as any)}
-                            />
-                        )}
-                        keyExtractor={item => item.id}
-                        contentContainerStyle={styles.listContent}
-                        onViewableItemsChanged={onViewableItemsChanged}
-                        viewabilityConfig={viewabilityConfig.current}
-                        showsVerticalScrollIndicator={false}
-                    />
+                    <View style={{ flex: 1 }}>
+                        <FlatList
+                            data={posts}
+                            renderItem={({ item }) => (
+                                <FeedPostItem
+                                    item={item}
+                                    isActive={item.id === activeId}
+                                    onActivate={() => setActiveId(item.id)}
+                                    onReact={handleReact}
+                                    colors={colors}
+                                    mode={colorScheme}
+                                    onAddBubble={handleAddBubble}
+                                    onMenuPress={handleMenuPress}
+                                    onSharePress={handleSharePress}
+                                    onCommentPress={handleCommentPress}
+                                    isScreenFocused={isScreenFocused}
+                                    onToggleScroll={() => { }}
+                                />
+                            )}
+                            keyExtractor={item => item.id}
+                            contentContainerStyle={styles.listContent}
+                            onViewableItemsChanged={onViewableItemsChanged}
+                            viewabilityConfig={viewabilityConfig.current}
+                            showsVerticalScrollIndicator={false}
+                        />
+                    </View>
                 )}
             </SafeAreaView>
-        </View>
+
+            {postToShare && (
+                <SharePostModal
+                    visible={shareModalVisible}
+                    onClose={() => setShareModalVisible(false)}
+                    post={postToShare}
+                />
+            )}
+
+            {
+                selectedPostId && (
+                    <CommentsModal
+                        visible={commentsModalVisible}
+                        onClose={() => setCommentsModalVisible(false)}
+                        postId={selectedPostId}
+                    />
+                )
+            }
+
+            {
+                postForOptions && (
+                    <PostOptionsModal
+                        visible={optionsModalVisible}
+                        onClose={() => setOptionsModalVisible(false)}
+                        post={postForOptions}
+                        onDelete={() => {
+                            // Optimistic delete
+                            setPosts(prev => prev.filter(p => p.id !== postForOptions.id));
+                            setOptionsModalVisible(false);
+                        }}
+                    />
+                )
+            }
+
+
+            {toast && (
+                <CustomToast
+                    message={toast.message}
+                    type={toast.type}
+                    onHide={() => setToast(null)}
+                />
+            )}
+        </View >
     );
 }
 
@@ -436,6 +577,8 @@ const styles = StyleSheet.create({
     cardHeader: {
         flexDirection: 'row',
         marginBottom: 8,
+        justifyContent: 'space-between', // Added
+        alignItems: 'center',
     },
     userInfo: {
         flexDirection: 'row',

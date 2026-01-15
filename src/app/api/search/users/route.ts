@@ -31,6 +31,12 @@ export async function GET(req: NextRequest) {
           },
         },
         {
+          profileCode: {
+            contains: search,
+            mode: "insensitive",
+          },
+        },
+        {
           profile: {
             is: {
               displayName: {
@@ -52,6 +58,7 @@ export async function GET(req: NextRequest) {
       select: {
         id: true,
         name: true,
+        profileCode: true,
         email: true,
         profile: {
           select: {

@@ -157,13 +157,13 @@ export default function ProfileCardEditor() {
                 : (p.cardSettings || {});
             setSettings(cardSettings);
 
-            // Fetch profile card code
-            const { data: card } = await supabase
-                .from('ProfileCard')
-                .select('uniqueCode')
-                .eq('userId', userId)
+            // Fetch profile code from User table
+            const { data: user } = await supabase
+                .from('User')
+                .select('profileCode')
+                .eq('id', userId)
                 .single();
-            if (card) setProfileCode(card.uniqueCode);
+            if (user?.profileCode) setProfileCode(user.profileCode);
         }
     };
 
@@ -252,9 +252,13 @@ export default function ProfileCardEditor() {
                 throw new Error(errData.error || "Failed to create profile card");
             }
 
-            const { card } = await apiResponse.json();
-            if (card && card.uniqueCode) {
-                setProfileCode(card.uniqueCode);
+            const { data: updatedUser } = await supabase
+                .from('User')
+                .select('profileCode')
+                .eq('id', dbUserId)
+                .single();
+            if (updatedUser?.profileCode) {
+                setProfileCode(updatedUser.profileCode);
             }
 
             showToast('Profile card saved!', 'success');

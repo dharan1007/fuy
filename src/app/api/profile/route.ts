@@ -44,6 +44,7 @@ export async function GET(req: Request) {
         select: {
           followersCount: true,
           followingCount: true,
+          profileCode: true,
           _count: {
             select: {
               friendshipsA: { where: { status: 'ACCEPTED' } },
@@ -59,7 +60,8 @@ export async function GET(req: Request) {
       followers: statsData?.followersCount || 0,
       following: statsData?.followingCount || 0,
       posts: postsCount,
-      friends: 0  // Friends system removed - using following/followers now
+      friends: 0,
+      profileCode: statsData?.profileCode  // Friends system removed - using following/followers now
     };
 
     // 3. Fetch Recent Posts (Limit 12)
@@ -139,6 +141,24 @@ export async function GET(req: Request) {
   }
 }
 
+function generateProfileCode(): string {
+  // Generate a random 7-digit number string
+  return Math.floor(1000000 + Math.random() * 9000000).toString();
+}
+
+async function getUniqueProfileCode() {
+  let unique = false;
+  let code = '';
+  while (!unique) {
+    code = generateProfileCode();
+    const existing = await prisma.user.findUnique({
+      where: { profileCode: code }
+    });
+    if (!existing) unique = true;
+  }
+  return code;
+}
+
 // PUT /api/profile (JSON: text + urls)
 export async function PUT(req: Request) {
   try {
@@ -164,11 +184,14 @@ export async function PUT(req: Request) {
         return NextResponse.json({ error: "Email already in use by another account." }, { status: 409 });
       }
 
+      const profileCode = await getUniqueProfileCode();
+
       await prisma.user.create({
         data: {
           id: userId,
           email: normalizedEmail,
           name: "New User",
+          profileCode,
         }
       });
     }

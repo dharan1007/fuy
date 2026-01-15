@@ -10,6 +10,7 @@ import { useAuth } from '../../context/AuthContext';
 import ShareCardModal from '../../components/ShareCardModal';
 import PostOptionsModal from '../../components/PostOptionsModal';
 import CommentsModal from '../../components/CommentsModal';
+import SharePostModal from '../../components/SharePostModal'; // Added
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
 import { useNavVisibility } from '../../context/NavContext';
@@ -72,6 +73,7 @@ interface DotItemProps {
     onSubscribe: (targetUserId: string, currentStatus: boolean) => void;
     onMenuPress: (item: DotData) => void;
     onCommentPress: (postId: string) => void;
+    onSharePress: (item: DotData) => void;
     isScreenFocused: boolean;
 }
 
@@ -88,7 +90,7 @@ const getImageResizeMode = (item: DotData): 'contain' | 'cover' => {
     return 'cover';
 };
 
-const DotItem = ({ item, isActive, autoScroll, onVideoEnd, onToggleAutoScroll, onSubscribe, onMenuPress, onCommentPress, isScreenFocused }: DotItemProps) => {
+const DotItem = ({ item, isActive, autoScroll, onVideoEnd, onToggleAutoScroll, onSubscribe, onMenuPress, onCommentPress, onSharePress, isScreenFocused }: DotItemProps) => {
     const { colors } = useTheme();
     const { session } = useAuth();
     const [reactionCounts, setReactionCounts] = useState(item.reactionCounts);
@@ -166,9 +168,7 @@ const DotItem = ({ item, isActive, autoScroll, onVideoEnd, onToggleAutoScroll, o
     };
 
     const handleShare = async () => {
-        try {
-            await RNShare.share({ message: item.description, url: item.mediaUrl });
-        } catch (e) { console.error('Share error:', e); }
+        onSharePress(item);
     };
 
     // Resize Mode Logic
@@ -983,6 +983,10 @@ export default function DotsScreen() {
     const [commentsVisible, setCommentsVisible] = useState(false);
     const [commentPostId, setCommentPostId] = useState<string | null>(null);
 
+    // Share Modal State
+    const [shareModalVisible, setShareModalVisible] = useState(false);
+    const [postToShare, setPostToShare] = useState<any>(null);
+
     const flatListRef = useRef<FlatList>(null);
 
     // Menu/Comment Handlers
@@ -994,6 +998,21 @@ export default function DotsScreen() {
     const handleCommentPress = useCallback((postId: string) => {
         setCommentPostId(postId);
         setCommentsVisible(true);
+    }, []);
+
+    const handleSharePress = useCallback((item: DotData) => {
+        // Convert DotData to FeedPost format for SharePostModal
+        setPostToShare({
+            id: item.postId,
+            content: item.description,
+            user: {
+                id: item.userId,
+                name: item.username,
+                profile: { displayName: item.username, avatarUrl: item.avatar }
+            },
+            postMedia: [{ url: item.mediaUrl, type: (item.mediaType === 'video' ? 'VIDEO' : 'IMAGE') as any }] // Type assertion for compatibility
+        });
+        setShareModalVisible(true);
     }, []);
 
     // Hide nav bar
@@ -1495,7 +1514,7 @@ export default function DotsScreen() {
                     key="feed-view"
                     ref={flatListRef}
                     data={dots}
-                    renderItem={({ item, index }) => <DotItem item={item} isActive={index === activeIndex} autoScroll={false} onVideoEnd={() => { }} onToggleAutoScroll={() => { }} onSubscribe={() => { }} isScreenFocused={isScreenFocused} onMenuPress={handleMenuPress} onCommentPress={handleCommentPress} />}
+                    renderItem={({ item, index }) => <DotItem item={item} isActive={index === activeIndex} autoScroll={false} onVideoEnd={() => { }} onToggleAutoScroll={() => { }} onSubscribe={() => { }} isScreenFocused={isScreenFocused} onMenuPress={handleMenuPress} onCommentPress={handleCommentPress} onSharePress={handleSharePress} />}
                     pagingEnabled
                     showsVerticalScrollIndicator={false}
                     snapToInterval={SCREEN_HEIGHT}
@@ -1540,6 +1559,14 @@ export default function DotsScreen() {
                 onClose={() => setCommentsVisible(false)}
                 postId={commentPostId}
             />
+
+            {postToShare && (
+                <SharePostModal
+                    visible={shareModalVisible}
+                    onClose={() => setShareModalVisible(false)}
+                    post={postToShare}
+                />
+            )}
         </View >
     );
 }

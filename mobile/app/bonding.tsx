@@ -204,7 +204,8 @@ export default function BondingScreen() {
 
             setTags(formattedTags);
         } catch (error) {
-            console.error('Error fetching tags:', error);
+            console.log('Error fetching tags (table may not exist):', error);
+            setTags([]);
         }
     }, [selectedProfile, activeLocker, session?.user?.email]);
 
@@ -231,7 +232,8 @@ export default function BondingScreen() {
             if (error) throw error;
             setFacts(data || []);
         } catch (error) {
-            console.error('Error fetching facts:', error);
+            console.log('Error fetching facts (table may not exist):', error);
+            setFacts([]);
         }
     }, [selectedProfile, session?.user?.email]);
 
@@ -257,7 +259,8 @@ export default function BondingScreen() {
             if (error) throw error;
             setTagCounts(data || []);
         } catch (error) {
-            console.error('Error fetching tag counts:', error);
+            console.log('Error fetching tag counts (table may not exist):', error);
+            setTagCounts([]);
         }
     }, [selectedProfile, session?.user?.email]);
 

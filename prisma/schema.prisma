@@ -77,6 +77,7 @@ model User {
   conversationsA     Conversation[]              @relation("ConversationA")
   conversationsB     Conversation[]              @relation("ConversationB")
   messagesSent       Message[]                   @relation("MessagesSent")
+  messageTags        MessageTag[]
   featureSessions    FeatureSession[]            @relation("FeatureSessions")
   featureParticipant FeatureSessionParticipant[] @relation("FeatureParticipants")
   chatSessions       ChatSessionLog[]            @relation("ChatSessions")
@@ -1388,6 +1389,7 @@ model Conversation {
   lastMessage   String?
   lastMessageAt DateTime?
   wallpaperUrl  String?   // Shared wallpaper for both users
+  messageRetention String @default("immediately") // 'immediately' | '1day'
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -1419,6 +1421,7 @@ model ConversationState {
   pinnedAt       DateTime?
   nickname       String?   // User-specific nickname for the other participant
   lastDeletedAt  DateTime? // To hide messages before this date if "deleted"
+  lastExitedAt   DateTime? // Track when user last exited the chat for retention
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
@@ -1452,11 +1455,13 @@ model Message {
   type           String    @default("text") // text, image, video, audio
   mediaUrl       String?
   readAt         DateTime?
+  isSaved        Boolean   @default(false) // Protected from retention-based deletion
   createdAt      DateTime  @default(now())
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender       User         @relation("MessagesSent", fields: [senderId], references: [id], onDelete: Cascade)
   tags         String[]  @default([])
+  messageTags  MessageTag[]
 
   // Shared Post
   sharedPostId String?
@@ -1465,6 +1470,20 @@ model Message {
   @@index([conversationId])
   @@index([senderId])
   @@index([createdAt])
+}
+
+model MessageTag {
+  id        String   @id @default(cuid())
+  messageId String
+  userId    String
+  tagType   String
+  createdAt DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@index([userId])
 }
 
 model ChatSessionLog {

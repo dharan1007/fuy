@@ -16,6 +16,7 @@ export async function GET() {
                 select: {
                     email: true,
                     name: true,
+                    profileCode: true,
                     profile: true,
                     _count: {
                         select: {
@@ -59,6 +60,7 @@ export async function GET() {
                 select: {
                     id: true,
                     name: true,
+                    profileCode: true,
                     profile: { select: { displayName: true, avatarUrl: true, bio: true } },
                     friendshipsB: { select: { id: true } },
                 },
@@ -95,7 +97,7 @@ export async function GET() {
             ranks: [{ categoryId: "global", rank: 0, score: 0 }],
             hopinPlans: hopinPlans.map(p => ({ ...p, isCreator: p.createdById === userId })),
             todos,
-            suggestedUsers: suggestedUsers.map(u => ({ id: u.id, name: u.name, profile: u.profile, followersCount: u.friendshipsB.length })),
+            suggestedUsers: suggestedUsers.map(u => ({ id: u.id, name: u.name, profileCode: u.profileCode, profile: u.profile, followersCount: u.friendshipsB.length })),
             suggestedPlans
         });
 

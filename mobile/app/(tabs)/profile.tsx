@@ -1,16 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image, Dimensions, FlatList, Modal, RefreshControl, Share, Alert } from 'react-native';
-import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Settings, Bell, Grid, List, Plus, Heart, MessageCircle, Share2, MoreHorizontal, Edit3, Camera, Users, ChevronLeft, LogOut, Eye, Play, MapPin, Tag, X } from 'lucide-react-native';
+import { View, Text, StyleSheet, Dimensions, FlatList, TouchableOpacity, Image, Modal, Alert, ScrollView, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import { ResizeMode, Video as ExpoVideo } from 'expo-av';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
-import ShareCardModal from '../../components/ShareCardModal';
-import { Video as ExpoVideo, ResizeMode } from 'expo-av';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Trash2, GripVertical, Maximize2, Minimize2, Grid3X3, Square, MonitorPlay, Share2, Settings, Bell, Grid, List, Plus, Heart, MessageCircle, MoreHorizontal, Edit3, Camera, Users, ChevronLeft, LogOut, Eye, Play, MapPin, Tag, X, Check } from 'lucide-react-native';
 import { useToast } from '../../context/ToastContext';
+import ShareCardModal from '../../components/ShareCardModal';
 
 const { width } = Dimensions.get('window');
 const COLUMN_WIDTH = width / 3 - 2;
@@ -26,6 +29,7 @@ interface Post {
 
 interface ProfileData {
     name: string;
+    profileCode?: string;
     profile: {
         displayName: string;
         avatarUrl: string;
@@ -64,7 +68,104 @@ export default function ProfileScreen() {
     const [dbUserId, setDbUserId] = useState<string | null>(null);
     const [showShareModal, setShowShareModal] = useState(false);
     const [myCardCode, setMyCardCode] = useState<string | null>(null);
-    const [postFilter, setPostFilter] = useState<'ALL' | 'FILLS' | 'LILLS' | 'SIMPLE' | 'AUDIO' | 'CHANNELS'>('ALL');
+    const [postFilter, setPostFilter] = useState<'ALL' | 'FILLS' | 'LILLS' | 'SIMPLE' | 'AUDIO' | 'CHANNELS' | 'XRAYS'>('ALL');
+
+
+    // Batch Selection State
+    const [isSelectionMode, setIsSelectionMode] = useState(false);
+    const [selectedPostIds, setSelectedPostIds] = useState<Set<string>>(new Set());
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false); // New State
+    const [isDeleting, setIsDeleting] = useState(false);
+
+    // Batch Selection Handlers
+    const toggleSelectionMode = () => {
+        if (isSelectionMode) {
+            setIsSelectionMode(false);
+            setSelectedPostIds(new Set());
+        } else {
+            setIsSelectionMode(true);
+        }
+    };
+
+    const togglePostSelection = (postId: string) => {
+        const newSelected = new Set(selectedPostIds);
+        if (newSelected.has(postId)) {
+            newSelected.delete(postId);
+        } else {
+            newSelected.add(postId);
+        }
+        setSelectedPostIds(newSelected);
+    };
+
+    const handleDeleteSelected = () => {
+        if (selectedPostIds.size === 0) return;
+        setShowDeleteConfirm(true);
+    };
+
+    const confirmBatchDelete = async () => {
+        console.log("Confirm Batch Delete Pressed");
+        if (selectedPostIds.size === 0) return;
+
+        try {
+            setIsDeleting(true); // specific state
+            const ids = Array.from(selectedPostIds);
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session?.access_token) {
+                console.error("No access token found");
+                throw new Error("Not authenticated");
+            }
+
+            // Batch Delete using new endpoint
+            // Using local IP 192.168.0.101 to hit local Next.js server (where batch-delete exists)
+            const apiUrl = `http://192.168.0.101:3000/api/posts/batch-delete`;
+            console.log("Using Batch Delete Endpoint:", apiUrl);
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout for bulk op
+
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`
+                },
+                body: JSON.stringify({ postIds: ids }),
+                signal: controller.signal
+            });
+
+            clearTimeout(timeoutId);
+            const text = await response.text();
+            console.log(`Batch Response:`, response.status, text);
+
+            if (!response.ok) {
+                throw new Error(`Batch delete failed: Status ${response.status}`);
+            }
+
+            const resJson = JSON.parse(text);
+            console.log("Deleted count:", resJson.count);
+
+            // Update local state
+            setProfileData(prev => {
+                if (!prev) return null;
+                return {
+                    ...prev,
+                    posts: prev.posts.filter(p => !selectedPostIds.has(p.id))
+                };
+            });
+
+            showToast(`Deleted ${ids.length} posts`, 'success');
+            setIsSelectionMode(false);
+            setSelectedPostIds(new Set());
+            setShowDeleteConfirm(false);
+        } catch (error: any) {
+            console.error("Batch delete error:", error);
+            const msg = error.name === 'AbortError' ? 'Request timed out. Server unreachable.' : error.message;
+            showToast('Error deleting posts: ' + msg, 'error');
+            Alert.alert("Delete Error", msg);
+        } finally {
+            setIsDeleting(false);
+        }
+    };
 
     useEffect(() => {
         if (session) {
@@ -84,7 +185,7 @@ export default function ProfileScreen() {
             // 1. Fetch User & Profile with all fields
             const { data: userData, error: userError } = await supabase
                 .from('User')
-                .select(`id, name, profile:Profile(displayName, avatarUrl, bio, coverImageUrl, coverVideoUrl, location, tags, stalkMe)`)
+                .select(`id, name, profileCode, profile:Profile(displayName, avatarUrl, bio, coverImageUrl, coverVideoUrl, location, tags, stalkMe)`)
                 .eq('id', userId)
                 .single();
 
@@ -120,6 +221,7 @@ export default function ProfileScreen() {
                     content: p.content,
                     postType: p.postType,
                     media: mediaItems,
+                    chanData: p.chanData, // Pass through chanData
                     likes: 0
                 };
             });
@@ -129,6 +231,7 @@ export default function ProfileScreen() {
 
             setProfileData({
                 name: userData?.name || 'User',
+                profileCode: userData?.profileCode,
                 profile: {
                     displayName: profileObj?.displayName || userData?.name || 'User',
                     avatarUrl: profileObj?.avatarUrl || '',
@@ -255,6 +358,73 @@ export default function ProfileScreen() {
         );
     }
 
+    const renderDeleteConfirmModal = () => (
+        <Modal
+            visible={showDeleteConfirm}
+            transparent={true}
+            animationType="fade"
+            onRequestClose={() => setShowDeleteConfirm(false)}
+        >
+            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+                <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
+                <View style={{ backgroundColor: colors.card, borderRadius: 24, padding: 24, width: '100%', maxWidth: 400, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
+                    <View style={{
+                        width: 64,
+                        height: 64,
+                        borderRadius: 32,
+                        backgroundColor: '#fee2e2',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginBottom: 16
+                    }}>
+                        <Trash2 size={32} color="#ef4444" />
+                    </View>
+                    <Text style={{ fontSize: 20, fontWeight: 'bold', color: colors.text, marginBottom: 12 }}>Delete {selectedPostIds.size} Posts?</Text>
+                    <Text style={{ color: colors.secondary, textAlign: 'center', marginBottom: 24 }}>
+                        Are you sure you want to delete these posts? This action cannot be undone.
+                    </Text>
+
+                    <View style={{ width: '100%', gap: 12 }}>
+                        <TouchableOpacity
+                            onPress={confirmBatchDelete}
+                            disabled={isDeleting}
+                            style={{
+                                backgroundColor: isDeleting ? '#ef444480' : '#ef4444',
+                                borderRadius: 16,
+                                paddingVertical: 16,
+                                alignItems: 'center',
+                                flexDirection: 'row',
+                                justifyContent: 'center',
+                                gap: 8
+                            }}
+                        >
+                            {isDeleting ? (
+                                <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>Deleting...</Text>
+                            ) : (
+                                <>
+                                    <Trash2 size={18} color="white" />
+                                    <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>Yes, Delete All</Text>
+                                </>
+                            )}
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            onPress={() => setShowDeleteConfirm(false)}
+                            style={{
+                                backgroundColor: mode === 'light' ? '#f5f5f5' : '#1a1a1a',
+                                borderRadius: 16,
+                                paddingVertical: 16,
+                                alignItems: 'center'
+                            }}
+                        >
+                            <Text style={{ color: colors.text, fontWeight: 'bold', fontSize: 16 }}>Cancel</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </View>
+        </Modal>
+    );
+
     const { profile, stats, posts } = profileData || {
         profile: { displayName: 'User', avatarUrl: '', bio: '' },
         stats: { posts: 0, followers: 0, following: 0 },
@@ -291,12 +461,19 @@ export default function ProfileScreen() {
                 {/* Left side empty for ThemeToggle */}
                 <View />
                 <View className="flex-row gap-3">
-                    <TouchableOpacity onPress={handleShareProfile} style={{ backgroundColor: colors.card, borderColor: colors.border }} className="w-10 h-10 rounded-full items-center justify-center border">
-                        <Share2 color={colors.text} size={20} />
+                    <TouchableOpacity onPress={toggleSelectionMode} style={{ backgroundColor: isSelectionMode ? colors.primary : 'rgba(0,0,0,0.5)', borderColor: '#fff', borderWidth: 2 }} className="px-4 h-10 rounded-full items-center justify-center">
+                        <Text style={{ color: '#fff', fontWeight: 'bold' }}>{isSelectionMode ? 'Done' : 'Select'}</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => router.push('/settings')} style={{ backgroundColor: colors.card, borderColor: colors.border }} className="w-10 h-10 rounded-full items-center justify-center border">
-                        <Settings color={colors.text} size={20} />
-                    </TouchableOpacity>
+                    {!isSelectionMode && (
+                        <>
+                            <TouchableOpacity onPress={handleShareProfile} style={{ backgroundColor: 'rgba(0,0,0,0.5)', borderColor: '#fff', borderWidth: 2 }} className="w-10 h-10 rounded-full items-center justify-center">
+                                <Share2 color="#fff" size={20} />
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={() => router.push('/settings')} style={{ backgroundColor: 'rgba(0,0,0,0.5)', borderColor: '#fff', borderWidth: 2 }} className="w-10 h-10 rounded-full items-center justify-center">
+                                <Settings color="#fff" size={20} />
+                            </TouchableOpacity>
+                        </>
+                    )}
                 </View>
             </SafeAreaView>
 
@@ -304,7 +481,7 @@ export default function ProfileScreen() {
             <View className="absolute -bottom-14 left-6 flex-row items-end">
                 <View className="relative">
                     {/* Liquid Glass Avatar Border */}
-                    <BlurView intensity={20} tint={mode === 'light' ? 'light' : 'dark'} className="p-1 rounded-[36px] overflow-hidden">
+                    <BlurView intensity={20} tint={mode === 'light' ? 'light' : 'dark'} className="p-1 rounded-[36px] overflow-hidden" style={{ borderWidth: 2, borderColor: '#fff' }}>
                         <Image
                             source={{ uri: profile?.avatarUrl }}
                             className="w-28 h-28 rounded-[32px]"
@@ -312,7 +489,7 @@ export default function ProfileScreen() {
                         />
                     </BlurView>
 
-                    <TouchableOpacity style={{ backgroundColor: colors.card, borderColor: colors.border }} className="absolute bottom-0 right-0 rounded-full p-2 border">
+                    <TouchableOpacity style={{ backgroundColor: colors.card, borderColor: '#fff', borderWidth: 2 }} className="absolute bottom-0 right-0 rounded-full p-2">
                         <Camera color={colors.text} size={16} />
                     </TouchableOpacity>
                 </View>
@@ -325,6 +502,9 @@ export default function ProfileScreen() {
             <View className="flex-row justify-between items-start mb-4">
                 <View style={{ flex: 1 }}>
                     <Text style={{ color: colors.text }} className="text-2xl font-bold mb-1">{profile?.displayName || 'User'}</Text>
+                    {profileData?.profileCode && (
+                        <Text style={{ color: colors.primary, fontWeight: '600', marginBottom: 4 }}>#{profileData.profileCode}</Text>
+                    )}
                     {profile?.location && (
                         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
                             <MapPin size={12} color={colors.secondary} />
@@ -352,7 +532,7 @@ export default function ProfileScreen() {
             </View>
 
             {/* Glass Stats Card */}
-            <BlurView intensity={30} tint={mode === 'light' ? 'light' : 'dark'} className="flex-row justify-between w-full px-6 py-4 mb-8 rounded-3xl overflow-hidden" style={{ borderColor: colors.border, borderWidth: 1 }}>
+            <BlurView intensity={30} tint={mode === 'light' ? 'light' : 'dark'} className="flex-row justify-between w-full px-6 py-4 mb-8 rounded-3xl overflow-hidden" style={{ borderColor: '#fff', borderWidth: 2 }}>
                 <TouchableOpacity onPress={() => fetchSocialList('following')} className="items-center flex-1">
                     <Text style={{ color: colors.text }} className="text-lg font-bold">{profileData?.followingCount || 0}</Text>
                     <Text style={{ color: colors.secondary }} className="text-xs uppercase tracking-wider">Following</Text>
@@ -373,22 +553,22 @@ export default function ProfileScreen() {
             <View className="flex-row gap-2 mb-6">
                 <TouchableOpacity
                     onPress={() => router.push('/edit-profile')}
-                    className="flex-1 py-3 rounded-2xl items-center justify-center border"
-                    style={{ backgroundColor: colors.background, borderColor: colors.border }}
+                    className="flex-1 py-3 rounded-2xl items-center justify-center"
+                    style={{ backgroundColor: colors.background, borderColor: '#fff', borderWidth: 2 }}
                 >
                     <Text className="font-bold" style={{ color: colors.text }}>Edit Profile</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                     onPress={() => router.push('/profile-card/editor')}
-                    className="flex-1 py-3 rounded-2xl items-center justify-center border"
-                    style={{ backgroundColor: colors.background, borderColor: colors.border }}
+                    className="flex-1 py-3 rounded-2xl items-center justify-center"
+                    style={{ backgroundColor: colors.background, borderColor: '#fff', borderWidth: 2 }}
                 >
                     <Text className="font-bold" style={{ color: colors.text }}>Card</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                     onPress={openStalkMe}
-                    className="w-12 items-center justify-center rounded-2xl border"
-                    style={{ backgroundColor: colors.background, borderColor: colors.border }}
+                    className="w-12 items-center justify-center rounded-2xl"
+                    style={{ backgroundColor: colors.background, borderColor: '#fff', borderWidth: 2 }}
                 >
                     <Grid color={colors.text} size={20} />
                 </TouchableOpacity>
@@ -406,10 +586,11 @@ export default function ProfileScreen() {
             if (postFilter === 'SIMPLE') return !p.postType || p.postType === 'TEXT' || p.postType === 'SIMPLE' || p.postType === 'SIMPLE_TEXT';
             if (postFilter === 'AUDIO') return p.postType === 'AUD';
             if (postFilter === 'CHANNELS') return p.postType === 'CHAN';
+            if (postFilter === 'XRAYS') return p.postType === 'XRAY';
             return true;
         });
 
-        const filters: Array<'ALL' | 'FILLS' | 'LILLS' | 'SIMPLE' | 'AUDIO' | 'CHANNELS'> = ['ALL', 'FILLS', 'LILLS', 'SIMPLE', 'AUDIO', 'CHANNELS'];
+        const filters: Array<'ALL' | 'FILLS' | 'LILLS' | 'SIMPLE' | 'AUDIO' | 'CHANNELS' | 'XRAYS'> = ['ALL', 'FILLS', 'LILLS', 'SIMPLE', 'AUDIO', 'CHANNELS', 'XRAYS'];
 
         return (
             <View style={{ flex: 1, borderTopLeftRadius: 32, borderTopRightRadius: 32, overflow: 'hidden', minHeight: 500, backgroundColor: colors.card }}>
@@ -455,7 +636,16 @@ export default function ProfileScreen() {
                 ) : (
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', padding: 4 }}>
                         {displayPosts.map((post) => (
-                            <PostCard key={post.id} post={post} colors={colors} router={router} width={width} />
+                            <PostCard
+                                key={post.id}
+                                post={post}
+                                colors={colors}
+                                router={router}
+                                width={width}
+                                isSelectionMode={isSelectionMode}
+                                isSelected={selectedPostIds.has(post.id)}
+                                onSelect={() => togglePostSelection(post.id)}
+                            />
                         ))}
                     </View>
                 )}
@@ -465,44 +655,87 @@ export default function ProfileScreen() {
     };
 
     // Adaptive Post Card Component
-    const PostCard = ({ post, colors, router, width: screenWidth }: { post: any; colors: any; router: any; width: number }) => {
-        const cardWidth = (screenWidth - 24) / 2; // 2 columns with padding
+    const PostCard = ({ post, colors, router, width: screenWidth, isSelectionMode, isSelected, onSelect }:
+        { post: any; colors: any; router: any; width: number; isSelectionMode: boolean; isSelected: boolean; onSelect: () => void }) => {
+
+        const margin = 2; // Tighter margin for 3x3
+        const cardWidth = Math.floor((screenWidth - (margin * 6) - 10) / 3); // 3 columns, slightly more buffer
         const isVideo = post.media?.[0]?.type === 'VIDEO' || post.postType === 'FILL' || post.postType === 'LILL';
         const isAudio = post.postType === 'AUD';
         const isChannel = post.postType === 'CHAN';
+        const isXray = post.postType === 'XRAY';
         const isText = !post.media?.length && (!post.postType || post.postType === 'SIMPLE' || post.postType === 'SIMPLE_TEXT' || post.postType === 'TEXT');
 
+        const handlePress = () => {
+            if (isSelectionMode) {
+                onSelect();
+            } else {
+                router.push(`/post/${post.id}`);
+            }
+        };
+
+        const SelectionOverlay = () => {
+            if (!isSelectionMode) return null;
+            return (
+                <View style={{
+                    position: 'absolute',
+                    top: 0,
+                    right: 0,
+                    bottom: 0,
+                    left: 0,
+                    backgroundColor: isSelected ? 'rgba(0,0,0,0.4)' : 'transparent',
+                    zIndex: 10,
+                    alignItems: 'flex-end',
+                    padding: 4
+                }}>
+                    <View style={{
+                        width: 20,
+                        height: 20,
+                        borderRadius: 10,
+                        borderWidth: 2,
+                        borderColor: '#fff',
+                        backgroundColor: isSelected ? colors.primary : 'transparent',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                    }}>
+                        {isSelected && <Check size={12} color="#fff" />}
+                    </View>
+                </View>
+            );
+        };
+
         // Get media URL
-        const mediaUrl = post.media?.[0]?.url;
+        let mediaUrl = post.media?.[0]?.url;
+        if (isChannel && post.chanData?.[0]?.coverImageUrl) {
+            mediaUrl = post.chanData[0].coverImageUrl;
+        }
 
         // Text/Simple Post Card
         if (isText) {
             return (
                 <TouchableOpacity
-                    onPress={() => router.push(`/post/${post.id}`)}
+                    onPress={handlePress}
                     style={{
                         width: cardWidth,
-                        margin: 4,
-                        padding: 16,
+                        height: cardWidth, // Square for Sixts
+                        margin: margin,
+                        padding: 8, // Reduce padding
                         backgroundColor: 'rgba(255,255,255,0.05)',
-                        borderRadius: 16,
-                        borderWidth: 1,
-                        borderColor: 'rgba(255,255,255,0.1)',
-                        minHeight: 120,
+                        borderRadius: 12,
+                        borderWidth: 2,
+                        borderColor: '#fff',
                         justifyContent: 'space-between'
                     }}
                 >
-                    <Text style={{ color: colors.text, fontSize: 14, lineHeight: 20 }} numberOfLines={4}>
+                    <Text style={{ color: colors.text, fontSize: 10, lineHeight: 14 }} numberOfLines={5}>
                         {post.content}
                     </Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 }}>
-                        <View style={{ backgroundColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 }}>
-                            <Text style={{ color: colors.secondary, fontSize: 9, fontWeight: '700', textTransform: 'uppercase' }}>SIXT</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
+                        <View style={{ backgroundColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                            <Text style={{ color: colors.secondary, fontSize: 8, fontWeight: '700', textTransform: 'uppercase' }}>SIXT</Text>
                         </View>
-                        <Text style={{ color: colors.secondary, fontSize: 10 }}>
-                            {new Date(post.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                        </Text>
                     </View>
+                    <SelectionOverlay />
                 </TouchableOpacity>
             );
         }
@@ -511,32 +744,35 @@ export default function ProfileScreen() {
         if (isAudio) {
             return (
                 <TouchableOpacity
-                    onPress={() => router.push(`/post/${post.id}`)}
+                    onPress={handlePress}
                     style={{
                         width: cardWidth,
-                        margin: 4,
+                        height: cardWidth,
+                        margin: margin,
                         backgroundColor: 'rgba(255,255,255,0.05)',
-                        borderRadius: 16,
-                        borderWidth: 1,
-                        borderColor: 'rgba(255,255,255,0.1)',
+                        borderRadius: 12,
+                        borderWidth: 2,
+                        borderColor: '#fff',
                         overflow: 'hidden'
                     }}
                 >
                     <View style={{
-                        height: cardWidth * 0.8,
+                        flex: 1, // Fill available space
                         backgroundColor: 'rgba(255,255,255,0.03)',
                         alignItems: 'center',
-                        justifyContent: 'center'
+                        justifyContent: 'center',
+                        width: '100%',
+                        borderRadius: 8
                     }}>
                         <View style={{
-                            width: 60,
-                            height: 60,
-                            borderRadius: 30,
+                            width: 32,
+                            height: 32,
+                            borderRadius: 16,
                             backgroundColor: 'rgba(255,255,255,0.1)',
                             alignItems: 'center',
                             justifyContent: 'center'
                         }}>
-                            <Heart size={24} color={colors.secondary} />
+                            <Heart size={16} color={colors.secondary} />
                         </View>
                     </View>
                     <View style={{ padding: 12 }}>
@@ -549,6 +785,7 @@ export default function ProfileScreen() {
                             </View>
                         </View>
                     </View>
+                    <SelectionOverlay />
                 </TouchableOpacity>
             );
         }
@@ -557,58 +794,64 @@ export default function ProfileScreen() {
         if (isChannel) {
             return (
                 <TouchableOpacity
-                    onPress={() => router.push(`/post/${post.id}`)}
+                    onPress={handlePress}
                     style={{
-                        width: screenWidth - 32,
-                        margin: 4,
+                        width: cardWidth,
+                        height: cardWidth,
+                        margin: margin,
                         backgroundColor: 'rgba(255,255,255,0.05)',
-                        borderRadius: 16,
-                        borderWidth: 1,
-                        borderColor: 'rgba(255,255,255,0.1)',
+                        borderRadius: 12,
+                        borderWidth: 2,
+                        borderColor: '#fff',
                         overflow: 'hidden',
-                        flexDirection: 'row',
                         alignItems: 'center',
-                        padding: 16
+                        justifyContent: 'center',
+                        padding: 8
                     }}
                 >
                     <View style={{
-                        width: 56,
-                        height: 56,
-                        borderRadius: 12,
+                        width: 40,
+                        height: 40,
+                        borderRadius: 8,
                         backgroundColor: 'rgba(255,255,255,0.1)',
                         alignItems: 'center',
-                        justifyContent: 'center'
+                        justifyContent: 'center',
+                        marginBottom: 4
                     }}>
                         {mediaUrl ? (
-                            <Image source={{ uri: mediaUrl }} style={{ width: 56, height: 56, borderRadius: 12 }} />
+                            <Image source={{ uri: mediaUrl }} style={{ width: 40, height: 40, borderRadius: 8 }} />
                         ) : (
-                            <Settings size={24} color={colors.secondary} />
+                            <Settings size={20} color={colors.secondary} />
                         )}
                     </View>
-                    <View style={{ flex: 1, marginLeft: 16 }}>
-                        <Text style={{ color: colors.text, fontSize: 16, fontWeight: '700' }} numberOfLines={1}>
+                    <View style={{ alignItems: 'center' }}>
+                        <Text style={{ color: colors.text, fontSize: 10, fontWeight: '700', textAlign: 'center' }} numberOfLines={1}>
                             {post.content || 'Channel'}
                         </Text>
-                        <Text style={{ color: colors.secondary, fontSize: 12, marginTop: 4 }}>
-                            Channel
-                        </Text>
                     </View>
-                    <View style={{ backgroundColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
-                        <Text style={{ color: colors.secondary, fontSize: 9, fontWeight: '700' }}>CHAN</Text>
+                    <View style={{ position: 'absolute', top: 4, right: 4, backgroundColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 4, paddingVertical: 2, borderRadius: 4 }}>
+                        <Text style={{ color: colors.secondary, fontSize: 6, fontWeight: '700' }}>CHAN</Text>
                     </View>
+                    <SelectionOverlay />
                 </TouchableOpacity>
             );
         }
 
-        // Video/Image Post Card (FILL, LILL, or media posts)
+        // Video/Image Post Card (FILL, LILL, XRAY or media posts)
+        let height = cardWidth; // Default Square (Simple Image)
+        if (post.postType === 'FILL' || post.postType === 'LILL' || isVideo) height = cardWidth * 1.77; // 16:9 Vertical
+        if (isXray) height = cardWidth * 1.33; // 4:3 Vertical
+
         return (
             <TouchableOpacity
-                onPress={() => router.push(`/post/${post.id}`)}
+                onPress={handlePress}
                 style={{
                     width: cardWidth,
-                    height: post.postType === 'FILL' ? cardWidth * 1.5 : cardWidth,
-                    margin: 4,
+                    height: height,
+                    margin: margin,
                     borderRadius: 16,
+                    borderWidth: 2,
+                    borderColor: '#fff',
                     overflow: 'hidden',
                     backgroundColor: 'rgba(255,255,255,0.05)'
                 }}
@@ -653,6 +896,7 @@ export default function ProfileScreen() {
                         <Play size={12} color="#fff" fill="#fff" />
                     </View>
                 )}
+                <SelectionOverlay />
             </TouchableOpacity>
         );
     };
@@ -769,6 +1013,43 @@ export default function ProfileScreen() {
                     cardOwnerName={profileData?.name || 'User'}
                 />
             )}
+
+            {/* Batch Delete Bar */}
+            {isSelectionMode && selectedPostIds.size > 0 && (
+                <View style={{
+                    position: 'absolute',
+                    bottom: 85, // Avoid Bottom Tab Bar
+                    left: 16, // Add side margin for floating look
+                    right: 16,
+                    backgroundColor: colors.card,
+                    borderRadius: 20,
+                    borderWidth: 1,
+                    borderColor: 'rgba(255,255,255,0.1)',
+                    padding: 16,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    shadowColor: "#000",
+                    shadowOffset: {
+                        width: 0,
+                        height: 4,
+                    },
+                    shadowOpacity: 0.30,
+                    shadowRadius: 4.65,
+                    elevation: 8,
+                }}>
+                    <Text style={{ color: colors.text, fontWeight: 'bold', marginLeft: 8 }}>{selectedPostIds.size} selected</Text>
+                    <TouchableOpacity
+                        onPress={handleDeleteSelected}
+                        style={{ backgroundColor: '#ef4444', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                    >
+                        <Trash2 size={16} color="#fff" />
+                        <Text style={{ color: '#fff', fontWeight: 'bold' }}>Delete</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
+
+            {renderDeleteConfirmModal()}
         </View>
     );
 }
