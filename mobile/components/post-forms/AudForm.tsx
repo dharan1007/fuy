@@ -4,9 +4,10 @@ import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import { ArrowLeft, Globe, Users, Lock, Radio, Music, Upload, X, Image as ImageIcon } from 'lucide-react-native';
+import { ArrowLeft, Globe, Users, Lock, Radio, Music, Upload, X, Image as ImageIcon, Slash, Plus } from 'lucide-react-native';
 import { MediaUploadService } from '../../services/MediaUploadService';
 import { supabase } from '../../lib/supabase';
+import SuccessOverlay from '../SuccessOverlay';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org';
 const { width } = Dimensions.get('window');
@@ -28,6 +29,9 @@ export default function AudForm({ onBack }: AudFormProps) {
     const [coverImage, setCoverImage] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
+    const [showSuccess, setShowSuccess] = useState(false);
+    const [slashes, setSlashes] = useState<string[]>([]);
+    const [slashInput, setSlashInput] = useState('');
 
     const pickAudio = async () => {
         try {
@@ -43,7 +47,7 @@ export default function AudForm({ onBack }: AudFormProps) {
 
     const pickCover = async () => {
         const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            mediaTypes: ['images'],
             allowsEditing: true,
             aspect: [1, 1],
             quality: 0.8,
@@ -85,9 +89,26 @@ export default function AudForm({ onBack }: AudFormProps) {
             }
             setUploadProgress(80);
 
+            const headers: Record<string, string> = {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Referer': 'https://www.fuymedia.org/',
+                'Origin': 'https://www.fuymedia.org',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Sec-Fetch-Dest': 'empty',
+                'Sec-Fetch-Mode': 'cors',
+                'Sec-Fetch-Site': 'same-origin',
+                'X-Requested-With': 'XMLHttpRequest'
+            };
+
+            if (session?.access_token) {
+                headers['Authorization'] = `Bearer ${session.access_token}`;
+            }
+
             const response = await fetch(`${API_URL}/api/posts/create`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 body: JSON.stringify({
                     userId: userData.id,
                     postType: 'AUD',
@@ -103,13 +124,15 @@ export default function AudForm({ onBack }: AudFormProps) {
                     },
                     mediaUrls: coverUrl ? [audioResult.url, coverUrl] : [audioResult.url],
                     mediaTypes: coverUrl ? ['AUDIO', 'IMAGE'] : ['AUDIO'],
-                    mediaVariants: coverUrl ? ['sometrack', 'thumbnail'] : ['sometrack'], // Helps frontend identify cover
+                    mediaVariants: coverUrl ? ['sometrack', 'thumbnail'] : ['sometrack'],
+                    slashes: slashes.filter(s => s.trim()),
                 }),
             });
 
             setUploadProgress(100);
             if (!response.ok) throw new Error((await response.json()).error || 'Failed');
-            Alert.alert('Done', 'Posted successfully', [{ text: 'OK', onPress: onBack }]);
+            // Alert.alert('Done', 'Posted successfully', [{ text: 'OK', onPress: onBack }]);
+            setShowSuccess(true);
         } catch (error: any) {
             Alert.alert('Error', error.message);
         } finally {
@@ -212,6 +235,33 @@ export default function AudForm({ onBack }: AudFormProps) {
                 </View>
             </View>
 
+            {/* Slashes */}
+            <View style={{ marginBottom: 24 }}>
+                <Text style={{ color: 'rgba(255,255,255,0.5)', marginBottom: 12, fontWeight: '600', fontSize: 11, letterSpacing: 1 }}>SLASHES</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 12 }}>
+                        <Slash size={16} color="rgba(255,255,255,0.4)" />
+                        <TextInput value={slashInput} onChangeText={setSlashInput} placeholder="Add a slash tag..." placeholderTextColor="rgba(255,255,255,0.3)" style={{ flex: 1, color: '#fff', paddingVertical: 12, paddingHorizontal: 8, fontSize: 14 }} onSubmitEditing={() => { if (slashInput.trim() && !slashes.includes(slashInput.trim().toLowerCase())) { setSlashes([...slashes, slashInput.trim().toLowerCase()]); setSlashInput(''); } }} returnKeyType="done" />
+                        <TouchableOpacity onPress={() => { if (slashInput.trim() && !slashes.includes(slashInput.trim().toLowerCase())) { setSlashes([...slashes, slashInput.trim().toLowerCase()]); setSlashInput(''); } }} style={{ padding: 8 }}>
+                            <Plus size={18} color="rgba(255,255,255,0.5)" />
+                        </TouchableOpacity>
+                    </View>
+                </View>
+                {slashes.length > 0 && (
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                        {slashes.map((slash, idx) => (
+                            <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.1)', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 16 }}>
+                                <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, marginRight: 4 }}>/</Text>
+                                <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>{slash}</Text>
+                                <TouchableOpacity onPress={() => setSlashes(slashes.filter((_, i) => i !== idx))} style={{ marginLeft: 8 }}>
+                                    <X size={12} color="rgba(255,255,255,0.5)" />
+                                </TouchableOpacity>
+                            </View>
+                        ))}
+                    </View>
+                )}
+            </View>
+
             {/* Progress */}
             {loading && (
                 <View style={{ marginBottom: 16 }}>
@@ -226,6 +276,12 @@ export default function AudForm({ onBack }: AudFormProps) {
             <TouchableOpacity onPress={handleSubmit} disabled={loading || !audioUri || !title.trim()} style={{ backgroundColor: '#fff', padding: 16, borderRadius: 8, alignItems: 'center', marginBottom: 40, opacity: loading || !audioUri || !title.trim() ? 0.3 : 1 }}>
                 {loading ? <ActivityIndicator color="#000" /> : <Text style={{ color: '#000', fontWeight: '700', fontSize: 14, letterSpacing: 0.5 }}>POST AUD</Text>}
             </TouchableOpacity>
-        </ScrollView>
+
+            <SuccessOverlay
+                visible={showSuccess}
+                message="Aud Posted!"
+                onFinish={onBack}
+            />
+        </ScrollView >
     );
 }

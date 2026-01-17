@@ -181,6 +181,13 @@ model User {
 
   // --- Feed & Media ---
   feedItems FeedItem[]
+
+  // --- Trigger Collections ---
+  triggerCollections TriggerCollection[]
+
+  // --- Profile Access Requests ---
+  accessRequestsSent     ProfileAccessRequest[] @relation("AccessRequestsSent")
+  accessRequestsReceived ProfileAccessRequest[] @relation("AccessRequestsReceived")
 }
 
 model FeedItem {
@@ -1467,6 +1474,9 @@ model Message {
   sharedPostId String?
   sharedPost   Post?     @relation("SharedPost", fields: [sharedPostId], references: [id], onDelete: SetNull)
 
+  // Triggers referencing this message
+  triggers     Trigger[]
+
   @@index([conversationId])
   @@index([senderId])
   @@index([createdAt])
@@ -1484,6 +1494,41 @@ model MessageTag {
 
   @@index([messageId])
   @@index([userId])
+}
+
+// Trigger Collections for warning system
+model TriggerCollection {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String   // Collection name (e.g., "Sensitive Topics")
+  keyword   String?  // Optional keyword for slash command
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  triggers Trigger[]
+
+  @@unique([userId, name])
+  @@index([userId])
+  @@index([keyword])
+}
+
+model Trigger {
+  id             String   @id @default(cuid())
+  collectionId   String
+  messageId      String   // Original message
+  selectedText   String   // Full message or selected portion
+  targetUser     String   // 'self' | 'other' | 'both'
+  conditionType  String   // 'exact_match' | 'keyword'
+  warningMessage String?  // Custom warning text
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  collection TriggerCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  message    Message           @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([collectionId])
+  @@index([messageId])
 }
 
 model ChatSessionLog {
@@ -2268,6 +2313,23 @@ model ProfileCard {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([uniqueCode])
+}
+
+model ProfileAccessRequest {
+  id          String    @id @default(cuid())
+  requesterId String
+  targetUserId String
+  fields      String?   // JSON array of fields requested, or 'all'
+  status      String    @default("PENDING") // PENDING, APPROVED, DENIED
+  createdAt   DateTime  @default(now())
+  respondedAt DateTime?
+
+  requester User @relation("AccessRequestsSent", fields: [requesterId], references: [id], onDelete: Cascade)
+  target    User @relation("AccessRequestsReceived", fields: [targetUserId], references: [id], onDelete: Cascade)
+
+  @@index([requesterId])
+  @@index([targetUserId])
+  @@index([status])
 }
 
 // ------------------------

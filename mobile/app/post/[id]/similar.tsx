@@ -172,15 +172,17 @@ export default function SimilarPostsScreen() {
                         name,
                         profile:Profile (displayName, avatarUrl)
                     ),
-                        media:Media (url, type, variant)
+                    postMedia:PostMedia (
+                        media (url, type)
                     ),
                     topBubbles:ReactionBubble (
                         mediaUrl,
                         mediaType
                     ),
+                    slashes:Slash(tag),
                     reactions:Reaction (
                         type,
-                        userId
+                        user:User (name)
                     ),
                     comments:PostComment (
                         id
@@ -227,7 +229,7 @@ export default function SimilarPostsScreen() {
                     postMedia: (post.postMedia || []).map((pm: any) => pm.media).filter(Boolean),
                     postType: post.postType,
                     matchReason: isSameType ? 'Similar Vibe' : 'Recent',
-                    slashes: [],
+                    slashes: post.slashes || [],
 
                     overlap: isSameType ? 1 : 0,
                     topBubbles: post.topBubbles || [],
@@ -342,7 +344,7 @@ export default function SimilarPostsScreen() {
             }
 
             const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.All,
+                mediaTypes: ['images', 'videos'],
                 allowsEditing: true,
                 quality: 0.8,
             });

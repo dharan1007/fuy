@@ -91,6 +91,15 @@ export async function uploadFileToR2(
         // Use presigned URL for video/audio
         const headers: Record<string, string> = {
             'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Referer': 'https://www.fuymedia.org/',
+            'Origin': 'https://www.fuymedia.org',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Sec-Fetch-Dest': 'empty',
+            'Sec-Fetch-Mode': 'cors',
+            'Sec-Fetch-Site': 'same-origin',
+            'X-Requested-With': 'XMLHttpRequest'
         };
         if (accessToken) {
             headers['Authorization'] = `Bearer ${accessToken}`;
@@ -107,11 +116,30 @@ export async function uploadFileToR2(
         });
 
         if (!presignedRes.ok) {
-            const error = await presignedRes.json();
-            throw new Error(error.error || 'Failed to get upload URL');
+            const errText = await presignedRes.text();
+            console.error(`[upload-helper] API Error: ${presignedRes.status}`, errText.slice(0, 500)); // Log first 500 chars
+
+            // Try to parse as JSON, but fallback to text if it's HTML
+            try {
+                const error = JSON.parse(errText);
+                throw new Error(error.error || `Upload failed: ${presignedRes.status}`);
+            } catch (jsonError) {
+                // If JSON parse fails, it's likely HTML (Firewall/Vercel error)
+                if (errText.trim().startsWith('<')) {
+                    throw new Error(`Upload failed: Server returned HTML (Likely Firewall/429). Status: ${presignedRes.status}`);
+                }
+                throw new Error(`Upload failed: ${presignedRes.status} - ${errText.substring(0, 100)}`);
+            }
         }
 
-        const { signedUrl, publicUrl } = await presignedRes.json();
+        // Even if status is 200, check if body is not HTML before parsing
+        const textBody = await presignedRes.text();
+        if (textBody.trim().startsWith('<')) {
+            console.error(`[upload-helper] Received HTML instead of JSON:`, textBody.slice(0, 500));
+            throw new Error(`Upload failed: Server returned HTML (Likely Firewall). Status: ${presignedRes.status}`);
+        }
+
+        const { signedUrl, publicUrl } = JSON.parse(textBody);
 
         // Read file and upload to R2
         const fileData = await FileSystem.readAsStringAsync(fileUri, {

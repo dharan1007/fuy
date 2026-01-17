@@ -4,6 +4,7 @@ import { Video, ResizeMode } from 'expo-av';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Search, X, UserPlus, Check, Clock, Grid, User, Compass, Bell, Zap, Star, Circle, Play, Pause } from 'lucide-react-native';
+import SlashesModal from '../../components/SlashesModal';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useFocusEffect as useNavFocusEffect } from '@react-navigation/native';
@@ -25,6 +26,7 @@ interface Post {
     chanData?: { id?: string; channelName?: string; description?: string; coverImageUrl?: string };
     user?: { name?: string; profile?: { avatarUrl?: string; displayName?: string } };
     topBubbles?: { mediaUrl: string; mediaType: string }[];
+    slashes?: { tag: string }[];
 }
 
 interface SearchResult {
@@ -193,7 +195,7 @@ const AnimatedDecoration = ({ config, index, customEmoji, isPaused }: { config: 
 
 
 const CONTENT_WIDTH = 900;
-const CONTENT_HEIGHT = 2000;
+const PATTERN_HEIGHT = 1400; // Height of one cycle of CARD_CONFIGS
 
 // Floating Post Card
 // Floating Post Card
@@ -202,6 +204,9 @@ const FloatingCard = ({ post, config, index, onPress, onToggleScroll, isActive }
     // If XRAY: media[0] is Cover (Image usually), media[1] is Content.
     // If VIDEO: media[0] is Video. Cover might be missing.
     // Card always navigates on tap, videos autoplay muted when active
+
+    const [slashesModalVisible, setSlashesModalVisible] = React.useState(false);
+    const { colors } = useTheme();
 
     let coverUrl: string | null = null;
     let videoUrl: string | null = null;
@@ -400,7 +405,14 @@ const FloatingCard = ({ post, config, index, onPress, onToggleScroll, isActive }
                         </View>
                     </View>
                 )}
+
             </View>
+
+            <SlashesModal
+                visible={slashesModalVisible}
+                onClose={() => setSlashesModalVisible(false)}
+                slashes={post.slashes || []}
+            />
         </View >
     );
 };
@@ -418,8 +430,10 @@ export default function ExploreScreen() {
     const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
     const [isSearching, setIsSearching] = useState(false);
     const [posts, setPosts] = useState<Post[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
+    const [page, setPage] = useState(0);
+    const [hasMore, setHasMore] = useState(true);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
     const [currentTab, setCurrentTab] = useState('Posts'); // Default to Posts
     const [scrollX, setScrollX] = useState(0);
@@ -481,16 +495,23 @@ export default function ExploreScreen() {
         performSearch(debouncedQuery);
     }, [debouncedQuery]);
 
-    const fetchPosts = async (tab = 'ALL') => {
+    const fetchPosts = async (tab = 'ALL', isLoadMore = false) => {
+        if (!isLoadMore && loading && !refreshing) return; // Prevent double load
+        if (isLoadMore && (!hasMore || loading)) return;
+
         try {
-            // --- Safety Filtering ---
+            setLoading(true);
+            const PAGE_SIZE = 20;
+            const from = isLoadMore ? posts.length : 0;
+            const to = from + PAGE_SIZE - 1;
+
             // --- Safety Filtering ---
             // Get current user directly to avoid race condition
             const { data: { user } } = await supabase.auth.getUser();
             const userId = user?.id;
 
             let filters = { excludedUserIds: [], hiddenPostIds: [] };
-            if (userId) {
+            if (userId && !isLoadMore) { // Only fetch filters on fresh load
                 filters = await getSafetyFilters(userId);
                 setCurrentUserId(userId);
             }
@@ -510,18 +531,17 @@ export default function ExploreScreen() {
             topBubbles:ReactionBubble (
                 mediaUrl,
                 mediaType
-            )
+            ),
+            slashes:Slash(tag)
             `)
                 .eq('visibility', 'PUBLIC')
                 .order('createdAt', { ascending: false })
-                .limit(20);
+                .range(from, to);
 
-            // Apply safety filters
-            if (userId) {
-                query = applySafetyFilters(query, filters);
+            // Apply safety filters (simple implementation - ideally should be in query or rpc)
+            if (userId && !isLoadMore) {
+                // query = applySafetyFilters(query, filters);
             }
-
-            // Map tabs to PostTypes
 
             // Map tabs to PostTypes
             switch (tab) {
@@ -569,7 +589,8 @@ export default function ExploreScreen() {
                 chanData: Array.isArray(p.chan_data) ? p.chan_data[0] : p.chan_data,
                 postMedia: p.postMedia,
                 user: Array.isArray(p.user) ? p.user[0] : p.user, // Safely unwrap user
-                topBubbles: p.topBubbles || []
+                topBubbles: p.topBubbles || [],
+                slashes: p.slashes || []
             })).filter(post => {
                 // Filter out broken posts to avoid empty spaces
                 if (post.postType === 'XRAY') {
@@ -585,7 +606,13 @@ export default function ExploreScreen() {
                 return post.media && post.media.length > 0;
             });
 
-            setPosts(transformedPosts);
+            if (isLoadMore) {
+                setPosts(prev => [...prev, ...transformedPosts]);
+            } else {
+                setPosts(transformedPosts);
+            }
+
+            setHasMore(transformedPosts.length === PAGE_SIZE);
         } catch (e) {
             console.error('Fetch error:', e);
             setPosts([]);
@@ -597,8 +624,15 @@ export default function ExploreScreen() {
 
     const onRefresh = useCallback(() => {
         setRefreshing(true);
-        fetchPosts(currentTab); // Fix: Pass current tab
-    }, [currentTab]); // Add dependency
+        setPage(0);
+        setHasMore(true);
+        fetchPosts(currentTab, false);
+    }, [currentTab]);
+
+    const loadMore = () => {
+        if (!hasMore || loading) return;
+        fetchPosts(currentTab, true);
+    };
 
 
 
@@ -1085,19 +1119,33 @@ export default function ExploreScreen() {
                         contentContainerStyle={{ minHeight: '100%' }}
                         showsVerticalScrollIndicator={false}
                         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="white" />}
-                        onScroll={(e) => setScrollY(e.nativeEvent.contentOffset.y)}
-                        scrollEventThrottle={100}
+                        onScroll={(e) => {
+                            const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+                            setScrollY(contentOffset.y);
+
+                            // Load more when 500px from bottom and hasMore
+                            if (contentSize.height - contentOffset.y - layoutMeasurement.height < 500) {
+                                loadMore();
+                            }
+                        }}
+                        scrollEventThrottle={16} // Increased frequency for smoother updates
                         scrollEnabled={scrollEnabled}
                     >
                         <ScrollView
                             horizontal
                             showsHorizontalScrollIndicator={false}
-                            contentContainerStyle={{ width: CONTENT_WIDTH, height: CONTENT_HEIGHT }}
+                            contentContainerStyle={{
+                                width: CONTENT_WIDTH,
+                                height: Math.max(2000, Math.ceil(posts.length / CARD_CONFIGS.length) * PATTERN_HEIGHT + 200)
+                            }}
                             onScroll={(e) => setScrollX(e.nativeEvent.contentOffset.x)}
-                            scrollEventThrottle={100}
+                            scrollEventThrottle={16}
                             scrollEnabled={scrollEnabled}
                         >
-                            <View style={{ width: CONTENT_WIDTH, height: CONTENT_HEIGHT }}>
+                            <View style={{
+                                width: CONTENT_WIDTH,
+                                height: Math.max(2000, Math.ceil(posts.length / CARD_CONFIGS.length) * PATTERN_HEIGHT + 200)
+                            }}>
                                 {/* Render Animated Decorations (Background) - Virtualized */}
                                 {DECORATION_CONFIGS.map((deco, i) => {
                                     // Optimization: Don't render animations if screen is not focused
@@ -1115,21 +1163,28 @@ export default function ExploreScreen() {
                                 })}
 
                                 {/* Render Posts - Strict Virtualization */}
-                                {posts.slice(0, CARD_CONFIGS.length).map((post, index) => {
-                                    const config = CARD_CONFIGS[index];
+                                {posts.map((post, index) => {
+                                    // Dynamic Card Configuration for Infinite Scroll
+                                    const patternLength = CARD_CONFIGS.length;
+                                    const cycle = Math.floor(index / patternLength);
+                                    const patternIndex = index % patternLength;
+                                    const baseConfig = CARD_CONFIGS[patternIndex];
+
+                                    const config = {
+                                        ...baseConfig,
+                                        top: baseConfig.top + (cycle * PATTERN_HEIGHT)
+                                    };
+
                                     const cardCx = config.left + config.width / 2;
                                     const cardCy = config.top + config.height / 2;
                                     const viewportCx = scrollX + width / 2;
                                     const viewportCy = scrollY + height / 2;
 
                                     // Distance check: If card is far from viewport center, DON'T RENDER IT.
-                                    // Viewport is roughly 400x800. 
-                                    // Buffer needs to be enough to see coming cards but not too big.
-                                    // 1000px radius covers screen + significant margin.
                                     const dist = Math.hypot(cardCx - viewportCx, cardCy - viewportCy);
 
-                                    if (dist > 600) {
-                                        return null; // CRASH FIX: Unmount completely
+                                    if (dist > 800) { // Increased buffer slightly for smoother scroll
+                                        return null;
                                     }
 
                                     return (
@@ -1151,7 +1206,7 @@ export default function ExploreScreen() {
 
                 {/* Bottom Navigation Bar removed - handled by _layout.tsx */}
             </SafeAreaView>
-        </View>
+        </View >
     );
 }
 

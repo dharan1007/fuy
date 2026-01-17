@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity, Image, ScrollView, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { TrendingUp, ChevronLeft, Flame, Hash, Music, Film, Book } from 'lucide-react-native';
+import { TrendingUp, ChevronLeft, Flame, Slash, Music, Film, Book } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../context/ThemeContext';
@@ -21,7 +21,7 @@ const CATEGORIES = [
     { id: 'all', label: 'All', icon: Flame },
     { id: 'music', label: 'Music', icon: Music },
     { id: 'video', label: 'Video', icon: Film },
-    { id: 'topics', label: 'Topics', icon: Hash },
+    { id: 'topics', label: 'Topics', icon: Slash },
     { id: 'books', label: 'Books', icon: Book },
 ];
 

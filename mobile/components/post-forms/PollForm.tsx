@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Switch, Dimensions } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import { ArrowLeft, Globe, Users, Lock, BarChart2, ChevronUp, ChevronDown } from 'lucide-react-native';
+import { ArrowLeft, Globe, Users, Lock, BarChart2, ChevronUp, ChevronDown, Slash, Plus, X } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org';
@@ -21,6 +21,8 @@ export default function PollForm({ onBack }: PollFormProps) {
     const [allowMultiple, setAllowMultiple] = useState(false);
     const [visibility, setVisibility] = useState('PUBLIC');
     const [loading, setLoading] = useState(false);
+    const [slashes, setSlashes] = useState<string[]>([]);
+    const [slashInput, setSlashInput] = useState('');
 
     const handleSubmit = async () => {
         if (!question.trim()) {
@@ -51,6 +53,7 @@ export default function PollForm({ onBack }: PollFormProps) {
                     content: question,
                     visibility,
                     pullUpDownData: { question, optionA, optionB, allowMultiple },
+                    slashes: slashes.filter(s => s.trim()),
                 }),
             });
 
@@ -160,6 +163,33 @@ export default function PollForm({ onBack }: PollFormProps) {
                         </TouchableOpacity>
                     ))}
                 </View>
+            </View>
+
+            {/* Slashes */}
+            <View style={{ marginBottom: 24 }}>
+                <Text style={{ color: 'rgba(255,255,255,0.5)', marginBottom: 12, fontWeight: '600', fontSize: 11, letterSpacing: 1 }}>SLASHES</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 12 }}>
+                        <Slash size={16} color="rgba(255,255,255,0.4)" />
+                        <TextInput value={slashInput} onChangeText={setSlashInput} placeholder="Add a slash tag..." placeholderTextColor="rgba(255,255,255,0.3)" style={{ flex: 1, color: '#fff', paddingVertical: 12, paddingHorizontal: 8, fontSize: 14 }} onSubmitEditing={() => { if (slashInput.trim() && !slashes.includes(slashInput.trim().toLowerCase())) { setSlashes([...slashes, slashInput.trim().toLowerCase()]); setSlashInput(''); } }} returnKeyType="done" />
+                        <TouchableOpacity onPress={() => { if (slashInput.trim() && !slashes.includes(slashInput.trim().toLowerCase())) { setSlashes([...slashes, slashInput.trim().toLowerCase()]); setSlashInput(''); } }} style={{ padding: 8 }}>
+                            <Plus size={18} color="rgba(255,255,255,0.5)" />
+                        </TouchableOpacity>
+                    </View>
+                </View>
+                {slashes.length > 0 && (
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                        {slashes.map((slash, idx) => (
+                            <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.1)', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 16 }}>
+                                <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, marginRight: 4 }}>/</Text>
+                                <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>{slash}</Text>
+                                <TouchableOpacity onPress={() => setSlashes(slashes.filter((_, i) => i !== idx))} style={{ marginLeft: 8 }}>
+                                    <X size={12} color="rgba(255,255,255,0.5)" />
+                                </TouchableOpacity>
+                            </View>
+                        ))}
+                    </View>
+                )}
             </View>
 
             {/* Submit */}

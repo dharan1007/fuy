@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Image, TouchableWithoutFeedback } from 'react-native';
+import { View, Text, TouchableOpacity, Image, TouchableWithoutFeedback, Modal } from 'react-native';
 import { Video, ResizeMode } from 'expo-av';
 import { BlurView } from 'expo-blur';
-import { MoreHorizontal, Plus, Check, MessageCircle, Send, Play, Volume2, VolumeX, User } from 'lucide-react-native';
+import { MoreHorizontal, Plus, Check, MessageCircle, Send, Play, Volume2, VolumeX, User, Slash, Maximize2 } from 'lucide-react-native';
+import SlashesModal from './SlashesModal';
 import XrayScratch from './XrayScratch';
 import { MediaUploadService } from '../services/MediaUploadService';
 import { useAuth } from '../context/AuthContext';
@@ -46,6 +47,8 @@ const FeedPostItem = React.memo(({
     // Tap to Play/Pause Control
     const [isPaused, setIsPaused] = useState(false);
     const [isMuted, setIsMuted] = useState(false);
+    const [slashesModalVisible, setSlashesModalVisible] = useState(false);
+    const [isFullscreen, setIsFullscreen] = useState(false);
 
     // Reset pause state when active item changes
     useEffect(() => {
@@ -137,6 +140,15 @@ const FeedPostItem = React.memo(({
                                             >
                                                 {isMuted ? <VolumeX size={18} color="#fff" /> : <Volume2 size={18} color="#fff" />}
                                             </TouchableOpacity>
+                                            {/* Fullscreen Button for FILL posts */}
+                                            {item.postType === 'FILL' && (
+                                                <TouchableOpacity
+                                                    onPress={() => setIsFullscreen(true)}
+                                                    style={{ position: 'absolute', bottom: 16, right: 60, width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' }}
+                                                >
+                                                    <Maximize2 size={18} color="#fff" />
+                                                </TouchableOpacity>
+                                            )}
                                         </View>
                                     </TouchableWithoutFeedback>
                                 );
@@ -195,8 +207,8 @@ const FeedPostItem = React.memo(({
                             </View>
                         </View>
 
-                        {/* Floating Reaction Bubbles (Bottom Right) */}
-                        <View className="absolute bottom-4 right-16 flex-row items-end z-[2000]">
+                        {/* Floating Reaction Bubbles (Bottom Right) - Shifted left to avoid Volume/Fullscreen */}
+                        <View className="absolute bottom-4 right-28 flex-row items-end z-[2000]">
                             <View className="flex-row -space-x-3 mr-2">
                                 {(item.topBubbles || []).map((bubble: any, i: number) => (
                                     <View key={i} className="w-10 h-10 rounded-full border-2 border-white/50 overflow-hidden bg-black/50 items-center justify-center">
@@ -334,8 +346,49 @@ const FeedPostItem = React.memo(({
                                 Actually, existing buttons have text/counts. Share count is available. */}
                         <Text className="font-bold ml-1.5 text-xs" style={{ color: colors.secondary }}>{formatCount(item.shareCount)}</Text>
                     </TouchableOpacity>
+                    <TouchableOpacity
+                        onPress={() => setSlashesModalVisible(true)}
+                        className="px-4 py-2 rounded-full border-2 flex-row items-center"
+                        style={{ borderColor: 'rgba(255,255,255,0.5)' }}
+                    >
+                        <Slash size={14} color={colors.secondary} />
+                    </TouchableOpacity>
+
                 </View>
             </View>
+
+            {/* Fullscreen Video Modal for FILL posts */}
+            {item.postType === 'FILL' && (
+                <Modal
+                    visible={isFullscreen}
+                    animationType="fade"
+                    statusBarTranslucent
+                    onRequestClose={() => setIsFullscreen(false)}
+                >
+                    <View style={{ flex: 1, backgroundColor: 'black' }}>
+                        <Video
+                            source={{ uri: item.postMedia[0].url }}
+                            style={{ flex: 1, width: '100%', height: '100%' }}
+                            resizeMode={ResizeMode.CONTAIN}
+                            shouldPlay={isFullscreen}
+                            isLooping
+                            useNativeControls
+                        />
+                        <TouchableOpacity
+                            onPress={() => setIsFullscreen(false)}
+                            style={{ position: 'absolute', top: 40, right: 20, padding: 8, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 }}
+                        >
+                            <Text style={{ color: 'white', fontWeight: 'bold' }}>Close</Text>
+                        </TouchableOpacity>
+                    </View>
+                </Modal>
+            )}
+
+            <SlashesModal
+                visible={slashesModalVisible}
+                onClose={() => setSlashesModalVisible(false)}
+                slashes={item.slashes || []}
+            />
         </View>
     );
 });

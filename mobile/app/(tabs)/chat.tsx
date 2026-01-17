@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useNavigation, useFocusEffect } from 'expo-router';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import { Mic, Send, Search, Settings, MoreVertical, Phone, Video, Image as ImageIcon, Smile, X, ChevronLeft, ChevronUp, ChevronDown, GripVertical, Sparkles, User as UserIcon, Sun, Moon, Anchor, Heart, Map as MapIcon, Book, Plus, Tag, Frown, AlertTriangle, Check, CheckCheck, Clock, Trash2, EyeOff, Lock, Bookmark, Reply } from 'lucide-react-native';
+import { Mic, Send, Search, Settings, MoreVertical, Phone, Video, Image as ImageIcon, Smile, X, ChevronLeft, ChevronUp, ChevronDown, GripVertical, Sparkles, User as UserIcon, Sun, Moon, Anchor, Heart, Map as MapIcon, Book, Plus, Tag, Frown, AlertTriangle, Check, CheckCheck, Clock, Trash2, EyeOff, Lock, Bookmark, Users } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PanResponder, Animated as RNAnimated } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -20,32 +20,12 @@ import * as ImagePicker from 'expo-image-picker';
 import { Video as AVVideo, ResizeMode } from 'expo-av';
 import { Paperclip } from 'lucide-react-native';
 import CustomToast, { ToastType } from '../../components/CustomToast';
-import Constants from 'expo-constants';
 import ChatPostCard from '../../components/ChatPostCard';
+import CollaborativeModal from '../../components/CollaborativeModal';
+
 
 const { width } = Dimensions.get('window');
 
-const getApiUrl = () => {
-    // Development: Auto-detect LAN IP from Expo Go (prioritize local server)
-    if (__DEV__) {
-        const hostUri = Constants.expoConfig?.hostUri || Constants.manifest?.debuggerHost;
-        if (hostUri) {
-            const ip = hostUri.split(':')[0];
-            // Returns http://192.168.x.x:3000 for physical device or emulator
-            return `http://${ip}:3000`;
-        }
-        // Fallback for Android Emulator if detection fails
-        if (Platform.OS === 'android') return 'http://10.0.2.2:3000';
-    }
-
-    // Production / Explicit Override
-    if (process.env.EXPO_PUBLIC_API_URL) return process.env.EXPO_PUBLIC_API_URL;
-
-    // Default Production
-    return 'https://www.fuymedia.org';
-};
-
-const API_URL = getApiUrl();
 
 type PersonaType = 'friend' | 'therapist' | 'coach' | 'mystic';
 
@@ -60,6 +40,8 @@ interface Message {
     readAt?: string;
     isSaved?: boolean;
     tags?: string[];
+    isEdited?: boolean;
+    updatedAt?: string;
 }
 
 interface ChatUser {
@@ -192,6 +174,7 @@ export default function ChatScreen() {
 
     // Chat settings state
     const [showChatSettings, setShowChatSettings] = useState(false);
+    const [showCollaborativeModal, setShowCollaborativeModal] = useState(false);
     const [chatBackground, setChatBackground] = useState<string | null>(null);
     const [messageRetention, setMessageRetention] = useState<'immediately' | 'forever' | '1day' | 'custom'>('immediately');
     const [customRetentionDays, setCustomRetentionDays] = useState(7);
@@ -225,6 +208,34 @@ export default function ChatScreen() {
     const [taggingMessageId, setTaggingMessageId] = useState<string | null>(null);
     const [isAddingTag, setIsAddingTag] = useState(false);
     const [newTagText, setNewTagText] = useState('');
+    const triggerResolveRef = useRef<((value: boolean) => void) | null>(null);
+    const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+
+    // Custom Trigger Warning State
+    const [triggerWarningModalVisible, setTriggerWarningModalVisible] = useState(false);
+    const [triggerWarningData, setTriggerWarningData] = useState<{
+        warnings: string[];
+        collectionId?: string;
+        collectionName?: string;
+        resolve: (value: boolean) => void;
+    } | null>(null);
+
+    // Trigger Collection State
+    const [showTriggerModal, setShowTriggerModal] = useState(false);
+    const [triggerMessage, setTriggerMessage] = useState<Message | null>(null);
+    const [triggerSelectedText, setTriggerSelectedText] = useState('');
+    const [triggerCollections, setTriggerCollections] = useState<{ id: string, name: string, keyword?: string }[]>([]);
+    const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
+    const [newCollectionName, setNewCollectionName] = useState('');
+    const [triggerTargetUser, setTriggerTargetUser] = useState<'self' | 'other' | 'both'>('self');
+    const [triggerConditionType, setTriggerConditionType] = useState<'exact_match' | 'keyword'>('keyword');
+    const [triggerWarningMessage, setTriggerWarningMessage] = useState('');
+    const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]); // For keyword condition
+    // Slash command state
+    const [showSlashMenu, setShowSlashMenu] = useState(false);
+    const [slashSearchQuery, setSlashSearchQuery] = useState('');
+    const [allTriggers, setAllTriggers] = useState<any[]>([]);
+
 
     useEffect(() => {
         if (!dbUserId) return;
@@ -835,20 +846,21 @@ export default function ChatScreen() {
         if (!user) return;
 
         try {
-            const { data: { session } } = await supabase.auth.getSession();
-            const token = session?.access_token;
-            if (!token) return;
+            // Direct Supabase query - no API call needed
+            const { data: messagesData, error } = await supabase
+                .from('Message')
+                .select(`
+                    id, conversationId, senderId, content, type, mediaUrl, isSaved, readAt, createdAt,
+                    sender:User!senderId(id, name, profile:Profile(avatarUrl)),
+                    messageTags:MessageTag(tagType),
+                    sharedPost:Post!sharedPostId(id, content, postType, user:User(id, name, profile:Profile(displayName, avatarUrl)), postMedia:PostMedia(media:Media(url, type)))
+                `)
+                .eq('conversationId', conversationId)
+                .order('createdAt', { ascending: true });
 
-            const res = await fetch(`${getApiUrl()}/api/chat/${conversationId}/messages`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            });
+            if (error) throw error;
 
-            if (!res.ok) throw new Error('Failed to fetch messages');
-
-            const json = await res.json();
-            const fetchedMessages = json.messages.map((m: any) => ({
+            const fetchedMessages: Message[] = (messagesData || []).map((m: any) => ({
                 id: m.id,
                 conversationId: m.conversationId,
                 senderId: m.senderId,
@@ -856,22 +868,33 @@ export default function ChatScreen() {
                 type: m.type,
                 mediaUrl: m.mediaUrl,
                 timestamp: new Date(m.createdAt).getTime(),
-                sender: m.senderId === user?.id ? 'me' : 'them', // Logic handles this usually via user check, but m.senderId correct
-                role: m.senderId === user?.id ? 'user' : 'assistant', // Assuming simple logic or keeping existing
+                sender: m.senderId === user?.id ? 'me' : 'them',
+                role: (m.senderId === user?.id ? 'user' : 'assistant') as 'user' | 'assistant' | 'system',
                 isSaved: m.isSaved,
                 readAt: m.readAt,
                 tags: m.messageTags?.map((t: any) => t.tagType) || []
             }));
 
-            // Calculate dates for dividers (preserves existing logic if any, but mapping replaces messages)
             setMessages(fetchedMessages);
+
+            // Mark unread messages as read
+            const unreadIds = (messagesData || [])
+                .filter((m: any) => m.senderId !== user.id && !m.readAt)
+                .map((m: any) => m.id);
+
+            if (unreadIds.length > 0) {
+                await supabase
+                    .from('Message')
+                    .update({ readAt: new Date().toISOString() })
+                    .in('id', unreadIds);
+            }
         } catch (error) {
             console.error('Error fetching messages:', error);
-            // Fallback for manual join is gone, assuming API works
         } finally {
             setIsLoading(false);
         }
     };
+
 
     // --- Actions ---
 
@@ -988,16 +1011,48 @@ export default function ChatScreen() {
 
     const markAllAsRead = async (conversationId: string) => {
         if (!dbUserId) return;
+
         // Mark all messages from partner where readAt is null
-        await supabase.from('Message')
+        const { data: updatedMessages } = await supabase.from('Message')
             .update({ readAt: new Date().toISOString() })
             .eq('conversationId', conversationId)
             .neq('senderId', dbUserId)
-            .is('readAt', null);
+            .is('readAt', null)
+            .select('id');
+
+        // If retention is 'immediately', delete messages that have been read by both parties
+        if (messageRetention === 'immediately') {
+            // Find all messages where both parties have seen them
+            // A message is "seen by both" if:
+            // - It was sent by me AND partner has read it (readAt is set)
+            // - It was sent by partner AND I just read it (above update)
+            const { data: allMessages } = await supabase.from('Message')
+                .select('id, senderId, readAt')
+                .eq('conversationId', conversationId)
+                .not('readAt', 'is', null);
+
+            if (allMessages && allMessages.length > 0) {
+                const messageIds = allMessages.map(m => m.id);
+
+                // Delete these messages from DB
+                await supabase.from('Message')
+                    .delete()
+                    .in('id', messageIds);
+
+                // Remove from local state
+                setMessages(prev => prev.filter(m => !messageIds.includes(m.id)));
+            }
+        }
     };
 
     const sendMessage = async (type: 'text' | 'image' | 'video' | 'audio' | 'post' = 'text', content: string = inputText, mediaUrl: string | null = null) => {
         if (!content.trim() && type === 'text' && !mediaUrl) return;
+
+        // Check Trigger Warnings
+        if (type === 'text' && content) {
+            const proceed = await checkTriggerWarnings(content);
+            if (!proceed) return;
+        }
 
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
@@ -1097,24 +1152,40 @@ export default function ChatScreen() {
     };
 
     const handleBack = async () => {
-        // Trigger retention cleanup on exit using API (with auth)
-        if (activeConversationIdRef.current) {
+        // Direct Supabase retention cleanup on exit - no API call needed
+        if (activeConversationIdRef.current && dbUserId) {
             try {
                 const conversationId = activeConversationIdRef.current;
-                const { data: { session } } = await supabase.auth.getSession();
-                const token = session?.access_token;
 
-                // Call exit API to trigger cleanup
-                await fetch(
-                    `${API_URL}/api/chat/${conversationId}/exit`,
-                    {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`
-                        },
-                    }
-                );
+                // Record exit time
+                await supabase.from('ConversationState').upsert({
+                    conversationId,
+                    userId: dbUserId,
+                    lastExitedAt: new Date().toISOString()
+                }, { onConflict: 'conversationId,userId' });
+
+                // Get retention setting
+                const { data: conv } = await supabase
+                    .from('Conversation')
+                    .select('messageRetention')
+                    .eq('id', conversationId)
+                    .single();
+
+                // Handle retention cleanup
+                if (conv?.messageRetention === 'immediately') {
+                    // Delete read messages that are not saved
+                    await supabase.from('Message').delete()
+                        .eq('conversationId', conversationId)
+                        .eq('isSaved', false)
+                        .not('readAt', 'is', null);
+                } else if (conv?.messageRetention === '1day') {
+                    // Delete messages older than 24 hours (not saved)
+                    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+                    await supabase.from('Message').delete()
+                        .eq('conversationId', conversationId)
+                        .eq('isSaved', false)
+                        .lt('createdAt', cutoff);
+                }
             } catch (err) {
                 console.error('[Chat] Failed to cleanup on exit:', err);
             }
@@ -1143,26 +1214,13 @@ export default function ChatScreen() {
         ));
 
         try {
-            // Get session token for API auth
-            const { data: { session } } = await supabase.auth.getSession();
-            const token = session?.access_token;
+            // Direct Supabase update - no API call needed
+            const { error } = await supabase
+                .from('Message')
+                .update({ isSaved: newSavedState })
+                .eq('id', messageId);
 
-            const response = await fetch(
-                `${API_URL}/api/chat/${activeConversationIdRef.current}/messages`,
-                {
-                    method: 'PATCH',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({ messageId, isSaved: newSavedState }),
-                }
-            );
-
-            if (!response.ok) {
-                const errData = await response.json();
-                throw new Error(errData.error || 'Failed to save message');
-            }
+            if (error) throw error;
         } catch (err) {
             console.error('Error saving message:', err);
             // Revert optimistic update
@@ -1183,20 +1241,16 @@ export default function ChatScreen() {
         // Generate unique IDs for Supabase (unused API call)
 
         try {
-            const { data: { session } } = await supabase.auth.getSession();
-            const token = session?.access_token;
+            // Direct Supabase insert - no API call needed
+            const { error } = await supabase
+                .from('MessageTag')
+                .insert({
+                    messageId: selectedMessage.id,
+                    userId: dbUserId,
+                    tagType: tagType
+                });
 
-            // Persist to DB via API
-            const res = await fetch(`${getApiUrl()}/api/chat/tag`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ messageId: selectedMessage.id, tagType })
-            });
-
-            if (!res.ok) throw new Error('Failed to tag message');
+            if (error) throw error;
 
             // Optimistic Update for Tags (isSaved is handled by handleSaveMessage optimistic update)
             setMessages(prev => prev.map(m =>
@@ -1213,6 +1267,262 @@ export default function ChatScreen() {
         }
     };
 
+    // --- Trigger Functions ---
+    const fetchTriggerCollections = async () => {
+        if (!dbUserId) return;
+        const { data } = await supabase
+            .from('TriggerCollection')
+            .select('id, name, keyword')
+            .eq('userId', dbUserId)
+            .order('name');
+        if (data) setTriggerCollections(data);
+    };
+
+    const openTriggerModal = (msg: Message) => {
+        setTriggerMessage(msg);
+
+        let initialText = msg.content;
+        try {
+            // Handle JSON content (e.g. replies)
+            if (initialText && initialText.trim().startsWith('{')) {
+                const parsed = JSON.parse(initialText);
+                if (parsed && typeof parsed === 'object' && parsed.text) {
+                    initialText = parsed.text;
+                }
+            }
+        } catch (e) {
+            // Not JSON, keep original text
+        }
+
+        setTriggerSelectedText(initialText);
+        setSelectedCollectionId(null);
+        setNewCollectionName('');
+        setTriggerTargetUser('self');
+        setTriggerConditionType('keyword');
+        setTriggerWarningMessage('');
+        setSelectedKeywords([]); // Reset selected keywords
+        fetchTriggerCollections();
+        setShowTriggerModal(true);
+        setTaggingMessageId(null);
+    };
+
+    const generateId = () => {
+        return Date.now().toString(36) + Math.random().toString(36).substring(2, 10);
+    };
+
+    const saveTrigger = async () => {
+        if (!dbUserId || !triggerMessage || !triggerSelectedText.trim()) return;
+
+        try {
+            let collectionId = selectedCollectionId;
+            const now = new Date().toISOString();
+
+            // Create new collection if needed
+            if (!collectionId && newCollectionName.trim()) {
+                // Check if already exists to avoid 23505 duplicate error
+                const { data: existingColl } = await supabase
+                    .from('TriggerCollection')
+                    .select('id')
+                    .eq('userId', dbUserId)
+                    .eq('name', newCollectionName.trim())
+                    .maybeSingle();
+
+                if (existingColl) {
+                    collectionId = existingColl.id;
+                } else {
+                    const newId = generateId();
+                    const { data: newCollection, error: collError } = await supabase
+                        .from('TriggerCollection')
+                        .insert({
+                            id: newId,
+                            userId: dbUserId,
+                            name: newCollectionName.trim(),
+                            keyword: newCollectionName.trim().toLowerCase().replace(/\s+/g, '_'),
+                            createdAt: now,
+                            updatedAt: now
+                        })
+                        .select()
+                        .single();
+
+                    if (collError) throw collError;
+                    collectionId = newCollection.id;
+                }
+            }
+
+            if (!collectionId) {
+                showToast('Please select or create a collection', 'error');
+                return;
+            }
+
+            // Create trigger
+            let finalSelectedText = triggerSelectedText.trim();
+            if (triggerConditionType === 'keyword') {
+                if (selectedKeywords.length === 0) {
+                    showToast('Please select at least one keyword', 'error');
+                    return;
+                }
+                finalSelectedText = selectedKeywords.join(' ');
+            }
+
+            const triggerId = generateId();
+            const { error: triggerError } = await supabase
+                .from('Trigger')
+                .insert({
+                    id: triggerId,
+                    collectionId,
+                    messageId: triggerMessage.id,
+                    selectedText: finalSelectedText,
+                    targetUser: triggerTargetUser,
+                    conditionType: triggerConditionType,
+                    warningMessage: triggerWarningMessage.trim() || null,
+                    createdAt: now,
+                    updatedAt: now
+                });
+
+            if (triggerError) throw triggerError;
+
+            // Auto-save the message forever
+            await supabase.from('Message').update({ isSaved: true }).eq('id', triggerMessage.id);
+            setMessages(prev => prev.map(m => m.id === triggerMessage.id ? { ...m, isSaved: true } : m));
+
+            showToast('Trigger saved!', 'success');
+            setShowTriggerModal(false);
+        } catch (err) {
+            console.error('Error saving trigger:', err);
+            showToast('Failed to save trigger', 'error');
+        }
+    };
+
+
+
+    // Check Trigger Warnings
+
+
+    // Fetch all triggers for slash command
+    const fetchAllTriggers = async () => {
+        if (!dbUserId) return;
+        const { data } = await supabase
+            .from('Trigger')
+            .select(`
+                id, selectedText, conditionType, createdAt,
+                collection:TriggerCollection(id, name, keyword),
+                message:Message(id, senderId, createdAt)
+            `)
+            .eq('collection.userId', dbUserId)
+            .eq('isActive', true);
+        if (data) setAllTriggers(data);
+    };
+
+
+
+    // --- Message Edit & Delete Functions ---
+
+    const handleDeleteMessage = async (message: Message) => {
+        Alert.alert(
+            "Delete Message",
+            "Are you sure you want to delete this message completely?",
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Delete",
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            const { error } = await supabase.from('Message').delete().eq('id', message.id);
+                            if (error) throw error;
+                            await supabase.from('Trigger').delete().eq('messageId', message.id);
+                            await supabase.from('MessageTag').delete().eq('taggedContent', message.id);
+                            setMessages(prev => prev.filter(m => m.id !== message.id));
+                            showToast("Message deleted", "success");
+                            setTaggingMessageId(null);
+                        } catch (err) {
+                            console.error("Delete failed:", err);
+                            showToast("Failed to delete message", "error");
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
+    const handleStartEdit = (message: Message) => {
+        setEditingMessageId(message.id);
+        setInputText(message.content);
+        setTaggingMessageId(null);
+    };
+
+    const saveEditedMessage = async () => {
+        if (!editingMessageId || !inputText.trim()) return;
+        const previousContent = messages.find(m => m.id === editingMessageId)?.content;
+        try {
+            setMessages(prev => prev.map(m => m.id === editingMessageId ? { ...m, content: inputText, isEdited: true } : m));
+            const { error } = await supabase.from('Message').update({ content: inputText, isEdited: true, updatedAt: new Date().toISOString() }).eq('id', editingMessageId);
+            if (error) {
+                if (previousContent) setMessages(prev => prev.map(m => m.id === editingMessageId ? { ...m, content: previousContent } : m));
+                throw error;
+            }
+        } catch (err) {
+            console.error('Failed to save edited message:', err);
+            Alert.alert('Error', 'Failed to save changes');
+        }
+    };
+
+    // Check trigger warnings before sending
+    const checkTriggerWarnings = async (content: string): Promise<boolean> => {
+        if (!dbUserId || !selectedUser || selectedUser.id === 'dbot') return true;
+
+        try {
+            const { data: triggers } = await supabase
+                .from('Trigger')
+                .select(`
+                    id, selectedText, conditionType, warningMessage, targetUser,
+                    collection:TriggerCollection(id, userId, name, muteWarnings)
+                `)
+                .eq('isActive', true);
+
+            if (!triggers || triggers.length === 0) return true;
+
+            const myTriggers = triggers.filter((t: any) =>
+                t.collection?.userId === dbUserId &&
+                (t.targetUser === 'self' || t.targetUser === 'both')
+            );
+
+            const contentLower = content.toLowerCase();
+            const matchedTriggers: any[] = [];
+
+            for (const t of myTriggers) {
+                if (t.conditionType === 'exact_match') {
+                    if (content.trim() === t.selectedText) matchedTriggers.push(t);
+                } else { // keyword
+                    const words = t.selectedText.toLowerCase().split(/\s+/).filter((w: string) => w.length > 3);
+                    if (words.some((word: string) => contentLower.includes(word))) matchedTriggers.push(t);
+                }
+            }
+
+            if (matchedTriggers.length > 0) {
+                const firstMatch = matchedTriggers[0];
+                if (firstMatch.collection?.muteWarnings) {
+                    showToast(`Trigger detected in "${firstMatch.collection.name}" (Auto-sent)`, 'success');
+                    return true;
+                }
+
+                return new Promise((resolve) => {
+                    triggerResolveRef.current = resolve;
+                    setTriggerWarningData({
+                        warnings: matchedTriggers.map(t => t.warningMessage || `Matches "${t.selectedText}"`),
+                        collectionId: firstMatch.collection?.id,
+                        collectionName: firstMatch.collection?.name,
+                        resolve
+                    });
+                    setTriggerWarningModalVisible(true);
+                });
+            }
+            return true;
+        } catch (err) {
+            console.error(err);
+            return true;
+        }
+    };
 
     // Check for fact warnings before sending
     const checkFactWarnings = async (content: string): Promise<boolean> => {
@@ -1248,6 +1558,9 @@ export default function ChatScreen() {
             return true;
         }
     };
+
+    // Check trigger warnings before sending
+
 
     // Check all bonding content in real-time while typing
     const checkAllBondingContent = async (content: string) => {
@@ -1317,12 +1630,31 @@ export default function ChatScreen() {
     // Debounced input change handler
     const handleInputChange = (text: string) => {
         setInputText(text);
+
+        // Detect "/" slash command
+        if (text.startsWith('/')) {
+            const query = text.slice(1).toLowerCase();
+            setSlashSearchQuery(query);
+            fetchTriggerCollections();
+            fetchAllTriggers();
+            setShowSlashMenu(true);
+        } else {
+            setShowSlashMenu(false);
+        }
+
         // Check bonding content after a short delay
-        if (text.length >= 3) {
+        if (text.length >= 3 && !text.startsWith('/')) {
             checkAllBondingContent(text);
         } else {
             setShowBondingWarning(false);
         }
+    };
+
+    // Handle selecting a trigger from slash menu
+    const handleSlashSelect = (trigger: any) => {
+        const insertText = `"${trigger.selectedText}" - ${new Date(trigger.createdAt).toLocaleDateString()}`;
+        setInputText(insertText);
+        setShowSlashMenu(false);
     };
 
 
@@ -1332,7 +1664,7 @@ export default function ChatScreen() {
     const handlePickMedia = async (type: 'image' | 'video') => {
         try {
             const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: type === 'image' ? ImagePicker.MediaTypeOptions.Images : ImagePicker.MediaTypeOptions.Videos,
+                mediaTypes: type === 'image' ? ['images'] : ['videos'],
                 allowsEditing: true,
                 quality: 0.8,
                 videoMaxDuration: 60,
@@ -1716,6 +2048,10 @@ export default function ChatScreen() {
                             })} className="p-2 rounded-full bg-gray-200/20">
                                 <Heart size={20} color={colors.text} />
                             </TouchableOpacity>
+                            {/* Collaborative */}
+                            <TouchableOpacity onPress={() => setShowCollaborativeModal(true)} className="p-2 rounded-full bg-gray-200/20">
+                                <Users size={20} color={colors.text} />
+                            </TouchableOpacity>
                             {/* Chat Settings */}
                             <TouchableOpacity onPress={() => setShowChatSettings(true)} className="p-2 rounded-full bg-gray-200/20">
                                 <MoreVertical size={20} color={colors.text} />
@@ -1821,9 +2157,7 @@ export default function ChatScreen() {
                                                                     <TouchableOpacity onPress={() => handleSaveMessage(msg.id, msg.isSaved || false)} className="p-1 mb-1">
                                                                         <Bookmark size={16} color={msg.isSaved ? '#FFFFFF' : colors.secondary} fill={msg.isSaved ? '#FFFFFF' : 'transparent'} />
                                                                     </TouchableOpacity>
-                                                                    <TouchableOpacity onPress={() => setReplyTo({ id: msg.id, content: displayContent, sender: isMe ? 'You' : (nicknames[selectedUser.id] || selectedUser.name) })} className="p-1 mb-1">
-                                                                        <Reply size={16} color={colors.secondary} />
-                                                                    </TouchableOpacity>
+
                                                                 </View>
                                                             )}
 
@@ -1871,7 +2205,16 @@ export default function ChatScreen() {
                                                                             }}
                                                                         />
                                                                     ) : (
-                                                                        <Text className="text-sm" style={{ color: isMe ? (mode === 'light' ? '#FFFFFF' : '#000000') : (mode === 'light' ? '#000000' : '#FFFFFF') }}>{displayContent}</Text>
+                                                                        <View className="flex-row items-end flex-wrap">
+                                                                            <Text className="text-sm" style={{ color: isMe ? (mode === 'light' ? '#FFFFFF' : '#000000') : (mode === 'light' ? '#000000' : '#FFFFFF') }}>
+                                                                                {displayContent}
+                                                                            </Text>
+                                                                            {msg.isEdited && (
+                                                                                <Text style={{ fontSize: 9, color: isMe ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.5)', marginLeft: 4, marginBottom: 1 }}>
+                                                                                    (edited)
+                                                                                </Text>
+                                                                            )}
+                                                                        </View>
                                                                     )}
 
                                                                     {/* Time and Status Footer */}
@@ -1903,9 +2246,7 @@ export default function ChatScreen() {
                                                                     <TouchableOpacity onPress={() => handleSaveMessage(msg.id, msg.isSaved || false)} className="p-1 mb-1">
                                                                         <Bookmark size={16} color={msg.isSaved ? '#FFFFFF' : colors.secondary} fill={msg.isSaved ? '#FFFFFF' : 'transparent'} />
                                                                     </TouchableOpacity>
-                                                                    <TouchableOpacity onPress={() => setReplyTo({ id: msg.id, content: displayContent, sender: isMe ? 'You' : (nicknames[selectedUser.id] || selectedUser.name) })} className="p-1 mb-1">
-                                                                        <Reply size={16} color={colors.secondary} />
-                                                                    </TouchableOpacity>
+
                                                                 </View>
                                                             )}
 
@@ -1946,6 +2287,31 @@ export default function ChatScreen() {
                                                                         <Text className="text-xs font-bold text-black">{t}</Text>
                                                                     </TouchableOpacity>
                                                                 ))}
+
+                                                                <TouchableOpacity
+                                                                    onPress={() => openTriggerModal(msg)}
+                                                                    className="px-3 py-1.5 bg-orange-500 rounded-full flex-row items-center gap-1"
+                                                                >
+                                                                    <AlertTriangle size={12} color="#FFFFFF" />
+                                                                    <Text className="text-xs font-bold text-white">Trigger</Text>
+                                                                </TouchableOpacity>
+
+                                                                {/* Edit Button */}
+                                                                <TouchableOpacity
+                                                                    onPress={() => handleStartEdit(msg)}
+                                                                    className="px-3 py-1.5 bg-zinc-700 rounded-full flex-row items-center gap-1 border border-zinc-600"
+                                                                >
+                                                                    <Text className="text-xs font-bold text-white">Edit</Text>
+                                                                </TouchableOpacity>
+
+                                                                {/* Delete Button */}
+                                                                <TouchableOpacity
+                                                                    onPress={() => handleDeleteMessage(msg)}
+                                                                    className="px-3 py-1.5 bg-red-500/20 rounded-full flex-row items-center gap-1 border border-red-500/50"
+                                                                >
+                                                                    <Trash2 size={12} color="#ef4444" />
+                                                                    <Text className="text-xs font-bold text-red-500">Delete</Text>
+                                                                </TouchableOpacity>
                                                             </ScrollView>
                                                         ) : (
                                                             /* INPUT MODE */
@@ -1978,7 +2344,8 @@ export default function ChatScreen() {
                                                             </View>
                                                         )}
                                                     </View>
-                                                )}
+                                                )
+                                                }
                                             </View>
                                         );
                                     })}
@@ -2034,6 +2401,60 @@ export default function ChatScreen() {
                                 </BlurView>
                             ) : (
                                 <BlurView intensity={90} tint={mode === 'light' ? 'light' : 'dark'} className="px-4 py-3 border-t" style={{ borderColor: colors.border }}>
+                                    {/* Slash Command Menu */}
+                                    {showSlashMenu && (
+                                        <View className="mb-3 p-3 rounded-xl" style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}>
+                                            <View className="flex-row items-center justify-between mb-2">
+                                                <Text className="font-bold" style={{ color: colors.text }}>Trigger Collections</Text>
+                                                <TouchableOpacity onPress={() => setShowSlashMenu(false)}>
+                                                    <X size={16} color={colors.secondary} />
+                                                </TouchableOpacity>
+                                            </View>
+                                            <ScrollView style={{ maxHeight: 200 }}>
+                                                {triggerCollections.filter(c =>
+                                                    !slashSearchQuery || c.name.toLowerCase().includes(slashSearchQuery) || c.keyword?.toLowerCase().includes(slashSearchQuery)
+                                                ).map(c => (
+                                                    <TouchableOpacity
+                                                        key={c.id}
+                                                        className="py-2 border-b"
+                                                        style={{ borderColor: colors.border }}
+                                                        onPress={() => {
+                                                            // Show triggers in this collection
+                                                            const collTriggers = allTriggers.filter((t: any) => t.collection?.id === c.id);
+                                                            if (collTriggers.length > 0) {
+                                                                handleSlashSelect(collTriggers[0]);
+                                                            }
+                                                        }}
+                                                    >
+                                                        <Text className="font-semibold" style={{ color: colors.text }}>/{c.keyword || c.name}</Text>
+                                                        <Text className="text-xs" style={{ color: colors.secondary }}>{c.name}</Text>
+                                                    </TouchableOpacity>
+                                                ))}
+                                                {allTriggers.filter((t: any) =>
+                                                    !slashSearchQuery || t.selectedText.toLowerCase().includes(slashSearchQuery)
+                                                ).slice(0, 5).map((trigger: any) => (
+                                                    <TouchableOpacity
+                                                        key={trigger.id}
+                                                        className="py-2 border-b"
+                                                        style={{ borderColor: colors.border }}
+                                                        onPress={() => handleSlashSelect(trigger)}
+                                                    >
+                                                        <Text className="text-sm" style={{ color: colors.text }} numberOfLines={1}>
+                                                            {trigger.selectedText}
+                                                        </Text>
+                                                        <Text className="text-xs" style={{ color: colors.secondary }}>
+                                                            {trigger.collection?.name} - {new Date(trigger.createdAt).toLocaleDateString()}
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                ))}
+                                                {triggerCollections.length === 0 && allTriggers.length === 0 && (
+                                                    <Text className="py-4 text-center" style={{ color: colors.secondary }}>
+                                                        No triggers yet. Create one from a message.
+                                                    </Text>
+                                                )}
+                                            </ScrollView>
+                                        </View>
+                                    )}
                                     <View className="flex-row items-center gap-2">
                                         {/* Media button */}
                                         <TouchableOpacity className="p-2" onPress={() => {
@@ -2052,18 +2473,40 @@ export default function ChatScreen() {
                                         </TouchableOpacity>
 
                                         <TextInput
-                                            placeholder="Type a message..."
+                                            placeholder={editingMessageId ? "Edit message..." : "Type a message..."}
                                             placeholderTextColor={colors.secondary}
                                             value={inputText}
                                             onChangeText={handleInputChange}
                                             className="flex-1 h-12 px-4 rounded-full border"
-                                            style={{ backgroundColor: colors.card, borderColor: colors.border, color: colors.text }}
-                                            onSubmitEditing={() => sendMessage()}
+                                            style={{
+                                                backgroundColor: editingMessageId ? '#fefce8' : colors.card,
+                                                borderColor: editingMessageId ? '#facc15' : colors.border,
+                                                color: colors.text
+                                            }}
+                                            onSubmitEditing={() => editingMessageId ? saveEditedMessage() : sendMessage()}
                                             returnKeyType="send"
                                         />
-                                        <TouchableOpacity onPress={() => sendMessage()} className="w-12 h-12 rounded-full items-center justify-center shadow-lg" style={{ backgroundColor: colors.primary }}>
-                                            <Send color={mode === 'light' ? '#fff' : '#000'} size={20} />
+                                        <TouchableOpacity
+                                            onPress={() => editingMessageId ? saveEditedMessage() : sendMessage()}
+                                            className="w-12 h-12 rounded-full items-center justify-center shadow-lg"
+                                            style={{ backgroundColor: editingMessageId ? '#eab308' : colors.primary }}
+                                        >
+                                            {editingMessageId ? (
+                                                <CheckCheck color={mode === 'light' ? '#fff' : '#000'} size={20} />
+                                            ) : (
+                                                <Send color={mode === 'light' ? '#fff' : '#000'} size={20} />
+                                            )}
                                         </TouchableOpacity>
+
+                                        {/* Cancel Edit Button */}
+                                        {editingMessageId && (
+                                            <TouchableOpacity
+                                                onPress={() => { setEditingMessageId(null); setInputText(''); }}
+                                                className="ml-2 w-10 h-10 rounded-full items-center justify-center bg-zinc-700"
+                                            >
+                                                <X color="#fff" size={16} />
+                                            </TouchableOpacity>
+                                        )}
                                     </View>
                                 </BlurView>
                             )}
@@ -2233,49 +2676,32 @@ export default function ChatScreen() {
         console.log('[ChatSettings] Saving settings, retention:', messageRetention, 'conversationId:', conversationId);
 
         try {
-            // Get session token for API auth
-            const { data: { session } } = await supabase.auth.getSession();
-            const token = session?.access_token;
+            // Direct Supabase update for retention setting
+            const { error: retentionError } = await supabase
+                .from('Conversation')
+                .update({ messageRetention })
+                .eq('id', conversationId);
 
-            // Update retention setting via API (syncs for both users)
-            const retentionResponse = await fetch(
-                `${API_URL}/api/chat/retention`,
-                {
-                    method: 'PATCH',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({ conversationId, messageRetention }),
-                }
-            );
-
-            if (!retentionResponse.ok) {
-                const errData = await retentionResponse.json();
-                console.error('[ChatSettings] Retention update error:', errData);
-                throw new Error(errData.error || 'Failed to update retention');
-            }
+            if (retentionError) throw retentionError;
 
             console.log('[ChatSettings] Retention setting updated to:', messageRetention);
 
-            // Trigger message deletion via API
-            const deleteResponse = await fetch(
-                `${API_URL}/api/chat/${conversationId}/messages?retention=${messageRetention}`,
-                {
-                    method: 'DELETE',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                }
-            );
-
-            if (!deleteResponse.ok) {
-                const errData = await deleteResponse.json();
-                console.error('[ChatSettings] Delete messages error:', errData);
-            } else {
-                const result = await deleteResponse.json();
-                console.log('[ChatSettings] Deleted messages:', result.deletedCount || 0);
+            // Trigger message deletion based on retention setting
+            if (messageRetention === 'immediately') {
+                // Delete read messages that are not saved
+                const { error: deleteError } = await supabase.from('Message').delete()
+                    .eq('conversationId', conversationId)
+                    .eq('isSaved', false)
+                    .not('readAt', 'is', null);
+                if (deleteError) console.error('[ChatSettings] Delete error:', deleteError);
+            } else if (messageRetention === '1day') {
+                // Delete messages older than 24 hours (not saved)
+                const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+                const { error: deleteError } = await supabase.from('Message').delete()
+                    .eq('conversationId', conversationId)
+                    .eq('isSaved', false)
+                    .lt('createdAt', cutoff);
+                if (deleteError) console.error('[ChatSettings] Delete error:', deleteError);
             }
 
             // Refresh messages to show updated list
@@ -2733,16 +3159,258 @@ export default function ChatScreen() {
                         </BlurView>
                     </TouchableOpacity>
                 </Modal>
-            </SafeAreaView>
 
-            {/* Toast Notification */}
-            {toastMessage && (
-                <CustomToast
-                    message={toastMessage}
-                    type={toastType}
-                    onHide={() => setToastMessage(null)}
+
+                {/* Toast Notification */}
+                {toastMessage && (
+                    <CustomToast
+                        message={toastMessage}
+                        type={toastType}
+                        onHide={() => setToastMessage(null)}
+                    />
+                )}
+
+                {/* Trigger Modal */}
+                <Modal visible={showTriggerModal} transparent animationType="slide">
+                    <View className="flex-1 justify-end bg-black/50">
+                        <BlurView intensity={90} tint={mode === 'light' ? 'light' : 'dark'} className="rounded-t-3xl overflow-hidden">
+                            <ScrollView className="p-6">
+                                <View className="flex-row items-center justify-between mb-4">
+                                    <Text className="text-xl font-bold" style={{ color: colors.text }}>Create Trigger</Text>
+                                    <TouchableOpacity onPress={() => setShowTriggerModal(false)}>
+                                        <X size={24} color={colors.text} />
+                                    </TouchableOpacity>
+                                </View>
+
+                                {/* Selected Text */}
+                                <Text className="text-sm mb-1" style={{ color: colors.secondary }}>Message to trigger on:</Text>
+                                <TextInput
+                                    value={triggerSelectedText}
+                                    onChangeText={setTriggerSelectedText}
+                                    multiline
+                                    className="p-3 rounded-xl mb-4"
+                                    style={{ backgroundColor: colors.card, color: colors.text, borderWidth: 1, borderColor: colors.border, minHeight: 60 }}
+                                />
+
+                                {/* Keyword Selection */}
+                                {triggerConditionType === 'keyword' && (
+                                    <View className="mb-4">
+                                        <Text className="text-sm mb-2" style={{ color: colors.secondary }}>Select keywords to trigger on:</Text>
+                                        <View className="flex-row flex-wrap gap-2">
+                                            {triggerSelectedText.split(/\s+/).filter(w => w.length > 0).map((word, index) => {
+                                                const isSelected = selectedKeywords.includes(word);
+                                                return (
+                                                    <TouchableOpacity
+                                                        key={`${word}-${index}`}
+                                                        onPress={() => {
+                                                            if (isSelected) {
+                                                                setSelectedKeywords(prev => prev.filter(w => w !== word));
+                                                            } else {
+                                                                setSelectedKeywords(prev => [...prev, word]);
+                                                            }
+                                                        }}
+                                                        className="px-3 py-2 rounded-lg border"
+                                                        style={{
+                                                            backgroundColor: isSelected ? colors.text : 'transparent',
+                                                            borderColor: colors.border
+                                                        }}
+                                                    >
+                                                        <Text style={{ color: isSelected ? colors.background : colors.text }}>{word}</Text>
+                                                    </TouchableOpacity>
+                                                );
+                                            })}
+                                        </View>
+                                    </View>
+                                )}
+
+                                {/* Collection Selection */}
+                                <Text className="text-sm mb-2" style={{ color: colors.secondary }}>Collection:</Text>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-3">
+                                    {triggerCollections.map(c => (
+                                        <TouchableOpacity
+                                            key={c.id}
+                                            onPress={() => { setSelectedCollectionId(c.id); setNewCollectionName(''); }}
+                                            className="px-3 py-2 rounded-full mr-2 border"
+                                            style={{
+                                                backgroundColor: selectedCollectionId === c.id ? colors.text : 'transparent',
+                                                borderColor: colors.border
+                                            }}
+                                        >
+                                            <Text style={{ color: selectedCollectionId === c.id ? colors.background : colors.text }}>{c.name}</Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                    <TouchableOpacity
+                                        onPress={() => setSelectedCollectionId(null)}
+                                        className="px-3 py-2 rounded-full border"
+                                        style={{
+                                            backgroundColor: !selectedCollectionId ? colors.text : 'transparent',
+                                            borderColor: colors.border
+                                        }}
+                                    >
+                                        <Text style={{ color: !selectedCollectionId ? colors.background : colors.text }}>+ New</Text>
+                                    </TouchableOpacity>
+                                </ScrollView>
+
+                                {!selectedCollectionId && (
+                                    <TextInput
+                                        value={newCollectionName}
+                                        onChangeText={setNewCollectionName}
+                                        placeholder="New collection name..."
+                                        placeholderTextColor={colors.secondary}
+                                        className="p-3 rounded-xl mb-4 border"
+                                        style={{ backgroundColor: colors.card, color: colors.text, borderColor: colors.border }}
+                                    />
+                                )}
+
+                                {/* Target User */}
+                                <Text className="text-sm mb-2" style={{ color: colors.secondary }}>Warn when typed by:</Text>
+                                <View className="flex-row gap-2 mb-4">
+                                    {(['self', 'other', 'both'] as const).map(t => (
+                                        <TouchableOpacity
+                                            key={t}
+                                            onPress={() => setTriggerTargetUser(t)}
+                                            className="px-4 py-2 rounded-full border"
+                                            style={{
+                                                backgroundColor: triggerTargetUser === t ? colors.text : 'transparent',
+                                                borderColor: colors.border
+                                            }}
+                                        >
+                                            <Text style={{ color: triggerTargetUser === t ? colors.background : colors.text }}>
+                                                {t === 'self' ? 'Me' : t === 'other' ? 'Them' : 'Both'}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+
+                                {/* Condition Type */}
+                                <Text className="text-sm mb-2" style={{ color: colors.secondary }}>Trigger condition:</Text>
+                                <View className="flex-row gap-2 mb-4">
+                                    <TouchableOpacity
+                                        onPress={() => setTriggerConditionType('keyword')}
+                                        className="px-4 py-2 rounded-full border"
+                                        style={{
+                                            backgroundColor: triggerConditionType === 'keyword' ? colors.text : 'transparent',
+                                            borderColor: colors.border
+                                        }}
+                                    >
+                                        <Text style={{ color: triggerConditionType === 'keyword' ? colors.background : colors.text }}>Contains keywords</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        onPress={() => setTriggerConditionType('exact_match')}
+                                        className="px-4 py-2 rounded-full border"
+                                        style={{
+                                            backgroundColor: triggerConditionType === 'exact_match' ? colors.text : 'transparent',
+                                            borderColor: colors.border
+                                        }}
+                                    >
+                                        <Text style={{ color: triggerConditionType === 'exact_match' ? colors.background : colors.text }}>Exact match</Text>
+                                    </TouchableOpacity>
+                                </View>
+
+                                {/* Warning Message */}
+                                <Text className="text-sm mb-1" style={{ color: colors.secondary }}>Warning message (optional):</Text>
+                                <TextInput
+                                    value={triggerWarningMessage}
+                                    onChangeText={setTriggerWarningMessage}
+                                    placeholder="e.g., Think before sending this..."
+                                    placeholderTextColor={colors.secondary}
+                                    className="p-3 rounded-xl mb-4 border"
+                                    style={{ backgroundColor: colors.card, color: colors.text, borderColor: colors.border }}
+                                />
+
+                                {/* Save Button */}
+                                <TouchableOpacity
+                                    onPress={saveTrigger}
+                                    className="bg-white p-4 rounded-xl items-center mt-2"
+                                >
+                                    <Text className="font-bold text-black">Save Trigger</Text>
+                                </TouchableOpacity>
+                            </ScrollView>
+
+                        </BlurView>
+                    </View>
+                </Modal >
+
+                {/* Custom Trigger Warning Modal */}
+
+                <Modal
+                    visible={triggerWarningModalVisible}
+                    transparent={true}
+                    animationType="fade"
+                    onRequestClose={() => {
+                        if (triggerResolveRef.current) triggerResolveRef.current(false);
+                        setTriggerWarningModalVisible(false);
+                    }
+                    }
+                >
+                    <View className="flex-1 justify-center items-center bg-black/80 px-4">
+                        <View className="w-full bg-zinc-900 rounded-2xl p-6 border border-zinc-700">
+                            <View className="flex-row items-center gap-2 mb-4">
+                                <AlertTriangle size={24} color="#f59e0b" />
+                                <Text className="text-xl font-bold text-white">Trigger Warning</Text>
+                            </View>
+
+                            <Text className="text-zinc-400 mb-4">
+                                This message contains triggers from collection <Text className="font-bold text-white">"{triggerWarningData?.collectionName}"</Text>:
+                            </Text>
+
+                            <View className="bg-zinc-800 p-4 rounded-xl mb-6">
+                                {triggerWarningData?.warnings.map((w, i) => (
+                                    <Text key={i} className="text-white font-medium mb-1">• {w}</Text>
+                                ))}
+                            </View>
+
+                            <TouchableOpacity
+                                onPress={async () => {
+                                    if (triggerWarningData?.collectionId) {
+                                        await supabase.from('TriggerCollection').update({ muteWarnings: true }).eq('id', triggerWarningData.collectionId);
+                                        showToast("Warnings muted for this collection", "success");
+                                        if (triggerResolveRef.current) triggerResolveRef.current(true);
+                                        setTriggerWarningModalVisible(false);
+                                    }
+                                }}
+                                className="flex-row items-center justify-center p-3 rounded-xl border border-zinc-600 mb-3"
+                            >
+                                <Text className="text-zinc-300 font-medium">Always allow for "{triggerWarningData?.collectionName}"</Text>
+                            </TouchableOpacity>
+
+                            <View className="flex-row gap-3">
+                                <TouchableOpacity
+                                    onPress={() => {
+                                        if (triggerResolveRef.current) triggerResolveRef.current(false);
+                                        setTriggerWarningModalVisible(false);
+                                    }}
+                                    className="flex-1 bg-zinc-800 p-3 rounded-xl items-center border border-zinc-700"
+                                >
+                                    <Text className="text-white font-bold">Cancel</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    onPress={() => {
+                                        if (triggerResolveRef.current) triggerResolveRef.current(true);
+                                        setTriggerWarningModalVisible(false);
+                                    }}
+                                    className="flex-1 bg-red-600 p-3 rounded-xl items-center"
+                                >
+                                    <Text className="text-white font-bold">Send Anyway</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </View>
+                </Modal>
+
+                {/* Collaborative Modal */}
+                <CollaborativeModal
+                    visible={showCollaborativeModal}
+                    onClose={() => setShowCollaborativeModal(false)}
+                    partnerId={selectedUser?.id}
+                    partnerName={selectedUser?.name}
                 />
-            )}
-        </View>
+            </SafeAreaView>
+        </View >
     );
-}
+};
+
+
+
+
+

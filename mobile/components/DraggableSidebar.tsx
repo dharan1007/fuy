@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { View, TouchableOpacity, Animated, PanResponder, Dimensions, StyleSheet } from 'react-native';
-import { LayoutDashboard, Check } from 'lucide-react-native';
+import { LayoutDashboard, Check, PenTool } from 'lucide-react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useRouter } from 'expo-router';
 
@@ -85,6 +85,13 @@ export default function DraggableSidebar() {
                     style={[styles.circleButton, { backgroundColor: colors.card, borderColor: colors.border, marginTop: 8 }]}
                 >
                     <Check color={colors.text} size={16} />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    onPress={() => !isDragging && router.push('/canvas')}
+                    style={[styles.circleButton, { backgroundColor: colors.card, borderColor: colors.border, marginTop: 8 }]}
+                >
+                    <PenTool color={colors.text} size={16} />
                 </TouchableOpacity>
             </View>
         </Animated.View>

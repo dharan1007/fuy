@@ -7,7 +7,7 @@ export async function POST(req: Request) {
     try {
         const userId = await requireUserId();
         const body = await req.json();
-        const { id, content, blocks, mood, tags, sensations } = body;
+        const { id, content, blocks, mood, tags, sensations, visibility } = body;
 
         let entry;
         if (id) {
@@ -20,6 +20,7 @@ export async function POST(req: Request) {
                     mood,
                     tags: tags ? JSON.stringify(tags) : undefined,
                     sensations: sensations ? JSON.stringify(sensations) : undefined,
+                    visibility: visibility || undefined,
                 },
             });
         } else {
@@ -32,6 +33,7 @@ export async function POST(req: Request) {
                     mood,
                     tags: tags ? JSON.stringify(tags) : undefined,
                     sensations: sensations ? JSON.stringify(sensations) : undefined,
+                    visibility: visibility || "PRIVATE",
                 },
             });
         }

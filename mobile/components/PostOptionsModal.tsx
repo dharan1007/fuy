@@ -1,11 +1,13 @@
+
 import React from 'react';
 import { View, Text, TouchableOpacity, Modal, StyleSheet, Alert, Share, Dimensions, TextInput } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { Copy, Flag, Ban, Trash, X, Share as ShareIcon, EyeOff, VolumeX, Ghost, PauseCircle } from 'lucide-react-native';
+import { Copy, Flag, Ban, Trash, X, Share as ShareIcon, EyeOff, VolumeX, Ghost, PauseCircle, Slash } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import SlashesModal from './SlashesModal';
 
 const { width } = Dimensions.get('window');
 
@@ -17,6 +19,7 @@ interface PostOptionsModalProps {
         user: { id: string; name: string };
         content?: string;
         postType?: string;
+        slashes?: string[]; // Added slashes property
     } | null;
     onReport?: () => void;
     onDelete?: () => void;
@@ -30,6 +33,7 @@ export default function PostOptionsModal({ visible, onClose, post, onReport, onD
     const [reportReason, setReportReason] = React.useState<string | null>(null);
     const [reportDetails, setReportDetails] = React.useState('');
     const [submitting, setSubmitting] = React.useState(false);
+    const [slashesModalVisible, setSlashesModalVisible] = React.useState(false); // Added state for SlashesModal
 
     // Reset state when opening
     React.useEffect(() => {
@@ -38,6 +42,7 @@ export default function PostOptionsModal({ visible, onClose, post, onReport, onD
             setReportReason(null);
             setReportDetails('');
             setSubmitting(false);
+            setSlashesModalVisible(false); // Reset SlashesModal visibility
         }
     }, [visible]);
 
@@ -340,10 +345,16 @@ export default function PostOptionsModal({ visible, onClose, post, onReport, onD
                             )}
 
                             {isOwner && (
-                                <TouchableOpacity style={[styles.optionItem, { backgroundColor: '#fee2e2' }]} onPress={handleDelete}>
-                                    <Trash size={24} color="#ef4444" />
-                                    <Text style={[styles.optionLabel, { color: '#ef4444' }]}>Delete</Text>
-                                </TouchableOpacity>
+                                <>
+                                    <TouchableOpacity style={[styles.optionItem, { backgroundColor: mode === 'light' ? '#f5f5f5' : '#1a1a1a' }]} onPress={() => setSlashesModalVisible(true)}>
+                                        <Slash size={24} color={colors.text} />
+                                        <Text style={[styles.optionLabel, { color: colors.text }]}>Slashes</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={[styles.optionItem, { backgroundColor: '#fee2e2' }]} onPress={handleDelete}>
+                                        <Trash size={24} color="#ef4444" />
+                                        <Text style={[styles.optionLabel, { color: '#ef4444' }]}>Delete</Text>
+                                    </TouchableOpacity>
+                                </>
                             )}
                         </View>
 

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, FlatList, TouchableOpacity, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Search as SearchIcon, ChevronLeft, X, User, Hash, FileText } from 'lucide-react-native';
+import { Search as SearchIcon, ChevronLeft, X, User, Slash, FileText } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../context/ThemeContext';
@@ -39,7 +39,7 @@ export default function SearchScreen() {
 
     const getIcon = (type: ResultType) => {
         if (type === 'user') return <User size={18} color={colors.secondary} />;
-        if (type === 'tag') return <Hash size={18} color={colors.secondary} />;
+        if (type === 'tag') return <Slash size={18} color={colors.secondary} />;
         return <FileText size={18} color={colors.secondary} />;
     };
 

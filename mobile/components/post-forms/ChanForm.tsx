@@ -4,11 +4,13 @@ import * as ImagePicker from 'expo-image-picker';
 import { Video, ResizeMode } from 'expo-av';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import { ArrowLeft, Globe, Users, Lock, Tv, X, Image as ImageIcon } from 'lucide-react-native';
+import { ArrowLeft, Globe, Users, Lock, Tv, X, Image as ImageIcon, Slash, Plus } from 'lucide-react-native';
 import { MediaUploadService } from '../../services/MediaUploadService';
 import { supabase } from '../../lib/supabase';
+import SuccessOverlay from '../SuccessOverlay';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org';
+const EPISODE_MAX_DURATION = 600; // 10 minutes for episodes
 
 interface ChanFormProps {
     onBack: () => void;
@@ -27,22 +29,31 @@ export default function ChanForm({ onBack }: ChanFormProps) {
     const [isLive, setIsLive] = useState(false);
     const [loading, setLoading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
+    const [showSuccess, setShowSuccess] = useState(false);
+    const [slashes, setSlashes] = useState<string[]>([]);
+    const [slashInput, setSlashInput] = useState('');
 
     const pickVideo = async () => {
         const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-            allowsEditing: false,
+            mediaTypes: ['videos'],
+            allowsEditing: true,
             quality: 0.8,
+            videoMaxDuration: EPISODE_MAX_DURATION,
         });
 
         if (!result.canceled && result.assets[0]) {
-            setVideo(result.assets[0]);
+            const asset = result.assets[0];
+            if (asset.duration && asset.duration > EPISODE_MAX_DURATION * 1000) {
+                Alert.alert('Too Long', `Maximum ${EPISODE_MAX_DURATION} seconds allowed`);
+                return;
+            }
+            setVideo(asset);
         }
     };
 
-    const pickCover = async () => {
+    const handlePickCover = async () => {
         const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            mediaTypes: ['images'],
             allowsEditing: true,
             aspect: [16, 9],
             quality: 0.8,
@@ -97,9 +108,26 @@ export default function ChanForm({ onBack }: ChanFormProps) {
 
             setUploadProgress(85);
 
+            const headers: Record<string, string> = {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Referer': 'https://www.fuymedia.org/',
+                'Origin': 'https://www.fuymedia.org',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Sec-Fetch-Dest': 'empty',
+                'Sec-Fetch-Mode': 'cors',
+                'Sec-Fetch-Site': 'same-origin',
+                'X-Requested-With': 'XMLHttpRequest'
+            };
+
+            if (session?.access_token) {
+                headers['Authorization'] = `Bearer ${session.access_token}`;
+            }
+
             const response = await fetch(`${API_URL}/api/posts/create`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 body: JSON.stringify({
                     userId: userData.id,
                     postType: 'CHAN',
@@ -118,6 +146,7 @@ export default function ChanForm({ onBack }: ChanFormProps) {
                     mediaUrls: coverUrl ? [uploadResult.url, coverUrl] : [uploadResult.url],
                     mediaTypes: coverUrl ? ['VIDEO', 'IMAGE'] : ['VIDEO'],
                     mediaVariants: coverUrl ? ['standard', 'thumbnail'] : ['standard'],
+                    slashes: slashes.filter(s => s.trim()),
                 }),
             });
 
@@ -128,7 +157,8 @@ export default function ChanForm({ onBack }: ChanFormProps) {
                 throw new Error(errData.error || 'Failed to create Chan');
             }
 
-            Alert.alert('Success', 'Episode posted!', [{ text: 'OK', onPress: onBack }]);
+            // Alert.alert('Success', 'Episode posted!', [{ text: 'OK', onPress: onBack }]);
+            setShowSuccess(true);
         } catch (error: any) {
             Alert.alert('Error', error.message);
         } finally {
@@ -218,7 +248,7 @@ export default function ChanForm({ onBack }: ChanFormProps) {
                     </View>
                 ) : (
                     <TouchableOpacity
-                        onPress={pickCover}
+                        onPress={handlePickCover}
                         style={{
                             aspectRatio: 16 / 9,
                             backgroundColor: isDark ? '#1a1a1a' : '#f5f5f5',
@@ -335,6 +365,33 @@ export default function ChanForm({ onBack }: ChanFormProps) {
                 </View>
             </View>
 
+            {/* Slashes */}
+            <View className="mb-6">
+                <Text style={{ color: colors.secondary, marginBottom: 8, fontWeight: '600' }}>Slashes</Text>
+                <View className="flex-row items-center mb-3">
+                    <View className="flex-row items-center flex-1 rounded-xl p-2" style={{ backgroundColor: isDark ? '#1a1a1a' : '#f5f5f5', borderWidth: 1, borderColor: colors.border }}>
+                        <Slash size={16} color={colors.secondary} />
+                        <TextInput value={slashInput} onChangeText={setSlashInput} placeholder="Add a slash tag..." placeholderTextColor={colors.secondary} style={{ flex: 1, color: colors.text, paddingVertical: 10, paddingHorizontal: 8, fontSize: 14 }} onSubmitEditing={() => { if (slashInput.trim() && !slashes.includes(slashInput.trim().toLowerCase())) { setSlashes([...slashes, slashInput.trim().toLowerCase()]); setSlashInput(''); } }} returnKeyType="done" />
+                        <TouchableOpacity onPress={() => { if (slashInput.trim() && !slashes.includes(slashInput.trim().toLowerCase())) { setSlashes([...slashes, slashInput.trim().toLowerCase()]); setSlashInput(''); } }} style={{ padding: 8 }}>
+                            <Plus size={18} color={colors.secondary} />
+                        </TouchableOpacity>
+                    </View>
+                </View>
+                {slashes.length > 0 && (
+                    <View className="flex-row flex-wrap gap-2">
+                        {slashes.map((slash, idx) => (
+                            <View key={idx} className="flex-row items-center rounded-full px-3 py-1" style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : '#e5e5e5' }}>
+                                <Text style={{ color: colors.secondary, fontSize: 12, marginRight: 4 }}>/</Text>
+                                <Text style={{ color: colors.text, fontSize: 12, fontWeight: '600' }}>{slash}</Text>
+                                <TouchableOpacity onPress={() => setSlashes(slashes.filter((_, i) => i !== idx))} style={{ marginLeft: 8 }}>
+                                    <X size={12} color={colors.secondary} />
+                                </TouchableOpacity>
+                            </View>
+                        ))}
+                    </View>
+                )}
+            </View>
+
             {/* Progress */}
             {loading && (
                 <View className="mb-4">
@@ -366,6 +423,12 @@ export default function ChanForm({ onBack }: ChanFormProps) {
                     <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 18 }}>Post Episode</Text>
                 )}
             </TouchableOpacity>
-        </ScrollView>
+
+            <SuccessOverlay
+                visible={showSuccess}
+                message="Episode Posted!"
+                onFinish={onBack}
+            />
+        </ScrollView >
     );
 }

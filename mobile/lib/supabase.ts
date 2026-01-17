@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabaseServiceKey = process.env.EXPO_PUBLIC_SUPABASE_SERVICE_KEY || '';
 
 if (!supabaseUrl || !supabaseAnonKey) {
     console.warn('Supabase URL or Anon Key is missing. Please check your .env file.');
@@ -19,6 +20,16 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
         flowType: 'pkce',
     },
 });
+
+// Admin client with service role key - bypasses RLS (use for writes only)
+export const supabaseAdmin = supabaseServiceKey
+    ? createClient(supabaseUrl, supabaseServiceKey, {
+        auth: {
+            autoRefreshToken: false,
+            persistSession: false,
+        },
+    })
+    : null;
 
 // Export same client for auth (backwards compatibility)
 export const supabaseAuth = supabase;

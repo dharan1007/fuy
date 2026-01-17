@@ -48,7 +48,18 @@ export class MediaUploadService {
 
             // Get Supabase session for authentication
             const { data: { session } } = await supabase.auth.getSession();
-            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+            const headers: Record<string, string> = {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Referer': 'https://www.fuymedia.org/',
+                'Origin': 'https://www.fuymedia.org',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Sec-Fetch-Dest': 'empty',
+                'Sec-Fetch-Mode': 'cors',
+                'Sec-Fetch-Site': 'same-origin',
+                'X-Requested-With': 'XMLHttpRequest'
+            };
             if (session?.access_token) {
                 headers['Authorization'] = `Bearer ${session.access_token}`;
             }
@@ -72,16 +83,26 @@ export class MediaUploadService {
 
             if (!presignedRes.ok) {
                 const errText = await presignedRes.text();
-                console.error(`[MediaUpload] API Error: ${presignedRes.status} - ${errText}`);
+                console.error(`[MediaUpload] API Error: ${presignedRes.status}`, errText.slice(0, 500));
+
                 try {
                     const errJson = JSON.parse(errText);
                     throw new Error(errJson.error || 'Failed to get upload URL');
-                } catch (e) {
-                    throw new Error(`Failed to get upload URL: ${errText}`);
+                } catch (jsonErr) {
+                    if (errText.trim().startsWith('<')) {
+                        throw new Error(`Upload blocked (Firewall/429). Status: ${presignedRes.status}`);
+                    }
+                    throw new Error(`Failed to get upload URL: ${errText.substring(0, 100)}`);
                 }
             }
 
-            const { signedUrl, publicUrl } = await presignedRes.json();
+            const textBody = await presignedRes.text();
+            if (textBody.trim().startsWith('<')) {
+                console.error(`[MediaUpload] Received HTML instead of JSON:`, textBody.slice(0, 500));
+                throw new Error(`Upload blocked (Firewall). Status: ${presignedRes.status}`);
+            }
+
+            const { signedUrl, publicUrl } = JSON.parse(textBody);
             // 3. Upload directly to R2 using FileSystem.uploadAsync (Native, prevents OOM)
             console.log(`[MediaUpload] 3. Uploading to R2 via FileSystem...`);
 

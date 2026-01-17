@@ -19,7 +19,8 @@
         "NSCameraUsageDescription": "FUY needs access to your camera to take photos and videos for posts.",
         "NSMicrophoneUsageDescription": "FUY needs access to your microphone to record audio and video.",
         "NSPhotoLibraryUsageDescription": "FUY needs access to your photos to share images and videos.",
-        "NSPhotoLibraryAddUsageDescription": "FUY needs permission to save media to your photo library."
+        "NSPhotoLibraryAddUsageDescription": "FUY needs permission to save media to your photo library.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
