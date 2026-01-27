@@ -677,10 +677,10 @@ function HTMLContent() {
                     <CyclingCard items={centerItems} interval={3000} className="w-full h-full" />
                 </div>
 
-                {/* 3. SIGNUP CARD (Right) */}
-                <Link href="/explore">
+                {/* 3. JOIN NOW CARD (Right) */}
+                <Link href="/signup">
                     <div className="bg-black text-white px-2 rounded-2xl border border-gray-800 shadow-2xl hover:scale-105 transition-transform cursor-pointer pointer-events-auto w-[160px] h-[64px] flex items-center justify-center gap-2">
-                        <span className="font-bold text-base">Explore</span> <ArrowRight size={18} />
+                        <span className="font-bold text-base">Join Now</span> <ArrowRight size={18} />
                     </div>
                 </Link>
             </div>
