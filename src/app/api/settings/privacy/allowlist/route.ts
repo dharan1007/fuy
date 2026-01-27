@@ -1,8 +1,7 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { getServerSession, authOptions } from '@/lib/auth';
 
 // GET: Fetch allowlist for a specific feature
 // Query: ?feature=POSTS | CARD | STALK_ME
