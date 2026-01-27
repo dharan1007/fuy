@@ -70,6 +70,7 @@ export async function GET(req: Request) {
         userId,
         status: 'PUBLISHED',
         postType: { not: 'CHAN' },
+        feature: { notIn: ['PROGRESS', 'CHECKIN', 'FOCUS'] }, // Exclude focus/tracking posts
       },
       take: 12,
       orderBy: { createdAt: 'desc' },

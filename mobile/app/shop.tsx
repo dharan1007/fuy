@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, Image, ScrollView, Dimensions, TextInput } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, Image, ScrollView, Dimensions, TextInput, Alert, Linking } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Search, ShoppingBag, Package, Star, ChevronLeft, Filter, Heart } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,19 +17,26 @@ interface Product {
     rating: number;
     reviews: number;
     category: string;
+    externalUrl?: string; // New field for Brand Showcase
+    brandName?: string;
 }
 
 const CATEGORIES = ['All', 'Digital', 'Physical', 'Services', 'Courses'];
 
-const DEMO_PRODUCTS: Product[] = Array.from({ length: 12 }).map((_, i) => ({
-    id: `product-${i}`,
-    name: ['Premium Course', 'Digital Art Pack', 'Coaching Session', 'E-Book Bundle', 'Template Kit', 'Workshop Access'][i % 6],
-    price: [29.99, 49.99, 99.99, 19.99, 39.99, 149.99][i % 6],
-    image: `https://picsum.photos/seed/product${i}/400/400`,
-    rating: 4 + Math.random(),
-    reviews: Math.floor(Math.random() * 500) + 10,
-    category: CATEGORIES[1 + (i % 4)],
-}));
+const DEMO_PRODUCTS: Product[] = Array.from({ length: 12 }).map((_, i) => {
+    const isBrandProduct = i % 3 === 0; // Every 3rd product is external
+    return {
+        id: `product-${i}`,
+        name: isBrandProduct ? ['Nike Air Zoom', 'Sony WH-1000XM5', 'Kindle Paperwhite', 'Logitech MX Master'][i % 4] : ['Premium Course', 'Digital Art Pack', 'Coaching Session', 'E-Book Bundle', 'Template Kit', 'Workshop Access'][i % 6],
+        price: [29.99, 49.99, 99.99, 19.99, 39.99, 149.99][i % 6],
+        image: `https://picsum.photos/seed/product${i}/400/400`,
+        rating: 4 + Math.random(),
+        reviews: Math.floor(Math.random() * 500) + 10,
+        category: isBrandProduct ? 'Physical' : CATEGORIES[1 + (i % 4)],
+        externalUrl: isBrandProduct ? 'https://google.com' : undefined,
+        brandName: isBrandProduct ? 'Official Brand' : undefined,
+    };
+});
 
 export default function ShopScreen() {
     const router = useRouter();
@@ -54,6 +61,17 @@ export default function ShopScreen() {
         });
     };
 
+    const handleExternalLink = (url: string) => {
+        Alert.alert(
+            "Leaving FUY",
+            "You are about to be redirected to an external website. Do you wish to proceed?",
+            [
+                { text: "Cancel", style: "cancel" },
+                { text: "Continue", onPress: () => Linking.openURL(url) }
+            ]
+        );
+    };
+
     const renderProduct = ({ item }: { item: Product }) => (
         <TouchableOpacity
             onPress={() => router.push(`/shop/product/${item.id}`)}
@@ -72,6 +90,11 @@ export default function ShopScreen() {
                     source={{ uri: item.image }}
                     style={{ width: '100%', height: CARD_WIDTH, backgroundColor: colors.secondary }}
                 />
+
+                {/* Wishlist Icon - Only for External/Brand Products (per user request)? Or Both? 
+                    User said: "for the products posted by the (cretae brand ) showcase on fuy they should have the wishlist and not the cart"
+                    This implies Wishlist is KEY for them. I'll show it for all but ensure it works.
+                */}
                 <TouchableOpacity
                     onPress={() => toggleWishlist(item.id)}
                     style={{
@@ -88,6 +111,13 @@ export default function ShopScreen() {
                 >
                     <Heart size={16} color="white" fill={wishlist.has(item.id) ? '#ef4444' : 'transparent'} />
                 </TouchableOpacity>
+
+                {/* Badge for Type */}
+                {item.externalUrl && (
+                    <View style={{ position: 'absolute', bottom: 8, left: 8, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 }}>
+                        <Text style={{ color: 'white', fontSize: 10, fontWeight: '700' }}>Brand</Text>
+                    </View>
+                )}
             </View>
 
             <View style={{ padding: 12 }}>
@@ -100,9 +130,26 @@ export default function ShopScreen() {
                         {item.rating.toFixed(1)} ({item.reviews})
                     </Text>
                 </View>
-                <Text style={{ color: colors.text, fontSize: 18, fontWeight: '800' }}>
-                    ${item.price.toFixed(2)}
-                </Text>
+
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+                    <Text style={{ color: colors.text, fontSize: 16, fontWeight: '800' }}>
+                        ${item.price.toFixed(2)}
+                    </Text>
+
+                    {/* Action Button: Cart vs External */}
+                    {item.externalUrl ? (
+                        <TouchableOpacity
+                            onPress={() => handleExternalLink(item.externalUrl!)}
+                            style={{ paddingHorizontal: 10, paddingVertical: 6, backgroundColor: colors.text, borderRadius: 8 }}
+                        >
+                            <Text style={{ color: colors.background, fontSize: 10, fontWeight: '700' }}>Buy From</Text>
+                        </TouchableOpacity>
+                    ) : (
+                        <TouchableOpacity style={{ padding: 6, backgroundColor: colors.border, borderRadius: 20 }}>
+                            <ShoppingBag size={14} color={colors.text} />
+                        </TouchableOpacity>
+                    )}
+                </View>
             </View>
         </TouchableOpacity>
     );

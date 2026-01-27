@@ -183,7 +183,7 @@ export const CanvasService = {
                 // Update existing
                 const { data, error } = await writeClient
                     .from('JournalEntry')
-                    .update(entryData)
+                    .update({ ...entryData, updatedAt: new Date().toISOString() })
                     .eq('id', entry.id)
                     .select()
                     .single();
@@ -198,7 +198,7 @@ export const CanvasService = {
                 const newId = generateCuid();
                 const { data, error } = await writeClient
                     .from('JournalEntry')
-                    .insert({ id: newId, ...entryData })
+                    .insert({ id: newId, ...entryData, updatedAt: new Date().toISOString() })
                     .select()
                     .single();
 
@@ -286,6 +286,7 @@ export const TodoService = {
                     title,
                     priority,
                     status: 'PENDING',
+                    updatedAt: new Date().toISOString(),
                 })
                 .select()
                 .single();
@@ -310,7 +311,7 @@ export const TodoService = {
 
             const { data, error } = await writeClient
                 .from('Todo')
-                .update(updates)
+                .update({ ...updates, updatedAt: new Date().toISOString() })
                 .eq('id', id)
                 .eq('userId', userId)
                 .select()

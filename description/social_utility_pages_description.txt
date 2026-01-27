@@ -1,0 +1,113 @@
+# Fuy App - Social & Utility Pages Detailed Description
+
+This document provides a comprehensive breakdown of every feature, button, and interaction available on the Social and Utility-focused Screens.
+
+---
+
+## 📱 Mobile Activity Screen
+**File Reference:** `mobile/app/activity.tsx`
+
+Notification center for social interactions.
+
+### 1. Activity Feed
+*   **List Item:**
+    *   **Avatar:** User profile picture.
+    *   **Text:** "{User} liked your post" / "commented" / "followed you".
+    *   **Timestamp:** Relative time (e.g., "5m ago").
+    *   **Icon:** Contextual icon (Heart/Red, Message/Blue, UserPlus/Green).
+*   **Navigation:** Back button.
+
+---
+
+## 📱 Mobile Groups Screen
+**File Reference:** `mobile/app/groups.tsx`
+
+Community hub for joining and managing groups.
+
+### 1. Discovery & Management
+*   **Tabs:** Toggle between "Discover" (public groups) and "My Groups" (joined).
+*   **Search:** Filter groups by name.
+*   **Create:** "Plus" button to start a new group.
+
+### 2. Group Card
+*   **Visuals:** Cover image banner.
+*   **Header:** Group Name + Privacy Badge (Public/Globe vs Private/Lock).
+*   **Stats:** Member count.
+*   **Action:**
+    *   **Join:** Button for non-members.
+    *   **Joined:** Status indicator for members.
+
+---
+
+## 📱 Mobile Search Screen
+**File Reference:** `mobile/app/search.tsx`
+
+Global search functionality.
+
+### 1. Input Area
+*   **Field:** Text input with auto-focus.
+*   **Clear:** "X" button to reset query.
+
+### 2. Results
+*   **Types:** Users, Posts, Tags (Slash commands).
+*   **Item UI:** Avatar/Icon + Title + Subtitle.
+*   **Navigation:** tapping a result navigates to:
+    *   `/profile/[id]` for Users.
+    *   `/post/[id]` for Posts.
+    *   `/slash/[tag]` for Tags.
+*   **Empty State:** "No results found" message.
+
+---
+
+## 📱 Mobile Safety Screen
+**File Reference:** `mobile/app/safety.tsx`
+
+User protection and privacy management controls.
+
+### 1. Management Tabs
+*   **Blocked:** Users prevented from interacting.
+*   **Paused (Muted):** Users whose content is hidden without blocking.
+*   **Hidden:** Specific posts hidden from view.
+
+### 2. Item Management
+*   **List Item:** User/Post details with an "Unblock" / "Unpause" / "Unhide" button.
+*   **Optimistic UI:** Immediate removal from list upon action.
+
+---
+
+## 📱 Mobile Tasks Screen
+**File Reference:** `mobile/app/tasks.tsx`
+
+A productivity Todo list / Planner.
+
+### 1. Task Management
+*   **Add Task:** "Plus" button reveals input field.
+*   **Input:** Text field to type task name + "Check" button to save.
+*   **Delete:** Trash icon or Long-press context menu.
+*   **Complete:** Tap checkbox (circle) to toggle status. Done tasks are crossed out.
+
+### 2. Organization
+*   **Grouping:** Tasks grouped by date (Today, Yesterday, Date).
+*   **Priority:** "HIGH" priority badge for urgent items.
+*   **Visuals:** Dark/Light mode adaptive styling.
+
+---
+
+## 📱 Mobile Grounding Screen (WREX BODY)
+**File Reference:** `mobile/app/grounding.tsx`
+
+A comprehensive health, fitness, and nutrition dashboard.
+
+### 1. Dashboard (Main)
+*   **3D Body Model:** Interactive SVG of human body. Tapping parts allows logging issues/notes (e.g., "Soreness").
+*   ** Floating Stats:** "Muscle Mass" and "Fat %" cards.
+*   **Tabs:** Dashboard, Workout, Health, Activity.
+
+### 2. Metrics & Nutrition
+*   **BMR & BMI:** Calculated cards based on user profile.
+*   **Macros:** Visual breakdown of Protein, Carbs, Fats, and Water targets.
+*   **Stats:** Recovery % bar and Load visualizer graph.
+
+### 3. Modals
+*   **Metrics Edit:** (Implied) Update Height, Weight, Age, Gender.
+*   **Body Note:** Text input to save notes for specific body parts.

@@ -1,8 +1,8 @@
 import { TokenManager } from './secure-storage';
 import CryptoJS from 'crypto-js';
 import NetInfo from '@react-native-community/netinfo';
+import { getApiUrl } from './api';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org';
 const API_SECRET = process.env.EXPO_PUBLIC_API_SECRET || 'default-secret';
 
 /**
@@ -81,6 +81,7 @@ export class ApiClient {
             headers['x-timestamp'] = timestamp;
 
             // Make request
+            const API_URL = getApiUrl();
             console.log('Fetching:', `${API_URL}${endpoint}`);
             console.log('Headers:', JSON.stringify(headers));
 
@@ -178,6 +179,7 @@ export class ApiClient {
                 headers['Authorization'] = `Bearer ${token}`;
             }
 
+            const API_URL = getApiUrl();
             const response = await fetch(`${API_URL}${endpoint}`, {
                 method: 'POST',
                 headers,

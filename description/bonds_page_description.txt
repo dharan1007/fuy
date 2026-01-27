@@ -1,0 +1,56 @@
+# Fuy App - Bonds Page Detailed Description
+
+This document provides a comprehensive breakdown of every feature, button, and interaction available on the Bonds Screen for both the Mobile Application and the Web Platform.
+
+---
+
+## 📱 Mobile Bonds Screen
+**File Reference:** `mobile/app/bonding.tsx`
+
+Bonds is a relationship health monitoring tool that uses "Locker" metaphors to categorize interactions and track connection quality.
+
+### 1. Profile Context
+*   **Profile Selector:** Dropdown to switch between different chat partners (derived from `Conversation` data).
+*   **Access Request:**
+    *   Check status of "Private Profile" access.
+    *   Button to "Request Access" if not already granted.
+
+### 2. Lockers (Theming)
+*   **Toggles:** Switch the active view/theme:
+    *   **RED:** "Blacklist/Angry/Sad" tags.
+    *   **GREEN:** "Happy/Joy/Funny" tags.
+    *   **CUSTOM:** User-defined tags.
+    *   **TRIGGERS:** Automation triggers.
+
+### 3. Analytics Cards
+*   **Match Score:** Large circular progress chart (0-100%) indicating relationship compatibility based on interaction frequency and tag positivity.
+*   **Chat Insights:**
+    *   **Metrics:** Total Messages, Avg Response Time, Messages This Week.
+    *   **Ratio Bar:** Visual bar showing the balance of "You" vs "Partner" contributions.
+*   **Warning Chart:** Bar chart comparing triggered warnings/flags for both users.
+
+### 4. Cards (Swipable)
+*   **Types:**
+    *   **Tags:** Message tags (e.g., "Manual Tag").
+    *   **Facts:** Keyword warnings (e.g., "Don't mention X").
+    *   **Triggers:** Automated responses or alerts.
+*   **Interaction:**
+    *   **Swipe Left:** Reveal "Edit" (Blue) and "Delete" (Red) buttons.
+    *   **Tap:** View details or edit.
+*   **Edit Modal:**
+    *   Modify Keywords or Warning Text for Fact Warnings.
+
+### 5. Management
+*   **Refresh:** Pull-to-refresh to sync latest tags and analysis.
+*   **Delete:** Remove tags or facts (prompts confirmation).
+
+---
+
+## 💻 Web Bonds Screen
+**File Reference:** `src/app/bonds/page.tsx`
+
+(Note: Web implementation generally mirrors mobile logic via the dashboard's "Bonding Meteor", focusing on the same analytics and locker management structure.)
+
+### 1. Dashboard Integration
+*   **Metrics:** Displays key relationship stats (Match Score, Message Count) directly in the dashboard analytics panel.
+*   **Detailed View:** Detailed breakdown of tag distribution and warnings, consistent with the mobile `bonding.tsx` logic.

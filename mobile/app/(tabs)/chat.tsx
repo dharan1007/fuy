@@ -1852,126 +1852,89 @@ export default function ChatScreen() {
     const renderUserList = () => (
         <ScrollView className="flex-1 px-4 pt-2" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
             {/* Section Title */}
-            <Text className="text-xs font-bold mb-4 ml-2 tracking-widest text-zinc-500 uppercase">
+            <Text className="text-xs font-bold mb-3 ml-1 tracking-widest text-zinc-500 uppercase">
                 {searchQuery ? 'SEARCH RESULTS' : 'CHATS'}
             </Text>
 
             {getSortedConversations().map((user) => (
                 <View
                     key={user.id}
-                    className="mb-3 relative"
+                    className="mb-2 relative"
                 >
-                    {/* Main Card */}
-                    <View
-                        className="flex-row items-start p-4 rounded-3xl bg-zinc-900 border-2 border-white"
+                    {/* Main Card - Redesigned */}
+                    <TouchableOpacity
+                        onPress={() => handleUserSelect(user)}
+                        className="flex-row items-center p-3 rounded-2xl bg-zinc-900 border border-zinc-800"
                         style={{ overflow: 'hidden' }}
+                        activeOpacity={0.7}
                     >
                         {/* Drag Handle for Pinned Chats */}
                         {(user as any).isPinned && (
                             <View className="flex-col items-center justify-center mr-2 -ml-1">
-                                <TouchableOpacity onPress={() => movePinnedUp(user.id)} className="p-1 border border-white rounded-full mb-1">
-                                    <ChevronUp size={14} color="#71717a" />
+                                <TouchableOpacity onPress={() => movePinnedUp(user.id)} className="p-1 rounded-full mb-1 bg-zinc-800">
+                                    <ChevronUp size={12} color="#71717a" />
                                 </TouchableOpacity>
-                                <GripVertical size={14} color="#52525b" />
-                                <TouchableOpacity onPress={() => movePinnedDown(user.id)} className="p-1 border border-white rounded-full mt-1">
-                                    <ChevronDown size={14} color="#71717a" />
+                                <GripVertical size={12} color="#52525b" />
+                                <TouchableOpacity onPress={() => movePinnedDown(user.id)} className="p-1 rounded-full mt-1 bg-zinc-800">
+                                    <ChevronDown size={12} color="#71717a" />
                                 </TouchableOpacity>
                             </View>
                         )}
-                        {/* Avatar Section */}
-                        <TouchableOpacity onPress={() => handleUserSelect(user)} className="relative mr-4">
+
+                        {/* Avatar Section - Smaller */}
+                        <View className="relative mr-3">
                             {user.avatar ? (
                                 <Image
                                     source={{ uri: user.avatar }}
-                                    className="w-14 h-14 rounded-full border border-white"
+                                    className="w-12 h-12 rounded-full border border-zinc-700"
                                 />
                             ) : (
-                                <View className="w-14 h-14 rounded-full border border-white bg-zinc-800 items-center justify-center">
-                                    <UserIcon size={24} color="#52525b" />
+                                <View className="w-12 h-12 rounded-full border border-zinc-700 bg-zinc-800 items-center justify-center">
+                                    <UserIcon size={20} color="#52525b" />
                                 </View>
                             )}
                             {user.status === 'online' && (
-                                <View className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-zinc-900" />
+                                <View className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-zinc-900" />
                             )}
-                        </TouchableOpacity>
+                        </View>
 
                         {/* Content Section */}
-                        <View className="flex-1 pr-8">
+                        <View className="flex-1 pr-8 justify-center">
                             {/* Top Row: Name & Time */}
-                            <View className="flex-row justify-between items-start mb-1">
-                                <TouchableOpacity onPress={() => handleUserSelect(user)} className="flex-1 mr-2">
-                                    <Text className="text-base font-bold text-white tracking-tight" numberOfLines={1}>
-                                        {nicknames[user.id] || user.name}
-                                    </Text>
-                                </TouchableOpacity>
+                            <View className="flex-row justify-between items-center mb-0.5">
+                                <Text className="text-base font-bold text-white tracking-tight" numberOfLines={1}>
+                                    {nicknames[user.id] || user.name}
+                                </Text>
 
                                 <View className="flex-row items-center gap-2">
                                     {/* Pinned Icon */}
-                                    {user.isPinned && <Anchor size={12} color="#fff" style={{ transform: [{ rotate: '45deg' }] }} />}
+                                    {user.isPinned && <Anchor size={12} color="#a1a1aa" style={{ transform: [{ rotate: '45deg' }] }} />}
 
                                     {/* Date & Time */}
                                     {user.lastMessageAt && (
                                         <Text className="text-[10px] font-medium text-zinc-500 text-right">
                                             {new Date(user.lastMessageAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                                            {', '}
-                                            {new Date(user.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }).toLowerCase()}
                                         </Text>
                                     )}
                                 </View>
                             </View>
 
-                            {/* Second Row: Last Message */}
-                            <TouchableOpacity onPress={() => handleUserSelect(user)} className="mb-3">
-                                <Text
-                                    numberOfLines={1}
-                                    className={`text-sm ${user.unreadCount && user.unreadCount > 0 ? 'text-white font-bold' : 'text-zinc-500 font-medium'}`}
-                                >
-                                    {user.lastMessage || 'New connection'}
-                                </Text>
-                            </TouchableOpacity>
-
-                            {/* Quick Reply Row */}
-                            <View className="flex-row items-center gap-2">
-                                <View className="flex-1 h-9 bg-zinc-800 rounded-full flex-row items-center px-4 border border-white focus:border-white transition-all">
-                                    <TextInput
-                                        placeholder="Message..."
-                                        placeholderTextColor="#52525b"
-                                        className="flex-1 text-sm text-white h-full pb-1.5"
-                                        value={quickReplyTexts[user.id] || ''}
-                                        onChangeText={text => setQuickReplyTexts(prev => ({ ...prev, [user.id]: text }))}
-                                        onSubmitEditing={() => handleQuickReply(user)}
-                                    />
-                                </View>
-
-                                <TouchableOpacity
-                                    onPress={() => handleQuickReply(user)}
-                                    disabled={!quickReplyTexts[user.id]?.trim() || sendingReply[user.id]}
-                                    className={`w-9 h-9 rounded-full items-center justify-center border border-white ${quickReplyTexts[user.id]?.trim() ? 'bg-white' : 'bg-zinc-800'}`}
-                                >
-                                    {sendingReply[user.id] ? (
-                                        <ActivityIndicator size="small" color="#000" />
-                                    ) : (
-                                        <Plus
-                                            size={20}
-                                            color={quickReplyTexts[user.id]?.trim() ? '#000' : '#52525b'}
-                                            style={{ transform: [{ rotate: '0deg' }] }}
-                                        />
-                                    )}
-                                </TouchableOpacity>
-                            </View>
+                            {/* Second Row: Last Message (No Quick Reply) */}
+                            <Text
+                                numberOfLines={1}
+                                className={`text-sm ${user.unreadCount && user.unreadCount > 0 ? 'text-white font-bold' : 'text-zinc-500 font-normal'}`}
+                            >
+                                {user.lastMessage || 'New connection'}
+                            </Text>
                         </View>
-                    </View>
+                    </TouchableOpacity>
 
-                    {/* 3-Dots Menu (Absolute positioned to right side overlap or distinct button) */}
+                    {/* 3-Dots Menu - Vertical Icon */}
                     <TouchableOpacity
                         onPress={() => handleShowOptions(user)}
-                        className="absolute top-4 right-4 p-2 z-10"
+                        className="absolute right-3 top-4 p-2 z-10 opacity-70"
                     >
-                        <View className="flex-row gap-[3px]">
-                            <View className="w-1 h-1 rounded-full bg-zinc-600" />
-                            <View className="w-1 h-1 rounded-full bg-zinc-600" />
-                            <View className="w-1 h-1 rounded-full bg-zinc-600" />
-                        </View>
+                        <MoreVertical size={18} color="#71717a" />
                     </TouchableOpacity>
 
                 </View>

@@ -9,6 +9,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { uploadFileToR2 } from '../lib/upload-helper';
 import { Video as ExpoVideo, ResizeMode } from 'expo-av';
 import { useToast } from '../context/ToastContext';
+import { getApiUrl } from '../lib/api';
 
 // Types matching web ProfileFormData
 interface ProfileFormData {
@@ -281,6 +282,49 @@ export default function EditProfileScreen() {
         else router.back();
     };
 
+    // Auto-format DOB as DD-MM-YYYY while typing
+    const formatDOB = (text: string) => {
+        // Remove all non-numeric characters
+        const numbers = text.replace(/\D/g, '');
+
+        // Format as DD-MM-YYYY
+        let formatted = '';
+        if (numbers.length > 0) {
+            formatted = numbers.substring(0, 2);
+        }
+        if (numbers.length > 2) {
+            formatted += '-' + numbers.substring(2, 4);
+        }
+        if (numbers.length > 4) {
+            formatted += '-' + numbers.substring(4, 8);
+        }
+
+        // Convert DD-MM-YYYY to YYYY-MM-DD for storage (when complete)
+        if (numbers.length === 8) {
+            const day = numbers.substring(0, 2);
+            const month = numbers.substring(2, 4);
+            const year = numbers.substring(4, 8);
+            // Store as ISO format for database, but display as DD-MM-YYYY
+            setData({ ...data, dob: `${year}-${month}-${day}` });
+        } else {
+            // Store the partial formatted value temporarily
+            setData({ ...data, dob: formatted });
+        }
+    };
+
+    // Format stored DOB (YYYY-MM-DD) for display as DD-MM-YYYY
+    const displayDOB = (dob: string) => {
+        if (!dob) return '';
+        // If already in DD-MM format (partial input), return as is
+        if (dob.match(/^\d{0,2}(-\d{0,2})?(-\d{0,4})?$/)) return dob;
+        // If in YYYY-MM-DD format, convert to DD-MM-YYYY
+        if (dob.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            const [year, month, day] = dob.split('-');
+            return `${day}-${month}-${year}`;
+        }
+        return dob;
+    };
+
     const handleSkip = () => { if (step < totalSteps) setStep(step + 1); };
 
     const pickAvatar = async () => {
@@ -473,19 +517,46 @@ export default function EditProfileScreen() {
             console.log('[EditProfile] StalkMe filtered:', data.stalkMe.filter(x => x));
             console.log('[EditProfile] Updating profile for user:', user.id);
 
-            // Try update first (for existing profiles)
-            const { error: updateError, count } = await supabase
+            // Use upsert to create or update profile (fixes new user issue)
+            const profileDataWithUserId = { ...profileData, userId: user.id };
+            let { error: upsertError } = await supabase
                 .from('Profile')
-                .update(profileData)
-                .eq('userId', user.id);
+                .upsert(profileDataWithUserId, { onConflict: 'userId' });
 
-            if (updateError) {
-                console.error('[EditProfile] Update error:', updateError);
+            // Fix for missing public User record (Foreign Key Error)
+            if (upsertError && upsertError.code === '23503') {
+                console.log('[EditProfile] User record missing in public DB. Syncing...');
+                try {
+                    const API_URL = getApiUrl();
+                    const { data: { session } } = await supabase.auth.getSession();
+                    const syncRes = await fetch(`${API_URL}/api/user/sync`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${session?.access_token}`
+                        }
+                    });
+
+                    if (syncRes.ok) {
+                        console.log('[EditProfile] Sync successful. Retrying save...');
+                        const retry = await supabase
+                            .from('Profile')
+                            .upsert(profileDataWithUserId, { onConflict: 'userId' });
+                        upsertError = retry.error;
+                    } else {
+                        console.error('[EditProfile] Sync failed:', await syncRes.text());
+                    }
+                } catch (syncErr) {
+                    console.error('[EditProfile] Sync error:', syncErr);
+                }
+            }
+
+            if (upsertError) {
+                console.error('[EditProfile] Upsert error:', upsertError);
                 // If RLS blocks update, try via API as fallback with retries
-                if (updateError.code === '42501') {
+                if (upsertError.code === '42501') {
                     console.log('[EditProfile] RLS blocked, trying API fallback with retries...');
                     const { data: { session } } = await supabase.auth.getSession();
-                    const API_URL = 'https://www.fuymedia.org';
+                    const API_URL = getApiUrl();
 
                     // Retry with exponential backoff - longer waits for rate limits
                     const maxRetries = 5;
@@ -533,13 +604,25 @@ export default function EditProfileScreen() {
                         }
                     }
                 } else {
-                    throw new Error(updateError.message);
+                    throw new Error(upsertError.message);
                 }
             }
 
             console.log('[EditProfile] Profile saved successfully');
+
+            // Update user metadata to mark profile as completed
+            await supabase.auth.updateUser({
+                data: { profile_completed: true, display_name: data.displayName }
+            });
+
             showToast(isEditing ? 'Profile updated!' : 'Profile created!', 'success');
-            router.back();
+
+            // For new users, go to home. For editing, go back
+            if (isNewUser) {
+                router.replace('/(tabs)');
+            } else {
+                router.back();
+            }
         } catch (e: any) {
             console.error('[EditProfile] Save error:', e);
             showToast(e.message || 'Failed to save profile', 'error');
@@ -627,7 +710,7 @@ export default function EditProfileScreen() {
                             </View>
                             <View style={{ flex: 1 }}>
                                 <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '700', marginBottom: 6, textTransform: 'uppercase' }}>Date of Birth *</Text>
-                                <TextInput value={data.dob} onChangeText={t => setData({ ...data, dob: t })} placeholder="YYYY-MM-DD" placeholderTextColor="rgba(255,255,255,0.3)" style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: 12, padding: 14, color: '#fff' }} />
+                                <TextInput value={displayDOB(data.dob)} onChangeText={formatDOB} placeholder="DD-MM-YYYY" placeholderTextColor="rgba(255,255,255,0.3)" keyboardType="number-pad" maxLength={10} style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: 12, padding: 14, color: '#fff' }} />
                             </View>
                         </View>
 
@@ -658,7 +741,7 @@ export default function EditProfileScreen() {
                             <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '700', marginBottom: 6, textTransform: 'uppercase' }}>Conversation Starter</Text>
                             <TextInput value={data.conversationStarter} onChangeText={t => setData({ ...data, conversationStarter: t })} placeholder="The first thing you should ask me is..." placeholderTextColor="rgba(255,255,255,0.3)" multiline numberOfLines={3} style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: 12, padding: 14, color: '#fff', height: 90, textAlignVertical: 'top' }} />
                         </View>
-                    </View>
+                    </View >
                 );
             case 2: // Professional
                 return (

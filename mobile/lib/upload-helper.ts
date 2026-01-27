@@ -1,7 +1,6 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org';
+import { getApiUrl } from './api';
 
 // Compress image to reduce upload time
 async function compressImage(uri: string): Promise<string> {
@@ -67,6 +66,7 @@ export async function uploadFileToR2(
         console.log('[upload-helper] Uploading to server via FileSystem...');
 
         try {
+            const API_URL = getApiUrl();
             const uploadRes = await FileSystem.uploadAsync(`${API_URL}/api/upload/proxy`, processedUri, {
                 fieldName: 'file',
                 httpMethod: 'POST',
@@ -105,6 +105,7 @@ export async function uploadFileToR2(
             headers['Authorization'] = `Bearer ${accessToken}`;
         }
 
+        const API_URL = getApiUrl();
         const presignedRes = await fetch(`${API_URL}/api/upload/presigned`, {
             method: 'POST',
             headers,
@@ -156,7 +157,12 @@ export async function uploadFileToR2(
         });
 
         if (uploadRes.status !== 200) {
-            throw new Error('Failed to upload file to storage');
+            console.error('[upload-helper] Upload failed details:', {
+                status: uploadRes.status,
+                headers: uploadRes.headers,
+                body: uploadRes.body
+            });
+            throw new Error(`Failed to upload file to storage: ${uploadRes.status} ${uploadRes.body?.substring(0, 100)}`);
         }
 
         return publicUrl;

@@ -1,0 +1,180 @@
+# Fuy App - Home Screen Detailed Description
+
+This document provides a comprehensive breakdown of every feature, button, and interaction available on the Home Screen for both the Mobile Application and the Web Platform.
+
+---
+
+## 📱 Mobile Home Screen
+**File Reference:** `mobile/app/(tabs)/index.tsx`
+**Key Components:** `FeedPostItem`, `DraggableSidebar`, `ClockRailItem`
+
+The mobile home screen is a vertically scrolling feed with a sticky header, a stories rail, and a unique floating draggable sidebar for app navigation.
+
+### 1. Header (Sticky Top)
+Located at the very top of the screen (SafeArea).
+*   **App Logo (Left):**
+    *   Text: "Fuy"
+    *   Style: Bold, clean typography.
+*   **Action Icons (Right):**
+    *   **Notification Bell:**
+        *   **Icon:** `Bell` (Lucide React Native).
+        *   **Action:** Navigates to the Notifications screen (`/notifications`).
+        *   **Feature:** Intended to show a red dot badge for unread alerts (implementation pending context integration).
+    *   **Hopin (Globe):**
+        *   **Icon:** `Globe`.
+        *   **Action:** Navigates to the Hopin (Travel/Programs) screen (`/hopin`).
+    *   **Profile Avatar:**
+        *   **Visual:** Circular user profile image.
+        *   **Fallback:** If no image exists, displays a colored circle with a `User` icon.
+        *   **Action:** Navigates to the User Profile (`/(tabs)/profile`).
+        *   **Style:** Has a thin border (`border-white/20`).
+
+### 2. Stories Rail ("Clocks")
+Located immediately below the header. Scrolled horizontally.
+**Component:** `ClockRailItem`
+*   **"Add Clock" Button (First Item):**
+    *   **Visual:** Dashed border circle (`border-dashed`), slightly translucent/glass effect. Contains a `Plus` icon.
+    *   **Badge:** Small white circle with black `Plus` icon at bottom-right.
+    *   **Action:** Opens the Camera/Create screen with type pre-set to CLOCK (`/create?type=CLOCK`).
+    *   **Label:** "Add Clock".
+*   **Story Items:**
+    *   **Visual:** User avatar inside a monochrome ring (White in Dark mode, Black in Light mode).
+    *   **Live Timer Badge:** A small pill at the bottom-right of the avatar displaying time remaining (e.g., "12h 30m").
+        *   *Detail:* The first two visible stories show seconds (e.g., "30m 15s") for urgency/liveness.
+        *   *Expiry:* Shows "Exp" if the story is past its 24h window.
+    *   **Action:** Tapping opens the `ClockViewer` modal to view the ephemeral content.
+
+### 3. Draggable Sidebar (Floating Navigation)
+**Component:** `DraggableSidebar`
+*   **Visual:** A vertical pill-shaped container floating on the left/center.
+*   **Interaction:** Users can drag this bar to any position on the screen to avoid obstructing content.
+*   **Buttons (Top to Bottom):**
+    1.  **Dashboard:**
+        *   **Icon:** `LayoutDashboard`.
+        *   **Action:** Navigates to `/dashboard` (Analytics, Orders, Shop Management).
+    2.  **Tasks:**
+        *   **Icon:** `Check`.
+        *   **Action:** Navigates to `/tasks` (To-do list).
+    3.  **Canvas:**
+        *   **Icon:** `PenTool`.
+        *   **Action:** Navigates to `/canvas` (Creative journal/drawing).
+    4.  **Focus:**
+        *   **Icon:** `Timer`.
+        *   **Action:** Navigates to `/focus` (Pomodoro/Focus timer).
+    5.  **Grounding:**
+        *   **Icon:** Custom `WREX Body` Icon (SVG).
+        *   **Action:** Navigates to `/grounding` (Physical activity, Diet, Bio-tracking).
+
+### 4. Main Feed (The Stream)
+**Component:** `FeedScreen` (FlatList) & `FeedPostItem`
+*   **Content:** Infinite scroll of public posts.
+*   **Empty State:** Displays "No posts yet. Be the first!" if the feed is empty.
+*   **Post Card Anatomy (`FeedPostItem`):**
+    *   **Header:**
+        *   **Avatar:** Clickable -> Goes to Profile.
+        *   **Name & Verified Badge:** Name is Bold. If user is verified (`isHumanVerified`), a red checkmark badge appears.
+        *   **Handle & Location:** Displayed below name (e.g., "@username • New York").
+        *   **Post Type Pill:** Small label (e.g., "XRAY", "FILL") if the post handles a specific content type.
+        *   **Three Dot Menu (`...`):** Opens `PostOptionsModal` (Report, Block, Mute, Delete).
+    *   **Media Area:**
+        *   **Video:** Auto-plays when in view (60% visibility).
+            *   **Controls:** Mute toggle (bottom-right).
+            *   **Overlay:** "Play" icon appears if paused manually.
+            *   **Fullscreen:** "FILL" type posts have a Maximize button.
+        *   **X-RAY:** If type is XRAY, it renders a scratchable surface (`XrayScratch`) revealing hidden content beneath.
+    *   **Text Content:** Shown below (or instead of) media. Bold/Medium weight.
+    *   **Product Pill:**
+        *   Displayed below caption if a product is tagged.
+        *   **Visual:** Small rounded pill with Product Image, Name, and Price.
+        *   **Action:** Tapping opens the Product Detail page (`/shop/product/[id]`).
+    *   **Actions Row:**
+        *   **Reactions (Left):**
+            *   **W (Win):** Turns Red when active. Shows count.
+            *   **L (Loss):** Turns Black/White when active. Shows count.
+            *   **CAP (Lie):** Turns Blue when active. Shows count.
+        *   **Interactions (Right):**
+            *   **Add Bubble (`+`):** Opens Camera to record a 3-second video reply ("Bubble") attached to this post.
+            *   **Comment (`MessageCircle`):** Opens inline comment input. Shows comment count.
+            *   **Share (`Send`):** Rotated paper airplane icon. Opens share options.
+    *   **Reaction Bubbles:**
+        *   Small circular thumbnails of users who "bubbled" (video replied) appear below the action row.
+
+---
+
+## 💻 Web Home Screen
+**File Reference:** `src/components/HomeClient.tsx`
+**Key Components:** `HomeSidebarProfile`, `HomeSidebarSuggestions`, `FeedPostItem` (Web), `StoriesRail`
+
+The web interface uses a 3-column layout (Left Sidebar, Feed, Right Sidebar) with a Mac-OS style floating dock at the bottom.
+
+### 1. Top Navigation Bar (Sticky)
+*   **Logo (Left):** "fuy" (Lower case, 'u' is red). Resets view to home.
+*   **Central Quick Links (Desktop):**
+    *   **Canvas (`Palette`):** Drawing/Journal.
+    *   **Hopin (`Rocket`):** Travel Programs.
+    *   **Shop (`ShoppingBag`):** Marketplace.
+    *   **Dashboard (`LayoutDashboard`):** User Dashboard.
+    *   **Mod (Admin only):** Red moderation link.
+*   **Mobile Menu (Hamburger):** Collapses the above links for smaller viewports.
+
+### 2. Left Sidebar (Profile & Utilities)
+**Component:** `HomeSidebarProfile`
+*   **Identity Card:**
+    *   **Style:** Black card with "glass" effects.
+    *   **Profile Code:** Top right pill (e.g., `#1234567`). Click to Copy.
+    *   **Avatar:** Large central image. Click navigates to `/profile`.
+    *   **Name & Handle:** Bold display name.
+    *   **Badges:**
+        *   **AGE:** Calculated from DOB.
+        *   **LOC:** City/Location.
+    *   **Conversation Starter:** Featured text/quote from profile.
+    *   **Stats Grid:**
+        *   **POSTS:** Total post count.
+        *   **FOLLOWERS:** Click opens `UserListModal` (Followers tab).
+        *   **FOLLOWING:** Click opens `UserListModal` (Following tab).
+    *   **"VIEW FULL PROFILE"**: Button at bottom of card.
+*   **Hopin Plans Card:**
+    *   Lists active travel plans/trips. "VIEW ALL" link to `/hopin`.
+*   **Tasks Card:**
+    *   Lists pending To-Dos.
+    *   **Interaction:** Clicking a task toggles it (Pending <-> Completed).
+    *   **Edit:** "EDIT" button goes to `/journal`.
+
+### 3. Center Feed (The Stream)
+*   **Stories Rail:** Horizontal scroll of active stories (similar to mobile "Clocks").
+*   **Feed Scope Tabs:** Sticky Header inside feed: "Public", "Friends", "Me".
+*   **Quick Capture:** Hidden file inputs for "Environment" capture (utilized more on mobile web).
+*   **Post Feed:**
+    *   **Cards:** Uses specialized card components based on type:
+        *   `SimplePostCard` (Text/Image)
+        *   `ChapterCard` (Long text)
+        *   `XrayCard` (Interactive scratch)
+        *   `LillCard`, `FillCard` (Video variants)
+        *   `AudCard` (Audio)
+        *   `ChanCard` (Channel update)
+        *   `PullUpDownCard` (Voting)
+    *   **Slashes Toggle:** Global button to show/hide tags on posts.
+
+### 4. Right Sidebar (Suggestions & Features)
+*   **Hopin Programs:** Highlights featured programs/events.
+*   **Products:** Highlights items from the Shop.
+
+### 5. Floating Dock (Bottom Navigation)
+**Visual:** Glassmorphism rounded bar fixed at the bottom center of the screen.
+**Items:**
+1.  **Create Post (`+`):** Large, prominent button. Opens `/create-post` page.
+2.  **Explore (`Globe`):** Navigates to `/explore`.
+3.  **Dots (`Dot Icon`):** Navigates to `/dots` (Minimalist/Abstract feed).
+4.  **Notifications (`Bell`):**
+    *   **Badge:** Red circle showing count of Notifications + Unread Messages.
+    *   **Action:** Navigates to `/notifications`. Clears count on click.
+5.  **Messages (`Chat Bubble`):**
+    *   **Badge:** Red circle for unread DM count.
+    *   **Action:** Navigates to `/chat`.
+
+---
+
+## 🎨 Design Language (Global)
+*   **Theme:** Dominant Dark Mode (Black backgrounds, White text).
+*   **Styling:** "Glass" effects (blur), thin white borders (`border-white/10`), rounded corners (`rounded-2xl` or `rounded-3xl` for cards).
+*   **Interactions:** Highly reactive. Optimistic updates for Likes/Comments (UI updates immediately before server confirms).

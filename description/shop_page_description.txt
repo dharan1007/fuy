@@ -1,0 +1,76 @@
+# Fuy App - Shop Page Detailed Description
+
+This document provides a comprehensive breakdown of every feature, button, and interaction available on the Shop / Marketplace Screen for both the Mobile Application and the Web Platform.
+
+---
+
+## 📱 Mobile Shop Screen
+**File Reference:** `mobile/app/(tabs)/shop.tsx`
+**Key Components:** `AutoScrollSection`, `ProductCard`, `BrandCard`
+
+The mobile shop is a vibrant, scrollable marketplace featuring auto-looping rails for varied content types and a masonry grid for browsing.
+
+### 1. Header Area (Sticky Top)
+*   **Title:** "SHOP" (Clean, spaced typography).
+*   **Action Row (Right):**
+    *   **"s.o. fuy" Button:** Black pill button. Navigates to `/shop/sell` (Sell on Fuy) flow. **Note:** Completing this flow generates a unique 12-digit Product Code for tagging.
+    *   **"create/store" Button:** Outlined pill button. Navigates to brand dashboard (`/dashboard/store`) or creation (`/shop/create-brand`) depending on user state.
+    *   **Search Icon:** Toggles a distinct search bar row below the header.
+    *   **Cart Icon:** Navigates to `/cart`. Shows a red notification badge with item count.
+
+### 2. Navigation & Filters
+*   **Search Bar (Toggled):**
+    *   Appears below header when active.
+    *   Includes clear (X) button.
+    *   Real-time filtering of content.
+*   **Category Pills:**
+    *   Horizontal scroll: `All`, `Courses` (GradCap), `Books` (BookOpen), `Templates` (Layout).
+    *   **Interaction:** Tapping filters the main view. Active state is solid black; inactive is glass/gray.
+
+### 3. Content Sections
+*   **Top Brands:**
+    *   Horizontal scroll of wide rectangular brand cards.
+    *   Displays Brand Logo or Initial Letter.
+*   **Auto-Scroll Rails (Digital Products):**
+    *   **Behavior:** Three distinct horizontal rails (Courses, Books, Templates) that auto-scroll slowly.
+    *   **Interaction:** User dragging pauses auto-scroll; resumes after inactivity.
+    *   **Visual:** "Learn & Grow", "Books & Guides", "Templates & Tools" headers.
+*   **Browse All (Masonry Grid):**
+    *   **Card Style:** Varied aspect ratios (Tall, Wide, Square) to create a dynamic "Pinterest-like" feel.
+    *   **Visual:** Full-bleed images with a subtle gradient text overlay at the bottom.
+
+---
+
+## 💻 Web Shop Screen
+**File Reference:** `src/app/shop/page.tsx`
+
+The web shop offers a more expansive, catalog-style experience with a "Space" background and advanced filtering.
+
+### 1. Sticky Toolbar & Navigation
+*   **Category Dropdowns:**
+    *   "Home", "Fashion", "Electronics" - Hovering reveals sub-categories.
+*   **Quick Links:** "Courses", "Books", "Templates" (Anchor links).
+*   **Right Actions:**
+    *   **Search Input:** Pill-shaped expanded input.
+    *   **"s.o. fuy" (Sell):** Prominent pill button.
+    *   **Library:** Link to purchased digital items (`/dashboard/purchases`).
+    *   **My Brand:** Link to store dashboard.
+    *   **Interests:** Heart icon button. Opens specific "Interest Slashes" modal to personalize recommendations.
+    *   **Cart:** Icon with badge.
+
+### 2. Hero Section
+*   **Visual:** Full-screen hero image with "Your Style Is Here" animated text.
+*   **Action:** "Shop Collection" button scrolls page down to New Arrivals.
+
+### 3. Filters & Digital Sections
+*   **Filter Toggle:** "+ Filters" button reveals:
+    *   **Category:** Chip selection.
+    *   **Price Range:** Slider ($0 - $1000+).
+*   **Digital Marketplace:**
+    *   Dedicated rows for **Recommended** (based on interests), **Courses**, **Books**, and **Templates**.
+    *   **Cards:** 4-column grid. Hover effects lift the card (`y: -20px`).
+
+### 4. Featured Brands & New Arrivals
+*   **Brand Grid:** 4-column grid displaying brand logos/names.
+*   **New Arrivals:** Staggered 3-column masonry layout for physical products.
+    *   **Hover Action:** "Shop Now" button slides up from the bottom of the card image on hover.

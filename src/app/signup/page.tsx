@@ -107,23 +107,9 @@ export default function SignupPage() {
         throw new Error(data.error || "Signup failed");
       }
 
-      // 2. Account created successfully. Now sign in automatically.
-      setLoadingMessage(" signing you in...");
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: normalizedEmail,
-        password: formData.password,
-      });
-
-      if (signInError) {
-        console.error("Auto sign-in error:", signInError);
-        setError("Account created! But auto-login failed: " + signInError.message + ". Please try signing in manually.");
-        setLoading(false);
-      } else {
-        // Wait for session to propagate
-        await new Promise(resolve => setTimeout(resolve, 500));
-        router.refresh();
-        router.push("/profile/setup");
-      }
+      // 2. Account created successfully. Redirect to email verification.
+      setLoadingMessage("Redirecting to verification...");
+      router.push(`/verify-email?email=${encodeURIComponent(normalizedEmail)}`);
 
     } catch (err: any) {
       console.error("Signup error:", err);

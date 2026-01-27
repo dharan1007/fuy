@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Switch, Alert } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ChevronLeft, User, Bell, Lock, Eye, Moon, Sun, HelpCircle, LogOut, ChevronRight } from 'lucide-react-native';
+import { ChevronLeft, User, Bell, Lock, Eye, Moon, Sun, HelpCircle, LogOut, ChevronRight, ShieldCheck } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../context/ThemeContext';
 import { supabase } from '../lib/supabase';
 import ConfirmModal from '../components/ConfirmModal';
 import { useToast } from '../context/ToastContext';
+import { FaceVerificationModal } from '../components/FaceVerificationModal';
 
 export default function SettingsScreen() {
     const router = useRouter();
@@ -17,6 +18,7 @@ export default function SettingsScreen() {
 
     const { showToast } = useToast();
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+    const [showVerificationModal, setShowVerificationModal] = useState(false);
 
     const handleLogout = async () => {
         setShowLogoutConfirm(false);
@@ -65,6 +67,23 @@ export default function SettingsScreen() {
         </View>
     );
 
+    const [isVerified, setIsVerified] = useState(false);
+
+    React.useEffect(() => {
+        const checkVerification = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const { data } = await supabase
+                    .from('User')
+                    .select('isHumanVerified')
+                    .eq('id', user.id)
+                    .single();
+                if (data?.isHumanVerified) setIsVerified(true);
+            }
+        };
+        checkVerification();
+    }, []);
+
     const accountItems = [
         {
             label: 'Edit Profile',
@@ -83,6 +102,24 @@ export default function SettingsScreen() {
             icon: Lock,
             colorClass: 'bg-emerald-500',
             onPress: () => router.push('/safety')
+        },
+        {
+            label: isVerified ? 'Identity Verified' : 'Verify Identity',
+            icon: ShieldCheck,
+            colorStyle: { backgroundColor: isVerified ? '#10B981' : '#DC2626' }, // Green if verified, Red if not
+            onPress: () => {
+                if (isVerified) {
+                    showToast("Your identity is already verified", "success");
+                } else {
+                    setShowVerificationModal(true);
+                }
+            }
+        },
+        {
+            label: 'Visibility & Preferences',
+            icon: Eye,
+            colorClass: 'bg-purple-500',
+            onPress: () => router.push('/settings/visibility')
         },
     ];
 
@@ -160,6 +197,15 @@ export default function SettingsScreen() {
                 onCancel={() => setShowLogoutConfirm(false)}
                 confirmText="Log Out"
                 isDestructive
+            />
+
+            <FaceVerificationModal
+                visible={showVerificationModal}
+                onClose={() => setShowVerificationModal(false)}
+                onVerified={() => {
+                    setShowVerificationModal(false);
+                    showToast('Identity verified!', 'success');
+                }}
             />
         </View >
     );

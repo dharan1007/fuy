@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Modal, TouchableOpacity, FlatList, Image, Share, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, FlatList, Image, Share, Alert, ActivityIndicator, TextInput } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { X, Users, ExternalLink, Check, Search } from 'lucide-react-native';
+import { X, Users, ExternalLink, Check, Search, Loader2 } from 'lucide-react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -16,8 +16,19 @@ interface ShareCardModalProps {
 interface UserItem {
     id: string;
     name: string;
+    displayName?: string;
     avatarUrl?: string;
 }
+
+// Fix font scaling issues
+interface TextInputWithDefaultProps extends TextInput {
+    defaultProps?: { allowFontScaling?: boolean; style?: any };
+}
+
+if ((TextInput as unknown as TextInputWithDefaultProps).defaultProps == null) (TextInput as unknown as TextInputWithDefaultProps).defaultProps = {};
+(TextInput as unknown as TextInputWithDefaultProps).defaultProps!.allowFontScaling = false;
+(TextInput as unknown as TextInputWithDefaultProps).defaultProps!.style = { fontFamily: 'System' };
+
 
 export default function ShareCardModal({ visible, onClose, cardCode, cardOwnerName }: ShareCardModalProps) {
     const { colors, mode } = useTheme();
@@ -27,6 +38,7 @@ export default function ShareCardModal({ visible, onClose, cardCode, cardOwnerNa
     const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(false);
     const [sending, setSending] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
     const [dbUserId, setDbUserId] = useState<string | null>(null);
 
     // Resolve DB User ID
@@ -44,40 +56,103 @@ export default function ShareCardModal({ visible, onClose, cardCode, cardOwnerNa
         resolveUser();
     }, [session?.user?.email]);
 
-    // Fetch users (followers/following)
+    // Fetch users (suggestions or search)
     useEffect(() => {
-        if (visible && dbUserId) {
-            fetchUsers();
+        if (visible) {
+            fetchUsers(searchQuery);
         }
-    }, [visible, dbUserId]);
+    }, [visible, searchQuery]);
 
-    const fetchUsers = async () => {
+    const fetchUsers = async (query = '') => {
         if (!dbUserId) return;
         setLoading(true);
         try {
-            // Fetch users this person follows
-            const { data: followingData } = await supabase
-                .from('Friendship')
-                .select(`
-                    friend:friendId (
-                        id,
-                        name,
-                        profile:Profile (avatarUrl)
-                    )
-                `)
-                .eq('userId', dbUserId);
+            let results: UserItem[] = [];
 
-            if (followingData) {
-                const userList = followingData
-                    .map((item: any) => item.friend)
-                    .filter((u: any) => u)
-                    .map((u: any) => ({
+            if (query) {
+                // Search users by name 
+                const { data } = await supabase
+                    .from('User')
+                    .select(`
+                        id, 
+                        name, 
+                        profile:Profile (displayName, avatarUrl)
+                    `)
+                    .ilike('name', `%${query}%`)
+                    .limit(20);
+
+                if (data) {
+                    results = data.map((u: any) => ({
                         id: u.id,
-                        name: u.name || 'User',
-                        avatarUrl: u.profile?.avatarUrl || (Array.isArray(u.profile) ? u.profile[0]?.avatarUrl : null)
+                        name: u.name,
+                        displayName: u.profile?.displayName,
+                        avatarUrl: u.profile?.avatarUrl
                     }));
-                setUsers(userList);
+                }
+            } else {
+                // 1. Fetch recent conversations
+                const { data: convos } = await supabase
+                    .from('Conversation')
+                    .select('participantA, participantB, lastMessageAt')
+                    .or(`participantA.eq.${dbUserId},participantB.eq.${dbUserId}`)
+                    .order('lastMessageAt', { ascending: false })
+                    .limit(20);
+
+                const recentUserIds = new Set<string>();
+                if (convos) {
+                    convos.forEach((c: any) => {
+                        const otherId = c.participantA === dbUserId ? c.participantB : c.participantA;
+                        if (otherId) recentUserIds.add(otherId);
+                    });
+                }
+
+                // 2. Fetch following if needed (fill up to 20)
+                let followingIds: string[] = [];
+                if (recentUserIds.size < 20) {
+                    const { data: follows } = await supabase
+                        .from('Friendship')
+                        .select('friendId')
+                        .eq('userId', dbUserId)
+                        .limit(20);
+
+                    if (follows) {
+                        followingIds = follows.map((f: any) => f.friendId);
+                    }
+                }
+
+                const allIds = Array.from(new Set([...recentUserIds, ...followingIds]));
+
+                if (allIds.length > 0) {
+                    const { data: usersData } = await supabase
+                        .from('User')
+                        .select(`
+                            id, 
+                            name, 
+                            profile:Profile (displayName, avatarUrl)
+                        `)
+                        .in('id', allIds);
+
+                    if (usersData) {
+                        // Map back to maintain loosely sort order of recent IDs
+                        const userMap = new Map(usersData.map((u: any) => [u.id, u]));
+
+                        allIds.forEach(id => {
+                            const u: any = userMap.get(id);
+                            if (u) {
+                                results.push({
+                                    id: u.id,
+                                    name: u.name,
+                                    displayName: u.profile?.displayName,
+                                    avatarUrl: u.profile?.avatarUrl
+                                });
+                            }
+                        });
+                    }
+                }
             }
+
+            setUsers(results);
+
         } catch (e) {
             console.error('Fetch users error:', e);
         } finally {
@@ -180,7 +255,7 @@ export default function ShareCardModal({ visible, onClose, cardCode, cardOwnerNa
                     source={{ uri: item.avatarUrl }}
                     className="w-10 h-10 rounded-full mr-3 bg-gray-200"
                 />
-                <Text className="flex-1 font-medium" style={{ color: colors.text }}>{item.name}</Text>
+                <Text className="flex-1 font-medium" style={{ color: colors.text }}>{item.displayName || item.name}</Text>
                 {isSelected && (
                     <View className="w-6 h-6 rounded-full items-center justify-center" style={{ backgroundColor: colors.primary }}>
                         <Check color="#fff" size={14} />
@@ -214,26 +289,43 @@ export default function ShareCardModal({ visible, onClose, cardCode, cardOwnerNa
                             <TouchableOpacity
                                 onPress={() => setActiveTab('in-app')}
                                 className="flex-1 flex-row items-center justify-center py-3 rounded-lg gap-2"
-                                style={{ backgroundColor: activeTab === 'in-app' ? colors.primary : 'transparent' }}
+                                style={{ backgroundColor: activeTab === 'in-app' ? '#fff' : 'transparent' }}
                             >
-                                <Users color={activeTab === 'in-app' ? '#fff' : colors.text} size={18} />
-                                <Text style={{ color: activeTab === 'in-app' ? '#fff' : colors.text, fontWeight: '600' }}>Share in FUY</Text>
+                                <Users color={activeTab === 'in-app' ? '#000' : colors.text} size={18} />
+                                <Text style={{ color: activeTab === 'in-app' ? '#000' : colors.text, fontWeight: '600' }}>Share in FUY</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 onPress={() => setActiveTab('external')}
                                 className="flex-1 flex-row items-center justify-center py-3 rounded-lg gap-2"
-                                style={{ backgroundColor: activeTab === 'external' ? colors.primary : 'transparent' }}
+                                style={{ backgroundColor: activeTab === 'external' ? '#fff' : 'transparent' }}
                             >
-                                <ExternalLink color={activeTab === 'external' ? '#fff' : colors.text} size={18} />
-                                <Text style={{ color: activeTab === 'external' ? '#fff' : colors.text, fontWeight: '600' }}>Other Apps</Text>
+                                <ExternalLink color={activeTab === 'external' ? '#000' : colors.text} size={18} />
+                                <Text style={{ color: activeTab === 'external' ? '#000' : colors.text, fontWeight: '600' }}>Other Apps</Text>
                             </TouchableOpacity>
                         </View>
 
                         {/* Content */}
                         {activeTab === 'in-app' ? (
                             <View style={{ minHeight: 300 }}>
+                                {/* Search Bar */}
+                                <View className="flex-row items-center p-3 rounded-xl mb-3" style={{ backgroundColor: colors.background }}>
+                                    <Search color={colors.secondary} size={18} />
+                                    <TextInput
+                                        placeholder="Search"
+                                        placeholderTextColor={colors.secondary}
+                                        value={searchQuery}
+                                        onChangeText={setSearchQuery}
+                                        style={{ flex: 1, marginLeft: 10, color: colors.text, fontSize: 16 }}
+                                    />
+                                    {searchQuery.length > 0 && (
+                                        <TouchableOpacity onPress={() => setSearchQuery('')}>
+                                            <X color={colors.secondary} size={16} />
+                                        </TouchableOpacity>
+                                    )}
+                                </View>
+
                                 <Text className="text-sm mb-3" style={{ color: colors.secondary }}>
-                                    Select users to send this profile card:
+                                    {searchQuery ? 'Search Results:' : 'Suggested People:'}
                                 </Text>
                                 {loading ? (
                                     <ActivityIndicator color={colors.primary} size="large" />

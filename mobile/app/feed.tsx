@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../context/ThemeContext';
+import { getApiUrl } from '../lib/api';
 
 const { width } = Dimensions.get('window');
 
@@ -45,10 +46,26 @@ export default function FeedScreen() {
     const [posts, setPosts] = useState<FeedPost[]>(DEMO_FEED);
     const [refreshing, setRefreshing] = useState(false);
     const [liked, setLiked] = useState<Set<string>>(new Set());
+    const [userAvatar, setUserAvatar] = useState<string | null>(null);
+
+    const fetchUserProfile = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+            const { data } = await supabase
+                .from('Profile')
+                .select('avatarUrl')
+                .eq('userId', user.id)
+                .single();
+            if (data?.avatarUrl) {
+                setUserAvatar(data.avatarUrl);
+            }
+        }
+    };
 
     const fetchFeed = async () => {
         try {
-            const response = await fetch('https://www.fuymedia.org/api/feed');
+            const API_URL = getApiUrl();
+            const response = await fetch(`${API_URL}/api/feed`);
             if (response.ok) {
                 const data = await response.json();
                 if (data.posts?.length > 0) {
@@ -64,6 +81,7 @@ export default function FeedScreen() {
 
     useEffect(() => {
         fetchFeed();
+        fetchUserProfile();
     }, []);
 
     const onRefresh = useCallback(() => {
@@ -157,8 +175,17 @@ export default function FeedScreen() {
                 style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
             />
             <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 16 }}>
                     <Text style={{ fontSize: 22, fontWeight: '800', color: colors.text }}>Feed</Text>
+                    <TouchableOpacity onPress={() => router.push('/(tabs)/profile')}>
+                        {userAvatar ? (
+                            <Image source={{ uri: userAvatar }} style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.card }} />
+                        ) : (
+                            <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' }}>
+                                <Text style={{ fontSize: 14, fontWeight: '700', color: colors.secondary }}>U</Text>
+                            </View>
+                        )}
+                    </TouchableOpacity>
                 </View>
 
                 <FlatList

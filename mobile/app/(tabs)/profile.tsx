@@ -12,8 +12,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Trash2, GripVertical, Maximize2, Minimize2, Grid3X3, Square, MonitorPlay, Share2, Settings, Bell, Grid, List, Plus, Heart, MessageCircle, MoreHorizontal, Edit3, Camera, Users, ChevronLeft, LogOut, Eye, Play, MapPin, Tag, X, Check } from 'lucide-react-native';
+import { VerifiedBadge } from '../../components/VerifiedBadge';
 import { useToast } from '../../context/ToastContext';
 import ShareCardModal from '../../components/ShareCardModal';
+import PostAnalyticsModal from '../../components/PostAnalyticsModal';
 
 const { width } = Dimensions.get('window');
 const COLUMN_WIDTH = width / 3 - 2;
@@ -29,6 +31,7 @@ interface Post {
 
 interface ProfileData {
     name: string;
+    isHumanVerified?: boolean;
     profileCode?: string;
     profile: {
         displayName: string;
@@ -69,6 +72,7 @@ export default function ProfileScreen() {
     const [showShareModal, setShowShareModal] = useState(false);
     const [myCardCode, setMyCardCode] = useState<string | null>(null);
     const [postFilter, setPostFilter] = useState<'ALL' | 'FILLS' | 'LILLS' | 'SIMPLE' | 'AUDIO' | 'CHANNELS' | 'XRAYS'>('ALL');
+    const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
 
 
     // Batch Selection State
@@ -185,7 +189,7 @@ export default function ProfileScreen() {
             // 1. Fetch User & Profile with all fields
             const { data: userData, error: userError } = await supabase
                 .from('User')
-                .select(`id, name, profileCode, profile:Profile(displayName, avatarUrl, bio, coverImageUrl, coverVideoUrl, location, tags, stalkMe)`)
+                .select(`id, name, isHumanVerified, profileCode, profile:Profile(displayName, avatarUrl, bio, coverImageUrl, coverVideoUrl, location, tags, stalkMe)`)
                 .eq('id', userId)
                 .single();
 
@@ -209,6 +213,7 @@ export default function ProfileScreen() {
                     user:User(name, profile:Profile(displayName, avatarUrl))
                 `)
                 .eq('userId', userId)
+                .not('feature', 'in', '("PROGRESS","CHECKIN","FOCUS")')
                 .order('createdAt', { ascending: false });
 
             if (postsError) console.error("Posts fetch error:", postsError.message);
@@ -231,6 +236,7 @@ export default function ProfileScreen() {
 
             setProfileData({
                 name: userData?.name || 'User',
+                isHumanVerified: userData?.isHumanVerified,
                 profileCode: userData?.profileCode,
                 profile: {
                     displayName: profileObj?.displayName || userData?.name || 'User',
@@ -461,15 +467,15 @@ export default function ProfileScreen() {
                 {/* Left side empty for ThemeToggle */}
                 <View />
                 <View className="flex-row gap-3">
-                    <TouchableOpacity onPress={toggleSelectionMode} style={{ backgroundColor: isSelectionMode ? colors.primary : 'rgba(0,0,0,0.5)', borderColor: '#fff', borderWidth: 2 }} className="px-4 h-10 rounded-full items-center justify-center">
+                    <TouchableOpacity onPress={toggleSelectionMode} style={{ backgroundColor: isSelectionMode ? colors.primary : 'rgba(0,0,0,0.5)' }} className="px-4 h-10 rounded-full items-center justify-center">
                         <Text style={{ color: '#fff', fontWeight: 'bold' }}>{isSelectionMode ? 'Done' : 'Select'}</Text>
                     </TouchableOpacity>
                     {!isSelectionMode && (
                         <>
-                            <TouchableOpacity onPress={handleShareProfile} style={{ backgroundColor: 'rgba(0,0,0,0.5)', borderColor: '#fff', borderWidth: 2 }} className="w-10 h-10 rounded-full items-center justify-center">
+                            <TouchableOpacity onPress={handleShareProfile} style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} className="w-10 h-10 rounded-full items-center justify-center">
                                 <Share2 color="#fff" size={20} />
                             </TouchableOpacity>
-                            <TouchableOpacity onPress={() => router.push('/settings')} style={{ backgroundColor: 'rgba(0,0,0,0.5)', borderColor: '#fff', borderWidth: 2 }} className="w-10 h-10 rounded-full items-center justify-center">
+                            <TouchableOpacity onPress={() => router.push('/settings')} style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} className="w-10 h-10 rounded-full items-center justify-center">
                                 <Settings color="#fff" size={20} />
                             </TouchableOpacity>
                         </>
@@ -481,7 +487,7 @@ export default function ProfileScreen() {
             <View className="absolute -bottom-14 left-6 flex-row items-end">
                 <View className="relative">
                     {/* Liquid Glass Avatar Border */}
-                    <BlurView intensity={20} tint={mode === 'light' ? 'light' : 'dark'} className="p-1 rounded-[36px] overflow-hidden" style={{ borderWidth: 2, borderColor: '#fff' }}>
+                    <BlurView intensity={20} tint={mode === 'light' ? 'light' : 'dark'} className="p-1 rounded-[36px] overflow-hidden">
                         <Image
                             source={{ uri: profile?.avatarUrl }}
                             className="w-28 h-28 rounded-[32px]"
@@ -489,7 +495,7 @@ export default function ProfileScreen() {
                         />
                     </BlurView>
 
-                    <TouchableOpacity style={{ backgroundColor: colors.card, borderColor: '#fff', borderWidth: 2 }} className="absolute bottom-0 right-0 rounded-full p-2">
+                    <TouchableOpacity style={{ backgroundColor: colors.card }} className="absolute bottom-0 right-0 rounded-full p-2">
                         <Camera color={colors.text} size={16} />
                     </TouchableOpacity>
                 </View>
@@ -501,7 +507,10 @@ export default function ProfileScreen() {
         <View className="mt-16 px-6">
             <View className="flex-row justify-between items-start mb-4">
                 <View style={{ flex: 1 }}>
-                    <Text style={{ color: colors.text }} className="text-2xl font-bold mb-1">{profile?.displayName || 'User'}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                        <Text style={{ color: colors.text }} className="text-2xl font-bold mb-1">{profile?.displayName || 'User'}</Text>
+                        <VerifiedBadge isHumanVerified={(profileData as any)?.isHumanVerified} size={18} />
+                    </View>
                     {profileData?.profileCode && (
                         <Text style={{ color: colors.primary, fontWeight: '600', marginBottom: 4 }}>#{profileData.profileCode}</Text>
                     )}
@@ -532,17 +541,17 @@ export default function ProfileScreen() {
             </View>
 
             {/* Glass Stats Card */}
-            <BlurView intensity={30} tint={mode === 'light' ? 'light' : 'dark'} className="flex-row justify-between w-full px-6 py-4 mb-8 rounded-3xl overflow-hidden" style={{ borderColor: '#fff', borderWidth: 2 }}>
+            <BlurView intensity={30} tint={mode === 'light' ? 'light' : 'dark'} className="flex-row justify-between w-full px-6 py-4 mb-8 rounded-3xl overflow-hidden">
                 <TouchableOpacity onPress={() => fetchSocialList('following')} className="items-center flex-1">
                     <Text style={{ color: colors.text }} className="text-lg font-bold">{profileData?.followingCount || 0}</Text>
                     <Text style={{ color: colors.secondary }} className="text-xs uppercase tracking-wider">Following</Text>
                 </TouchableOpacity>
-                <View className="w-[1px] h-full" style={{ backgroundColor: colors.border }} />
+                <View className="w-[1px] h-full" style={{ backgroundColor: 'rgba(255,255,255,0.2)' }} />
                 <TouchableOpacity onPress={() => fetchSocialList('followers')} className="items-center flex-1">
                     <Text style={{ color: colors.text }} className="text-lg font-bold">{profileData?.followersCount || 0}</Text>
                     <Text style={{ color: colors.secondary }} className="text-xs uppercase tracking-wider">Followers</Text>
                 </TouchableOpacity>
-                <View className="w-[1px] h-full" style={{ backgroundColor: colors.border }} />
+                <View className="w-[1px] h-full" style={{ backgroundColor: 'rgba(255,255,255,0.2)' }} />
                 <View className="items-center flex-1">
                     <Text style={{ color: colors.text }} className="text-lg font-bold">{stats?.posts || 0}</Text>
                     <Text style={{ color: colors.secondary }} className="text-xs uppercase tracking-wider">Posts</Text>
@@ -554,21 +563,28 @@ export default function ProfileScreen() {
                 <TouchableOpacity
                     onPress={() => router.push('/edit-profile')}
                     className="flex-1 py-3 rounded-2xl items-center justify-center"
-                    style={{ backgroundColor: colors.background, borderColor: '#fff', borderWidth: 2 }}
+                    style={{ backgroundColor: colors.background }}
                 >
                     <Text className="font-bold" style={{ color: colors.text }}>Edit Profile</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                     onPress={() => router.push('/profile-card/editor')}
                     className="flex-1 py-3 rounded-2xl items-center justify-center"
-                    style={{ backgroundColor: colors.background, borderColor: '#fff', borderWidth: 2 }}
+                    style={{ backgroundColor: colors.background }}
                 >
                     <Text className="font-bold" style={{ color: colors.text }}>Card</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
+                    onPress={() => setShowAnalyticsModal(true)}
+                    className="flex-1 py-3 rounded-2xl items-center justify-center"
+                    style={{ backgroundColor: colors.background }}
+                >
+                    <Text className="font-bold" style={{ color: colors.text }}>Details</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
                     onPress={openStalkMe}
                     className="w-12 items-center justify-center rounded-2xl"
-                    style={{ backgroundColor: colors.background, borderColor: '#fff', borderWidth: 2 }}
+                    style={{ backgroundColor: colors.background }}
                 >
                     <Grid color={colors.text} size={20} />
                 </TouchableOpacity>
@@ -722,8 +738,6 @@ export default function ProfileScreen() {
                         padding: 8, // Reduce padding
                         backgroundColor: 'rgba(255,255,255,0.05)',
                         borderRadius: 12,
-                        borderWidth: 2,
-                        borderColor: '#fff',
                         justifyContent: 'space-between'
                     }}
                 >
@@ -751,8 +765,6 @@ export default function ProfileScreen() {
                         margin: margin,
                         backgroundColor: 'rgba(255,255,255,0.05)',
                         borderRadius: 12,
-                        borderWidth: 2,
-                        borderColor: '#fff',
                         overflow: 'hidden'
                     }}
                 >
@@ -850,21 +862,35 @@ export default function ProfileScreen() {
                     height: height,
                     margin: margin,
                     borderRadius: 16,
-                    borderWidth: 2,
-                    borderColor: '#fff',
                     overflow: 'hidden',
                     backgroundColor: 'rgba(255,255,255,0.05)'
                 }}
             >
                 {mediaUrl ? (
-                    <Image
-                        source={{ uri: mediaUrl }}
-                        style={{ width: '100%', height: '100%' }}
-                        resizeMode="cover"
-                    />
+                    isVideo ? (
+                        <View style={{ width: '100%', height: '100%', backgroundColor: '#000' }}>
+                            <ExpoVideo
+                                source={{ uri: mediaUrl }}
+                                style={{ width: '100%', height: '100%' }}
+                                resizeMode={ResizeMode.COVER}
+                                shouldPlay={false}
+                                isMuted={true}
+                            />
+                            <View style={{ position: 'absolute', inset: 0, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.2)' }}>
+                                <Play size={24} color="#fff" fill="rgba(255,255,255,0.5)" />
+                            </View>
+                        </View>
+                    ) : (
+                        <Image
+                            source={{ uri: mediaUrl }}
+                            style={{ width: '100%', height: '100%' }}
+                            resizeMode="cover"
+                        />
+                    )
                 ) : (
                     <View style={{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
-                        <Grid size={24} color={colors.secondary} />
+                        {isVideo ? <Play size={24} color={colors.secondary} /> : <Grid size={24} color={colors.secondary} />}
+                        <Text style={{ color: colors.secondary, fontSize: 10, marginTop: 4 }}>{isVideo ? 'Video' : 'No Media'}</Text>
                     </View>
                 )}
 
@@ -1050,6 +1076,15 @@ export default function ProfileScreen() {
             )}
 
             {renderDeleteConfirmModal()}
+
+            {/* Post Analytics Modal */}
+            {dbUserId && (
+                <PostAnalyticsModal
+                    visible={showAnalyticsModal}
+                    onClose={() => setShowAnalyticsModal(false)}
+                    userId={dbUserId}
+                />
+            )}
         </View>
     );
 }

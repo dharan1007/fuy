@@ -1,0 +1,71 @@
+# Fuy App - Dashboard Page Detailed Description
+
+This document provides a comprehensive breakdown of every feature, button, and interaction available on the Dashboard Screen for both the Mobile Application and the Web Platform.
+
+---
+
+## 📱 Mobile Dashboard Screen
+**File Reference:** `mobile/app/dashboard.tsx`
+**Key Components:** `StatCard`, `SectionTitle`, `QuickActionPills`
+
+The dashboard acts as the personal command center, aggregating data from all app modules (Social, Store, Health, Events).
+
+### 1. Header & Navigation
+*   **Top Bar:**
+    *   **Back Button:** Returns to the previous screen.
+    *   **Status Badge:** "ACTIVE" indicator (Green dot).
+    *   **Profile Avatar:** Quick link to the user's profile.
+*   **Quick Actions (Pills):**
+    *   Horizontal scrollable row of buttons for fast access:
+        *   **My Store:** Manage products/inventory (`/dashboard/store`).
+        *   **Channel:** Manage content/broadcasts (`/channel`).
+        *   **Connections:** View detailed bond metrics (`/bonds`).
+
+### 2. Analytics Modules
+*   **Task & Post Stats:**
+    *   **Tasks Done:** Counter of completed tasks vs pending.
+    *   **Total Posts:** Aggregate count of all content created.
+*   **Top Chat:**
+    *   **Ranked List:** Top 3 users by message volume.
+    *   **Metrics:** Message count and estimated "Time Spent" chatting.
+    *   **Empty State:** Prompts to "Start Chatting" if no history exists.
+*   **Connections:**
+    *   **Followers / Following:** Real-time counts.
+    *   **Chat Activity:** Messages sent Today vs Past 7 Days.
+*   **Grounding (Wrex):**
+    *   **Workout Days:** Count of logged sessions.
+    *   **Diet:** Current active diet plan name.
+    *   **Body Metrics:** Weight, Height, and calculated BMI.
+    *   **Health:** Recent health conditions logged.
+*   **Events (Hopin):**
+    *   **Invites:** Pending event invitations.
+    *   **Attended:** History of joined events.
+*   **Post Performance:**
+    *   **Top Rated:** Highlights specific posts with the most 'W' (Wins), 'L' (Losses), 'CAP' (Doubts), Shares, and Views.
+    *   **Post Types:** Breakdown of content distribution (e.g., 50% Video, 30% Image).
+    *   **Best Audience:** Top 5 users who interact most with your content.
+
+---
+
+## 💻 Web Dashboard Screen
+**File Reference:** `src/app/dashboard/page.tsx`
+
+The web dashboard uses a "Space/Galaxy" theme where features are represented as floating meteors.
+
+### 1. Visuals & Theme
+*   **Background:** `SpaceBackground` with animated stars, nebulas, and comets.
+*   **Layout:** "Meteor Grid" - a 3D perspective grid of floating organic shapes.
+
+### 2. Meteor Navigation (Cards)
+Instead of a list, navigation is handled via interactive 3D cards ("Meteors") that float and react to hover:
+*   **Bonding Meteor:** Red theme. Links to Connection Metrics.
+*   **Store Meteor:** Black/Radial theme. Shows "Active/Inactive" shop status.
+*   **Grounding (Wrex) Meteor:** Green theme. Shows "Ready/Complete" status for workouts.
+*   **Pomodoro (Focus) Meteor:** Orange theme. Live counter of focus sessions today.
+*   **Orders Meteor:** Blue theme. Track shipments.
+*   **Canvas Meteor:** Cyan theme. Creative studio link.
+*   **Hopin Meteor:** Yellow theme. Social plans.
+*   **Channel Meteor:** White/Broadcast theme. Show management.
+
+### 3. Analytics
+*   **DashboardAnalytics:** Renders a detailed data view below the meteor grid, mirroring the metrics available on mobile (Graph visualizations, tables).

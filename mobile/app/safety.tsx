@@ -8,11 +8,13 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '../context/ThemeContext';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 
 export default function SafetyScreen() {
     const router = useRouter();
     const { colors, mode } = useTheme();
     const { session } = useAuth();
+    const { showToast } = useToast();
     const [activeTab, setActiveTab] = useState<'blocked' | 'paused' | 'hidden'>('blocked');
     const [loading, setLoading] = useState(true);
     const [items, setItems] = useState<any[]>([]);
@@ -142,9 +144,11 @@ export default function SafetyScreen() {
 
             // Optimistic update
             setItems(prev => prev.filter(i => i.id !== itemId));
-            Alert.alert("Success", activeTab === 'blocked' ? "Unblocked" : activeTab === 'paused' ? "Unpaused" : "Unhidden");
+            const actionText = activeTab === 'blocked' ? "Unblocked user" : activeTab === 'paused' ? "Unpaused user" : "Post unhidden";
+            showToast(actionText, "success");
         } catch (e: any) {
-            Alert.alert("Error", e.message);
+            console.error("Action error:", e);
+            showToast(e.message || "Action failed", "error");
         }
     };
 

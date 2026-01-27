@@ -355,20 +355,17 @@ export default function SettingsPage() {
             </div>
 
             {/* Default Post Visibility */}
-            <div className="flex items-center justify-between">
+            {/* Visibility & Preferences Link */}
+            <button
+              onClick={() => router.push('/settings/visibility')}
+              className="w-full flex items-center justify-between bg-white/5 p-4 rounded-lg hover:bg-white/10 transition-colors"
+            >
               <div>
-                <p className="font-bold text-white">Default Post Visibility</p>
-                <p className="text-xs text-gray-400">Who can see your new posts by default</p>
+                <p className="font-bold text-white">Visibility & Preferences</p>
+                <p className="text-sm text-gray-400">Manage post, card, and data visibility</p>
               </div>
-              <select
-                value={settings.defaultPostVisibility}
-                onChange={(e) => updatePrivacySetting('defaultPostVisibility', e.target.value)}
-                className="bg-black border border-white/20 text-white text-sm rounded-lg px-3 py-2 outline-none focus:border-white"
-              >
-                <option value="PUBLIC">Public</option>
-                <option value="FOLLOWERS">Followers Only</option>
-              </select>
-            </div>
+              <ChevronRight className="w-5 h-5 text-gray-400" />
+            </button>
           </div>
         </section>
 

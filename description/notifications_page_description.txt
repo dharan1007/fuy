@@ -1,0 +1,54 @@
+# Fuy App - Notifications Page Detailed Description
+
+This document provides a comprehensive breakdown of every feature, button, and interaction available on the Notifications Screen for both the Mobile Application and the Web Platform.
+
+---
+
+## 📱 Mobile Notifications Screen
+**File Reference:** `mobile/app/notifications.tsx`
+
+The mobile notifications screen consolidates all alerts, including friend requests and interactions, into a single feed with in-line actions.
+
+### 1. Header & Filtering
+*   **Title:** "NOTIFICATIONS".
+*   **Tabs:**
+    *   **ALL:** Shows history of all alerts.
+    *   **UNREAD:** Filters to show only unseen notifications.
+*   **Empty State:** Custom illustration when no notifications exist.
+
+### 2. Notification Items
+*   **Visuals:**
+    *   **Unread:** Transparent/Highlighted background.
+    *   **Read:** Dimmed background (`rgba(255,255,255,0.03)`).
+    *   **Icons:** Color-coded icons for types (Blue `UserPlus` for requests, Green `Users` for follows, Red `Heart` for likes).
+*   **Interactions:**
+    *   **Friend Requests:**
+        *   **ACCEPT:** Confirms request. Updates status to "ACCEPTED".
+        *   **REJECT:** Declines request. Updates status to "DECLINED".
+        *   **GHOST:** Hides the request completely ("HIDDEN").
+    *   **Follow Back:**
+        *   Appears if a user follows you but you don't follow them back.
+        *   Single-tap action to "FOLLOW BACK".
+    *   **Navigation:** Tapping a notification navigates to the relevant User Profile or Post.
+    *   **Delete:** 'X' button to remove a notification.
+
+---
+
+## 💻 Web Notifications Screen
+**File Reference:** `src/app/notifications/page.tsx`
+
+The web version maintains the "Cosmos" aesthetic with advanced particle effects while offering the same functionality.
+
+### 1. Visuals & Theme
+*   **Cosmic Background:** `SpaceEngine` renders a canvas of stars, nebula clouds, and passing comets.
+*   **Glassmorphism:** UI elements use translucent backdrops with blur effects.
+
+### 2. Controls
+*   **Top Bar:**
+    *   **Filter Toggle:** Switch between "ALL" and "UNREAD".
+    *   **Mark All Read:** One-click action to clear the unread badge count.
+*   **List Items:**
+    *   **Hover Effects:** Cards glow and scale slightly on hover.
+    *   **Smart Grouping:** "Someone commented..." text is cleaned to "User Name commented".
+    *   **Optimistic UI:** Actions (Accept/Reject) update the UI immediately before the API confirmation to feel snappy.
+    *   **Delete:** Hover interaction reveals a delete button (X) that rotates on hover.

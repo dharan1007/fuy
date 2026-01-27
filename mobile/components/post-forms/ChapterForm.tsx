@@ -8,6 +8,8 @@ import { X, ArrowLeft, Globe, Users, Lock, Plus, BookOpen, Slash } from 'lucide-
 import { MediaUploadService } from '../../services/MediaUploadService';
 import { supabase } from '../../lib/supabase';
 import SuccessOverlay from '../SuccessOverlay';
+import { analyzeMultipleImages, NudityAnalysisResult } from '../../lib/nudity-detection';
+import NudityWarningModal from '../NudityWarningModal';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org';
 const { width } = Dimensions.get('window');
@@ -33,6 +35,11 @@ export default function ChapterForm({ onBack }: ChapterFormProps) {
     const [showSuccess, setShowSuccess] = useState(false);
     const [slashes, setSlashes] = useState<string[]>([]);
     const [slashInput, setSlashInput] = useState('');
+
+    // Nudity detection state
+    const [nudityResult, setNudityResult] = useState<NudityAnalysisResult | null>(null);
+    const [showNudityWarning, setShowNudityWarning] = useState(false);
+    const [pendingSubmit, setPendingSubmit] = useState(false);
 
     const pickMedia = async () => {
         const result = await ImagePicker.launchImageLibraryAsync({
@@ -67,6 +74,22 @@ export default function ChapterForm({ onBack }: ChapterFormProps) {
         if (!session?.user?.email) {
             Alert.alert('Error', 'Please log in first');
             return;
+        }
+
+        // Nudity Detection: Check all media for inappropriate content
+        if (!pendingSubmit) {
+            const mediaUris = media.map(m => m.uri);
+            const nudityCheck = await analyzeMultipleImages(mediaUris);
+
+            if (nudityCheck.classification === 'EXPLICIT') {
+                setNudityResult(nudityCheck);
+                setShowNudityWarning(true);
+                return;
+            } else if (nudityCheck.classification === 'SUGGESTIVE') {
+                setNudityResult(nudityCheck);
+                setShowNudityWarning(true);
+                return;
+            }
         }
 
         setLoading(true);
@@ -134,11 +157,20 @@ export default function ChapterForm({ onBack }: ChapterFormProps) {
 
             // Alert.alert('Done', 'Posted successfully', [{ text: 'OK', onPress: onBack }]);
             setShowSuccess(true);
+            setPendingSubmit(false);
+            setNudityResult(null);
         } catch (error: any) {
             Alert.alert('Error', error.message);
         } finally {
             setLoading(false);
         }
+    };
+
+    // Handle proceeding with suggestive content
+    const handleProceedWithWarning = () => {
+        setShowNudityWarning(false);
+        setPendingSubmit(true);
+        setTimeout(() => handleSubmit(), 100);
     };
 
     const renderMediaItem = (item: MediaItem, index: number) => (
@@ -330,6 +362,18 @@ export default function ChapterForm({ onBack }: ChapterFormProps) {
                 visible={showSuccess}
                 message="Chapter Posted!"
                 onFinish={onBack}
+            />
+
+            <NudityWarningModal
+                visible={showNudityWarning}
+                result={nudityResult}
+                onClose={() => {
+                    setShowNudityWarning(false);
+                    setNudityResult(null);
+                    setPendingSubmit(false);
+                }}
+                onProceed={nudityResult?.classification === 'SUGGESTIVE' ? handleProceedWithWarning : undefined}
+                isSubmitting={loading}
             />
         </ScrollView >
     );

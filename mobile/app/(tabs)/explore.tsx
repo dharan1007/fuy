@@ -12,6 +12,8 @@ import { getSafetyFilters, applySafetyFilters } from '../../services/SafetyServi
 import { supabase } from '../../lib/supabase';
 import { useTheme } from '../../context/ThemeContext';
 import XrayScratch from '../../components/XrayScratch';
+import ChansTab from '../../components/ChansTab';
+import { InfiniteCanvas } from '../../components/InfiniteCanvas';
 
 const { width, height } = Dimensions.get('window');
 
@@ -103,6 +105,9 @@ const AnimatedDecoration = ({ config, index, customEmoji, isPaused }: { config: 
     const translateY = useRef(new Animated.Value(0)).current;
     const opacity = useRef(new Animated.Value(0)).current; // For fade in
 
+    // Safety check for config
+    if (!config) return null;
+
     useEffect(() => {
         // Fade in
         Animated.timing(opacity, {
@@ -163,7 +168,7 @@ const AnimatedDecoration = ({ config, index, customEmoji, isPaused }: { config: 
                 }),
             ])
         ).start();
-    }, [isPaused, customEmoji]);
+    }, [isPaused, customEmoji]); // Removed index to prevent re-run on scroll
 
     return (
         <Animated.View
@@ -179,7 +184,9 @@ const AnimatedDecoration = ({ config, index, customEmoji, isPaused }: { config: 
                 opacity: opacity
             }}
         >
-            {customEmoji ? (
+            {customEmoji === 'FUY_LOGO' ? (
+                <Image source={require('../../assets/icon.png')} style={{ width: config.size, height: config.size, resizeMode: 'contain' }} />
+            ) : customEmoji ? (
                 <Text style={{ fontSize: config.size }}>{customEmoji}</Text>
             ) : (
                 <>
@@ -191,6 +198,10 @@ const AnimatedDecoration = ({ config, index, customEmoji, isPaused }: { config: 
         </Animated.View>
     );
 };
+
+// ... existing code ...
+
+
 
 
 
@@ -442,12 +453,239 @@ export default function ExploreScreen() {
     const [isScreenFocused, setIsScreenFocused] = useState(true);
     const [scrollEnabled, setScrollEnabled] = useState(true);
 
+    // 360 Infinite Scroll State
+    const [chunkRegistry, setChunkRegistry] = useState<Record<string, Post[]>>({});
+    const [loadedChunks, setLoadedChunks] = useState<Set<string>>(new Set());
+    const fetchingRefs = useRef<Set<string>>(new Set()); // Instant Ref for in-flight requests
+    const CHUNK_SIZE = 1000;
+    const globalPageRef = useRef(0);
+
+    const handleRegionChange = useCallback((region: { x: number, y: number, width: number, height: number }) => {
+        // Calculate visible chunks
+        const startX = Math.floor(region.x / CHUNK_SIZE);
+        const endX = Math.floor((region.x + region.width) / CHUNK_SIZE);
+        const startY = Math.floor(region.y / CHUNK_SIZE);
+        const endY = Math.floor((region.y + region.height) / CHUNK_SIZE);
+
+        // Add Buffer (Prefetching) - Load 1 chunk in every direction
+        const BUFFER = 1;
+
+        for (let x = startX - BUFFER; x <= endX + BUFFER; x++) {
+            for (let y = startY - BUFFER; y <= endY + BUFFER; y++) {
+                const key = `${x},${y}`;
+                // Check Ref immediately to avoid async state delay
+                if (!loadedChunks.has(key) && !fetchingRefs.current.has(key)) {
+                    fetchChunk(x, y);
+                }
+            }
+        }
+    }, [loadedChunks]);
+
+    const fetchChunk = async (chunkX: number, chunkY: number) => {
+        // Generate bg elements for this chunk regardless of posts
+        generateDecorationsForChunk(chunkX, chunkY);
+
+        const key = `${chunkX},${chunkY}`;
+
+        // Double check
+        if (loadedChunks.has(key) || fetchingRefs.current.has(key)) return;
+
+        // Mark as fetching
+        fetchingRefs.current.add(key);
+
+        try {
+            const page = globalPageRef.current;
+            globalPageRef.current += 1; // Increment for next chunk
+
+            // Default fetch logic similar to fetchPosts but for chunks
+            const { data, error } = await supabase
+                .from('Post')
+                .select(`
+                    id, content, postType,
+                    user:User(name, profile:Profile(displayName, avatarUrl)),
+                    postMedia:PostMedia(media:Media(url, type, variant)),
+                    topBubbles:ReactionBubble(mediaUrl, mediaType),
+                    slashes:Slash(tag)
+                `)
+                .eq('visibility', 'PUBLIC')
+                .in('postType', ['XRAY', 'LILL', 'FILL', 'CHAPTER']) // Same as Posts tab
+                .order('createdAt', { ascending: false })
+                .range(page * 15, (page + 1) * 15 - 1);
+
+            if (error) {
+                console.error('[Explore] Supabase error:', error);
+                return;
+            }
+
+            if (data && data.length > 0) {
+                const transformed: Post[] = data.map((p: any) => ({
+                    id: p.id,
+                    content: p.content || '',
+                    postType: p.postType,
+                    media: (p.postMedia || []).map((pm: any) => pm.media).filter(Boolean),
+                    chanData: null,
+                    postMedia: p.postMedia,
+                    user: Array.isArray(p.user) ? p.user[0] : p.user,
+                    topBubbles: p.topBubbles || [],
+                    slashes: p.slashes || []
+                })).filter(post => post.media && post.media.length > 0);
+
+                // Better approach: Calculate layouts first
+                const placedRects: { x: number, y: number, width: number, height: number }[] = [];
+                const layoutedPosts = transformed.map((post, index) => {
+                    let attempts = 0;
+                    let validConfig = null;
+                    const width = 140 + Math.random() * 40;
+                    const height = 200 + Math.random() * 50;
+                    const padding = 40; // Increased padding
+
+                    // 1. Try Random Placement
+                    while (attempts < 200) {
+                        const innerX = Math.random() * (CHUNK_SIZE - width - padding); // Keep well inside
+                        const innerY = Math.random() * (CHUNK_SIZE - height - padding);
+
+                        const candidate = {
+                            x: innerX,
+                            y: innerY,
+                            width,
+                            height
+                        };
+
+                        // Check collision with already placed in this chunk
+                        const hasCollision = placedRects.some(r => {
+                            return (
+                                candidate.x < r.x + r.width + padding &&
+                                candidate.x + candidate.width + padding > r.x &&
+                                candidate.y < r.y + r.height + padding &&
+                                candidate.y + candidate.height + padding > r.y
+                            );
+                        });
+
+                        if (!hasCollision) {
+                            validConfig = {
+                                top: chunkY * CHUNK_SIZE + innerY,
+                                left: chunkX * CHUNK_SIZE + innerX,
+                                width,
+                                height,
+                                rotate: (Math.random() - 0.5) * 10,
+                                radius: 16
+                            };
+                            placedRects.push(candidate);
+                            break;
+                        }
+                        attempts++;
+                    }
+
+                    // 2. Fallback: Grid Placement (if random fails)
+                    if (!validConfig) {
+                        const cols = 4;
+                        const rows = 4;
+                        const slotWidth = CHUNK_SIZE / cols;
+                        const slotHeight = CHUNK_SIZE / rows;
+
+                        for (let r = 0; r < rows; r++) {
+                            for (let c = 0; c < cols; c++) {
+                                const slotX = c * slotWidth + 20;
+                                const slotY = r * slotHeight + 20;
+
+                                const candidate = { x: slotX, y: slotY, width, height };
+
+                                const hasCollision = placedRects.some(rect => {
+                                    return (
+                                        candidate.x < rect.x + rect.width + 10 &&
+                                        candidate.x + candidate.width + 10 > rect.x &&
+                                        candidate.y < rect.y + rect.height + 10 &&
+                                        candidate.y + candidate.height + 10 > rect.y
+                                    );
+                                });
+
+                                if (!hasCollision) {
+                                    validConfig = {
+                                        top: chunkY * CHUNK_SIZE + slotY,
+                                        left: chunkX * CHUNK_SIZE + slotX,
+                                        width,
+                                        height,
+                                        rotate: 0,
+                                        radius: 16
+                                    };
+                                    placedRects.push(candidate);
+                                    break;
+                                }
+                            }
+                            if (validConfig) break;
+                        }
+                    }
+
+                    if (!validConfig) return null;
+
+                    return {
+                        ...post,
+                        _layout: validConfig
+                    } as Post & { _layout: any };
+                }).filter(Boolean) as (Post & { _layout: any })[];
+
+                setChunkRegistry(prev => ({
+                    ...prev,
+                    [key]: layoutedPosts
+                }));
+                // Mark loaded in state
+                setLoadedChunks(prev => new Set(prev).add(key));
+            }
+        } catch (e) {
+            console.error('[Explore] Chunk fetch error:', e);
+        } finally {
+            // Remove from fetching lock regardless of success, to allow retry if logic permits
+            // But since we setLoadedChunks on success, we check that. 
+            // If failed, we remove so we can retry.
+            fetchingRefs.current.delete(key);
+        }
+    };
+
     // Emoji/Background State
-    const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null);
+    const [activeEmojis, setActiveEmojis] = useState<string[]>(['FUY_LOGO']); // Default to Logo
     const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
-    const [isBackgroundPaused, setIsBackgroundPaused] = useState(false);
-    const [customEmojiText, setCustomEmojiText] = useState('');
-    const EMOJI_OPTIONS = ['✨', '🔥', '💧', '🍀', '🚀', '👾', '💎', '🌙', '🦋', '❤️'];
+    const [customEmojiText, setCustomEmojiText] = useState(''); // Text Input State
+    const [decorationsRegistry, setDecorationsRegistry] = useState<Record<string, { id: string, x: number, y: number, size: number, rotate: number, variantIndex: number }[]>>({});
+
+    const EMOJI_OPTIONS = ['FUY_LOGO', '✨', '🔥', '💧', '🍀', '🚀', '👾', '💎', '🌙', '🦋', '❤️', '☁️', '🌸', '⚡', '🎵', '👻'];
+
+    const toggleEmoji = (emoji: string) => {
+        setActiveEmojis(prev => {
+            if (prev.includes(emoji)) {
+                return prev.filter(e => e !== emoji);
+            }
+            if (prev.length >= 5) {
+                Alert.alert("Limit Reached", "You can only select up to 5 emojis.");
+                return prev;
+            }
+            return [...prev, emoji];
+        });
+    };
+
+
+
+    // Generate Decoration for Chunk
+    const generateDecorationsForChunk = (chunkX: number, chunkY: number) => {
+        const key = `${chunkX},${chunkY}`;
+        if (decorationsRegistry[key]) return;
+
+        const newDecorations = [];
+        // Dense: 5-8 decorations per chunk
+        const count = 5 + Math.floor(Math.random() * 4);
+
+        for (let i = 0; i < count; i++) {
+            newDecorations.push({
+                id: Math.random().toString(36).substr(2, 9),
+                x: chunkX * CHUNK_SIZE + Math.random() * CHUNK_SIZE,
+                y: chunkY * CHUNK_SIZE + Math.random() * CHUNK_SIZE,
+                size: 16 + Math.random() * 24,
+                rotate: Math.random() * 360,
+                variantIndex: Math.floor(Math.random() * 50) // Random index to map to selected emojis later
+            });
+        }
+
+        setDecorationsRegistry(prev => ({ ...prev, [key]: newDecorations }));
+    };
 
     // Global Pause when leaving tab (Crash Fix)
     useFocusEffect(
@@ -810,108 +1048,67 @@ export default function ExploreScreen() {
     return (
         <View style={{ flex: 1, backgroundColor: colors.background }}>
             <SafeAreaView style={{ flex: 1 }} edges={['top']}>
-                {/* Header - Removed Profile Circle as requested */}
-                <View style={[styles.header, { paddingRight: 20 }]}>
-                    <TouchableOpacity
-                        onPress={() => setIsSearching(true)}
-                        style={[styles.iconButton, { backgroundColor: colors.card }]}
-                    >
-                        <Search color={colors.text} size={20} />
-                    </TouchableOpacity>
-                    {/* Tabs - Smaller sizing */}
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ maxHeight: 36, marginBottom: 8 }} contentContainerStyle={{ paddingHorizontal: PADDING, gap: 6 }}>
-                        {['Posts', 'Slashes', 'Chans', 'Auds', 'Chapters', 'sixts', 'Puds'].map((tab) => (
+                {/* Header */}
+                <View style={[styles.header, { zIndex: 101 }]}>
+                    <Text style={styles.title}>Explore</Text>
+                    <View style={{ flexDirection: 'row', gap: 16 }}>
+                        {/* Decoration Picker Toggle */}
+                        {currentTab === 'Posts' && (
                             <TouchableOpacity
-                                key={tab}
-                                onPress={() => setCurrentTab(tab)}
+                                onPress={() => setIsEmojiPickerOpen(prev => !prev)}
                                 style={{
-                                    paddingHorizontal: 10, // Reduced from 12
-                                    paddingVertical: 5,   // Reduced from 6
-                                    borderRadius: 10,
-                                    backgroundColor: currentTab === tab ? 'white' : 'rgba(255,255,255,0.08)',
-                                    borderWidth: 0.5,
-                                    borderColor: currentTab === tab ? 'white' : 'rgba(255,255,255,0.15)'
+                                    width: 40, height: 40, borderRadius: 20,
+                                    backgroundColor: activeEmojis.length > 0 ? 'black' : 'rgba(0,0,0,0.5)',
+                                    alignItems: 'center', justifyContent: 'center',
+                                    borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
+                                    overflow: 'hidden'
                                 }}
                             >
-                                <Text style={{
-                                    color: currentTab === tab ? 'black' : 'rgba(255,255,255,0.7)',
-                                    fontWeight: '600',
-                                    fontSize: 10, // Reduced from 11
-                                    textTransform: 'uppercase',
-                                    letterSpacing: 0.5
-                                }}>
-                                    {tab}
-                                </Text>
+                                {activeEmojis.length > 0 ? (
+                                    activeEmojis[0] === 'FUY_LOGO' ? (
+                                        <Image source={require('../../assets/icon.png')} style={{ width: 24, height: 24, borderRadius: 12 }} />
+                                    ) : (
+                                        <Text style={{ fontSize: 20 }}>{activeEmojis[0]}</Text>
+                                    )
+                                ) : (
+                                    <View style={{ width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}><Zap size={16} color="white" /></View>
+                                )}
+                            </TouchableOpacity>
+                        )}
+
+                        <TouchableOpacity onPress={() => setIsSearching(true)} style={styles.iconButton}>
+                            <Search color="white" size={24} />
+                        </TouchableOpacity>
+                    </View>
+                </View>
+
+                {/* Tabs - Restored to original position below header */}
+                <View style={{ paddingBottom: 10 }}>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: PADDING, gap: 8 }}>
+                        {['Posts', 'Slashes', 'Chans', 'Auds', 'Chapters'].map(tab => (
+                            <TouchableOpacity
+                                key={tab}
+                                onPress={() => {
+                                    setCurrentTab(tab);
+                                    setPosts([]);
+                                    setChunkRegistry({});
+                                    setLoadedChunks(new Set());
+                                    globalPageRef.current = 0;
+                                    setPage(0);
+                                }}
+                                style={{
+                                    paddingHorizontal: 16,
+                                    paddingVertical: 8,
+                                    borderRadius: 20,
+                                    backgroundColor: currentTab === tab ? 'black' : 'rgba(255,255,255,0.1)',
+                                    borderWidth: currentTab === tab ? 1 : 0,
+                                    borderColor: 'rgba(255,255,255,0.3)'
+                                }}
+                            >
+                                <Text style={{ color: 'white', fontWeight: 'bold' }}>{tab}</Text>
                             </TouchableOpacity>
                         ))}
                     </ScrollView>
-                </View>
-
-                {/* Background Settings Toggle */}
-                <View style={{ position: 'absolute', top: 120, right: 20, zIndex: 100, alignItems: 'flex-end' }}>
-                    <TouchableOpacity
-                        onPress={() => setIsEmojiPickerOpen(prev => !prev)}
-                        style={{
-                            width: 40, height: 40, borderRadius: 20,
-                            backgroundColor: colors.card,
-                            justifyContent: 'center', alignItems: 'center',
-                            borderWidth: 1, borderColor: colors.border,
-                            shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84, elevation: 5
-                        }}
-                    >
-                        <Zap color={colors.text} size={20} fill={selectedEmoji ? "none" : colors.text} />
-                    </TouchableOpacity>
-
-                    {isEmojiPickerOpen && (
-                        <View style={{ marginTop: 10, backgroundColor: colors.card, borderRadius: 16, padding: 12, width: 220, borderWidth: 1, borderColor: colors.border }}>
-                            {/* Header Info */}
-                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, borderBottomWidth: 1, borderBottomColor: colors.border, paddingBottom: 8 }}>
-                                <View style={{ width: 16, height: 16, borderRadius: 8, borderWidth: 1, borderColor: colors.text, alignItems: 'center', justifyContent: 'center', marginRight: 6 }}>
-                                    <Text style={{ color: colors.text, fontSize: 10, fontWeight: 'bold' }}>i</Text>
-                                </View>
-                                <Text style={{ color: colors.text, fontSize: 12, fontWeight: '600' }}>Background Effects</Text>
-                            </View>
-
-                            {/* Pause Toggle */}
-                            <TouchableOpacity
-                                onPress={() => setIsBackgroundPaused(prev => !prev)}
-                                style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16, backgroundColor: colors.background, padding: 8, borderRadius: 8 }}
-                            >
-                                {isBackgroundPaused ? <Play size={16} color={colors.text} /> : <Pause size={16} color={colors.text} />}
-                                <Text style={{ color: colors.text, marginLeft: 8, fontSize: 13 }}>{isBackgroundPaused ? "Resume Animation" : "Pause Animation"}</Text>
-                            </TouchableOpacity>
-
-                            {/* Custom Emoji Input */}
-                            <View style={{ flexDirection: 'row', marginBottom: 12 }}>
-                                <TextInput
-                                    placeholder="Add emoji..."
-                                    placeholderTextColor={colors.text + '80'}
-                                    value={customEmojiText}
-                                    onChangeText={setCustomEmojiText}
-                                    maxLength={2}
-                                    style={{ flex: 1, backgroundColor: colors.background, color: colors.text, borderRadius: 6, paddingHorizontal: 8, height: 36, fontSize: 16 }}
-                                />
-                                <TouchableOpacity
-                                    onPress={() => { if (customEmojiText) { setSelectedEmoji(customEmojiText); setCustomEmojiText(''); } }}
-                                    style={{ marginLeft: 8, backgroundColor: colors.primary, borderRadius: 6, width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}
-                                >
-                                    <Check color="white" size={16} />
-                                </TouchableOpacity>
-                            </View>
-
-                            {/* Presets */}
-                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
-                                <TouchableOpacity onPress={() => setSelectedEmoji(null)} style={{ width: 30, height: 30, borderRadius: 15, borderWidth: 1, borderColor: colors.text, alignItems: 'center', justifyContent: 'center', backgroundColor: !selectedEmoji ? colors.primary + '20' : 'transparent' }}>
-                                    <Zap size={14} color={colors.text} />
-                                </TouchableOpacity>
-                                {EMOJI_OPTIONS.map(emoji => (
-                                    <TouchableOpacity key={emoji} onPress={() => setSelectedEmoji(emoji)} style={{ width: 30, height: 30, alignItems: 'center', justifyContent: 'center', backgroundColor: selectedEmoji === emoji ? colors.primary + '20' : 'transparent', borderRadius: 15 }}>
-                                        <Text style={{ fontSize: 18 }}>{emoji}</Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
-                        </View>
-                    )}
                 </View>
 
                 {/* Search Overlay */}
@@ -996,109 +1193,8 @@ export default function ExploreScreen() {
 
                 {/* Content Area */}
                 {currentTab === 'Chans' ? (
-                    // ------------------------------------------------------------------
-                    // ------------------ SPECIALIZED CHANS UI (NETFLIX STYLE) ----------
-                    // ------------------------------------------------------------------
-                    <ScrollView
-                        style={{ flex: 1, backgroundColor: colors.background }}
-                        contentContainerStyle={{ paddingBottom: 100 }}
-                        showsVerticalScrollIndicator={false}
-                        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.text} />}
-                    >
-                        {/* Hero Section */}
-                        {posts.length > 0 && (
-                            <View style={{ height: 500, marginBottom: 24 }}>
-                                <Image
-                                    source={{ uri: posts[0].chanData?.coverImageUrl || posts[0].user?.profile?.avatarUrl || posts[0].media?.[0]?.url || 'https://via.placeholder.com/500' }}
-                                    style={{ width: '100%', height: '100%', opacity: 0.7 }}
-                                    resizeMode="cover"
-                                />
-                                <LinearGradient
-                                    colors={['transparent', colors.background]}
-                                    style={StyleSheet.absoluteFill}
-                                />
-                                <View style={{ position: 'absolute', bottom: 40, left: 20, right: 20 }}>
-                                    <Text style={{ color: colors.text, fontSize: 12, fontWeight: '800', letterSpacing: 2, marginBottom: 8, textTransform: 'uppercase' }}>
-                                        Featured Channel
-                                    </Text>
-                                    <Text style={{ color: colors.text, fontSize: 42, fontWeight: '900', marginBottom: 16 }}>
-                                        {posts[0].chanData?.channelName || 'Untitled Channel'}
-                                    </Text>
-                                    <Text style={{ color: colors.text + 'CC', fontSize: 14, marginBottom: 24, lineHeight: 20 }} numberOfLines={2}>
-                                        {posts[0].chanData?.description || posts[0].content}
-                                    </Text>
-                                    <TouchableOpacity
-                                        style={{ backgroundColor: colors.text, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8, alignSelf: 'flex-start' }}
-                                        onPress={() => {
-                                            if (posts[0].chanData?.id) {
-                                                router.push(`/chan/${posts[0].chanData.id}` as any);
-                                            } else {
-                                                router.push(`/post/${posts[0].id}` as any);
-                                            }
-                                        }}
-                                    >
-                                        <Text style={{ color: colors.background, fontWeight: 'bold', marginRight: 8 }}>WATCH NOW</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-                        )}
-
-                        {/* Section: Trending Channels */}
-                        <View style={{ marginBottom: 32 }}>
-                            <Text style={{ color: colors.text, fontSize: 18, fontWeight: '700', marginLeft: 20, marginBottom: 16 }}>Trending Channels</Text>
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 16 }}>
-                                {posts.slice(1).map((post) => (
-                                    <TouchableOpacity
-                                        key={post.id}
-                                        style={{ width: 160 }}
-                                        onPress={() => {
-                                            if (post.chanData?.id) {
-                                                router.push(`/chan/${post.chanData.id}` as any);
-                                            } else {
-                                                router.push(`/post/${post.id}` as any);
-                                            }
-                                        }}
-                                    >
-                                        <Image
-                                            source={{ uri: post.chanData?.coverImageUrl || post.user?.profile?.avatarUrl || post.media?.[0]?.url || 'https://via.placeholder.com/150' }}
-                                            style={{ width: 160, height: 220, borderRadius: 12, marginBottom: 8, backgroundColor: colors.card }}
-                                        />
-                                        <Text style={{ color: colors.text, fontWeight: '600', fontSize: 14 }} numberOfLines={1}>{post.chanData?.channelName || 'Channel'}</Text>
-                                        <Text style={{ color: colors.text + '80', fontSize: 12 }} numberOfLines={1}>324 Episodes</Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </ScrollView>
-                        </View>
-
-                        {/* Section: New Shows */}
-                        <View style={{ marginBottom: 32 }}>
-                            <Text style={{ color: colors.text, fontSize: 18, fontWeight: '700', marginLeft: 20, marginBottom: 16 }}>New Shows</Text>
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 16 }}>
-                                {[...posts].reverse().map((post) => (
-                                    <TouchableOpacity
-                                        key={post.id}
-                                        style={{ width: 280 }}
-                                        onPress={() => {
-                                            if (post.chanData?.id) {
-                                                router.push(`/chan/${post.chanData.id}` as any);
-                                            } else {
-                                                router.push(`/post/${post.id}` as any);
-                                            }
-                                        }}
-                                    >
-                                        <Image
-                                            source={{ uri: post.chanData?.coverImageUrl || post.user?.profile?.avatarUrl || post.media?.[0]?.url || 'https://via.placeholder.com/300' }}
-                                            style={{ width: 280, height: 160, borderRadius: 12, marginBottom: 8, backgroundColor: colors.card }}
-                                        />
-                                        <Text style={{ color: colors.text, fontWeight: 'bold', fontSize: 16 }} numberOfLines={1}>{post.chanData?.channelName || post.content.substring(0, 20)}</Text>
-                                        <Text style={{ color: colors.text + '60', fontSize: 13 }} numberOfLines={1}>{post.chanData?.description || 'Exclusive Content'}</Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </ScrollView>
-                        </View>
-
-                        {/* Episodes section removed */}
-                    </ScrollView>
+                    // Using new aesthetic ChansTab component
+                    <ChansTab isActive={isScreenFocused && currentTab === 'Chans'} />
                 ) : currentTab === 'Slashes' ? (
                     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: 16 }}>
                         <Text style={{ color: colors.text, fontSize: 24, fontWeight: 'bold', marginBottom: 16 }}>All Slashes</Text>
@@ -1114,94 +1210,212 @@ export default function ExploreScreen() {
                     // ------------------------------------------------------------------
                     // ------------------ EXISTING SCATTERED MAP UI ---------------------
                     // ------------------------------------------------------------------
-                    <ScrollView
-                        style={{ flex: 1 }}
-                        contentContainerStyle={{ minHeight: '100%' }}
-                        showsVerticalScrollIndicator={false}
-                        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="white" />}
-                        onScroll={(e) => {
-                            const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
-                            setScrollY(contentOffset.y);
+                    // ------------------------------------------------------------------
+                    // ------------------ 360 INFINITE CANVAS UI ------------------------
+                    // ------------------------------------------------------------------
+                    <InfiniteCanvas onRegionChange={handleRegionChange}>
+                        {/* Render Background Decorations */}
+                        {Object.values(decorationsRegistry).flat().map((dec) => {
+                            // Pick emoji based on variantIndex and activeEmojis
+                            // Pick emoji based on variantIndex and activeEmojis - GUARD against empty array
+                            if (!activeEmojis || activeEmojis.length === 0) return null;
+                            const emoji = activeEmojis[dec.variantIndex % activeEmojis.length];
 
-                            // Load more when 500px from bottom and hasMore
-                            if (contentSize.height - contentOffset.y - layoutMeasurement.height < 500) {
-                                loadMore();
-                            }
-                        }}
-                        scrollEventThrottle={16} // Increased frequency for smoother updates
-                        scrollEnabled={scrollEnabled}
-                    >
-                        <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            contentContainerStyle={{
-                                width: CONTENT_WIDTH,
-                                height: Math.max(2000, Math.ceil(posts.length / CARD_CONFIGS.length) * PATTERN_HEIGHT + 200)
-                            }}
-                            onScroll={(e) => setScrollX(e.nativeEvent.contentOffset.x)}
-                            scrollEventThrottle={16}
-                            scrollEnabled={scrollEnabled}
-                        >
-                            <View style={{
-                                width: CONTENT_WIDTH,
-                                height: Math.max(2000, Math.ceil(posts.length / CARD_CONFIGS.length) * PATTERN_HEIGHT + 200)
-                            }}>
-                                {/* Render Animated Decorations (Background) - Virtualized */}
-                                {DECORATION_CONFIGS.map((deco, i) => {
-                                    // Optimization: Don't render animations if screen is not focused
-                                    if (!isScreenFocused) return null;
+                            return (
+                                <AnimatedDecoration
+                                    key={dec.id}
+                                    config={{ top: dec.y, left: dec.x, type: 'custom', size: dec.size, rotate: dec.rotate } as any}
+                                    index={dec.variantIndex}
+                                    customEmoji={emoji}
+                                    isPaused={false}
+                                />
+                            );
+                        })}
 
-                                    // Simple virtualization for bg elements too
-                                    const viewportCx = scrollX + width / 2;
-                                    const viewportCy = scrollY + height / 2;
-                                    const dist = Math.hypot(deco.left - viewportCx, deco.top - viewportCy);
+                        {Object.values(chunkRegistry).flat().map((post) => {
+                            // Use the layout stored on the post object
+                            const config = (post as any)._layout;
+                            if (!config) return null;
 
-                                    // Tighter buffer (1200px -> 800px) to save memory
-                                    if (dist > 800) return null;
+                            return (
+                                <MemoizedFloatingCard
+                                    key={post.id}
+                                    post={post}
+                                    config={config}
+                                    index={0}
+                                    onPress={() => router.push(`/post/${post.id}/similar` as any)}
+                                    onToggleScroll={() => { }}
+                                    isActive={false}
+                                />
+                            );
+                        })}
 
-                                    return <AnimatedDecoration key={`deco-${i}`} config={deco} index={i} customEmoji={selectedEmoji} isPaused={isBackgroundPaused} />;
-                                })}
+                        {/* Add some random background elements based on chunks too? For now, simple fixed ones might be lost in infinite space. */}
+                    </InfiniteCanvas>
+                )}
 
-                                {/* Render Posts - Strict Virtualization */}
-                                {posts.map((post, index) => {
-                                    // Dynamic Card Configuration for Infinite Scroll
-                                    const patternLength = CARD_CONFIGS.length;
-                                    const cycle = Math.floor(index / patternLength);
-                                    const patternIndex = index % patternLength;
-                                    const baseConfig = CARD_CONFIGS[patternIndex];
+                {/* Aesthetic Emoji Picker Overlay - Rendered LAST for Z-Index */}
+                {isEmojiPickerOpen && (
+                    <TouchableWithoutFeedback onPress={() => setIsEmojiPickerOpen(false)}>
+                        <View style={[StyleSheet.absoluteFill, { zIndex: 9999 }]}>
+                            <BlurView intensity={30} tint="dark" style={[StyleSheet.absoluteFill]} />
+                            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                                <TouchableWithoutFeedback>
+                                    <View style={{
+                                        width: '85%',
+                                        backgroundColor: 'rgba(20,20,20,0.95)',
+                                        borderRadius: 32,
+                                        padding: 24,
+                                        borderWidth: 1,
+                                        borderColor: 'rgba(255,255,255,0.1)',
+                                        shadowColor: '#000',
+                                        shadowOffset: { width: 0, height: 10 },
+                                        shadowOpacity: 0.5,
+                                        shadowRadius: 20,
+                                        elevation: 10
+                                    }}>
+                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                                            <View>
+                                                <Text style={{ color: 'white', fontSize: 20, fontWeight: '700' }}>Atmosphere</Text>
+                                                <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, marginTop: 4 }}>Select up to 5 vibes or type your own</Text>
+                                            </View>
+                                            <TouchableOpacity
+                                                onPress={() => setIsEmojiPickerOpen(false)}
+                                                style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 20, padding: 8 }}
+                                            >
+                                                <X size={20} color="white" />
+                                            </TouchableOpacity>
+                                        </View>
 
-                                    const config = {
-                                        ...baseConfig,
-                                        top: baseConfig.top + (cycle * PATTERN_HEIGHT)
-                                    };
+                                        {/* Current Pattern Display & Reset */}
+                                        <View style={{ marginBottom: 20 }}>
+                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                                                <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1 }}>Current Vibe</Text>
+                                                {activeEmojis.length > 0 && (
+                                                    <TouchableOpacity onPress={() => setActiveEmojis(['FUY_LOGO'])}>
+                                                        <Text style={{ color: '#FF4B4B', fontSize: 13, fontWeight: '600' }}>Reset Default</Text>
+                                                    </TouchableOpacity>
+                                                )}
+                                            </View>
+                                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, minHeight: 40, alignItems: 'center' }}>
+                                                {activeEmojis.length === 0 ? (
+                                                    <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 14, fontStyle: 'italic' }}>No vibes selected...</Text>
+                                                ) : (
+                                                    activeEmojis.map((emoji, idx) => (
+                                                        <TouchableOpacity
+                                                            key={`${emoji}-${idx}`}
+                                                            onPress={() => toggleEmoji(emoji)}
+                                                            style={{
+                                                                flexDirection: 'row', alignItems: 'center',
+                                                                backgroundColor: 'rgba(255,255,255,0.1)',
+                                                                paddingVertical: 6, paddingHorizontal: 12,
+                                                                borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)'
+                                                            }}
+                                                        >
+                                                            {emoji === 'FUY_LOGO' ? (
+                                                                <Image source={require('../../assets/icon.png')} style={{ width: 16, height: 16, marginRight: 6 }} />
+                                                            ) : (
+                                                                <Text style={{ fontSize: 16, marginRight: 6 }}>{emoji}</Text>
+                                                            )}
+                                                            <X size={12} color="rgba(255,255,255,0.5)" />
+                                                        </TouchableOpacity>
+                                                    ))
+                                                )}
+                                                {activeEmojis.length > 0 && (
+                                                    <TouchableOpacity onPress={() => setActiveEmojis([])} style={{ marginLeft: 4 }}>
+                                                        <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>Clear All</Text>
+                                                    </TouchableOpacity>
+                                                )}
+                                            </View>
+                                        </View>
 
-                                    const cardCx = config.left + config.width / 2;
-                                    const cardCy = config.top + config.height / 2;
-                                    const viewportCx = scrollX + width / 2;
-                                    const viewportCy = scrollY + height / 2;
+                                        {/* Custom Input */}
+                                        <View style={{ flexDirection: 'row', marginBottom: 20 }}>
+                                            <TextInput
+                                                placeholder="Type custom emoji..."
+                                                placeholderTextColor="rgba(255,255,255,0.5)"
+                                                value={customEmojiText}
+                                                onChangeText={setCustomEmojiText}
+                                                maxLength={4}
+                                                style={{
+                                                    flex: 1,
+                                                    backgroundColor: 'rgba(255,255,255,0.1)',
+                                                    borderRadius: 12,
+                                                    paddingHorizontal: 16,
+                                                    color: 'white',
+                                                    height: 44,
+                                                    fontSize: 16
+                                                }}
+                                            />
+                                            <TouchableOpacity
+                                                onPress={() => {
+                                                    if (customEmojiText.trim()) {
+                                                        toggleEmoji(customEmojiText.trim());
+                                                        setCustomEmojiText('');
+                                                    }
+                                                }}
+                                                style={{
+                                                    marginLeft: 10,
+                                                    width: 44,
+                                                    height: 44,
+                                                    backgroundColor: 'white',
+                                                    borderRadius: 12,
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center'
+                                                }}
+                                            >
+                                                <Check color="black" size={20} />
+                                            </TouchableOpacity>
+                                        </View>
 
-                                    // Distance check: If card is far from viewport center, DON'T RENDER IT.
-                                    const dist = Math.hypot(cardCx - viewportCx, cardCy - viewportCy);
+                                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center' }}>
+                                            {EMOJI_OPTIONS.map(emoji => {
+                                                const isActive = activeEmojis.includes(emoji);
+                                                return (
+                                                    <TouchableOpacity
+                                                        key={emoji}
+                                                        onPress={() => toggleEmoji(emoji)}
+                                                        activeOpacity={0.7}
+                                                        style={{
+                                                            width: 50, height: 50, borderRadius: 25,
+                                                            backgroundColor: isActive ? 'white' : 'rgba(255,255,255,0.05)',
+                                                            alignItems: 'center', justifyContent: 'center',
+                                                            borderWidth: 1,
+                                                            borderColor: isActive ? 'white' : 'rgba(255,255,255,0.1)',
+                                                            transform: [{ scale: isActive ? 1.1 : 1 }]
+                                                        }}
+                                                    >
+                                                        {emoji === 'FUY_LOGO' ? (
+                                                            <Image source={require('../../assets/icon.png')} style={{ width: 30, height: 30 }} resizeMode="contain" />
+                                                        ) : (
+                                                            <Text style={{ fontSize: 24 }}>{emoji}</Text>
+                                                        )}
+                                                    </TouchableOpacity>
+                                                )
+                                            })}
+                                        </View>
 
-                                    if (dist > 800) { // Increased buffer slightly for smoother scroll
-                                        return null;
-                                    }
-
-                                    return (
-                                        <MemoizedFloatingCard
-                                            key={post.id}
-                                            post={post}
-                                            config={config}
-                                            index={index}
-                                            onPress={() => router.push(`/post/${post.id}/similar` as any)}
-                                            onToggleScroll={setScrollEnabled}
-                                            isActive={isScreenFocused && activeCardIndex === index}
-                                        />
-                                    );
-                                })}
+                                        <View style={{ marginTop: 24, alignItems: 'center' }}>
+                                            <LinearGradient
+                                                colors={activeEmojis.length > 0 ? ['#00C6FF', '#0072FF'] : ['#333', '#333']}
+                                                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                                                style={{ borderRadius: 24, width: '100%' }}
+                                            >
+                                                <TouchableOpacity
+                                                    onPress={() => setIsEmojiPickerOpen(false)}
+                                                    style={{ paddingVertical: 14, alignItems: 'center' }}
+                                                >
+                                                    <Text style={{ color: activeEmojis.length > 0 ? 'white' : 'rgba(255,255,255,0.3)', fontWeight: 'bold', fontSize: 16 }}>
+                                                        Set Vibe ({activeEmojis.length}/5)
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            </LinearGradient>
+                                        </View>
+                                    </View>
+                                </TouchableWithoutFeedback>
                             </View>
-                        </ScrollView>
-                    </ScrollView>
+                        </View>
+                    </TouchableWithoutFeedback>
                 )}
 
                 {/* Bottom Navigation Bar removed - handled by _layout.tsx */}

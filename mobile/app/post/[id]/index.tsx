@@ -14,6 +14,7 @@ interface PostData {
     id: string;
     content: string;
     postType: string;
+    viewCount?: number;
     postMedia?: { media: { url: string, type: string } }[];
     media?: { url: string, type: string }[];
     user?: {
@@ -77,6 +78,15 @@ export default function PostScreen() {
                     media,
                     chanData: (Array.isArray(postData.chan_data) ? postData.chan_data[0] : postData.chan_data) as any
                 } as any);
+
+                // Increment view count
+                const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://fuy.fun';
+                fetch(`${API_URL}/api/posts/view`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ postId: id })
+                }).catch(err => console.error('Failed to increment view:', err));
+
                 return;
             }
 

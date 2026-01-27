@@ -1,0 +1,24 @@
+Environment variables loaded from .env
+Prisma schema loaded from prisma\schema.prisma
+
+Error: Prisma schema validation - (validate wasm)
+Error code: P1012
+[1;91merror[0m: [1mError validating field `user` in model `ProductWishlist`: The relation field `user` on model `ProductWishlist` is missing an opposite relation field on the model `User`. Either run `prisma format` or add it manually.[0m
+  [1;94m-->[0m  [4mprisma\schema.prisma:2542[0m
+[1;94m   | [0m
+[1;94m2541 | [0m
+[1;94m2542 | [0m  [1;91muser    User    @relation(fields: [userId], references: [id], onDelete: Cascade)[0m
+[1;94m2543 | [0m  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+[1;94m   | [0m
+[1;91merror[0m: [1mError validating field `product` in model `ProductWishlist`: The relation field `product` on model `ProductWishlist` is missing an opposite relation field on the model `Product`. Either run `prisma format` or add it manually.[0m
+  [1;94m-->[0m  [4mprisma\schema.prisma:2543[0m
+[1;94m   | [0m
+[1;94m2542 | [0m  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+[1;94m2543 | [0m  [1;91mproduct Product @relation(fields: [productId], references: [id], onDelete: Cascade)[0m
+[1;94m2544 | [0m
+[1;94m   | [0m
+
+Validation Error Count: 2
+[Context: validate]
+
+Prisma CLI Version : 6.19.1

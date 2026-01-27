@@ -1,0 +1,93 @@
+========================================================================================
+FUY DEEP DIVE: CHAT & MESSAGING ECOSYSTEM
+========================================================================================
+
+1. OVERVIEW
+----------------------------------------------------------------------------------------
+Messing in FUY is more than just text exchange; it's a "Social Operating System". It incorporates advanced privacy controls (Locking, Hiding, Ghosting), identity management (Nicknames), and seamless integration with the social feed (Sharing posts).
+
+It mirrors the complexity of apps like Telegram + WhatsApp, with unique FUY-specific features such as "Dbot" integration and "Collaboration" modes.
+
+2. CORE DATA ARCHITECTURE (Prisma Schema Analysis)
+----------------------------------------------------------------------------------------
+
+A. Conversation (Conversation)
+   - Unique Pair: `participantA` + `participantB` (1:1 messaging).
+   - `wallpaperUrl`: Shared background for both users.
+   - `messageRetention`: ['immediately', '1day', 'forever']. Auto-delete logic.
+   - `lastMessage`: Denormalized for list performance.
+   - `createdAt`: Sorting.
+
+B. ConversationState (ConversationState)
+   - *Crucial for Privacy*. This table stores user-specific settings for a chat.
+   - `userId`: The owner of these settings.
+   - `isGhosted`: If true, messages are silently ignored (no delivery receipt).
+   - `isHidden`: Chat removed from main list, accessible only via Search.
+   - `isLocked`: Requires PIN/Biometric to open.
+   - `nickname`: Custom name for the other person (e.g., "Bae" instead of "John Doe").
+
+C. Message (Message)
+   - `type`: ['text', 'image', 'video', 'audio', 'post', 'reply'].
+   - `sharedPostId`: Logic for when a user shares a Feed Post into DM.
+   - `isSaved`: Boolean to override retention policy (Message won't auto-delete).
+   - `readAt`: Timestamp for "Blue Ticks".
+
+D. ChatSessionLog
+   - Tracks duration of chat sessions for "Connection Score" (Bonding module).
+   - Metrics: "Total Minutes Chatted", "Most Frequent Contact".
+
+3. USER INTERFACE FLOWS (mobile/app/(tabs)/chat.tsx & web/src/hooks/useMessaging.ts)
+----------------------------------------------------------------------------------------
+
+The Chat List:
+- **Filtering**: Search bar supports "#Code" or "Hidden" command.
+  * Typing "hidden" reveals the hidden chats.
+- **Sorting**:
+  1. Pinned Chats (Custom Order).
+  2. Recent Messages.
+  3. "Followers" mode (sort by popularity).
+- **Status Indicators**: "Online", "Offline", "Away" (Real-time presence).
+
+The Chat Room:
+- **Interaction**:
+  * Swipe Right to Reply (PanResponder animation).
+  * Long Press for Options (Save, Copy, Delete, Forward).
+- **Media**:
+  * Integrated ImagePicker/Camera.
+  * Video compression before upload.
+- **Privacy Lock**:
+  * If `isLocked=true`, `authenticateForChat()` is called.
+  * Uses `expo-local-authentication` (FaceID/TouchID) or fallback to `SecureStore` stored PIN.
+
+Typing Indicators:
+- **Real-time Broadcast**: Uses Supabase `broadcast` channel (Ephemaral, not stored in DB).
+- Events `typing:start` and `typing:stop` with 4s debounce.
+
+4. ALGORITHMIC & TECHNICAL CONSIDERATIONS
+----------------------------------------------------------------------------------------
+
+Real-time Architecture:
+- **Hybrid Model**:
+  1. **Broadcast Channel**: Fast, low-latency for "New Message" alerts and "Typing".
+  2. **Postgres Changes**: Reliable, persistent syncing. If user is offline, `INSERT` events sync when they reconnect.
+  3. **Polling Fallback**: `setInterval` (5s) checks for missed messages to guarantee delivery.
+
+Security & Retention:
+- **Local Storage**: Nicknames and Pinned Order stored in `AsyncStorage` for speed.
+- **Message Encryption**: Standard TLS In-transit.
+- **Auto-Deletion**: Server-side Cron Job (implied) or RLS policy that hides messages older than `retention` period unless `isSaved=true`.
+
+Advanced Features:
+- **Fact Checking**: `Trigger` system scans messages for keywords.
+  * If a user types a sensitive keyword (matched against `TriggerCollection`), a warning modal appears *before* sending.
+- **Collaboration**: "Hopin" or "Journal" sessions can be launched *inside* a chat, converting the room into a co-working space.
+
+5. FUTURE SCALABILITY
+----------------------------------------------------------------------------------------
+- **E2EE**: End-to-End Encryption using Signal Protocol (currently reliant on server trust).
+- **Group Chats**: Schema supports `Group` model, but `Conversation` is currently optimized for 1:1. Group migration would require a unified `ChatRoom` interface.
+- **AI Replies**: Dbot generating "Smart Replies" based on conversation context.
+
+========================================================================================
+END OF CHAT ANALYSIS
+========================================================================================

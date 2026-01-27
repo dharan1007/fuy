@@ -6,6 +6,8 @@ import { useAuth } from '../../context/AuthContext';
 import { X, ArrowLeft, Camera as CameraIcon, Image as ImageIcon, Type, Send, Clock, Globe, Users, Lock, Save } from 'lucide-react-native';
 import { MediaUploadService } from '../../services/MediaUploadService';
 import { supabase } from '../../lib/supabase';
+import { analyzeImageForNudity, NudityAnalysisResult } from '../../lib/nudity-detection';
+import NudityWarningModal from '../NudityWarningModal';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org';
 const { width, height } = Dimensions.get('window');
@@ -25,6 +27,11 @@ export default function ClockForm({ onBack }: ClockFormProps) {
     const [duration, setDuration] = useState(24);
     const [visibility, setVisibility] = useState('PUBLIC');
     const [loading, setLoading] = useState(false);
+
+    // Nudity detection state
+    const [nudityResult, setNudityResult] = useState<NudityAnalysisResult | null>(null);
+    const [showNudityWarning, setShowNudityWarning] = useState(false);
+    const [pendingSubmit, setPendingSubmit] = useState(false);
 
     const takePhoto = async () => {
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -73,6 +80,21 @@ export default function ClockForm({ onBack }: ClockFormProps) {
             return;
         }
 
+        // Nudity Detection: Check media for inappropriate content
+        if (!pendingSubmit) {
+            const nudityCheck = await analyzeImageForNudity(media.uri);
+
+            if (nudityCheck.classification === 'EXPLICIT') {
+                setNudityResult(nudityCheck);
+                setShowNudityWarning(true);
+                return;
+            } else if (nudityCheck.classification === 'SUGGESTIVE') {
+                setNudityResult(nudityCheck);
+                setShowNudityWarning(true);
+                return;
+            }
+        }
+
         setLoading(true);
         try {
             const { data: userData } = await supabase.from('User').select('id').eq('email', session.user.email).single();
@@ -105,12 +127,21 @@ export default function ClockForm({ onBack }: ClockFormProps) {
             });
 
             if (!response.ok) throw new Error((await response.json()).error || 'Failed');
+            setPendingSubmit(false);
+            setNudityResult(null);
             Alert.alert('Done', asDraft ? 'Saved as draft' : 'Story posted', [{ text: 'OK', onPress: onBack }]);
         } catch (error: any) {
             Alert.alert('Error', error.message);
         } finally {
             setLoading(false);
         }
+    };
+
+    // Handle proceeding with suggestive content
+    const handleProceedWithWarning = (asDraft: boolean = false) => {
+        setShowNudityWarning(false);
+        setPendingSubmit(true);
+        setTimeout(() => handleSubmit(asDraft), 100);
     };
 
     return (
@@ -237,6 +268,18 @@ export default function ClockForm({ onBack }: ClockFormProps) {
                 <Clock size={14} color="rgba(255,255,255,0.3)" />
                 <Text style={styles.infoText}>Stories disappear after {duration} hours</Text>
             </View>
+
+            <NudityWarningModal
+                visible={showNudityWarning}
+                result={nudityResult}
+                onClose={() => {
+                    setShowNudityWarning(false);
+                    setNudityResult(null);
+                    setPendingSubmit(false);
+                }}
+                onProceed={nudityResult?.classification === 'SUGGESTIVE' ? () => handleProceedWithWarning(false) : undefined}
+                isSubmitting={loading}
+            />
         </ScrollView>
     );
 }

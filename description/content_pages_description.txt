@@ -1,0 +1,125 @@
+# Fuy App - Content & Media Pages Detailed Description
+
+This document provides a comprehensive breakdown of every feature, button, and interaction available on the Media and Content-focused Screens.
+
+---
+
+## 📱 Mobile Watch Screen
+**File Reference:** `mobile/app/watch.tsx`
+
+A TikTok/Reels-style full-screen video feed.
+
+### 1. Feed Interaction
+*   **Vertical Scroll:** Snaps to page height (`pagingEnabled`) to move between videos.
+*   **Gestures:** Auto-plays current video. Tapping toggles play/pause (implied).
+
+### 2. Overlay UI
+*   **Right Action Bar:**
+    *   **Avatar:** Circular profile pic. Tapping navigates to user profile.
+    *   **Heart:** Like button with count. Toggles red/filled state.
+    *   **Comment:** Opens comment sheet.
+    *   **Share:** Opens share modal.
+*   **Bottom Info:**
+    *   **Username:** @handle.
+    *   **Description:** Video title/caption.
+    *   **Stats:** View count.
+*   **Header:**
+    *   **Back Button:** Returns to previous screen.
+    *   **Mute Toggle:** Switch between Sound On/Off.
+
+---
+
+## 📱 Mobile Stories Screen
+**File Reference:** `mobile/app/stories.tsx`
+
+A transient content viewer similar to Instagram Stories / Snapchat.
+
+### 1. Grid View (Main)
+*   **Header:** "Stories" title.
+*   **Add Story:** Prominent card to create a new story ("Plus" icon).
+*   **Story Grid:** 2-column grid of active stories from other users.
+    *   **Preview:** Thumbnail of the first media item.
+    *   **Meta:** User name and avatar overlay.
+
+### 2. Story Viewer (Full Screen)
+*   **Navigation:** Tap Left (Previous) / Right (Next) zones. Auto-advances after 5s.
+*   **Progress Bar:** Segmented bars at the top indicating current media index.
+*   **Header:** User info (Avatar, Name, View Count) and Close (X) button.
+*   **Footer Actions:**
+    *   **Reply:** Text input field to send a message.
+    *   **Heart:** Like the story.
+    *   **Send:** Share the story.
+
+---
+
+## 📱 Mobile Books Screen
+**File Reference:** `mobile/app/books.tsx`
+
+Library for purchased eBooks.
+
+### 1. Grid Layout
+*   **Card:**
+    *   **Cover:** Book cover image (aspect ratio 2:3).
+    *   **Badge:** "Read" status overlay.
+    *   **Title:** Book name.
+*   **Logic:** Filters user purchases for type `EBOOK`.
+*   **Empty State:** Prompts to browse shop for books.
+
+---
+
+## 📱 Mobile Courses Screen
+**File Reference:** `mobile/app/courses.tsx`
+
+Learning dashboard for video courses.
+
+### 1. Course List
+*   **Card:**
+    *   **Thumbnail:** 16:9 banner with a Play button overlay.
+    *   **Info:** Name, Description.
+    *   **Progress:** ProgressBar and percentage text ("0% Complete").
+*   **Logic:** Filters user purchases for type `COURSE`.
+
+---
+
+## 📱 Mobile Trending Screen
+**File Reference:** `mobile/app/trending.tsx`
+
+Discovery page for viral content.
+
+### 1. Categories
+*   **Horizontal Scroll:** Pills for "All", "Music", "Video", "Topics", "Books".
+*   **Filtering:** Updates the list based on selected category.
+
+### 2. Ranked List
+*   **Item:**
+    *   **Rank:** Number (1, 2, 3...).
+    *   **Trend Score:** Percentage increase (e.g., "+85%") in red/green.
+    *   **Info:** Image, Title, Post Count.
+
+---
+
+## 📱 Mobile Views Screen
+**File Reference:** `mobile/app/views.tsx`
+
+History of viewed products.
+
+### 1. Product Grid
+*   **Card:** Square thumbnail, Name, Price, and "Viewed Date".
+*   **Navigation:** Tapping opens the product detail page.
+
+---
+
+## 📱 Mobile Feed Screen
+**File Reference:** `mobile/app/feed.tsx`
+
+A general-purpose vertical feed (distinct from the main Home/For You tab).
+
+### 1. Post Item
+*   **Header:** User Avatar, Name, Handle, and More options (...) button.
+*   **Media:** Large square/aspect-fill image.
+*   **Action Bar:**
+    *   **Heart:** Like button + count.
+    *   **Message:** Comment button + count.
+    *   **Share:** Share button.
+    *   **Bookmark:** Save button (Right-aligned).
+*   **Caption:** Username + Content text, followed by timestamp (e.g., "2h ago").

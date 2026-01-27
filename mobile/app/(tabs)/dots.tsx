@@ -16,6 +16,7 @@ import { useIsFocused } from '@react-navigation/native';
 import { useNavVisibility } from '../../context/NavContext';
 import { getSafetyFilters, applySafetyFilters } from '../../services/SafetyService';
 import XrayScratch from '../../components/XrayScratch';
+import FillsTab from '../../components/FillsTab';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -1420,38 +1421,9 @@ export default function DotsScreen() {
         );
     };
 
-    // Fills Grid View
+    // Fills Grid View - Using new aesthetic component
     if (activeCategory === 'fills') {
-        return (
-            <View style={styles.container}>
-                <SafeAreaView style={{ backgroundColor: '#0a0a0a' }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 }}>
-                        <TouchableOpacity onPress={() => setActiveCategory('lills')} style={{ marginRight: 12 }}>
-                            <ChevronLeft size={24} color="#fff" />
-                        </TouchableOpacity>
-                        <Text style={{ color: '#fff', fontSize: 20, fontWeight: 'bold', flex: 1 }}>Fills</Text>
-                    </View>
-                </SafeAreaView>
-
-                {loading ? (
-                    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                        <ActivityIndicator size="large" color="#fff" />
-                    </View>
-                ) : (
-                    <FlatList
-                        data={dots}
-                        renderItem={renderFillsGridItem}
-                        keyExtractor={item => item.id}
-                        numColumns={2}
-                        columnWrapperStyle={{ justifyContent: 'space-between', paddingHorizontal: 8 }}
-                        contentContainerStyle={{ paddingTop: 12, paddingBottom: 100 }}
-                        style={{ backgroundColor: '#000' }}
-                    />
-                )}
-
-                {renderFillsPlayerModal()}
-            </View>
-        );
+        return <FillsTab onBack={() => setActiveCategory('lills')} />;
     }
 
     return (

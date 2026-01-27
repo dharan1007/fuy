@@ -1,0 +1,55 @@
+# Fuy App - Create Post Page Detailed Description
+
+This document provides a comprehensive breakdown of every feature, button, and interaction available on the Create Post Screen for both the Mobile Application and the Web Platform.
+
+---
+
+## 📱 Mobile Create Screen
+**File Reference:** `mobile/app/(tabs)/create.tsx`
+**Key Components:** `SimpleForm`, `ChapterForm`, `LillForm`, `FillForm`, `XrayForm`, `AudForm`, `ClockForm`, `PollForm`
+
+The create screen serves as the creative studio for the app, offering a grid of distinct content formats.
+
+### 1. Selection Grid (Landing)
+*   **Header:** "Create" title with "Choose your format" subtitle.
+*   **Drafts Button:** Folder icon (Top Right). Opens `DraftsList` modal to resume saved work.
+*   **Format Cards:** A 2-column grid of selectable post types. Each card displays an Icon, Name, and short Description.
+    *   **Simple:** Standard photos or videos (Multi-select).
+    *   **Chapters:** Multi-media collections/stories.
+    *   **Xrays:** Interactive "Scratch to Reveal" posts (Top layer / Bottom layer).
+    *   **Lills:** Short vertical videos (TikTok style).
+    *   **Fills:** Long horizontal videos (YouTube style).
+    *   **Auds:** Audio recordings with visual waveforms.
+    *   **Clocks:** Timed/Ephemeral stories (24h).
+    *   **PUDS (Pull Up/Down):** Voting polls or binary choice posts.
+
+### 2. Creation Forms
+Upon selecting a type, the screen transitions to a specific form:
+*   **Common Elements:**
+    *   **Media Picker:** "Add Media" area to select from gallery.
+    *   **Caption Input:** Text area for description.
+    *   **Tags/Slashes:** Input to add related hashtags.
+    *   **Tag Product:** Input for 12-digit Product Code (links commerce item).
+    *   **Visibility:** Public/Private toggle.
+*   **Unique Elements:**
+    *   **Xray:** Requires two media uploads (Cover Image + Secret Content).
+    *   **Aud:** Includes a Record button (Mic) and Playback controls.
+    *   **Poll (PUDS):** Inputs for Option A and Option B text.
+
+---
+
+## 💻 Web Create Screen
+**File Reference:** `src/app/create-post/page.tsx`
+
+The web studio mirrors the mobile experience but utilizes a "Starfield" background and expanded layout.
+
+### 1. Studio Landing
+*   **Visuals:** `ScrollStarfield` animated background.
+*   **Grid:** Responsive grid (1 col mobile -> 4 col large screen) of Post Type cards.
+    *   **Cards:** Glassmorphism style with hover effects (Gradient revealing `from-pink-500` etc., Scale up).
+*   **Header:** Sticky top bar with "Create Post" title and Drafts button.
+
+### 2. Editor View
+*   **Provider:** Wraps forms in `CreatePostProvider` for state management.
+*   **Forms:** Renders the specific component (`SimpleForm`, `ChapterForm`, etc.) centered in the layout.
+*   **Back Navigation:** Arrow button in header to return to the selection grid.

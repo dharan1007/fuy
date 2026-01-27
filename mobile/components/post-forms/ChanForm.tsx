@@ -8,6 +8,8 @@ import { ArrowLeft, Globe, Users, Lock, Tv, X, Image as ImageIcon, Slash, Plus }
 import { MediaUploadService } from '../../services/MediaUploadService';
 import { supabase } from '../../lib/supabase';
 import SuccessOverlay from '../SuccessOverlay';
+import { analyzeMultipleImages, NudityAnalysisResult } from '../../lib/nudity-detection';
+import NudityWarningModal from '../NudityWarningModal';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org';
 const EPISODE_MAX_DURATION = 600; // 10 minutes for episodes
@@ -32,6 +34,11 @@ export default function ChanForm({ onBack }: ChanFormProps) {
     const [showSuccess, setShowSuccess] = useState(false);
     const [slashes, setSlashes] = useState<string[]>([]);
     const [slashInput, setSlashInput] = useState('');
+
+    // Nudity detection state
+    const [nudityResult, setNudityResult] = useState<NudityAnalysisResult | null>(null);
+    const [showNudityWarning, setShowNudityWarning] = useState(false);
+    const [pendingSubmit, setPendingSubmit] = useState(false);
 
     const pickVideo = async () => {
         const result = await ImagePicker.launchImageLibraryAsync({
@@ -76,6 +83,24 @@ export default function ChanForm({ onBack }: ChanFormProps) {
         if (!session?.user?.email) {
             Alert.alert('Error', 'Please log in first');
             return;
+        }
+
+        // Nudity Detection: Check video and cover for inappropriate content
+        if (!pendingSubmit) {
+            const mediaToCheck = [video.uri];
+            if (coverImage) mediaToCheck.push(coverImage);
+
+            const nudityCheck = await analyzeMultipleImages(mediaToCheck);
+
+            if (nudityCheck.classification === 'EXPLICIT') {
+                setNudityResult(nudityCheck);
+                setShowNudityWarning(true);
+                return;
+            } else if (nudityCheck.classification === 'SUGGESTIVE') {
+                setNudityResult(nudityCheck);
+                setShowNudityWarning(true);
+                return;
+            }
         }
 
         setLoading(true);
@@ -159,11 +184,20 @@ export default function ChanForm({ onBack }: ChanFormProps) {
 
             // Alert.alert('Success', 'Episode posted!', [{ text: 'OK', onPress: onBack }]);
             setShowSuccess(true);
+            setPendingSubmit(false);
+            setNudityResult(null);
         } catch (error: any) {
             Alert.alert('Error', error.message);
         } finally {
             setLoading(false);
         }
+    };
+
+    // Handle proceeding with suggestive content
+    const handleProceedWithWarning = () => {
+        setShowNudityWarning(false);
+        setPendingSubmit(true);
+        setTimeout(() => handleSubmit(), 100);
     };
 
     const VisibilityOption = ({ value, label, icon: Icon }: any) => (
@@ -428,6 +462,18 @@ export default function ChanForm({ onBack }: ChanFormProps) {
                 visible={showSuccess}
                 message="Episode Posted!"
                 onFinish={onBack}
+            />
+
+            <NudityWarningModal
+                visible={showNudityWarning}
+                result={nudityResult}
+                onClose={() => {
+                    setShowNudityWarning(false);
+                    setNudityResult(null);
+                    setPendingSubmit(false);
+                }}
+                onProceed={nudityResult?.classification === 'SUGGESTIVE' ? handleProceedWithWarning : undefined}
+                isSubmitting={loading}
             />
         </ScrollView >
     );

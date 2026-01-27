@@ -60,6 +60,7 @@
     "react-leaflet": "5.0.0",
     "react-markdown": "^10.1.0",
     "recharts": "^3.5.1",
+    "resend": "^6.8.0",
     "sharp": "^0.34.3",
     "stats.js": "^0.17.0",
     "swr": "^2.3.6",

@@ -1,0 +1,57 @@
+# Fuy App - Hopin Page Detailed Description
+
+This document provides a comprehensive breakdown of every feature, button, and interaction available on the Hopin Screen for both the Mobile Application and the Web Platform.
+
+---
+
+## 📱 Mobile Hopin Screen
+**File Reference:** `mobile/app/hopin/index.tsx` (and related `dashboard.tsx`, `map.tsx`, `create.tsx`)
+
+Hopin is the social planning and event coordination module, centered around map-based discovery and route creation.
+
+### 1. Map & Discovery (`map.tsx`, `index.tsx`)
+*   **Interactive Map:** Primary view showing user location, points of interest (POIs), and event markers.
+*   **Search Bar:**
+    *   Search for specific events or places.
+    *   Results dropdown with quick navigation to locations.
+*   **Event Markers:** Toggle visibility of event pins on the map.
+*   **Route Stats:**
+    *   Real-time calculation of "Distance" and "Points" count for created routes.
+    *   Indicates if the route is a "Loop" or "A→B".
+
+### 2. Planning & Creation (`create.tsx`)
+*   **Create Plan Modal:**
+    *   Triggered by long-pressing the map or tapping the "+" button.
+    *   Allows naming a location and starting a new event plan.
+*   **Plan Dashboard:**
+    *   "Go to Dashboard" link to manage invited events and created plans.
+*   **Waypoints:**
+    *   Add intermediate stops to a route.
+    *   Edit/Remove waypoints via a detail sidebar.
+
+### 3. Export & Utils
+*   **Export Options:**
+    *   **GPX:** Download route as a GPX file for wearables/fitness apps.
+    *   **JSON:** Export route data for backup or sharing.
+*   **Tips:** Context-aware suggestions based on route length (e.g., "Add hydration pins" for long routes).
+
+---
+
+## 💻 Web Hopin Screen
+**File Reference:** `src/app/hopin/page.tsx`
+
+The web interface offers a more expansive view for complex route planning and event management.
+
+### 1. Layout
+*   **Split View:**
+    *   **Left Sidebar:** Controls, search, route statistics, and dashboard links.
+    *   **Right Pane:** Full-screen `LeafletMap` for immersive planning.
+
+### 2. Planning Tools
+*   **Live Metrics:** Updates distance and estimates time for Walk/Run/Bike as you draw.
+*   **PlanBoard:** A compact UI for managing plan details (Invitees, Date, Time).
+*   **Starfield Background:** Consistent cosmic aesthetic behind the UI chrome.
+
+### 3. Interaction
+*   **Drag & Drop:** Move waypoints directly on the map.
+*   **Detail Sidebars:** `EventDetailSidebar` and `WaypointDetailSidebar` slide in for focused editing without leaving the map context.

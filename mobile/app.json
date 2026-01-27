@@ -20,7 +20,10 @@
         "NSMicrophoneUsageDescription": "FUY needs access to your microphone to record audio and video.",
         "NSPhotoLibraryUsageDescription": "FUY needs access to your photos to share images and videos.",
         "NSPhotoLibraryAddUsageDescription": "FUY needs permission to save media to your photo library.",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": [
+          "audio"
+        ]
       }
     },
     "android": {
@@ -42,7 +45,8 @@
         "android.permission.ACCESS_MEDIA_LOCATION",
         "android.permission.INTERNET",
         "android.permission.ACCESS_NETWORK_STATE",
-        "android.permission.MODIFY_AUDIO_SETTINGS"
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.FOREGROUND_SERVICE"
       ]
     },
     "web": {
@@ -69,7 +73,10 @@
         {
           "iCloudContainerEnvironment": "Production"
         }
-      ]
+      ],
+      "./plugins/withTrackPlayer",
+      "./plugins/withWorkoutWidget",
+      "expo-localization"
     ],
     "scheme": "fuy",
     "extra": {

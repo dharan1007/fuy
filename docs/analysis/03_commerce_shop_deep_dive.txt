@@ -1,0 +1,99 @@
+========================================================================================
+FUY DEEP DIVE: COMMERCE & SHOP (STORE METEOR)
+========================================================================================
+
+1. OVERVIEW
+----------------------------------------------------------------------------------------
+The Commerce module in FUY turns every user into a potential merchant. It is a fully-integrated e-commerce solution ("Shopify Lite") living inside the social network. It supports B2C (Brands to Users) and C2C (User to User) interactions. The "Store Meteor" on the dashboard is the command center for this activity.
+
+2. CORE DATA ARCHITECTURE (Prisma Schema Analysis)
+----------------------------------------------------------------------------------------
+
+The Commerce schema is robust, handling the full lifecycle of a transaction.
+
+A. Brand (Brand)
+   - A user can own multiple Brands.
+   - `id`: CUID.
+   - `ownerId`: Link to User.
+   - `name`, `logoUrl`, `description`.
+   - `verified`: Boolean (Blue tick for shops).
+
+B. Product (Product)
+   - `brandId`: Link to logical grouping (or direct User link if C2C).
+   - `name`, `description`.
+   - `price` (Float), `currency` (Default INR/USD).
+   - `inventory`: Integer stock tracking.
+   - `images`: JSON array of media URLs.
+   - `tags`: Categories.
+   - `reviews`: Relation to `ProductReview`.
+
+C. Order (Order)
+   - `buyerId`: Link to User.
+   - `status`: [PENDING | PAID | SHIPPED | DELIVERED | CANCELLED | REFUNDED].
+   - `totalAmount`: Final calculated price.
+   - `paymentId`: Link to `Payment` table.
+   - `items`: JSON or relation `OrderItem` (Snapshot of product data at time of purchase to prevent history changes if product price updates).
+
+D. Payment (Payment)
+   - Integration with Razorpay (likely).
+   - `transactionId`: Gateway reference.
+   - `status`: [SUCCESS | FAILED].
+
+E. Profile Integration
+   - `Profile.shoppingInterests`: Vector for recommendation engine.
+   - `Report.target`: Can be 'SELLER' or 'PRODUCT' for dispute resolution.
+
+3. USER INTERFACE FLOWS (mobile/app/shop/ & src/app/dashboard/store/)
+----------------------------------------------------------------------------------------
+
+Buyer Experience:
+- **Discovery**: "Shop" tab in Mobile.
+  * Uses `FlashList` for product grids.
+  * Filters: Price, Category, Brand.
+- **Product Page**:
+  * Image Carousel (PagingEnabled ScrollView).
+  * "Add to Cart" -> Updates local Cart Context -> Syncs to DB.
+  * Reviews Section: Star rating + Text.
+- **Checkout**:
+  * Address Selector (User address book).
+  * Payment Gateway Modal (Razorpay Webview or Native Module).
+  * Success Screen -> "Track Order".
+
+Seller Experience (Dashboard/Store):
+- **Inventory Management**:
+  * "Add Product" form: Image upload (Supabase/AWS S3), Price setting, Stock input.
+  * "Manage Orders": View list of incoming orders.
+  * Status Toggles: "Mark as Shipped" -> Triggers notification to Buyer.
+- **Analytics**:
+  * "Total Sales" graph.
+  * "Top Products" list.
+
+4. ALGORITHMIC & TECHNICAL CONSIDERATIONS
+----------------------------------------------------------------------------------------
+
+State Management:
+- **Cart**: Complex state.
+  * Needs to persist across app restarts (AsyncStorage/LocalStorage).
+  * Needs to validate stock levels before Checkout (Server-side check).
+  * Race Conditions: Two users buying the last item simultaneously. DB Transaction capability in Prisma is required (`prisma.$transaction`).
+
+Payments & Security:
+- **Webhook Handling**: The system must listen for Razorpay webhooks to confirm payment status asynchronously. Do not rely solely on client-side success callbacks.
+- **Escrow/Payouts**: Logic for calculating Platform Fee vs Seller Payout. (e.g., FUY takes 5%, Seller gets 95%).
+
+Social Commerce:
+- **Tagging**: Users can tag Products in `Post`s.
+  * In a Photo Post (Standard), tapping the shirt reveals a "Buy Now" bubble linking to the Product.
+  * `PostTag` or similar relation or JSON metadata on Post.
+- **Influencer Model**: Affiliate links can be generated where a User promoting a Brand's product gets a cut (?) - potential future feature.
+
+5. FUTURE SCALABILITY
+----------------------------------------------------------------------------------------
+- **Auctions**: Real-time bidding (Socket.io).
+- **Digital Products**: Selling Lills/Content packs or downloadable assets (Canvas Templates).
+- **AR Try-On**: Using the camera to overlay products (Glasses/Hats) - fits the tech-savvy vibe of FUY.
+- **Logistics Integration**: API hookups with ShipRocket or similar for auto-shipping label generation.
+
+========================================================================================
+END OF COMMERCE ANALYSIS
+========================================================================================

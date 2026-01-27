@@ -10,6 +10,7 @@ import PostActionMenu from '@/components/PostActionMenu';
 import CommentsModal from '@/components/CommentsModal';
 import ShareModal from '@/components/ShareModal';
 import { useFeedItem } from '@/context/FeedItemContext';
+import { VerifiedBadge } from '@/components/VerifiedBadge';
 
 interface SimplePostCardProps {
     post: any;
@@ -59,9 +60,12 @@ export default function SimplePostCard({ post, currentUserId }: SimplePostCardPr
                             />
                         </Link>
                         <div className="flex flex-col">
-                            <Link href={`/profile/${post.user.id}`} className="text-sm font-bold text-white hover:underline leading-none">
-                                {post.user.profile?.displayName || "Unknown User"}
-                            </Link>
+                            <div className="flex items-center gap-1">
+                                <Link href={`/profile/${post.user.id}`} className="text-sm font-bold text-white hover:underline leading-none">
+                                    {post.user.profile?.displayName || "Unknown User"}
+                                </Link>
+                                <VerifiedBadge size={14} show={post.user.isHumanVerified} />
+                            </div>
                             {post.location && (
                                 <span className="text-[10px] text-white/50">{post.location}</span>
                             )}

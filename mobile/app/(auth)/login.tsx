@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Mail, Lock, ArrowRight, CheckSquare, Square } from 'lucide-react-native';
+import { Mail, Lock, ArrowRight, CheckSquare, Square, Eye, EyeOff } from 'lucide-react-native';
 import { useToast } from '../../context/ToastContext';
 
 export default function LoginScreen() {
@@ -13,6 +13,7 @@ export default function LoginScreen() {
     const { showToast } = useToast();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [rememberMe, setRememberMe] = useState(false);
     const [loading, setLoading] = useState(false);
 
@@ -91,10 +92,25 @@ export default function LoginScreen() {
                                             placeholder="Password"
                                             placeholderTextColor="rgba(255,255,255,0.3)"
                                             className="flex-1 ml-3 text-white text-base"
-                                            secureTextEntry
+                                            secureTextEntry={!showPassword}
                                             value={password}
                                             onChangeText={setPassword}
                                         />
+                                        <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                                            {showPassword ? (
+                                                <EyeOff color="rgba(255,255,255,0.4)" size={20} />
+                                            ) : (
+                                                <Eye color="rgba(255,255,255,0.4)" size={20} />
+                                            )}
+                                        </TouchableOpacity>
+                                    </View>
+                                    {/* Forgot Password Link */}
+                                    <View className="items-end mt-1">
+                                        <Link href="/(auth)/forgot-password" asChild>
+                                            <TouchableOpacity>
+                                                <Text className="text-white/50 text-sm">Forgot Password?</Text>
+                                            </TouchableOpacity>
+                                        </Link>
                                     </View>
                                 </View>
 

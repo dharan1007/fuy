@@ -1,0 +1,94 @@
+# Fuy App - Authentication Pages Detailed Description
+
+This document provides a comprehensive breakdown of every feature, button, and interaction available on the Authentication Screens.
+
+---
+
+## 📱 Mobile Login Screen
+**File Reference:** `mobile/app/(auth)/login.tsx`
+
+The entry point for returning users.
+
+### 1. Visuals
+*   **Background:** Dark gradient (`#000000` to `#1a1a1a`).
+*   **Logo:** Rotating "Fuy" logo container with blur effects.
+*   **Header:** "Fuy" title and welcome message "Welcome back to the universe".
+
+### 2. Form & Inputs
+*   **Email:** Text input with Mail icon.
+*   **Password:** Secure text input with Lock icon and Eye/EyeOff toggle.
+*   **Forgot Password:** Link navigating to the Forgot Password screen.
+*   **Remember Me:** Checkbox toggle to persist session (visual only in UI, logic handled by Supabase).
+
+### 3. Actions
+*   **Enter Fuy (Login):** Primary button. Authenticates via Supabase `signInWithPassword`.
+*   **Join Waitlist (Signup):** Footer link redirecting to the Signup screen.
+
+---
+
+## 📱 Mobile Signup Screen
+**File Reference:** `mobile/app/(auth)/signup.tsx`
+
+The registration flow for new users.
+
+### 1. Header
+*   **Back Button:** Circular arrow button to return to Login/Welcome.
+*   **Title:** "Join Fuy" - "Claim your spot in the universe."
+
+### 2. Form & Inputs
+*   **Full Name:** Text input with User icon.
+*   **Email:** Text input with Mail icon.
+*   **Password:** Secure text input with Lock icon and visibility toggle.
+*   **Confirm Password:** Validation field to ensure password accuracy.
+*   **Remember Me:** Checkbox toggle.
+
+### 3. Logic
+*   **Validation:** Checks for empty fields, password length (>6 chars), and password match.
+*   **Process:**
+    1.  Calls `/api/auth/signup` to generate an OTP and store temp metadata.
+    2.  Redirects to `verify-email` upon success with email/password params.
+    3.  Handles "User already registered" errors by guiding user to Login.
+
+---
+
+## 📱 Mobile Verify Email Screen
+**File Reference:** `mobile/app/(auth)/verify-email.tsx`
+
+The OTP verification step.
+
+### 1. Display
+*   **Icon:** Large Green Check Circle indicating the email step.
+*   **Context:** Shows which email address the code was sent to.
+
+### 2. Inputs
+*   **Code:** Numer-pad input for the 6-digit OTP.
+*   **Password:** Input to re-confirm (or auto-fill) password for the final account creation step.
+
+### 3. Logic
+*   **Verify & Continue:**
+    1.  Calls `/api/auth/verify` with code and password.
+    2.  On success, auto-logs the user in via Supabase.
+    3.  Redirects to `/profile-setup` (which redirects to `edit-profile`).
+
+---
+
+## 📱 Mobile Forgot Password Screen
+**File Reference:** `mobile/app/(auth)/forgot-password.tsx`
+
+Recovery flow for lost credentials.
+
+### 1. Header
+*   **Title:** "Reset Password".
+
+### 2. Form
+*   **Email:** Input for the account email address.
+*   **Send Code:**
+    1.  Calls `/api/auth/recover`.
+    2.  Redirects to `verify-reset` (not detailed but implied flow).
+
+---
+
+## 📱 Profile Setup Redirect
+**File Reference:** `mobile/app/profile-setup.tsx`
+
+*   **Function:** Middleware screen that simply redirects new users to `/edit-profile?newUser=true` to initiate the profile wizard.

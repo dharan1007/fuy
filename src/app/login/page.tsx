@@ -133,6 +133,11 @@ function LoginContent() {
                   </button>
                 </div>
               </div>
+              <div className="text-right">
+                <Link href="/forgot-password" className="text-sm text-red-400 hover:text-red-300">
+                  Forgot Password?
+                </Link>
+              </div>
 
               {error && (
                 <div className="bg-red-500/10 border border-red-500/30 text-red-200 px-4 py-3 rounded-lg text-sm backdrop-blur-sm">

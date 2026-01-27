@@ -7,6 +7,7 @@ import { ChevronLeft, Share2, Copy, Star, Heart, Music, MapPin, Briefcase, Gradu
 import { supabase } from '../../lib/supabase';
 import * as Clipboard from 'expo-clipboard';
 import ShareCardModal from '../../components/ShareCardModal';
+import { useAuth } from '../../context/AuthContext';
 
 const { width, height } = Dimensions.get('window');
 const CARD_WIDTH = width - 48;
@@ -46,6 +47,7 @@ interface ProfileData {
 export default function ProfileCardView() {
     const { userId, code } = useLocalSearchParams();
     const router = useRouter();
+    const { session } = useAuth(); // Get session
 
     const [profile, setProfile] = useState<ProfileData | null>(null);
     const [userName, setUserName] = useState<string>('');
@@ -54,6 +56,7 @@ export default function ProfileCardView() {
     const [showShareModal, setShowShareModal] = useState(false);
     const [showPreview, setShowPreview] = useState(false);
     const [profileCode, setProfileCode] = useState<string>('');
+    const [isOwner, setIsOwner] = useState(false); // New state
     const flatListRef = useRef<FlatList>(null);
 
     const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: ViewToken[] }) => {
@@ -109,6 +112,13 @@ export default function ProfileCardView() {
                 .single();
 
             if (user) setUserName(user.name || '');
+
+            // Check ownership
+            if (session?.user?.id === targetUserId) {
+                setIsOwner(true);
+            } else {
+                setIsOwner(false);
+            }
 
             const parseArr = (val: any) => {
                 if (Array.isArray(val)) return val;
@@ -417,9 +427,11 @@ export default function ProfileCardView() {
 
                 {/* Action Buttons */}
                 <View className="flex-row gap-3 px-4 pb-4">
-                    <TouchableOpacity onPress={() => setShowPreview(true)} className="flex-1 py-4 bg-white/5 rounded-xl border border-white/10">
-                        <Text className="text-white font-black tracking-widest text-xs text-center">PREVIEW</Text>
-                    </TouchableOpacity>
+                    {isOwner && (
+                        <TouchableOpacity onPress={() => setShowPreview(true)} className="flex-1 py-4 bg-white/5 rounded-xl border border-white/10">
+                            <Text className="text-white font-black tracking-widest text-xs text-center">PREVIEW</Text>
+                        </TouchableOpacity>
+                    )}
                     <TouchableOpacity onPress={() => setShowShareModal(true)} className="flex-1 py-4 bg-white rounded-xl">
                         <Text className="text-black font-black tracking-widest text-xs text-center">SHARE</Text>
                     </TouchableOpacity>

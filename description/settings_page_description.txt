@@ -1,0 +1,37 @@
+# Fuy App - Settings Page Detailed Description
+
+This document provides a comprehensive breakdown of every feature, button, and interaction available on the Settings Screen.
+
+---
+
+## 📱 Mobile Settings Screen
+**File Reference:** `mobile/app/settings.tsx`
+
+The Settings screen allows users to configure their account, appearance, and privacy preferences.
+
+### 1. Account Section
+*   **Edit Profile:** Navigates to the multi-step profile editor.
+*   **Notifications:** Navigates to notification preferences.
+*   **Safety & Privacy:** Accesses safety tools (Blocklists, etc.).
+*   **Verify Identity:** Opens the Face Verification Modal for identity confirmation.
+
+### 2. Appearance Section
+*   **Dark Mode:** Switch to enable system-wide dark theme.
+*   **Light Mode:** Switch to enable light theme.
+*   **Eye Care Mode:** Switch to enable a warmer, sepia-toned theme for reduced eye strain.
+
+### 3. Support Section
+*   **Help & Support:** Displays a toast with the support email (`contact@fuy.com`).
+*   **Log Out:**
+    *   Triggers a "Log Out" confirmation modal ("Are you sure you want to log out of the universe?").
+    *   On confirm, signs the user out and redirects to Login.
+
+### 4. UI Design
+*   **Glassmorphism:** Uses `BlurView` containers for section grouping.
+*   **Theme Aware:** Background gradients adapt to the selected mode (Light/Dark/Eye Care).
+*   **Icons:** Color-coded icons (Blue for Profile, Rose for Notifications, etc.) for quick visual recognition.
+
+---
+
+## 💻 Web Settings
+*(Note: Web settings typically mirror these options, accessible via the user dropdown or a dedicated /settings route, sharing the same Supabase auth and profile logic.)*

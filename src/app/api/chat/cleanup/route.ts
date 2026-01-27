@@ -47,10 +47,7 @@ export async function POST(req: Request) {
             where: {
                 conversationId: { in: conversationIds },
                 createdAt: { lt: oneDayAgo },
-                OR: [
-                    { isSaved: false },
-                    { isSaved: null }
-                ]
+                isSaved: { not: true }
             }
         });
 
@@ -91,10 +88,7 @@ export async function GET(req: Request) {
             where: {
                 conversationId: { in: conversations1Day.map(c => c.id) },
                 createdAt: { lt: oneDayAgo },
-                OR: [
-                    { isSaved: false },
-                    { isSaved: null }
-                ]
+                isSaved: { not: true }
             }
         });
 

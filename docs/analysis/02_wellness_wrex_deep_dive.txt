@@ -1,0 +1,97 @@
+========================================================================================
+FUY DEEP DIVE: WREX (GROUNDING & WELLNESS)
+========================================================================================
+
+1. OVERVIEW
+----------------------------------------------------------------------------------------
+WREX (Grounding) is the biological engine of the FUY ecosystem. It is not just a fitness tracker; it is a "Body Operating System". It combines 3D visualization of the human anatomy with hard nutrition science to provide users with a complete understanding of their physical state. The goal is to move beyond simple step counting to "Bio-alignment".
+
+2. CORE DATA ARCHITECTURE (Prisma Schema Analysis)
+----------------------------------------------------------------------------------------
+
+The Wrex module relies on user stats and specialized logging tables.
+
+User Metrics (JSON stored in AsyncStorage / synced to Profile):
+- `height` (cm)
+- `weight` (kg/lbs)
+- `age` (years)
+- `gender` (male/female) - Crucial for BMR formulas.
+- `activityLevel`: ['sedentary', 'light', 'moderate', 'very', 'extra']
+
+Computed Metrics (Real-time):
+- **BMI** (Body Mass Index): Weight / Height^2.
+- **BMR** (Basal Metabolic Rate): Mifflin-St Jeor Equation.
+  * Male: (10 × weight) + (6.25 × height) - (5 × age) + 5
+  * Female: (10 × weight) + (6.25 × height) - (5 × age) - 161
+- **TDEE** (Total Daily Energy Expenditure): BMR * ActivityMultiplier.
+
+Models:
+
+A. WorkoutSession (Schema Implied through WorkoutPlan)
+   - Tracks individual gym sessions.
+   - Relations: `User` (UserWorkouts), `Partner` (PartnerWorkouts).
+   - Integration: Can be linked to a `Plan` (from Hopin) for group workouts.
+
+B. GymPartner (GymPartner)
+   - Tinder-like logic for finding workout buddies.
+   - Status: [PENDING | ACCEPTED | REJECTED].
+   - Logic: Allows users to share `WorkoutPlan`s and sync schedules.
+
+C. NutritionLog (Implied / JSON)
+   - Tracks daily macros against the TDEE targets.
+   - Breakdown: Protein (4cal/g), Carbs (4cal/g), Fats (9cal/g).
+   - "Goal Type" modifiers:
+     * Cut: -500 kcal deficit.
+     * Bulk: +500 kcal surplus.
+     * Maintain: TDEE = Intake.
+
+D. StressMapEntry / HealthCondition
+   - Logging mental/physical anomalies.
+   - Used to generate the "Recovery %" score.
+
+3. USER INTERFACE FLOWS (mobile/app/grounding.tsx)
+----------------------------------------------------------------------------------------
+
+The Body Map (HumanBodySVG component):
+- **Technology**: SVG overlay on top of 3D-rendered images or pure SVG paths.
+- **Interaction**:
+  * Tap "Biceps" -> Opens Modal.
+  * Modal allows inputting "Soreness Level" (1-10) or "Injury Note".
+  * Visual Feedback: Muscle group changes color (Green=Good, Yellow=Sore, Red=Injured).
+- **Use Case**: User wakes up, checks body map, marks "Lower Back" as sore. App suggests "Yoga" or "Stretching" instead of "Deadlifts" for the day.
+
+The Dashboard (HealthView / ActivityView):
+- **Floating Orbs/Meteor UI**: Stats aren't just lists; they are visual components.
+- **Macro Rings**: Circular progress bars for P/C/F intake.
+- **Load Visualizer**: A bar graph showing training load over the last 7 days to prevent overtraining.
+
+Setup Flow (Onboarding):
+- User inputs stats.
+- System calculates BMR/TDEE immediately.
+- User selects Goal.
+- System generates "Daily Calorie Budget".
+
+4. ALGORITHMIC & TECHNICAL CONSIDERATIONS
+----------------------------------------------------------------------------------------
+
+Navigation & State Management:
+- **LocalStorage (AsyncStorage)**: Wrex relies heavily on local caching (`wrex_user_metrics`, `wrex_body_notes`) for offline availability. A user at the gym might not have good signal.
+- **Sync**: `useEffect` hooks watch for changes in local metrics and should sync to `User.profile` in the background (Postgres) for permanent storage.
+
+Nutrition Science (`lib/nutritionScience.ts`):
+- **Formulas**: Hardcoded standard biological formulas.
+- **Customization**: Code structure allows swapping formulas (e.g. Katch-McArdle if body fat % is known).
+
+Integration with Social:
+- **"Gym Pal" Discovery**: `Profile.isOpenToWorkout` boolean flag.
+- **Feed**: "Progress" posts (`postType: STANDARD`, `feature: PROGRESS`) automatically tag the Wrex module metrics (e.g., "Hit 225lbs Bench Press").
+
+5. FUTURE SCALABILITY
+----------------------------------------------------------------------------------------
+- **Wearable Integration**: Apple Health / Google Fit API sync to auto-fill Activity Level.
+- **AI Coach**: Using the "dbot" (AI Assistant) to analyze the `bodyNotes` (e.g., "You've marked 'Knees' as sore 3 times this month, check your Squat form").
+- **Meal Planning**: Automated generation of `NutritionLog` based on dietary preferences (Vegan/Keto).
+
+========================================================================================
+END OF WREX ANALYSIS
+========================================================================================

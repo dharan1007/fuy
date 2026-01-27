@@ -1,12 +1,16 @@
 
 import React from 'react';
-import { View, Text, TouchableOpacity, Modal, StyleSheet, Alert, Share, Dimensions, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, StyleSheet, Share, Dimensions, TextInput } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Copy, Flag, Ban, Trash, X, Share as ShareIcon, EyeOff, VolumeX, Ghost, PauseCircle, Slash } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
+import * as Crypto from 'expo-crypto'; // Use expo-crypto for UUIDs
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useToast } from '../context/ToastContext';
+import ConfirmModal from './ConfirmModal';
+import { getApiUrl } from '../lib/api';
 import SlashesModal from './SlashesModal';
 
 const { width } = Dimensions.get('window');
@@ -29,11 +33,20 @@ interface PostOptionsModalProps {
 export default function PostOptionsModal({ visible, onClose, post, onReport, onDelete, onBlock, onHide, onMute }: PostOptionsModalProps & { onHide?: () => void, onMute?: () => void }) {
     const { session } = useAuth();
     const { colors, mode } = useTheme();
+    const { showToast } = useToast();
     const [view, setView] = React.useState<'options' | 'report' | 'delete_confirm'>('options');
     const [reportReason, setReportReason] = React.useState<string | null>(null);
     const [reportDetails, setReportDetails] = React.useState('');
     const [submitting, setSubmitting] = React.useState(false);
-    const [slashesModalVisible, setSlashesModalVisible] = React.useState(false); // Added state for SlashesModal
+    const [slashesModalVisible, setSlashesModalVisible] = React.useState(false);
+
+    // Confirm Modal State
+    const [confirmVisible, setConfirmVisible] = React.useState(false);
+    const [confirmTitle, setConfirmTitle] = React.useState('');
+    const [confirmMessage, setConfirmMessage] = React.useState('');
+    const [confirmAction, setConfirmAction] = React.useState<() => void>(() => { });
+    const [confirmDestructive, setConfirmDestructive] = React.useState(false);
+    const [confirmButtonText, setConfirmButtonText] = React.useState('Confirm');
 
     // Reset state when opening
     React.useEffect(() => {
@@ -53,7 +66,7 @@ export default function PostOptionsModal({ visible, onClose, post, onReport, onD
     const handleCopyLink = async () => {
         const link = `https://fuymedia.org/post/${post.id}`;
         await Clipboard.setStringAsync(link);
-        Alert.alert("Link Copied", "Post link copied to clipboard");
+        showToast("Link Copied", "success");
         onClose();
     };
 
@@ -71,28 +84,29 @@ export default function PostOptionsModal({ visible, onClose, post, onReport, onD
 
     const handleHide = async () => {
         if (!session?.user?.id) {
-            Alert.alert("Error", "You must be logged in to hide posts.");
+            showToast("You must be logged in to hide posts", "error");
             return;
         }
         try {
             const { error } = await supabase
                 .from('HiddenPost')
                 .insert({
+                    id: Crypto.randomUUID(),
                     userId: session.user.id,
                     postId: post.id
                 });
             if (error) throw error;
-            Alert.alert("Post Hidden", "You won't see this post again.");
+            showToast("Post Hidden", "success");
             if (onHide) onHide();
             onClose();
         } catch (e: any) {
             if (e.code === '23505') {
-                Alert.alert("Already Hidden", "You have already hidden this post.");
+                showToast("Post already hidden", "info");
                 if (onHide) onHide();
                 onClose();
             } else {
                 console.error("Hide Error:", e);
-                Alert.alert("Error", `Failed to hide post: ${e.message || 'Unknown error'}`);
+                showToast("Failed to hide post", "error");
             }
         }
     };
@@ -103,23 +117,24 @@ export default function PostOptionsModal({ visible, onClose, post, onReport, onD
             const { error } = await supabase
                 .from('MutedUser')
                 .insert({
+                    id: Crypto.randomUUID(),
                     muterId: session.user.id,
                     mutedUserId: post.user.id,
-                    mutedTypes: JSON.stringify(["ALL"])
+                    mutedTypes: JSON.stringify(["ALL"]),
+                    updatedAt: new Date().toISOString()
                 });
             if (error) throw error;
-            if (error) throw error;
-            Alert.alert("Paused", `You have paused ${post.user.name}. You won't see their posts in your feed.`);
+            showToast(`Paused ${post.user.name}`, "success");
             if (onMute) onMute();
             onClose();
         } catch (e: any) {
             if (e.code === '23505') {
-                Alert.alert("Paused", `You have already paused ${post.user.name}.`);
+                showToast(`Already paused ${post.user.name}`, "info");
                 if (onMute) onMute();
                 onClose();
             } else {
                 console.error("Pause Error:", e);
-                Alert.alert("Error", `Failed to pause user: ${e.message || 'Unknown error'}`);
+                showToast("Failed to pause user", "error");
             }
         }
     };
@@ -130,63 +145,62 @@ export default function PostOptionsModal({ visible, onClose, post, onReport, onD
             const { error } = await supabase
                 .from('MutedUser')
                 .insert({
+                    id: Crypto.randomUUID(),
                     muterId: session.user.id,
                     mutedUserId: post.user.id,
-                    mutedTypes: JSON.stringify(["ALL"])
+                    mutedTypes: JSON.stringify(["ALL"]),
+                    updatedAt: new Date().toISOString()
                 });
             if (error && (error as any).code !== '23505') throw error;
-            Alert.alert("Ghosted", `${post.user.name} is now ghosted.`);
+            showToast(`${post.user.name} is now ghosted`, "success");
             if (onMute) onMute();
             onClose();
         } catch (e: any) {
             if (e.code === '23505') {
                 // Even if already restricted (muted), show success message
-                Alert.alert("Ghosted", `${post.user.name} is now ghosted.`);
+                showToast(`${post.user.name} is now ghosted`, "success");
                 if (onMute) onMute();
                 onClose();
             } else {
                 console.error("Ghost Error:", e);
-                Alert.alert("Error", `Failed to ghost user: ${e.message}`);
+                showToast("Failed to ghost user", "error");
             }
         }
     };
 
     const handleBlock = () => {
         if (!session?.user?.id) return;
-        Alert.alert(
-            "Block User",
-            `Are you sure you want to block ${post.user.name}? You won't see their posts anymore.`,
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Block",
-                    style: "destructive",
-                    onPress: async () => {
-                        try {
-                            const { error } = await supabase
-                                .from('BlockedUser')
-                                .insert({
-                                    blockerId: session.user.id,
-                                    blockedId: post.user.id
-                                });
-                            if (error) throw error;
-                            Alert.alert("Blocked", `You have blocked ${post.user.name}.`);
-                            if (onBlock) onBlock();
-                            onClose();
-                        } catch (e: any) {
-                            if (e.code === '23505') {
-                                Alert.alert("Blocked", `You have already blocked ${post.user.name}.`);
-                                if (onBlock) onBlock();
-                                onClose();
-                            } else {
-                                console.error("Block Error:", e);
-                                Alert.alert("Error", `Failed to block user: ${e.message}`);
-                            }
-                        }
-                    }
+        setConfirmTitle("Block User");
+        setConfirmMessage(`Are you sure you want to block ${post.user.name}? You won't see their posts anymore.`);
+        setConfirmDestructive(true);
+        setConfirmButtonText("Block");
+        setConfirmAction(() => async () => {
+            try {
+                const { error } = await supabase
+                    .from('BlockedUser')
+                    .insert({
+                        id: Crypto.randomUUID(),
+                        blockerId: session.user.id,
+                        blockedId: post.user.id,
+                        updatedAt: new Date().toISOString()
+                    });
+                if (error) throw error;
+                showToast(`Blocked ${post.user.name}`, "success");
+                if (onBlock) onBlock();
+                onClose();
+            } catch (e: any) {
+                if (e.code === '23505') {
+                    showToast(`Already blocked ${post.user.name}`, "info");
+                    if (onBlock) onBlock();
+                    onClose();
+                } else {
+                    console.error("Block Error:", e);
+                    showToast("Failed to block user", "error");
                 }
-            ]
-        );
+            }
+            setConfirmVisible(false);
+        });
+        setConfirmVisible(true);
     };
 
     const handleDelete = () => {
@@ -205,11 +219,9 @@ export default function PostOptionsModal({ visible, onClose, post, onReport, onD
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
 
-            // FORCE PRODUCTION URL to bypass stale local env var
-            // NOTE: For local testing of new features, we should use the local IP.
-            // But since 'delete' route exists on prod, we can leave it or switch to local.
-            // Let's us local for consistency.
-            const response = await fetch(`http://192.168.0.101:3000/api/posts/delete`, {
+            // Use dynamic API URL
+            const API_URL = getApiUrl();
+            const response = await fetch(`${API_URL}/api/posts/delete`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -231,9 +243,9 @@ export default function PostOptionsModal({ visible, onClose, post, onReport, onD
         } catch (e: any) {
             console.error("API Delete Error:", e);
             if (e.name === 'AbortError') {
-                Alert.alert("Timeout", "Server is not reachable. Ensure your computer and device are on the same Wi-Fi and the backend server is running.");
+                showToast("Server timeout. Check connection.", "error");
             } else {
-                Alert.alert("Error", `Failed to delete: ${e.message}`);
+                showToast(`Failed to delete: ${e.message}`, "error");
             }
         } finally {
             setSubmitting(false);
@@ -242,11 +254,11 @@ export default function PostOptionsModal({ visible, onClose, post, onReport, onD
 
     const submitReport = async () => {
         if (!reportReason) {
-            Alert.alert("Required", "Please select a reason.");
+            showToast("Please select a reason", "error");
             return;
         }
         if (!session?.user?.id) {
-            Alert.alert("Error", "You must be logged in.");
+            showToast("You must be logged in", "error");
             return;
         }
         setSubmitting(true);
@@ -254,20 +266,22 @@ export default function PostOptionsModal({ visible, onClose, post, onReport, onD
             const { error } = await supabase
                 .from('Report')
                 .insert({
+                    id: Crypto.randomUUID(),
                     reporterId: session.user.id,
                     postId: post.id,
                     reason: reportReason,
                     details: reportDetails,
-                    status: 'PENDING'
+                    status: 'PENDING',
+                    updatedAt: new Date().toISOString()
                 });
 
             if (error) throw error;
-            Alert.alert("Reported", "Thank you. We will review this report.");
+            showToast("Report submitted successfully", "success");
             if (onReport) onReport();
             onClose();
         } catch (error: any) {
             console.error("Report Error:", error);
-            Alert.alert("Error", `Failed to report post: ${error.message || 'Unknown error'}`);
+            showToast("Failed to report post", "error");
             // Don't close so they can retry
         } finally {
             setSubmitting(false);
@@ -516,6 +530,16 @@ export default function PostOptionsModal({ visible, onClose, post, onReport, onD
                     </View>
                 )}
             </TouchableOpacity>
+
+            <ConfirmModal
+                visible={confirmVisible}
+                title={confirmTitle}
+                message={confirmMessage}
+                onConfirm={confirmAction}
+                onCancel={() => setConfirmVisible(false)}
+                confirmText={confirmButtonText}
+                isDestructive={confirmDestructive}
+            />
         </Modal>
     );
 }

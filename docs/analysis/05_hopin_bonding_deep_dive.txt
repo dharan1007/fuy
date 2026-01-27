@@ -1,0 +1,110 @@
+========================================================================================
+FUY DEEP DIVE: HOPIN (PLANS) & BONDING
+========================================================================================
+
+1. OVERVIEW
+----------------------------------------------------------------------------------------
+This section covers the "Real World" and "Emotional" aspects of FUY.
+- **Hopin**: The event planning and logistical engine ("Where are we going?").
+- **Bonding**: The relationship tracking and emotional health engine ("How are we doing?").
+
+2. CORE DATA ARCHITECTURE (Prisma Schema Analysis)
+----------------------------------------------------------------------------------------
+
+A. HOPIN (Plans and Logistics)
+   
+   Model: Plan
+   - `id`: CUID.
+   - `creatorId`: The host.
+   - `type`: ['SOLO', 'COMMUNITY'].
+   - `title`, `description`.
+   - `location`: Free text or JSON coords.
+   - `date`: Timestamp.
+   - `status`: ['OPEN', 'FULL', 'COMPLETED', 'CANCELLED'].
+   
+   Model: PlanWaypoint
+   - A routed itinerary.
+   - `planId`: Parent plan.
+   - `latitude`, `longitude`.
+   - `order`: Sequence number (0, 1, 2...).
+   - `name`: "Meetup Spot", "Dinner", "Club".
+
+   Model: PlanMember
+   - Attendees.
+   - `status`: ['PENDING', 'ACCEPTED', 'INTERESTED'].
+   - `verificationCode`: 7-digit OTP.
+   - `qrCodeUrl`: For ticket-like entry.
+
+B. BONDING (Relationships)
+
+   Model: BondBlueprint
+   - `userId`: The user defining the bond.
+   - `personName`: The other person (can be a non-user).
+   - `goal`: "Call Mom every Sunday".
+   - `notes`: Context.
+
+   Model: ConflictDrill
+   - `blueprintId`: Link to the relationship.
+   - `notes`: "Had a fight about X".
+   - `resolvedAt`: Timestamp when fixed.
+
+   Model: HappinessScore
+   - `category`: ['JOY', 'CONNECTION', 'CREATIVITY'].
+   - `value`: Integer (1-100).
+   - `source`: Which feature generated this joy?
+
+3. USER INTERFACE FLOWS (mobile/app/hopin/ & mobile/app/bonds.tsx)
+----------------------------------------------------------------------------------------
+
+Hopin Flow:
+- **Map View**: Integrated `react-leaflet` (Web) or `react-native-maps` (Mobile).
+  * Shows Pins for Plans nearby.
+- **Creation Wizard**:
+  * Step 1: Details (Title, Date).
+  * Step 2: Location (Drop pins on map for Waypoints).
+  * Step 3: Invites (Select Friends or make Public).
+- **The "Hoin" (Join)**:
+  * User taps "Hopin".
+  * Host approves.
+  * User gets "Ticket" (QR Code).
+- **Live Mode**:
+  * On the day of event, "Live Tracking" (optional) shows member locations.
+  * "Check In" at Waypoints unlocks "Memories" (Photo uploads linked to Plan).
+
+Bonding Flow:
+- **Relationship Dashboard**:
+  * List of "Key People" (Mom, Partner, Best Friend).
+  * Health Bar for each relationship (gamified).
+- **Drill Mode**:
+  * "Conflict Detected": User opens Drill.
+  * Guided Reflection: "What happened?", "My fault?", "Their fault?", "Solution?".
+  * Result: Action item added to Calendar.
+
+4. ALGORITHMIC & TECHNICAL CONSIDERATIONS
+----------------------------------------------------------------------------------------
+
+Geospatial Data:
+- **Storage**: Currently using Float `latitude`/`longitude`.
+  * For scale, should use PostGIS geography types in Postgres.
+- **Radius Search**: "Find plans within 5km".
+  * Haversine formula (Client-side simple) or DB query (Server-side scalable).
+
+QR Verification:
+- **Security**: The QR code contains a signed JWT or a UUID `verificationCode`.
+- **Scanner**: Host uses in-app camera to scan attendee QR.
+- **Validation**: Server checks `PlanMember` record, returns Success/Fail.
+
+Privacy in Plans:
+- **Location Locking**: `isLocationLocked` boolean.
+  * If true, exact location is hidden until Request is Accepted.
+  * Radius circle shown publicly to indicate general area.
+
+5. FUTURE SCALABILITY
+----------------------------------------------------------------------------------------
+- **Ticketing**: Paid Plans (Concerts/Workshops) integrated with Commerce/Payment module.
+- **AR Navigation**: Camera view showing arrows to the next Waypoint.
+- **Group Chat**: Auto-creation of a `Conversation` for `PlanMember`s (`planId` link).
+
+========================================================================================
+END OF HOPIN & BONDING ANALYSIS
+========================================================================================

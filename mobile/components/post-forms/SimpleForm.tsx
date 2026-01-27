@@ -10,6 +10,8 @@ import { supabase } from '../../lib/supabase';
 import SuccessOverlay from '../SuccessOverlay';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { moderateContent, getModerationErrorMessage } from '../../lib/content-moderation';
+import { analyzeMultipleImages, NudityAnalysisResult } from '../../lib/nudity-detection';
+import NudityWarningModal from '../NudityWarningModal';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org';
 const MAX_MEDIA = 8;
@@ -39,6 +41,12 @@ export default function SimpleForm({ onBack, initialData }: SimpleFormProps) {
     const [showSuccess, setShowSuccess] = useState(false);
     const [slashes, setSlashes] = useState<string[]>(initialData?.slashes || []);
     const [slashInput, setSlashInput] = useState('');
+    const [productCode, setProductCode] = useState('');
+
+    // Nudity detection state
+    const [nudityResult, setNudityResult] = useState<NudityAnalysisResult | null>(null);
+    const [showNudityWarning, setShowNudityWarning] = useState(false);
+    const [pendingSubmit, setPendingSubmit] = useState(false);
 
     const pickMedia = async () => {
         if (media.length >= MAX_MEDIA) {
@@ -111,6 +119,30 @@ export default function SimpleForm({ onBack, initialData }: SimpleFormProps) {
             }
         }
 
+        // Nudity Detection: Check images/videos for inappropriate content
+        if (postMode === 'MEDIA' && media.length > 0 && !pendingSubmit) {
+            const imageUris = media.filter(m => m.type === 'image').map(m => m.uri);
+            // For videos, we analyze the URI as well (filename-based detection)
+            const videoUris = media.filter(m => m.type === 'video').map(m => m.uri);
+            const allMediaUris = [...imageUris, ...videoUris];
+
+            if (allMediaUris.length > 0) {
+                const nudityCheck = await analyzeMultipleImages(allMediaUris);
+
+                if (nudityCheck.classification === 'EXPLICIT') {
+                    // Block explicit content completely
+                    setNudityResult(nudityCheck);
+                    setShowNudityWarning(true);
+                    return;
+                } else if (nudityCheck.classification === 'SUGGESTIVE') {
+                    // Show warning for suggestive content
+                    setNudityResult(nudityCheck);
+                    setShowNudityWarning(true);
+                    return;
+                }
+            }
+        }
+
         setLoading(true);
         setUploadProgress(0);
 
@@ -170,6 +202,12 @@ export default function SimpleForm({ onBack, initialData }: SimpleFormProps) {
                     mediaUrls: uploadedMedia.map(m => m.url),
                     mediaTypes: uploadedMedia.map(m => m.type),
                     slashes: slashes.filter(s => s.trim()),
+                    taggedProductCode: productCode.trim() || null,
+                    // Include nudity flag for admin notification
+                    nudityFlag: pendingSubmit && nudityResult ? {
+                        classification: nudityResult.classification,
+                        categories: nudityResult.detectedCategories,
+                    } : null,
                 }),
             });
 
@@ -182,11 +220,21 @@ export default function SimpleForm({ onBack, initialData }: SimpleFormProps) {
 
             // Alert.alert('Done', 'Posted successfully', [{ text: 'OK', onPress: onBack }]);
             setShowSuccess(true);
+            setPendingSubmit(false);
+            setNudityResult(null);
         } catch (error: any) {
             Alert.alert('Error', error.message);
         } finally {
             setLoading(false);
         }
+    };
+
+    // Handle proceeding with suggestive content
+    const handleProceedWithWarning = () => {
+        setShowNudityWarning(false);
+        setPendingSubmit(true);
+        // Re-trigger submit with flag set
+        setTimeout(() => handleSubmit(), 100);
     };
 
     const renderMediaItem = ({ item, index }: { item: MediaItem; index: number }) => (
@@ -372,6 +420,25 @@ export default function SimpleForm({ onBack, initialData }: SimpleFormProps) {
                 )}
             </View>
 
+            {/* Product Tagging */}
+            <View style={{ marginBottom: 24 }}>
+                <Text style={{ color: 'rgba(255,255,255,0.5)', marginBottom: 12, fontWeight: '600', fontSize: 11, letterSpacing: 1 }}>TAG PRODUCT</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 16 }}>
+                    <Image source={{ uri: 'https://via.placeholder.com/30' }} style={{ width: 16, height: 16, tintColor: 'rgba(255,255,255,0.4)' }} />
+                    <TextInput
+                        value={productCode}
+                        onChangeText={setProductCode}
+                        placeholder="Enter 12-digit Product Code (e.g. A1B2-C3D4-E5F6)"
+                        placeholderTextColor="rgba(255,255,255,0.3)"
+                        style={{ flex: 1, color: '#fff', paddingVertical: 14, paddingHorizontal: 12, fontSize: 14 }}
+                        maxLength={14}
+                    />
+                </View>
+                <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, marginTop: 6, paddingHorizontal: 4 }}>
+                    Link a product to your post to display a shop pill.
+                </Text>
+            </View>
+
             {/* Progress */}
             {loading && (
                 <View style={{ marginBottom: 16 }}>
@@ -408,6 +475,18 @@ export default function SimpleForm({ onBack, initialData }: SimpleFormProps) {
                 visible={showSuccess}
                 message="Posted Successfully!"
                 onFinish={onBack}
+            />
+
+            <NudityWarningModal
+                visible={showNudityWarning}
+                result={nudityResult}
+                onClose={() => {
+                    setShowNudityWarning(false);
+                    setNudityResult(null);
+                    setPendingSubmit(false);
+                }}
+                onProceed={nudityResult?.classification === 'SUGGESTIVE' ? handleProceedWithWarning : undefined}
+                isSubmitting={loading}
             />
         </ScrollView >
     );

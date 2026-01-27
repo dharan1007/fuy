@@ -1,8 +1,7 @@
 // Mobile R2 Upload Helper
 // Uses web API presigned URLs for Cloudflare R2 uploads
 
-
-const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org';
+import { getApiUrl } from './api';
 
 type MediaType = 'IMAGE' | 'VIDEO' | 'AUDIO';
 
@@ -34,6 +33,7 @@ export async function uploadToR2(
         headers['Authorization'] = `Bearer ${authToken}`;
     }
 
+    const API_BASE = getApiUrl();
     const presignedRes = await fetch(`${API_BASE}/api/upload/presigned`, {
         method: 'POST',
         headers,

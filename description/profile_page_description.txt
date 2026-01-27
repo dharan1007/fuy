@@ -1,0 +1,84 @@
+# Fuy App - Profile Page Detailed Description
+
+This document provides a comprehensive breakdown of every feature, button, and interaction available on the User Profile Page for both the Mobile Application and the Web Platform.
+
+---
+
+## 📱 Mobile Profile Screen
+**File Reference:** `mobile/app/(tabs)/profile.tsx`
+**Key Components:** `ProfileHeader`, `StatsRail`, `PostFeed`, `StalkMeModal`
+
+The profile screen is the user's personal hub, featuring a liquid-style avatar, cover media, stats, and a filterable feed of their content.
+
+### 1. Header Area (Immersive Top)
+*   **Cover Media:**
+    *   **Visual:** Full-width video or image background (300px height).
+    *   **Behavior:** Video auto-plays (muted/looped). Gradient overlay at the bottom for text readability.
+*   **Top Navigation (SafeArea):**
+    *   **Select Button (Left):** Toggles "Selection Mode" for batch deleting posts.
+    *   **Share Icon (Right):** Opens `ShareCardModal` to share the unique Profile Card code.
+    *   **Settings Icon (Right):** Navigates to `/settings`.
+*   **Avatar (Floating):**
+    *   **Visual:** Large circular image with a "liquid glass" blur border effect.
+    *   **Position:** Overlaps the cover image and the white content area.
+    *   **Action:** Tapping the camera icon badge opens image picker to update avatar.
+
+### 2. User Info & Stats
+Located below the header in the white content area.
+*   **Identity:**
+    *   **Display Name:** Large, bold text.
+    *   **Profile Code:** Displayed as `#{code}` in primary color.
+    *   **Location:** Icon + Text (e.g., "New York").
+    *   **Bio:** Text snippet. If empty, shows "Add a bio..." link.
+    *   **Tags:** Horizontal list of pill-shaped interest tags.
+*   **Stats Rail (Glass Card):**
+    *   A row of three interactive stats inside a bordered glass container.
+    *   **Following:** Count. Tapping opens `SocialListModal` (Following tab).
+    *   **Followers:** Count. Tapping opens `SocialListModal` (Followers tab).
+    *   **Posts:** Total count of user's posts.
+
+### 3. Action Buttons (Row)
+Four buttons located below the stats.
+1.  **Edit Profile:** Navigates to `/edit-profile`.
+2.  **Card:** Navigates to `/profile-card/editor` (Customizable 3D card).
+3.  **Details:** Opens `PostAnalyticsModal` (Summary of account performance).
+4.  **Grid Icon (Stalk Me):** Opens `StalkMeModal` (A grid of 9 cheat-sheet images/details about the user).
+
+### 4. Content Feed
+**Structure:** Filterable masonry-style grid.
+*   **Filters (Horizontal Scroll):**
+    *   `ALL`, `FILLS` (Vertical Video), `LILLS` (Short Video), `SIMPLE` (Text), `AUDIO`, `CHANNELS`, `XRAYS`.
+    *   **Interaction:** Tapping a filter updates the feed below.
+*   **Post Cards:**
+    *   **Simple/Text:** Square card with text preview and "SIXT" badge.
+    *   **Audio:** Glass card with a central Heart icon and "AUD" badge.
+    *   **Video:** Thumbnails for FILLS/LILLS.
+    *   **Selection Mode:** If active, tapping a card selects it (showing a checkmark).
+*   **Empty State:** Displays a large Grid icon and "No posts yet" text if the user has no content.
+
+### 5. Modals & Sheets
+*   **ShareCardModal:** Displays the user's unique 7-digit code for sharing.
+*   **SocialListModal:** Lists Followers or Following users.
+*   **StalkMeModal:** Displays a 3x3 grid of personal "lore" images (setup in Edit Profile).
+*   **Delete Confirmation:** appears when batch deleting posts.
+
+---
+
+## 💻 Web Profile Screen
+**File Reference:** `src/app/profile/page.tsx` -> `src/components/ProfileView.tsx`
+
+The web profile mirrors the mobile experience but utilizes the 3-column desktop layout.
+
+### 1. Sidebar Profile (Left)
+*   **Identity Card:** Stays fixed on the left.
+*   **Stats:** Quick view of Followers/Following.
+*   **Edit Button:** Quick access to settings.
+
+### 2. Main Feed (Center)
+*   **Cover Area:** Wide aspect ratio cover image/video at the top of the feed column.
+*   **Tabs:** "Posts", "Media", "Replies".
+*   **Grid View:** 3-column grid of post cards similar to mobile.
+
+### 3. Right Sidebar
+*   **Stalk Me Folder:** Displayed as a widget on the right sidebar instead of a modal.
+*   **Profile Card Preview:** Mini 3D preview of the user's card.

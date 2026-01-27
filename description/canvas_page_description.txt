@@ -1,0 +1,45 @@
+# Fuy App - Canvas (Journal) Page Detailed Description
+
+This document provides a comprehensive breakdown of every feature, button, and interaction available on the Canvas Screen for both the Mobile Application and the Web Platform.
+
+---
+
+## 📱 Mobile Canvas Screen
+**File Reference:** `mobile/app/canvas/index.tsx`
+
+Canvas is the journaling and creative writing module, allowing users to create private entries or use public templates.
+
+### 1. Canvas List
+*   **Tabs:**
+    *   **My Canvas:** Personal entries.
+    *   **Suggested:** Public templates from followed users.
+*   **Search:** Filter entries by content text or tags.
+*   **Entry Cards:**
+    *   **Header:** Date, Visibility Icon (Lock/Globe/Users), and Mood.
+    *   **Preview:** First few lines of the journal content.
+    *   **Footer:** Block count (if structured content) and Delete button (Trash icon).
+    *   **Interaction:** Tap to open/edit, long-press to delete.
+
+### 2. Creation & Templates
+*   **Create New (+):** Floating action or header button to start a blank canvas.
+*   **Use Template:**
+    *   "Suggested" entries feature a "Use as Template" button.
+    *   Clones the content, blocks, and mood of a public entry into a new private draft.
+
+---
+
+## 💻 Web Canvas (Journal) Screen
+**File Reference:** `src/app/journal/page.tsx`
+
+Wraps the `JournalEditor` component, providing a full-screen writing experience.
+
+### 1. Editor Interface
+*   **Block-Based Editing:** Support for text blocks, checklists, and potentially media embeds (parity with mobile structural blocks).
+*   **Metadata:**
+    *   **Mood:** Selector for the entry's emotional context.
+    *   **Visibility:** Toggle between Private, Followers, and Public.
+    *   **Tags:** Add keywords for organization.
+
+### 2. Management
+*   **Auto-Save:** Real-time saving of draft content.
+*   **History:** Access past entries (likely via a sidebar or equivalent list view in the editor context).

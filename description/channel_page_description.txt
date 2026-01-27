@@ -1,0 +1,37 @@
+# Fuy App - Channel Page Detailed Description
+
+This document provides a comprehensive breakdown of every feature, button, and interaction available on the Channel Screen.
+
+---
+
+## 📱 Mobile Channel Screen
+**File Reference:** `mobile/app/channel.tsx`
+
+The Channel screen serves as a hub for video-centric content and creator discovery, adopting a TV-like aesthetic.
+
+### 1. Header & Navigation
+*   **Header Bar:**
+    *   **Back Button:** Returns to the previous screen.
+    *   **TV Icon & Title:** "Channels" label.
+*   **Tabs:**
+    *   **Subscribed:** Filters the list to show only channels the user follows.
+    *   **Discover:** Shows all available channels for exploration.
+
+### 2. Channel List
+*   **Channel Card:**
+    *   **Thumbnail:** Large preview image of the "Latest Video".
+    *   **Channel Info:**
+        *   **Avatar:** Circular profile picture of the channel.
+        *   **Name:** Channel name (e.g., "Tech Hub").
+        *   **Subscribers:** Count formatted with "K" suffixes (e.g., "12.5K subscribers").
+    *   **Subscribe Button:**
+        *   **Subscribe:** Primary color button (when not subscribed).
+        *   **Subscribed:** Green tinted button indicating active subscription.
+    *   **Interaction:** Tapping a card likely navigates to the channel's specific profile or video list (implied).
+
+### 3. Visuals
+*   **Gradient Background:** Adaptive background (Light/Dark mode) for a premium feel.
+*   **List Layout:** Vertical scrolling list (`FlatList`) of channel cards.
+
+---
+*Note: This specific screen focuses on listing channels. Viewing a specific channel's content might map to a Profile view or a dedicated Channel Detail screen not widely differentiated yet.*

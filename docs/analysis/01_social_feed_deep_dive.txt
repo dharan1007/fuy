@@ -1,0 +1,138 @@
+========================================================================================
+FUY DEEP DIVE: SOCIAL FEED & CONTENT ECOSYSTEM
+========================================================================================
+
+1. OVERVIEW
+----------------------------------------------------------------------------------------
+The Social Feed in FUY is the central nervous system of the application. Unlike traditional social media which usually focuses on one or two content types (e.g., just photos or just short videos), FUY implements a "Polymorphic Content Engine". This means a single "Feed" can seamlessly display highly distinct types of content—from standard photos to interactive "scratch-off" cards (Xray) and full-blown broadcast channels.
+
+The architecture separates the generic "Post" container from the specific "Content Data" (Lill, Fill, Xray, etc.), allowing for infinite extensibility without breaking the core feed logic.
+
+2. CORE DATA ARCHITECTURE (Prisma Schema Analysis)
+----------------------------------------------------------------------------------------
+The `Post` model acts as the parent table. Every piece of content is a Post, but its `postType` field determines which child table holds the detailed data.
+
+Model: Post
+- id: CUID (Unique Identifier)
+- userId: The creator
+- postType: Enum ['STANDARD', 'STORY', 'LILL', 'FILL', 'XRAY', 'CHAPTER', 'PULLUPDOWN', 'AUD', 'CHAN']
+- visibility: ['PUBLIC', 'FOLLOWERS', 'PRIVATE', 'SPECIFIC']
+- feature: ['JOURNAL', 'AWE', 'BONDS', 'CHECKIN', 'PROGRESS', 'OTHER'] - Context tag.
+- stats: likeCount, commentCount, shareCount, viewCount (Aggregated for performance)
+
+Each `postType` links to a specific sub-table:
+
+A. STANDARD (SimplePost)
+   - The classic "Instagram-style" post.
+   - Supports up to 10 mixed media items (Images/Videos).
+   - Relations: `PostMedia` (ordered list of media).
+
+B. STORIES (Story)
+   - Ephemeral content with a TTL (Time To Live).
+   - Field `duration`: Hours (1-48). Default 24.
+   - Uniqueness: Indexed by `createdAt` heavily to efficiently query "active" stories only.
+
+C. LILLS (Lill)
+   - Vertical Short-Form Video (VSFV).
+   - "TikTok" clone logic.
+   - Fields:
+     * aspectRatio: "9:16" fixed.
+     * duration: Max 60s.
+     * musicUrl/musicTitle: Integration for audio tracks.
+     * filters: JSON array for applied AR effects.
+
+D. FILLS (Fill)
+   - Horizontal Long-Form Video.
+   - "YouTube" clone logic.
+   - Fields:
+     * aspectRatio: "16:9" default.
+     * quality: SD/HD/4K markers.
+     * chapters: JSON array [{ time: 120, title: "Intro" }, ...].
+     * subtitlesUrl: VTT file link for accessibility.
+
+E. XRAY (Xray)
+   - INTERACTIVE "Scratch Card".
+   - Concept: A post has two layers. The user "scratches" the top image to reveal the bottom one.
+   - Mechanics:
+     * `PostMedia` contains 2 items: variant='xray-top' and variant='xray-bottom'.
+     * `scratchPattern`: Defines the algorithm (Random, Grid, Custom Brush).
+     * `revealPercent`: Analytics to track how much users actually scratched.
+
+F. CHAPTERS (Chapter)
+   - "Threaded" or "Series" content.
+   - A Chapter is a post that is explicitly linked to a *previous* post (`linkedChapterId`).
+   - UI: Users can swipe "Next" to see the continued story/thread, preserving context.
+
+G. PULLUPDOWN (PullUpDown)
+   - Advanced Polling System.
+   - Name comes from "Pull Up" (Vote Yes) or "Pull Down" (Vote No), or generic options.
+   - Structure:
+     * `PullUpDown` (Question, allowMultiple, expiresAt)
+     * `PullUpDownOption` (Text, voteCount)
+     * `PullUpDownVote` (User vote record)
+   - Uniqueness: Options can "Tag" other users (e.g., "Whose fit is better? @UserA vs @UserB").
+
+H. AUD (Aud)
+   - Audio-first posts.
+   - `waveformData`: JSON array of amplitudes [0.1, 0.5, 0.9...] used to render visualization bars in the UI.
+   - `coverImageUrl`: Album art style background.
+
+I. CHAN (Chan)
+   - A "TV Channel" embedded in a profile.
+   - Not just a single post, but a container for `Show` and `Episode`.
+   - `isLive`: Boolean flag. If true, displays "LIVE" badge and pulls `liveUrl` (HLS stream).
+   - Hierarchy: Chan -> Show -> Episode.
+
+3. USER INTERFACE FLOWS (Mobile/Web)
+----------------------------------------------------------------------------------------
+
+The Feed (mobile/app/(tabs)/index.tsx & src/app/feed/page.tsx):
+- **Virtualization**: Uses `FlashList` (Mobile) / `Virtualizer` (Web) for performance.
+- **Viewability Tracking**: Detecting which post is 50% visible to auto-play videos (Lills/Fills) and pause off-screen ones.
+- **Rendering Strategy**:
+  1. Fetch `FeedItem` (Denormalized lightweight object).
+  2. `renderItem` switch statement checks `postType`.
+  3. Load specific Component (e.g., `<LillCard>`, `<XrayCard>`).
+
+Creation Flow (mobile/app/post/create.tsx):
+- **Universal Composer**: One screen to rule them all.
+- **Mode Selector**: Bottom carousel to pick [POST | STORY | LILL | XRAY | ...].
+- **Media Picker**: Custom gallery integration with multi-select.
+- **Xray Editor**: Special editor where user selects 2 images and previews the scratch effect.
+- **Music Picker**: For Lills/Auds, querying an external music API or internal library.
+
+Interaction Mechanics:
+- **Slashes (#)**: Custom Hashtag system modeled as `Slash` in DB. Parsing logic runs on content save.
+- **Reactions**: Not just generic "Like".
+  * Types: FIRE (Hot), CAP (Lie/Fake), W (Win), L (Loss).
+  * stored in `Reaction` table.
+- **Muting/Hiding**:
+  * `HiddenPost`: User specific hide.
+  * `MutedUser`: Can mute SPECIFIC post types from a user (e.g., "Mute UserA's Lills but keep their Photos").
+
+4. ALGORITHMIC & TECHNICAL CONSIDERATIONS
+----------------------------------------------------------------------------------------
+
+Feed Generation (FeedService):
+- **Queries**: Complex joins are expensive. The system uses a `FeedItem` table which is distinct from `Post`.
+  * `FeedItem` is a pre-computed "Fan-out" or caching layer.
+  * When User A posts, a background worker creates `FeedItem` rows for all Followers (Push Model) OR the Feed query pulls from `FeedItem` which is effectively a timeline index.
+- **Filter Logic**:
+  * Visibility check: (PUBLIC) or (FOLLOWERS && isFollower) or (SPECIFIC && inList).
+  * Feature exclusion: (e.g., PrivacySettings -> "Hide Focus Posts").
+- **Pagination**: Cursor-based (using `createdAt` or `id`) to prevent offset drift.
+
+Performance Optimizations:
+- **Optimistic Updates**: When Liking/Commenting, UI updates instantly before API returns.
+- **Media Caching**: FastImage (RN) and Next/Image (Web) aggressive caching.
+- **Xray Rendering**: Uses `react-native-skia` or HTML5 Canvas for the scratch effect to ensure 60FPS.
+
+5. FUTURE SCALABILITY
+----------------------------------------------------------------------------------------
+- **Recommendation Engine**: The `Metric` table collects data to build a personalized "For You" feed.
+- **Monetization**: `Chan` allows for "Subscribers Only" content, paving way for creator economy.
+- **Video Processing**: Currently assumes direct upload. Future need for server-side transcoding (FFmpeg) to generate HLS streams for Fills.
+
+========================================================================================
+END OF SOCIAL FEED ANALYSIS
+========================================================================================

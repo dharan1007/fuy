@@ -1,149 +1,53 @@
-import { NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase-admin";
-import { prisma } from "@/lib/prisma";
-import CryptoJS from "crypto-js";
 
-const SECRET = process.env.SUPABASE_SERVICE_ROLE || "fallback-secret-key-change-this-in-prod";
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
+import { supabaseAdmin } from '@/lib/supabase-admin';
+import { Resend } from 'resend';
 
-export async function POST(req: Request) {
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+export async function POST(request: NextRequest) {
     try {
-        const body = await req.json();
-        const { email, password, name, captchaAnswer, captchaToken, _gotcha } = body;
+        const { email, password, name } = await request.json();
 
-        // 0. Email Normalization
-        const normalizedEmail = email?.toLowerCase().trim();
-
-        if (!normalizedEmail) {
-            return NextResponse.json({ error: "Email is required" }, { status: 400 });
+        // 1. Check if user already exists in Supabase
+        const { data: existingUser } = await supabaseAdmin.auth.admin.listUsers();
+        if (existingUser.users.find(u => u.email?.toLowerCase() === email.toLowerCase())) {
+            return NextResponse.json({ error: 'A user with this email address has already been registered' }, { status: 400 });
         }
 
-        // 1. HONEYPOT check
-        if (_gotcha && _gotcha.trim() !== "") {
-            console.warn(`[AUTH_SIGNUP] Bot detected via honeypot. Email: ${normalizedEmail}`);
-            // Return fake success to confuse bot
-            return NextResponse.json({ success: true, fake: true });
-        }
+        // 2. Generate OTP
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
 
-        // 2. CAPTCHA Verification
-        if (!captchaAnswer || !captchaToken) {
-            return NextResponse.json({ error: "CAPTCHA required" }, { status: 400 });
-        }
-
-        let decryptedBytes;
-        try {
-            decryptedBytes = CryptoJS.AES.decrypt(captchaToken, SECRET);
-        } catch (e) {
-            return NextResponse.json({ error: "Invalid CAPTCHA token" }, { status: 400 });
-        }
-
-        const decryptedString = decryptedBytes.toString(CryptoJS.enc.Utf8);
-        if (!decryptedString) {
-            return NextResponse.json({ error: "Invalid CAPTCHA token structure" }, { status: 400 });
-        }
-
-        const [realCode, timestampStr] = decryptedString.split("|");
-        const timestamp = parseInt(timestampStr);
-        const now = Date.now();
-
-        // 3. Timeliness check
-        if (isNaN(timestamp)) {
-            return NextResponse.json({ error: "Invalid CAPTCHA timestamp" }, { status: 400 });
-        }
-
-        // Too fast (< 1s)
-        if (now - timestamp < 1000) {
-            return NextResponse.json({ error: "Suspicious activity (Too fast)" }, { status: 400 });
-        }
-
-        // Expired (> 5m)
-        if (now - timestamp > 5 * 60 * 1000) {
-            return NextResponse.json({ error: "CAPTCHA expired. Please refresh." }, { status: 400 });
-        }
-
-        // 4. Answer verification
-        if (realCode.toUpperCase() !== captchaAnswer.trim().toUpperCase()) {
-            return NextResponse.json({ error: "Incorrect CAPTCHA code" }, { status: 400 });
-        }
-
-        // 4.5 Check if user already exists in Prisma
-        const existingUser = await prisma.user.findUnique({
-            where: { email: normalizedEmail }
+        // 3. Store in DB (without creating user yet)
+        await prisma.verificationCode.create({
+            data: {
+                email,
+                code,
+                type: 'SIGNUP',
+                expiresAt,
+                metadata: { name } // Store name to be used during verification
+            } as any
         });
 
-        if (existingUser) {
-            return NextResponse.json({ error: "An account with this email already exists" }, { status: 409 });
-        }
-
-        // 5. Create User in Supabase
-        const { data, error } = await supabaseAdmin.auth.admin.createUser({
-            email: normalizedEmail,
-            password,
-            email_confirm: true, // Auto-confirm email since we did CAPTCHA check
-            user_metadata: {
-                display_name: name,
-                name: name
-            }
+        // 4. Send Email
+        await resend.emails.send({
+            from: 'Fuy <verify@fuymedia.org>',
+            to: email,
+            subject: 'Verify your Fuy account',
+            html: `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+                <h1>Welcome to Fuy</h1>
+                <p>Your verification code is:</p>
+                <h2 style="letter-spacing: 5px; background: #f0f0f0; padding: 10px; display: inline-block;">${code}</h2>
+                <p>This code expires in 15 minutes.</p>
+            </div>`
         });
 
-        if (error) {
-            console.error("[AUTH_SIGNUP] Supabase error:", error);
-            // If Supabase says user already exists, return friendly error
-            if (error.message.includes("already registered") || error.status === 422) {
-                return NextResponse.json({ error: "An account with this email already exists" }, { status: 409 });
-            }
-            return NextResponse.json({ error: error.message }, { status: 400 });
-        }
-
-        // 6. Create User in Prisma (Sync DB) - Use upsert for safety
-        try {
-            await prisma.user.upsert({
-                where: { id: data.user.id },
-                update: {
-                    email: data.user.email!,
-                    name: name
-                },
-                create: {
-                    id: data.user.id,
-                    email: data.user.email!,
-                    name: name
-                }
-            });
-            console.log(`[AUTH_SIGNUP] Prisma User synced: ${data.user.id}`);
-        } catch (dbError: any) {
-            console.error("[AUTH_SIGNUP] Prisma sync failed:", dbError?.message || dbError);
-            // Try one more time with just email lookup
-            try {
-                const existingByEmail = await prisma.user.findUnique({
-                    where: { email: normalizedEmail }
-                });
-                if (existingByEmail) {
-                    // User exists with same email but different ID - update ID
-                    await prisma.user.update({
-                        where: { email: normalizedEmail },
-                        data: { id: data.user.id }
-                    });
-                    console.log(`[AUTH_SIGNUP] Updated existing user ID to match Supabase`);
-                } else {
-                    // Last resort - return error
-                    return NextResponse.json({ error: "Account created but sync failed. Please try logging in." }, { status: 500 });
-                }
-            } catch (retryError: any) {
-                console.error("[AUTH_SIGNUP] Retry failed:", retryError?.message);
-                return NextResponse.json({ error: "Account created but sync failed. Please try logging in." }, { status: 500 });
-            }
-        }
-
-        // Successful creation
-        console.log(`[AUTH_SIGNUP] User created: ${data.user.id} | Confirmed: ${data.user.email_confirmed_at}`);
-
-        return NextResponse.json({
-            success: true,
-            user: { email: data.user.email, id: data.user.id }
-        });
+        return NextResponse.json({ success: true });
 
     } catch (error: any) {
-        console.error("[AUTH_SIGNUP] Error:", error?.message || error);
-        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+        console.error("Signup error:", error);
+        return NextResponse.json({ error: error.message }, { status: 400 });
     }
 }
-

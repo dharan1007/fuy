@@ -112,9 +112,7 @@ export default function SimilarPostsScreen() {
                     name,
                     profile:Profile (displayName, avatarUrl, location)
                 ),
-                postMedia:PostMedia (
-                    media:Media (url, type, variant)
-                ),
+                postMedia:PostMedia(media:Media(url, type, variant)),
                 topBubbles:ReactionBubble (
                     mediaUrl,
                     mediaType
@@ -172,9 +170,7 @@ export default function SimilarPostsScreen() {
                         name,
                         profile:Profile (displayName, avatarUrl)
                     ),
-                    postMedia:PostMedia (
-                        media (url, type)
-                    ),
+                    postMedia:PostMedia(media:Media(url, type)),
                     topBubbles:ReactionBubble (
                         mediaUrl,
                         mediaType
@@ -402,7 +398,7 @@ export default function SimilarPostsScreen() {
             <SafeAreaView style={styles.safeArea} edges={['top']}>
                 {/* Header */}
                 <View style={styles.header}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                    <TouchableOpacity onPress={() => router.push('/(tabs)/explore')} style={styles.backButton}>
                         <ArrowLeft color="white" size={24} />
                     </TouchableOpacity>
                     <Text style={styles.headerTitle}>Similar Vibes</Text>

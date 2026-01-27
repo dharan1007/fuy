@@ -7,6 +7,8 @@ import { useAuth } from '../../context/AuthContext';
 import { X, ArrowLeft, Globe, Users, Lock, Film, Play, Slash, Plus } from 'lucide-react-native';
 import { MediaUploadService } from '../../services/MediaUploadService';
 import { supabase } from '../../lib/supabase';
+import { analyzeImageForNudity, NudityAnalysisResult } from '../../lib/nudity-detection';
+import NudityWarningModal from '../NudityWarningModal';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org';
 const { width } = Dimensions.get('window');
@@ -26,6 +28,11 @@ export default function FillForm({ onBack }: FillFormProps) {
     const [uploadProgress, setUploadProgress] = useState(0);
     const [slashes, setSlashes] = useState<string[]>([]);
     const [slashInput, setSlashInput] = useState('');
+
+    // Nudity detection state
+    const [nudityResult, setNudityResult] = useState<NudityAnalysisResult | null>(null);
+    const [showNudityWarning, setShowNudityWarning] = useState(false);
+    const [pendingSubmit, setPendingSubmit] = useState(false);
 
     const pickVideo = async () => {
         try {
@@ -75,6 +82,21 @@ export default function FillForm({ onBack }: FillFormProps) {
             return;
         }
 
+        // Nudity Detection: Check video for inappropriate content
+        if (!pendingSubmit) {
+            const nudityCheck = await analyzeImageForNudity(video.uri);
+
+            if (nudityCheck.classification === 'EXPLICIT') {
+                setNudityResult(nudityCheck);
+                setShowNudityWarning(true);
+                return;
+            } else if (nudityCheck.classification === 'SUGGESTIVE') {
+                setNudityResult(nudityCheck);
+                setShowNudityWarning(true);
+                return;
+            }
+        }
+
         setLoading(true);
         setUploadProgress(0);
 
@@ -108,12 +130,21 @@ export default function FillForm({ onBack }: FillFormProps) {
 
             setUploadProgress(100);
             if (!response.ok) throw new Error((await response.json()).error || 'Failed');
+            setPendingSubmit(false);
+            setNudityResult(null);
             Alert.alert('Done', 'Posted successfully', [{ text: 'OK', onPress: onBack }]);
         } catch (error: any) {
             Alert.alert('Error', error.message);
         } finally {
             setLoading(false);
         }
+    };
+
+    // Handle proceeding with suggestive content
+    const handleProceedWithWarning = () => {
+        setShowNudityWarning(false);
+        setPendingSubmit(true);
+        setTimeout(() => handleSubmit(), 100);
     };
 
     return (
@@ -279,6 +310,18 @@ export default function FillForm({ onBack }: FillFormProps) {
             >
                 {loading ? <ActivityIndicator color="#000" /> : <Text style={{ color: '#000', fontWeight: '700', fontSize: 14, letterSpacing: 0.5 }}>POST FILL</Text>}
             </TouchableOpacity>
+
+            <NudityWarningModal
+                visible={showNudityWarning}
+                result={nudityResult}
+                onClose={() => {
+                    setShowNudityWarning(false);
+                    setNudityResult(null);
+                    setPendingSubmit(false);
+                }}
+                onProceed={nudityResult?.classification === 'SUGGESTIVE' ? handleProceedWithWarning : undefined}
+                isSubmitting={loading}
+            />
         </ScrollView>
     );
 }

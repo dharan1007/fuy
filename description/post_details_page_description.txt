@@ -1,0 +1,43 @@
+# Fuy App - Post Details Page Detailed Description
+
+This document provides a comprehensive breakdown of every feature, button, and interaction available when viewing a single Post.
+
+---
+
+## 📱 Mobile Post Details Screen
+**File Reference:** `mobile/app/post/[id]/index.tsx` & `mobile/app/post/[id]/similar.tsx`
+
+This view is split into two main components: the primary media viewer (`index.tsx`) and the "Similar Vibes" feed (`similar.tsx`) that appears below or as a related navigation.
+
+### 1. Primary Media Viewer (`index.tsx`)
+*   **Full-Screen Playback:**
+    *   **Video:** Auto-plays (if focused) with loop. Supports native controls for Episodes.
+    *   **Image:** display with `ResizeMode.CONTAIN` (or COVER for 'LILL' posts).
+*   **Header Overlay:**
+    *   **Back Button:** Floating chevron on the top-left to return.
+*   **Info Overlay:**
+    *   **LILL Format:** Gradient overlay at the bottom with bold Author Name and Content text.
+    *   **Episode/Fill Format:** Content text displayed below the media container.
+*   **Interaction:** Tapping the media toggles playback (pause/play) if custom controls are used.
+
+### 2. Similar Vibes Feed (`similar.tsx`)
+*(Accessed typically via scrolling down or navigation from a post)*
+*   **Header:** "Similar Vibes" title with a Back button.
+*   **Feed List:** A vertical scroll of `FeedPostItem` cards that are thematically or temporally related to the source post.
+    *   **Source Post:** The original post is pinned/highlighted at the top.
+    *   **Algorithm:** Matches posts based on `postType` ("Similar Vibe") or Recency.
+*   **Interactions (FeedPostItem):**
+    *   **React:** Double-tap to like, or use the reaction bar.
+    *   **Bubble:** Add a video/image comment ("Bubble") to a post.
+    *   **Share:** Open the `SharePostModal` to send to users or copy link.
+    *   **Menu:** Access options like "Not Interested" or "Report".
+*   **Safety:** Automatically filters content from blocked/muted users.
+
+### 3. Key Components
+*   **Video Player:** Uses `expo-av` for robust playback.
+*   **FeedPostItem:** The core reusable card component displaying User info, Media, Tags ("Slashes"), and Action buttons (Heart, Message, Share).
+
+---
+
+## 💻 Web Post Details
+*(Note: Web implementation typically uses a modal or a dedicated /post/[id] page that renders the `PostFeed` item in a singular layout, mirroring the mobile feed card structure.)*

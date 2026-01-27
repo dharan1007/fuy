@@ -33,10 +33,25 @@ async function createPostHandler(request: NextRequest) {
             mediaVariants,
             // Clock Data
             clockData,
+            // Nudity detection flag from frontend
+            nudityFlag,
+            // Slashes
+            slashes,
         } = body;
 
         if (!userId) {
             return NextResponse.json({ error: 'User ID required' }, { status: 400 });
+        }
+
+        // Logic for unique product code
+        let taggedProductId = null;
+        if (body.taggedProductCode) {
+            const product = await prisma.product.findUnique({
+                where: { uniqueCode: body.taggedProductCode }
+            });
+            if (product) {
+                taggedProductId = product.id;
+            }
         }
 
         // ...
@@ -49,6 +64,12 @@ async function createPostHandler(request: NextRequest) {
                 content: content || '',
                 visibility: visibility,
                 expiresAt: postType === 'CLOCK' && clockData?.expiresAt ? clockData.expiresAt : null,
+                // Set moderation status based on nudity flag
+                moderationStatus: nudityFlag?.classification === 'SUGGESTIVE' ? 'FLAGGED' : 'CLEAN',
+                moderationReason: nudityFlag?.classification === 'SUGGESTIVE'
+                    ? `Nudity detection: ${nudityFlag.categories?.join(', ') || 'Suggestive content detected'}`
+                    : null,
+                taggedProductId: taggedProductId,
             },
         });
 
@@ -223,6 +244,7 @@ async function createPostHandler(request: NextRequest) {
                 chanData: true,
                 chapterData: true,
                 pullUpDownData: true,
+                taggedProduct: true,
             },
         }) as any;
 
@@ -309,11 +331,11 @@ export async function GET(request: NextRequest) {
                 lillData: true,
                 fillData: true,
                 xrayData: true,
-
                 audData: true,
                 chanData: true,
                 chapterData: true,
                 pullUpDownData: true,
+                taggedProduct: true,
                 _count: {
                     select: { likes: true, comments: true },
                 },

@@ -1,0 +1,83 @@
+========================================================================================
+FUY DEEP DIVE: PRODCTIVITY (FOCUS METEOR & TASKS)
+========================================================================================
+
+1. OVERVIEW
+----------------------------------------------------------------------------------------
+The Productivity module (Focus Meteor) is designed to help users enter "Deep Work" states. It integrates the classic Pomodoro technique (Timeboxing) with a robust Task Management system ("To-Do" lists), differentiating FUY from pure social apps by acknowledging the user has "work" to do.
+
+2. CORE DATA ARCHITECTURE (Prisma Schema Analysis)
+----------------------------------------------------------------------------------------
+
+A. FocusSession (JSON/Local + Synced to `FeatureSession`)
+   - `id`: CUID.
+   - `startTime`, `endTime`.
+   - `duration`: Minutes focused.
+   - `mode`: ['WORK', 'SHORT_BREAK', 'LONG_BREAK'].
+   - `linkedTaskId`: Optional link to a specific task.
+
+B. Task (Todo)
+   - `id`: CUID.
+   - `userId`: Creator.
+   - `title`: Description of work.
+   - `status`: ['PENDING', 'COMPLETED', 'ARCHIVED'].
+   - `priority`: ['LOW', 'MEDIUM', 'HIGH'].
+   - `createdAt`, `updatedAt`.
+   - `deadline`: DateTime (Optional).
+
+C. FocusSettings (Stored in LocalStorage/User Preferences)
+   - `workInterval`: 25 mins (default).
+   - `shortBreak`: 5 mins.
+   - `longBreak`: 15 mins.
+   - `autoStart`: Boolean.
+
+3. USER INTERFACE FLOWS (mobile/app/focus.tsx)
+----------------------------------------------------------------------------------------
+
+The Timer Interface:
+- **Visuals**: Large circular progress ring (SVG or Reanimated).
+  * Counts down seconds.
+  * Color coded: Red (Focus), Green (Break), Blue (Long Break).
+- **Controls**: Play, Pause, Skip, Reset.
+- **Immersive Mode**:
+  * "Zen Mode": Hides all social notifications while timer is running.
+  * "Phone Down": Detects if phone is moved/picked up (Gyrometer) to penalize focus score (Gamification).
+
+Task Management:
+- **List View**: Simple FlatList of `Todo` items.
+- **Interaction**:
+  * Swipe to Delete.
+  * Tap checkbox to Complete.
+  * Drag and Drop reordering (using `react-native-draggable-flatlist` or similar).
+
+Stats & Analytics:
+- **Charts**: Bar chart of "Focus Hours" per day of the week.
+- **Streaks**: "3 Days in a row!" fire icon.
+- **Heatmap**: GitHub-style contribution graph for "Focus Intensity" over the year.
+
+4. ALGORITHMIC & TECHNICAL CONSIDERATIONS
+----------------------------------------------------------------------------------------
+
+Timer Logic (`useInterval` / `setInterval`):
+- **Background Execution**: Crucial for mobile.
+  * React Native's JS thread pauses in background.
+  * Solutions: `expo-background-fetch` or keeping screen awake (`expo-keep-awake`) during focus.
+  * Accurate Timing: Rely on `Date.now()` delta comparisons rather than trusting `setInterval` ticks which can drift.
+
+Gamification:
+- **Levels**: Users earn XP for every minute focused.
+- **Unlockables**: "Focus Avatars" or "Themes" unlocked at milestones (e.g., 100 hours).
+
+Integration with Social:
+- **Status Update**: When Focus is active, User Profile status automatically changes to "Busy / Focusing" (Do Not Disturb).
+- **Posts**: Auto-generate a "Progress" post: "Just completed 4 hours of Deep Work!".
+
+5. FUTURE SCALABILITY
+----------------------------------------------------------------------------------------
+- **Collaborative Focus**: "Study Rooms" (`FeatureSession` type 'HOPPING' or similar). Users join a virtual room with video off/mic off but timer synced.
+- **Integrations**: Sync tasks with Google Calendar, Notion API, or Jira.
+- **White Noise**: Built-in ambient sound player (Rain, Cafe, Lofi Beats) hosted on Supabase Storage (`Aud` type).
+
+========================================================================================
+END OF PRODUCTIVITY ANALYSIS
+========================================================================================

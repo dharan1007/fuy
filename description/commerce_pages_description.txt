@@ -1,0 +1,118 @@
+# Fuy App - Commerce & Shop Pages Detailed Description
+
+This document provides a comprehensive breakdown of every feature, button, and interaction available on the Commerce-related Screens.
+
+---
+
+## 📱 Mobile Store Screen
+**File Reference:** `mobile/app/store.tsx`
+
+The primary storefront catalog for browsing products.
+
+### 1. Header
+*   **Navigation:** Back button and Shopping Bag icon.
+*   **Title:** "Store".
+
+### 2. Product Grid
+*   **Layout:** Two-column grid layout adjusted for screen width.
+*   **Product Card:**
+    *   **Image:** Product thumbnail (or Unsplash placeholder). Price tag badge overlay (Top-Right).
+    *   **Info:** Name, Description (truncated), Rating (Star icon + score).
+    *   **Actions:** "ADD" button (Blue pill) to quick-add to cart.
+    *   **Interaction:** Tapping a card logs "Open Product" (likely navigates to detail in full flow).
+*   **Empty State:** Shown if no products exist.
+
+### 3. Visuals
+*   **Background:** Linear Gradient adapting to theme (Light/Dark/Eye-Care).
+
+---
+
+## 📱 Mobile Product Detail Screen
+**File Reference:** `mobile/app/shop/product/[id].tsx`
+
+The dedicated page for viewing item specifics, purchasing, and seeing community usage.
+
+### 1. Header & Media
+*   **Media Gallery:** Large scrollable image carousel (Aspect Ratio ~1:1).
+*   **Actions:** Floating Back, Heart (Wishlist), and Share buttons overlaying the image.
+*   **Type Badge:** Shows "PHYSICAL", "EBOOK", etc.
+
+### 2. Product Info
+*   **Brand:** Clickable link to Brand page.
+*   **Title & Rating:** Bold Name + Star Rating (e.g., "4.8 (120)").
+*   **Price:** Large font display.
+*   **Description:** Text block detailing the item.
+
+### 3. Community ("See it in action")
+*   **Related Posts:** Horizontal scroll of posts (`FeedPostItem` thumbnails) that have tagged this product.
+*   **Purpose:** Allows users to see real-world examples and usage of the item before buying.
+
+### 4. Floating Action Bar (Bottom)
+*   **Add to Cart:** Button with Shopping Cart icon.
+*   **Buy Now / External:** "Buy Now" or "Buy From [Source]" button for external links.
+
+---
+
+## 📱 Mobile Cart Screen
+**File Reference:** `mobile/app/cart.tsx`
+
+Manages items added for purchase.
+
+### 1. Item List
+*   **Card:** background-colored row.
+    *   **Thumbnail:** Product image or Shopping Bag icon fallback.
+    *   **Details:** Product Name, Price.
+    *   **Controls:** Quantity indicator badge, Trash icon button to remove item.
+*   **Empty State:** Prompts to "Browse Shop" if cart is empty.
+
+### 2. Checkout Footer
+*   **Summary:** Total price display.
+*   **Checkout Button:** Full-width action button (logic pending/placeholder).
+
+---
+
+## 📱 Mobile Orders Screen
+**File Reference:** `mobile/app/orders.tsx`
+
+History of user orders.
+
+### 1. Order List
+*   **Order Card:**
+    *   **Header:** Order ID (last 8 chars), Status Badge (Color-coded: Green=Completed, Yellow=Pending, Red=Failed).
+    *   **Items:** List of thumbnails, names, types, and prices for items in the order.
+    *   **Footer:** Date and Total Amount.
+*   **Empty State:** "No Orders Yet" with link to Shop.
+
+### 2. Actions
+*   **Report:** Opens a modal to submit an issue report (`/api/report`).
+    *   **Modal:** Text input for specific issue description.
+*   **Review:** Opens a modal to rate the order/products.
+    *   **Modal:** 5-Star interactive rating selector and review text input.
+
+---
+
+## 📱 Mobile Purchases Screen
+**File Reference:** `mobile/app/purchases.tsx`
+
+Alternative view or specific digital purchase history (similar structure to Orders).
+
+### 1. Purchase List
+*   **Card:**
+    *   **Header:** Order ID and Date.
+    *   **Items:** List with "View" button for each item (navigates to `/shop/product/[id]`).
+    *   **Footer:** Total Amount.
+*   **Function:** Focuses more on accessing the content/product (e.g., "View" button) rather than order status management.
+
+---
+
+## 📱 Mobile Transactions Screen
+**File Reference:** `mobile/app/transactions.tsx`
+
+Financial history log.
+
+### 1. List
+*   **Card:**
+    *   **Icon:** Status icon (Check/Green, X/Red, Clock/Yellow).
+    *   **Left:** Description (e.g., "Payment"), Date.
+    *   **Right:** Amount (formatted currency), Status text (colored).
+*   **Data:** Fetched from `/api/payment/history`.

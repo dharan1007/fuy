@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Dimensions, StatusBar, Modal, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Dimensions, StatusBar, Modal, TextInput, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { BlurView } from 'expo-blur';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft, Plus, X, Save, Zap, Droplets } from 'lucide-react-native';
-import HumanBody3D from '../components/HumanBody3D';
+import HumanBodySVG from '../components/HumanBodySVG';
 import { useTheme } from '../context/ThemeContext';
 import WorkoutView from '../components/grounding/WorkoutView';
 import HealthView from '../components/grounding/HealthView';
 import ActivityView from '../components/grounding/ActivityView';
+import DietView from '../components/grounding/DietView'; // Still needed for HealthView
 import { calculateNutritionRequirements, FitnessGoal, Gender } from '../lib/nutritionScience';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
 
@@ -33,11 +34,26 @@ interface BodyMetrics {
     fatsG: number;
 }
 
+const STORAGE_KEYS = {
+    USER_METRICS: 'wrex_user_metrics',
+    BODY_NOTES: 'wrex_body_notes',
+    GOAL_TYPE: 'wrex_goal_type',
+};
+
 export default function GroundingScreen() {
     const router = useRouter();
-    const { colors, mode } = useTheme();
-    // Force dark mode for this specific UI as per reference, or adapt carefully
+    const { mode } = useTheme();
     const isDark = mode === 'dark';
+
+    // Monochrome colors
+    const colors = {
+        background: isDark ? '#000000' : '#FFFFFF',
+        surface: isDark ? '#111111' : '#F5F5F5',
+        border: isDark ? '#333333' : '#E0E0E0',
+        text: isDark ? '#FFFFFF' : '#000000',
+        textSecondary: isDark ? '#888888' : '#666666',
+        accent: isDark ? '#FFFFFF' : '#000000',
+    };
 
     const [activeTab, setActiveTab] = useState<TabType>('dashboard');
     const [showMetricsModal, setShowMetricsModal] = useState(false);
@@ -58,6 +74,38 @@ export default function GroundingScreen() {
     const [goalType, setGoalType] = useState<FitnessGoal>("maintain");
     const [bodyMetrics, setBodyMetrics] = useState<BodyMetrics | null>(null);
 
+    // Load saved data on mount
+    useEffect(() => {
+        loadStoredData();
+    }, []);
+
+    const loadStoredData = async () => {
+        try {
+            const [storedMetrics, storedNotes, storedGoal] = await Promise.all([
+                AsyncStorage.getItem(STORAGE_KEYS.USER_METRICS),
+                AsyncStorage.getItem(STORAGE_KEYS.BODY_NOTES),
+                AsyncStorage.getItem(STORAGE_KEYS.GOAL_TYPE),
+            ]);
+
+            if (storedMetrics) setUserMetrics(JSON.parse(storedMetrics));
+            if (storedNotes) setBodyNotes(JSON.parse(storedNotes));
+            if (storedGoal) setGoalType(storedGoal as FitnessGoal);
+        } catch (error) {
+            console.error('Error loading stored data:', error);
+        }
+    };
+
+    // Save metrics when changed
+    useEffect(() => {
+        AsyncStorage.setItem(STORAGE_KEYS.USER_METRICS, JSON.stringify(userMetrics));
+    }, [userMetrics]);
+
+    // Save goal when changed
+    useEffect(() => {
+        AsyncStorage.setItem(STORAGE_KEYS.GOAL_TYPE, goalType);
+    }, [goalType]);
+
+    // Calculate body metrics
     useEffect(() => {
         const hM = userMetrics.height / 100;
         const bmi = Number((userMetrics.weight / (hM * hM)).toFixed(1));
@@ -83,12 +131,14 @@ export default function GroundingScreen() {
 
     const handleBodyPartClick = (partName: string) => {
         setSelectedBodyPart(partName);
-        setBodyPartNote(bodyNotes[partName] || ""); // Load existing note
+        setBodyPartNote(bodyNotes[partName] || "");
     };
 
-    const saveBodyNote = () => {
+    const saveBodyNote = async () => {
         if (selectedBodyPart) {
-            setBodyNotes({ ...bodyNotes, [selectedBodyPart]: bodyPartNote });
+            const newNotes = { ...bodyNotes, [selectedBodyPart]: bodyPartNote };
+            setBodyNotes(newNotes);
+            await AsyncStorage.setItem(STORAGE_KEYS.BODY_NOTES, JSON.stringify(newNotes));
             setSelectedBodyPart(null);
         }
     };
@@ -96,27 +146,39 @@ export default function GroundingScreen() {
     // --- Render Functions ---
 
     const renderHeader = () => (
-        <View className="flex-row justify-between items-center px-6 pt-2 pb-4 z-10">
-            <TouchableOpacity onPress={() => router.back()} className={`w-10 h-10 rounded-full items-center justify-center backdrop-blur-md ${isDark ? 'bg-white/10' : 'bg-black/5'}`}>
+        <View style={[styles.header, { borderBottomColor: colors.border }]}>
+            <TouchableOpacity
+                onPress={() => router.back()}
+                style={[styles.headerButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            >
                 <ChevronLeft color={colors.text} size={24} />
             </TouchableOpacity>
-            <Text style={{ color: colors.text }} className="text-lg font-bold tracking-widest uppercase opacity-80">WREX Body</Text>
-            <TouchableOpacity onPress={() => setShowMetricsModal(true)} className={`w-10 h-10 rounded-full items-center justify-center ${isDark ? 'bg-white/10' : 'bg-black/5'}`}>
+            <Text style={[styles.headerTitle, { color: colors.text }]}>WREX BODY</Text>
+            <TouchableOpacity
+                onPress={() => setShowMetricsModal(true)}
+                style={[styles.headerButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            >
                 <Plus color={colors.text} size={20} />
             </TouchableOpacity>
         </View>
     );
 
     const renderTabs = () => (
-        <View className="flex-row justify-around px-6 mb-4">
+        <View style={[styles.tabContainer, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             {(['dashboard', 'workout', 'health', 'activity'] as TabType[]).map((tab) => (
                 <TouchableOpacity
                     key={tab}
                     onPress={() => setActiveTab(tab)}
-                    className={`px-4 py-2 rounded-full ${activeTab === tab ? (isDark ? 'bg-white/20' : 'bg-black/10') : ''}`}
+                    style={[
+                        styles.tab,
+                        activeTab === tab && { backgroundColor: colors.accent }
+                    ]}
                 >
-                    <Text style={{ color: activeTab === tab ? colors.accent : colors.text, opacity: activeTab === tab ? 1 : 0.5 }} className="font-bold capitalize text-xs">
-                        {tab}
+                    <Text style={[
+                        styles.tabText,
+                        { color: activeTab === tab ? (isDark ? '#000000' : '#FFFFFF') : colors.textSecondary }
+                    ]}>
+                        {tab.toUpperCase()}
                     </Text>
                 </TouchableOpacity>
             ))}
@@ -124,174 +186,164 @@ export default function GroundingScreen() {
     );
 
     const renderDetailedMetrics = () => (
-        <View className="px-6 pb-20">
-            <View className="flex-row gap-4 mb-4">
+        <View style={styles.metricsContainer}>
+            <View style={styles.metricsRow}>
                 {/* BMR Card */}
-                <BlurView intensity={20} tint={isDark ? "dark" : "light"} className={`flex-1 p-5 rounded-3xl overflow-hidden border ${isDark ? 'border-white/10' : 'border-black/5'}`}>
-                    <View className="flex-row justify-between items-start mb-2">
-                        <Text style={{ color: colors.text }} className="opacity-60 text-xs font-bold uppercase tracking-wider">BMR</Text>
-                        <Zap size={14} color={colors.accent} />
+                <View style={[styles.metricCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <View style={styles.metricHeader}>
+                        <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>BMR</Text>
+                        <Zap size={14} color={colors.textSecondary} />
                     </View>
-                    <Text style={{ color: colors.text }} className="text-3xl font-light">{bodyMetrics?.bmr || 0}</Text>
-                    <Text style={{ color: colors.text }} className="opacity-40 text-xs mt-1">Kcal / Day</Text>
-                </BlurView>
+                    <Text style={[styles.metricValue, { color: colors.text }]}>{bodyMetrics?.bmr || 0}</Text>
+                    <Text style={[styles.metricUnit, { color: colors.textSecondary }]}>Kcal / Day</Text>
+                </View>
 
                 {/* BMI Card */}
-                <BlurView intensity={20} tint={isDark ? "dark" : "light"} className={`flex-1 p-5 rounded-3xl overflow-hidden border relative ${isDark ? 'border-white/10' : 'border-black/5'}`}>
-                    <View className="absolute top-0 right-0 p-4">
-                        <Text className="text-xs opacity-40" style={{ color: colors.text }}>BMI</Text>
+                <View style={[styles.metricCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <Text style={[styles.metricLabel, { color: colors.textSecondary, textAlign: 'right' }]}>BMI</Text>
+                    <View style={styles.bmiCenter}>
+                        <Text style={[styles.metricValueLarge, { color: colors.text }]}>{bodyMetrics?.bmi || 0}</Text>
                     </View>
-                    <View className="items-center justify-center my-2">
-                        <Text style={{ color: colors.text }} className="font-bold text-3xl">{bodyMetrics?.bmi || 0}</Text>
-                    </View>
-                    <Text style={{ color: colors.text }} className="text-center opacity-60 text-xs mt-1">Normal Range</Text>
-                </BlurView>
+                    <Text style={[styles.metricUnit, { color: colors.textSecondary, textAlign: 'center' }]}>Normal Range</Text>
+                </View>
             </View>
 
             {/* Macros Row */}
-            <BlurView intensity={20} tint={isDark ? "dark" : "light"} className={`p-5 rounded-3xl border mb-4 ${isDark ? 'border-white/10' : 'border-black/5'}`}>
-                <View className="flex-row justify-between items-center mb-4">
-                    <Text style={{ color: colors.text }} className="font-bold opacity-80">Nutrient Breakdown</Text>
-                    <Text style={{ color: colors.accent }} className="text-xs capitalize">{goalType.replace('_', ' ')}</Text>
+            <View style={[styles.macrosCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <View style={styles.macrosHeader}>
+                    <Text style={[styles.macrosTitle, { color: colors.text }]}>Nutrient Breakdown</Text>
+                    <Text style={[styles.goalBadge, { color: colors.textSecondary }]}>{goalType.replace('_', ' ')}</Text>
                 </View>
-                <View className="flex-row justify-between items-center">
-                    <View className="items-center">
-                        <View className="w-12 h-12 rounded-full border-4 border-purple-500/30 items-center justify-center mb-2">
-                            <Text style={{ color: colors.text }} className="text-xs font-bold">{bodyMetrics?.proteinG}</Text>
+                <View style={styles.macrosGrid}>
+                    <View style={styles.macroItem}>
+                        <View style={[styles.macroCircle, { borderColor: colors.border }]}>
+                            <Text style={[styles.macroValue, { color: colors.text }]}>{bodyMetrics?.proteinG}</Text>
                         </View>
-                        <Text style={{ color: colors.text }} className="opacity-40 text-[10px] uppercase">Protein</Text>
+                        <Text style={[styles.macroLabel, { color: colors.textSecondary }]}>PROTEIN</Text>
                     </View>
-                    <View className="items-center">
-                        <View className="w-12 h-12 rounded-full border-4 border-green-500/30 items-center justify-center mb-2">
-                            <Text style={{ color: colors.text }} className="text-xs font-bold">{bodyMetrics?.carbsG}</Text>
+                    <View style={styles.macroItem}>
+                        <View style={[styles.macroCircle, { borderColor: colors.border }]}>
+                            <Text style={[styles.macroValue, { color: colors.text }]}>{bodyMetrics?.carbsG}</Text>
                         </View>
-                        <Text style={{ color: colors.text }} className="opacity-40 text-[10px] uppercase">Carbs</Text>
+                        <Text style={[styles.macroLabel, { color: colors.textSecondary }]}>CARBS</Text>
                     </View>
-                    <View className="items-center">
-                        <View className="w-12 h-12 rounded-full border-4 border-orange-500/30 items-center justify-center mb-2">
-                            <Text style={{ color: colors.text }} className="text-xs font-bold">{bodyMetrics?.fatsG}</Text>
+                    <View style={styles.macroItem}>
+                        <View style={[styles.macroCircle, { borderColor: colors.border }]}>
+                            <Text style={[styles.macroValue, { color: colors.text }]}>{bodyMetrics?.fatsG}</Text>
                         </View>
-                        <Text style={{ color: colors.text }} className="opacity-40 text-[10px] uppercase">Fats</Text>
+                        <Text style={[styles.macroLabel, { color: colors.textSecondary }]}>FATS</Text>
                     </View>
-                    <View className="items-center">
-                        <View className="w-12 h-12 rounded-full border-4 border-cyan-500/30 items-center justify-center mb-2">
-                            <Droplets size={16} color="cyan" />
+                    <View style={styles.macroItem}>
+                        <View style={[styles.macroCircle, { borderColor: colors.border }]}>
+                            <Droplets size={16} color={colors.text} />
                         </View>
-                        <Text style={{ color: colors.text }} className="opacity-40 text-[10px] uppercase">H2O</Text>
+                        <Text style={[styles.macroLabel, { color: colors.textSecondary }]}>H2O</Text>
                     </View>
                 </View>
-            </BlurView>
+            </View>
         </View>
     );
 
-
     const renderMetricsCards = () => (
-        <View className="flex-row gap-4 px-6 mb-6">
-            <BlurView intensity={20} tint={isDark ? "dark" : "light"} className={`flex-1 p-4 rounded-3xl border overflow-hidden ${isDark ? 'border-white/10' : 'border-black/5'}`}>
-                <Text style={{ color: colors.text }} className="opacity-60 text-xs font-bold uppercase mb-1">Recovery</Text>
-                <Text style={{ color: colors.text }} className="text-3xl font-bold mb-2">85<Text className="text-sm font-normal">%</Text></Text>
-                <View className="h-1 bg-gray-500/30 rounded-full overflow-hidden">
-                    <View className="h-full w-[85%] bg-green-400" />
+        <View style={styles.statsRow}>
+            <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>RECOVERY</Text>
+                <Text style={[styles.statValue, { color: colors.text }]}>85<Text style={styles.statUnit}>%</Text></Text>
+                <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
+                    <View style={[styles.progressFill, { width: '85%', backgroundColor: colors.text }]} />
                 </View>
-            </BlurView>
-            <BlurView intensity={20} tint={isDark ? "dark" : "light"} className={`flex-1 p-4 rounded-3xl border overflow-hidden ${isDark ? 'border-white/10' : 'border-black/5'}`}>
-                <Text style={{ color: colors.text }} className="opacity-60 text-xs font-bold uppercase mb-1">Load</Text>
-                <Text style={{ color: colors.text }} className="text-3xl font-bold mb-2">High</Text>
-
-                {/* Visualizer */}
-                <View className="mt-4 h-10 flex-row items-end justify-between gap-1 opacity-50">
+            </View>
+            <View style={[styles.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>LOAD</Text>
+                <Text style={[styles.statValue, { color: colors.text }]}>High</Text>
+                <View style={styles.loadVisualizer}>
                     {[40, 60, 45, 70, 50, 60, 40].map((h, i) => (
-                        <View key={i} style={{ height: (h + '%') as any }} className="w-1.5 bg-cyan-400/50 rounded-full" />
+                        <View key={i} style={[styles.loadBar, { height: h * 0.4, backgroundColor: colors.text }]} />
                     ))}
                 </View>
-            </BlurView>
+            </View>
         </View>
     );
 
     const renderBodyPartModal = () => (
         <Modal visible={!!selectedBodyPart} animationType="fade" transparent>
-            <BlurView intensity={90} tint={isDark ? "dark" : "light"} className="flex-1 justify-center items-center p-6">
-                <View className={`w-full p-6 rounded-3xl border ${isDark ? 'bg-black/50 border-white/10' : 'bg-white/80 border-black/5'}`}>
-                    <View className="flex-row justify-between items-center mb-4">
-                        <Text style={{ color: colors.text }} className="text-xl font-bold">{selectedBodyPart}</Text>
-                        <TouchableOpacity onPress={() => setSelectedBodyPart(null)} className={`p-2 rounded-full ${isDark ? 'bg-white/10' : 'bg-black/5'}`}>
+            <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.8)' }]}>
+                <View style={[styles.modalContent, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                    <View style={styles.modalHeader}>
+                        <Text style={[styles.modalTitle, { color: colors.text }]}>{selectedBodyPart}</Text>
+                        <TouchableOpacity onPress={() => setSelectedBodyPart(null)} style={[styles.closeButton, { backgroundColor: colors.surface }]}>
                             <X size={20} color={colors.text} />
                         </TouchableOpacity>
                     </View>
 
-                    <Text style={{ color: colors.text }} className="opacity-60 mb-2">Log Issue / Note</Text>
+                    <Text style={[styles.inputLabel, { color: colors.textSecondary }]}>Log Issue / Note</Text>
                     <TextInput
                         multiline
                         placeholder="e.g. Soreness from yesterday's workout..."
-                        placeholderTextColor={colors.text + '80'}
+                        placeholderTextColor={colors.textSecondary}
                         value={bodyPartNote}
                         onChangeText={setBodyPartNote}
-                        className={`p-4 h-32 rounded-xl border mb-4 ${isDark ? 'bg-white/5 border-white/10' : 'bg-black/5 border-black/10'}`}
-                        style={{ color: colors.text, textAlignVertical: 'top' }}
+                        style={[styles.noteInput, {
+                            backgroundColor: colors.surface,
+                            borderColor: colors.border,
+                            color: colors.text
+                        }]}
                     />
 
-                    <TouchableOpacity onPress={saveBodyNote} className="bg-blue-500 p-4 rounded-xl flex-row justify-center items-center gap-2">
-                        <Save size={20} color="white" />
-                        <Text className="text-white font-bold">Save Note</Text>
+                    <TouchableOpacity onPress={saveBodyNote} style={[styles.saveButton, { backgroundColor: colors.text }]}>
+                        <Save size={20} color={colors.background} />
+                        <Text style={[styles.saveButtonText, { color: colors.background }]}>Save Note</Text>
                     </TouchableOpacity>
                 </View>
-            </BlurView>
+            </View>
         </Modal>
     );
 
     const renderBodyLabels = () => (
-        <View className="absolute top-4 left-4 space-y-2 pointer-events-none">
-            {Object.entries(bodyNotes).map(([part, note]) => (
-                <BlurView key={part} intensity={30} tint={isDark ? "dark" : "light"} className={`flex-row items-center gap-2 px-3 py-2 rounded-xl border ${isDark ? 'border-white/10' : 'border-black/5'}`}>
-                    <View className="w-2 h-2 rounded-full bg-blue-500" />
+        <View style={styles.bodyLabelsContainer}>
+            {Object.entries(bodyNotes).slice(0, 3).map(([part, note]) => (
+                <View key={part} style={[styles.bodyLabel, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <View style={[styles.labelDot, { backgroundColor: colors.text }]} />
                     <View>
-                        <Text style={{ color: colors.text }} className="text-xs font-bold">{part}</Text>
-                        <Text style={{ color: colors.text }} className="text-[10px] opacity-60 max-w-[120px]" numberOfLines={1}>{note}</Text>
+                        <Text style={[styles.labelTitle, { color: colors.text }]}>{part}</Text>
+                        <Text style={[styles.labelNote, { color: colors.textSecondary }]} numberOfLines={1}>{note}</Text>
                     </View>
-                </BlurView>
+                </View>
             ))}
         </View>
     );
 
     const renderDashboard = () => (
         <View>
-            {/* Top Section */}
-            <View className="px-6 flex-row justify-between items-end mb-2">
-                <View>
-                    <Text style={{ color: colors.text }} className="opacity-40 text-xs">Health Check</Text>
-                    <Text style={{ color: colors.text }} className="text-xl font-bold">Today, {new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}</Text>
-                </View>
-                <View className={`px-3 py-1 rounded-full border ${isDark ? 'bg-white/5 border-white/10' : 'bg-black/5 border-black/10'}`}>
-                    <Text className="text-green-400 text-xs font-bold">● Connected</Text>
-                </View>
-            </View>
 
             {/* Central Body Visualization */}
-            <View className="items-center justify-center my-4 relative" style={{ height: 420 }}>
-                <View className={`absolute w-[300px] h-[300px] rounded-full blur-3xl opacity-50 pointer-events-none ${isDark ? 'bg-blue-500/20' : 'bg-blue-500/10'}`} />
-
-                {/* Interactive 3D Body */}
-                <HumanBody3D onPartClick={handleBodyPartClick} selectedPart={selectedBodyPart} />
+            <View style={styles.bodyContainer}>
+                <HumanBodySVG
+                    onPartClick={handleBodyPartClick}
+                    selectedPart={selectedBodyPart}
+                    width={width * 0.7}
+                    height={400}
+                />
 
                 {/* Saved Info Labels */}
                 {renderBodyLabels()}
 
                 {/* Floating Data Points */}
-                <BlurView intensity={30} tint={isDark ? "dark" : "light"} className={`absolute top-10 right-10 px-3 py-2 rounded-xl border overflow-hidden pointer-events-none ${isDark ? 'border-white/10' : 'border-black/10'}`}>
-                    <View className="flex-row items-center gap-2">
-                        <View className="w-2 h-2 bg-green-400 rounded-full" />
-                        <Text style={{ color: colors.text }} className="text-xs font-bold">Muscle Mass</Text>
+                <View style={[styles.floatingCard, styles.floatingRight, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <View style={styles.floatingHeader}>
+                        <View style={[styles.floatingDot, { backgroundColor: colors.text }]} />
+                        <Text style={[styles.floatingLabel, { color: colors.text }]}>Muscle Mass</Text>
                     </View>
-                    <Text style={{ color: colors.text }} className="text-lg font-bold">58.4 <Text className="text-xs font-normal opacity-70">Lbs</Text></Text>
-                </BlurView>
+                    <Text style={[styles.floatingValue, { color: colors.text }]}>58.4 <Text style={[styles.floatingUnit, { color: colors.textSecondary }]}>Lbs</Text></Text>
+                </View>
 
-                <BlurView intensity={30} tint={isDark ? "dark" : "light"} className={`absolute bottom-10 left-10 px-3 py-2 rounded-xl border overflow-hidden pointer-events-none ${isDark ? 'border-white/10' : 'border-black/10'}`}>
-                    <View className="flex-row items-center gap-2">
-                        <View className="w-2 h-2 bg-yellow-400 rounded-full" />
-                        <Text style={{ color: colors.text }} className="text-xs font-bold">Fat %</Text>
+                <View style={[styles.floatingCard, styles.floatingLeft, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <View style={styles.floatingHeader}>
+                        <View style={[styles.floatingDot, { backgroundColor: colors.textSecondary }]} />
+                        <Text style={[styles.floatingLabel, { color: colors.text }]}>Fat %</Text>
                     </View>
-                    <Text style={{ color: colors.text }} className="text-lg font-bold">14.2 <Text className="text-xs font-normal opacity-70">%</Text></Text>
-                </BlurView>
+                    <Text style={[styles.floatingValue, { color: colors.text }]}>14.2 <Text style={[styles.floatingUnit, { color: colors.textSecondary }]}>%</Text></Text>
+                </View>
             </View>
 
             {renderMetricsCards()}
@@ -301,15 +353,15 @@ export default function GroundingScreen() {
     );
 
     return (
-        <View className="flex-1" style={{ backgroundColor: colors.background }}>
+        <View style={[styles.container, { backgroundColor: colors.background }]}>
             <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
 
-            <SafeAreaView edges={['top']} className="flex-1">
+            <SafeAreaView edges={['top']} style={styles.safeArea}>
                 {renderHeader()}
 
                 <ScrollView
                     showsVerticalScrollIndicator={false}
-                    contentContainerStyle={{ paddingBottom: 100 }}
+                    contentContainerStyle={styles.scrollContent}
                 >
                     {renderTabs()}
 
@@ -322,3 +374,346 @@ export default function GroundingScreen() {
         </View>
     );
 }
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+    },
+    safeArea: {
+        flex: 1,
+    },
+    scrollContent: {
+        paddingBottom: 100,
+    },
+    header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 24,
+        paddingTop: 8,
+        paddingBottom: 16,
+        borderBottomWidth: 1,
+    },
+    headerButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+    },
+    headerTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        letterSpacing: 3,
+    },
+    tabContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-around',
+        marginHorizontal: 24,
+        marginVertical: 16,
+        padding: 4,
+        borderRadius: 12,
+        borderWidth: 1,
+    },
+    tab: {
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderRadius: 8,
+    },
+    tabText: {
+        fontSize: 10,
+        fontWeight: '700',
+        letterSpacing: 1,
+    },
+    topSection: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-end',
+        paddingHorizontal: 24,
+        marginBottom: 8,
+    },
+    dateSubtitle: {
+        fontSize: 12,
+    },
+    dateTitle: {
+        fontSize: 20,
+        fontWeight: '700',
+    },
+    statusBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 16,
+        borderWidth: 1,
+        gap: 6,
+    },
+    statusDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+    },
+    statusText: {
+        fontSize: 11,
+        fontWeight: '600',
+    },
+    bodyContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 0,
+        marginBottom: 16,
+        position: 'relative',
+        minHeight: 380,
+    },
+    bodyLabelsContainer: {
+        position: 'absolute',
+        top: 16,
+        left: 16,
+        gap: 8,
+    },
+    bodyLabel: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 12,
+        borderWidth: 1,
+    },
+    labelDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+    },
+    labelTitle: {
+        fontSize: 11,
+        fontWeight: '700',
+    },
+    labelNote: {
+        fontSize: 9,
+        maxWidth: 100,
+    },
+    floatingCard: {
+        position: 'absolute',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 12,
+        borderWidth: 1,
+    },
+    floatingRight: {
+        top: 40,
+        right: 16,
+    },
+    floatingLeft: {
+        bottom: 40,
+        left: 16,
+    },
+    floatingHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginBottom: 4,
+    },
+    floatingDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+    },
+    floatingLabel: {
+        fontSize: 10,
+        fontWeight: '700',
+    },
+    floatingValue: {
+        fontSize: 16,
+        fontWeight: '700',
+    },
+    floatingUnit: {
+        fontSize: 10,
+        fontWeight: '400',
+    },
+    statsRow: {
+        flexDirection: 'row',
+        gap: 16,
+        paddingHorizontal: 24,
+        marginBottom: 24,
+    },
+    statCard: {
+        flex: 1,
+        padding: 16,
+        borderRadius: 20,
+        borderWidth: 1,
+    },
+    statLabel: {
+        fontSize: 10,
+        fontWeight: '700',
+        letterSpacing: 1,
+        marginBottom: 4,
+    },
+    statValue: {
+        fontSize: 28,
+        fontWeight: '700',
+        marginBottom: 8,
+    },
+    statUnit: {
+        fontSize: 14,
+        fontWeight: '400',
+    },
+    progressBar: {
+        height: 4,
+        borderRadius: 2,
+        overflow: 'hidden',
+    },
+    progressFill: {
+        height: '100%',
+        borderRadius: 2,
+    },
+    loadVisualizer: {
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        justifyContent: 'space-between',
+        height: 40,
+        marginTop: 16,
+        gap: 4,
+        opacity: 0.6,
+    },
+    loadBar: {
+        width: 6,
+        borderRadius: 3,
+    },
+    metricsContainer: {
+        paddingHorizontal: 24,
+        paddingBottom: 80,
+    },
+    metricsRow: {
+        flexDirection: 'row',
+        gap: 16,
+        marginBottom: 16,
+    },
+    metricCard: {
+        flex: 1,
+        padding: 20,
+        borderRadius: 24,
+        borderWidth: 1,
+    },
+    metricHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: 8,
+    },
+    metricLabel: {
+        fontSize: 10,
+        fontWeight: '700',
+        letterSpacing: 1,
+    },
+    metricValue: {
+        fontSize: 28,
+        fontWeight: '300',
+    },
+    metricValueLarge: {
+        fontSize: 32,
+        fontWeight: '700',
+    },
+    metricUnit: {
+        fontSize: 11,
+        marginTop: 4,
+    },
+    bmiCenter: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginVertical: 8,
+    },
+    macrosCard: {
+        padding: 20,
+        borderRadius: 24,
+        borderWidth: 1,
+        marginBottom: 16,
+    },
+    macrosHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    macrosTitle: {
+        fontWeight: '700',
+    },
+    goalBadge: {
+        fontSize: 11,
+        textTransform: 'capitalize',
+    },
+    macrosGrid: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    macroItem: {
+        alignItems: 'center',
+    },
+    macroCircle: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        borderWidth: 3,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 8,
+    },
+    macroValue: {
+        fontSize: 12,
+        fontWeight: '700',
+    },
+    macroLabel: {
+        fontSize: 9,
+        letterSpacing: 0.5,
+    },
+    modalOverlay: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 24,
+    },
+    modalContent: {
+        width: '100%',
+        padding: 24,
+        borderRadius: 24,
+        borderWidth: 1,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: '700',
+    },
+    closeButton: {
+        padding: 8,
+        borderRadius: 12,
+    },
+    inputLabel: {
+        marginBottom: 8,
+    },
+    noteInput: {
+        padding: 16,
+        height: 128,
+        borderRadius: 16,
+        borderWidth: 1,
+        marginBottom: 16,
+        textAlignVertical: 'top',
+    },
+    saveButton: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 16,
+        borderRadius: 16,
+        gap: 8,
+    },
+    saveButtonText: {
+        fontWeight: '700',
+    },
+});

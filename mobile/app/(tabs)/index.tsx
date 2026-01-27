@@ -242,7 +242,7 @@ export default function FeedScreen() {
                     userId, 
                     viewCount, 
                     shareCount, 
-                    user:User(id, name, profile:Profile(avatarUrl, displayName, location)), 
+                    user:User(id, name, isHumanVerified, profile:Profile(avatarUrl, displayName, location)), 
                     postMedia:PostMedia(media:Media(url, type, variant)), 
                     reactions:Reaction(type, userId), 
                     reactionBubbles:ReactionBubble(id, mediaUrl, mediaType, user:User(profile:Profile(avatarUrl))), 

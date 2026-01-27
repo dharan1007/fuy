@@ -8,6 +8,8 @@ import { X, ArrowLeft, Globe, Users, Lock, Smartphone, Play, Slash, Plus } from 
 import { MediaUploadService } from '../../services/MediaUploadService';
 import { supabase } from '../../lib/supabase';
 import SuccessOverlay from '../SuccessOverlay';
+import { analyzeImageForNudity, NudityAnalysisResult } from '../../lib/nudity-detection';
+import NudityWarningModal from '../NudityWarningModal';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org';
 const MAX_DURATION = 60;
@@ -28,6 +30,11 @@ export default function LillForm({ onBack }: LillFormProps) {
     const [showSuccess, setShowSuccess] = useState(false);
     const [slashes, setSlashes] = useState<string[]>([]);
     const [slashInput, setSlashInput] = useState('');
+
+    // Nudity detection state
+    const [nudityResult, setNudityResult] = useState<NudityAnalysisResult | null>(null);
+    const [showNudityWarning, setShowNudityWarning] = useState(false);
+    const [pendingSubmit, setPendingSubmit] = useState(false);
 
     const pickVideo = async () => {
         const result = await ImagePicker.launchImageLibraryAsync({
@@ -55,6 +62,21 @@ export default function LillForm({ onBack }: LillFormProps) {
         if (!session?.user?.email) {
             Alert.alert('Error', 'Please log in first');
             return;
+        }
+
+        // Nudity Detection: Check video for inappropriate content
+        if (!pendingSubmit) {
+            const nudityCheck = await analyzeImageForNudity(video.uri);
+
+            if (nudityCheck.classification === 'EXPLICIT') {
+                setNudityResult(nudityCheck);
+                setShowNudityWarning(true);
+                return;
+            } else if (nudityCheck.classification === 'SUGGESTIVE') {
+                setNudityResult(nudityCheck);
+                setShowNudityWarning(true);
+                return;
+            }
         }
 
         setLoading(true);
@@ -132,12 +154,21 @@ export default function LillForm({ onBack }: LillFormProps) {
 
             // Alert.alert('Done', 'Posted successfully', [{ text: 'OK', onPress: onBack }]);
             setShowSuccess(true);
+            setPendingSubmit(false);
+            setNudityResult(null);
         } catch (error: any) {
             console.error('[LillForm] Error:', error);
             Alert.alert('Error', error.message);
         } finally {
             setLoading(false);
         }
+    };
+
+    // Handle proceeding with suggestive content
+    const handleProceedWithWarning = () => {
+        setShowNudityWarning(false);
+        setPendingSubmit(true);
+        setTimeout(() => handleSubmit(), 100);
     };
 
     return (
@@ -309,6 +340,18 @@ export default function LillForm({ onBack }: LillFormProps) {
                 visible={showSuccess}
                 message="Lill Posted Successfully!"
                 onFinish={onBack}
+            />
+
+            <NudityWarningModal
+                visible={showNudityWarning}
+                result={nudityResult}
+                onClose={() => {
+                    setShowNudityWarning(false);
+                    setNudityResult(null);
+                    setPendingSubmit(false);
+                }}
+                onProceed={nudityResult?.classification === 'SUGGESTIVE' ? handleProceedWithWarning : undefined}
+                isSubmitting={loading}
             />
         </ScrollView >
     );

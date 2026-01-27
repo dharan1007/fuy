@@ -6,6 +6,8 @@ import { useAuth } from '../../context/AuthContext';
 import { ArrowLeft, Globe, Users, Lock, Search, Layers, Plus, Slash, X } from 'lucide-react-native';
 import { MediaUploadService } from '../../services/MediaUploadService';
 import { supabase } from '../../lib/supabase';
+import { analyzeMultipleImages, NudityAnalysisResult } from '../../lib/nudity-detection';
+import NudityWarningModal from '../NudityWarningModal';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org';
 const { width } = Dimensions.get('window');
@@ -25,6 +27,11 @@ export default function XrayForm({ onBack }: XrayFormProps) {
     const [uploadProgress, setUploadProgress] = useState(0);
     const [slashes, setSlashes] = useState<string[]>([]);
     const [slashInput, setSlashInput] = useState('');
+
+    // Nudity detection state
+    const [nudityResult, setNudityResult] = useState<NudityAnalysisResult | null>(null);
+    const [showNudityWarning, setShowNudityWarning] = useState(false);
+    const [pendingSubmit, setPendingSubmit] = useState(false);
 
     const pickImage = async (type: 'top' | 'bottom') => {
         const result = await ImagePicker.launchImageLibraryAsync({
@@ -47,6 +54,21 @@ export default function XrayForm({ onBack }: XrayFormProps) {
         if (!session?.user?.email) {
             Alert.alert('Error', 'Please log in first');
             return;
+        }
+
+        // Nudity Detection: Check both layers for inappropriate content
+        if (!pendingSubmit) {
+            const nudityCheck = await analyzeMultipleImages([topLayer, bottomLayer]);
+
+            if (nudityCheck.classification === 'EXPLICIT') {
+                setNudityResult(nudityCheck);
+                setShowNudityWarning(true);
+                return;
+            } else if (nudityCheck.classification === 'SUGGESTIVE') {
+                setNudityResult(nudityCheck);
+                setShowNudityWarning(true);
+                return;
+            }
         }
 
         setLoading(true);
@@ -86,12 +108,21 @@ export default function XrayForm({ onBack }: XrayFormProps) {
 
             setUploadProgress(100);
             if (!response.ok) throw new Error((await response.json()).error || 'Failed');
+            setPendingSubmit(false);
+            setNudityResult(null);
             Alert.alert('Done', 'Posted successfully', [{ text: 'OK', onPress: onBack }]);
         } catch (error: any) {
             Alert.alert('Error', error.message);
         } finally {
             setLoading(false);
         }
+    };
+
+    // Handle proceeding with suggestive content
+    const handleProceedWithWarning = () => {
+        setShowNudityWarning(false);
+        setPendingSubmit(true);
+        setTimeout(() => handleSubmit(), 100);
     };
 
     const ImagePicker_ = ({ uri, onPick, onClear, label, icon: Icon }: { uri: string | null; onPick: () => void; onClear: () => void; label: string; icon: any }) => (
@@ -217,6 +248,18 @@ export default function XrayForm({ onBack }: XrayFormProps) {
             >
                 {loading ? <ActivityIndicator color="#000" /> : <Text style={{ color: '#000', fontWeight: '700', fontSize: 14, letterSpacing: 0.5 }}>POST XRAY</Text>}
             </TouchableOpacity>
+
+            <NudityWarningModal
+                visible={showNudityWarning}
+                result={nudityResult}
+                onClose={() => {
+                    setShowNudityWarning(false);
+                    setNudityResult(null);
+                    setPendingSubmit(false);
+                }}
+                onProceed={nudityResult?.classification === 'SUGGESTIVE' ? handleProceedWithWarning : undefined}
+                isSubmitting={loading}
+            />
         </ScrollView>
     );
 }

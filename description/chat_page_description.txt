@@ -1,0 +1,78 @@
+# Fuy App - Chat Page Detailed Description
+
+This document provides a comprehensive breakdown of every feature, button, and interaction available on the Chat / Messaging Screen for both the Mobile Application and the Web Platform.
+
+---
+
+## 📱 Mobile Chat Screen
+**File Reference:** `mobile/app/(tabs)/chat.tsx`
+**Key Components:** `SwipeableMessage`, `CollaborativeModal`, `ChatPostCard`
+
+The mobile chat screen is a robust, feature-rich messaging hub supporting real-time communication, AI assistance, and advanced privacy controls.
+
+### 1. Conversation List (Landing View)
+*   **Header:**
+    *   **Search Bar:** Search for users (by Name or Profile Code `#{code}`) or Conversations.
+    *   **Sort Options:** Toggle between `Pinned`, `Recent`, and `Followers`.
+*   **List Items:**
+    *   **User Avatar:** Displays profile picture with Online/Offline status dot.
+    *   **Preview:** Shows the last message content and timestamp.
+    *   **Pinned Chats:** Pinned conversations appear at the very top with distinct styling.
+    *   **Actions:** Long-press a conversation to:
+        *   **Pin/Unpin**
+        *   **Hide** (Moves to Hidden folder)
+        *   **Lock** (Requires PIN/Biometrics to open)
+        *   **Delete**
+        *   **Set Nickname** (Personalize the contact's name)
+
+### 2. Active Chat View
+*   **Top Bar:**
+    *   **User Info:** Avatar, Name (or Nickname), and "Last Seen" status.
+    *   **Right Actions:**
+        *   **Call/Video:** (If implemented)
+        *   **More Options (Vertical Dots):** Access Chat Settings (Background, Retention Policy).
+*   **Message Area:**
+    *   **Bubbles:**
+        *   **User (Right):** Primary color gradient.
+        *   **Partner (Left):** Glassmorphism style.
+    *   **Swipe to Reply:** Dragging a message bubble to the right triggers a reply.
+    *   **Content Types:** Text, Image, Video (Auto-play/Muted), Audio, Shared Posts (Rich cards).
+    *   **Trigger Warnings:** Sensitive content can be blurred/hidden based on the sender's settings.
+*   **Input Area:**
+    *   **Text Input:** Auto-expanding text field.
+    *   **Attachment Icon (Paperclip/Plus):** Opens media picker for Photos, Videos, or Documents.
+    *   **Mic Icon:** Hold to record voice notes (`Auds`).
+    *   **Send Button:** Appears when text is typed.
+
+### 3. Advanced Features
+*   **Privacy & Security:**
+    *   **Hidden Chats:** Accessible only via specific search ("hidden") or secure entry.
+    *   **Locked Chats:** content obscured until unlocked via Biometrics or PIN.
+*   **D-Bot Integration:**
+    *   AI Assistant can be summoned or interacted with within the chat ecosystem.
+*   **Customization:**
+    *   **Wallpapers:** Change chat background.
+    *   **Nicknames:** Set custom names for friends.
+
+---
+
+## 💻 Web Chat Screen
+**File Reference:** `src/app/chat/page.tsx` (Wraps shared web logic)
+
+The web chat offers a desktop-optimized 3-pane layout for easier management.
+
+### 1. Sidebar (Conversations)
+*   **Left Pane:** Persistent list of conversations.
+*   **Search:** Quick filter for contacts.
+*   **Status Indicators:** Online green dots clearly visible.
+
+### 2. Main Chat Area
+*   **Center Pane:** Large view for the active conversation.
+*   **Keyboard Shortcuts:**
+    *   `Enter` to send.
+    *   `Shift + Enter` for new line.
+*   **Drag & Drop:** Drag files directly into the chat window to upload.
+
+### 3. Details Pane (Right - Optional)
+*   **Contact Info:** Large avatar and profile details.
+*   **Shared Media:** Gallery view of all photos/videos exchanged in the chat.

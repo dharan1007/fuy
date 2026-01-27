@@ -1,0 +1,61 @@
+# Fuy App - Focus (Pomodoro) Page Detailed Description
+
+This document provides a comprehensive breakdown of every feature, button, and interaction available on the Focus Screen for both the Mobile Application and the Web Platform.
+
+---
+
+## 📱 Mobile Focus Screen
+**File Reference:** `mobile/app/focus.tsx`
+
+The Focus module is a rigorous productivity timer combining Pomodoro techniques with task tracking and session analysis.
+
+### 1. Timer Tab (`FOCUS`)
+*   **Phase Selector:** Three distinct modes:
+    *   **FOCUS:** Standard work interval (default 25m).
+    *   **SHORT:** Short break (default 5m).
+    *   **LONG:** Long break (default 15m).
+*   **Visual Timer:**
+    *   Large countdown display.
+    *   Status indicator ("RUNNING" / "PAUSED").
+    *   Progress ring visualization.
+*   **Controls:**
+    *   **Play/Pause Button:** Large central toggle.
+    *   **Reset Button:** Restarts the current interval.
+*   **Intention Setting:** Input field to type "What will you focus on?" before starting.
+*   **Live Stats:**
+    *   **Usage Today:** Count of completed sessions.
+    *   **Minutes:** Total focus time accumulated today.
+    *   **Cycle Tracker:** Visual dots indicating progress towards the next Long Break (e.g., "Cycle 2 of 4").
+
+### 2. Tasks Tab
+*   **Task Management:**
+    *   **Input:** "Add a task..." field with a "+" button.
+    *   **List:** Verified list of tasks with checkboxes.
+    *   **Actions:** Tap to toggle completion (strikethrough effect), tap trash icon to delete.
+
+### 3. Analysis Tab
+*   **Weekly Insights:**
+    *   **Total Sessions:** Count for the last 7 days.
+    *   **Total Minutes:** Aggregated focus time.
+    *   **Avg Quality:** 1-5 Star rating average based on user reviews.
+*   **Recent History:** Scrollable list of past sessions showing Intention, Date, and Duration.
+
+### 4. Session Review
+*   **Modal:** Appears automatically when a timer ends.
+*   **Rating:** User rates session quality (1-5 Stars).
+*   **Completion:** Marks the session as "Saved" and updates stats.
+
+---
+
+## 💻 Web Focus Screen
+**File Reference:** `src/app/pomodoro/page.tsx`
+
+The web version centers the `PomodoroPro` component in a distraction-free "Console" environment.
+
+### 1. Environment
+*   **Background:** White dotted grid for a clean, technical aesthetic.
+*   **Layout:** "Pomodoro Console" header with a "Back to Dashboard" link.
+
+### 2. Functionality
+*   **Parity:** Mirrors the mobile timer functionality with Start/Stop/Reset and Phase switching.
+*   **Notifications:** Requests browser permission to send audio/visual alerts when a timer completes.

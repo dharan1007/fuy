@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Modal } from 'react-native';
-import { BlurView } from 'expo-blur';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Modal, StyleSheet } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
-import { Heart, Activity, Plus, Trash2, Check, AlertCircle, Info, Apple } from 'lucide-react-native';
+import { Plus, Trash2, Check, Info } from 'lucide-react-native';
 import { foodDatabase, parseFoodInput, calculateNutrition, FoodItem } from '../../lib/foodDatabase';
 import { getMicronutrientRecommendations, FitnessGoal } from '../../lib/nutritionScience';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import DietView from './DietView';
 
 interface HealthCondition {
     id: string;
@@ -26,17 +27,37 @@ interface DietItem {
     fats: number;
 }
 
+const STORAGE_KEYS = {
+    HEALTH_CONDITIONS: 'wrex_health_conditions',
+    DIET_ITEMS: 'wrex_diet_items',
+    GOAL_TYPE: 'wrex_goal_type',
+};
+
 export default function HealthView() {
-    const { colors, mode } = useTheme();
+    const { mode } = useTheme();
     const isDark = mode === 'dark';
+
+    // Monochrome colors
+    const colors = {
+        background: isDark ? '#000000' : '#FFFFFF',
+        surface: isDark ? '#111111' : '#F5F5F5',
+        border: isDark ? '#333333' : '#E0E0E0',
+        text: isDark ? '#FFFFFF' : '#000000',
+        textSecondary: isDark ? '#888888' : '#666666',
+        accent: isDark ? '#FFFFFF' : '#000000',
+    };
+
     const [subTab, setSubTab] = useState<'history' | 'diet' | 'recs'>('history');
 
     // --- Health History State ---
-    const [conditions, setConditions] = useState<HealthCondition[]>([
-        { id: "1", type: "injury", name: "Lower back strain", date: "2024-08-15", notes: "From deadlifting", resolved: true }
-    ]);
+    const [conditions, setConditions] = useState<HealthCondition[]>([]);
     const [showConditionModal, setShowConditionModal] = useState(false);
-    const [newCondition, setNewCondition] = useState<Partial<HealthCondition>>({ type: "injury", name: "", date: new Date().toISOString().split('T')[0], notes: "" });
+    const [newCondition, setNewCondition] = useState<Partial<HealthCondition>>({
+        type: "injury",
+        name: "",
+        date: new Date().toISOString().split('T')[0],
+        notes: ""
+    });
 
     // --- Diet State ---
     const [dietItems, setDietItems] = useState<DietItem[]>([]);
@@ -46,15 +67,67 @@ export default function HealthView() {
     const [goal, setGoal] = useState<FitnessGoal>("maintain");
     const recs = getMicronutrientRecommendations(goal, "male");
 
+    // Load data on mount
+    useEffect(() => {
+        loadStoredData();
+    }, []);
+
+    const loadStoredData = async () => {
+        try {
+            const [storedConditions, storedDiet, storedGoal] = await Promise.all([
+                AsyncStorage.getItem(STORAGE_KEYS.HEALTH_CONDITIONS),
+                AsyncStorage.getItem(STORAGE_KEYS.DIET_ITEMS),
+                AsyncStorage.getItem(STORAGE_KEYS.GOAL_TYPE),
+            ]);
+
+            if (storedConditions) setConditions(JSON.parse(storedConditions));
+            if (storedDiet) setDietItems(JSON.parse(storedDiet));
+            if (storedGoal) setGoal(storedGoal as FitnessGoal);
+        } catch (error) {
+            console.error('Error loading health data:', error);
+        }
+    };
+
+    // Save conditions
+    useEffect(() => {
+        if (conditions.length > 0) {
+            AsyncStorage.setItem(STORAGE_KEYS.HEALTH_CONDITIONS, JSON.stringify(conditions));
+        }
+    }, [conditions]);
+
+    // Save diet items
+    useEffect(() => {
+        if (dietItems.length > 0) {
+            AsyncStorage.setItem(STORAGE_KEYS.DIET_ITEMS, JSON.stringify(dietItems));
+        }
+    }, [dietItems]);
+
     // --- Actions ---
-    const addCondition = () => {
+    const addCondition = async () => {
         if (!newCondition.name) return;
-        setConditions([...conditions, { ...newCondition as HealthCondition, id: Date.now().toString(), resolved: false }]);
+        const condition: HealthCondition = {
+            ...newCondition as HealthCondition,
+            id: Date.now().toString(),
+            resolved: false
+        };
+        setConditions([...conditions, condition]);
         setShowConditionModal(false);
         setNewCondition({ type: "injury", name: "", date: new Date().toISOString().split('T')[0], notes: "" });
     };
 
-    const addFood = () => {
+    const resolveCondition = async (id: string) => {
+        setConditions(conditions.map(c => c.id === id ? { ...c, resolved: true } : c));
+    };
+
+    const deleteCondition = async (id: string) => {
+        const updated = conditions.filter(c => c.id !== id);
+        setConditions(updated);
+        if (updated.length === 0) {
+            await AsyncStorage.removeItem(STORAGE_KEYS.HEALTH_CONDITIONS);
+        }
+    };
+
+    const addFood = async () => {
         if (!foodInput) return;
         const parsed = parseFoodInput(foodInput);
         if (parsed && parsed.food) {
@@ -74,177 +147,480 @@ export default function HealthView() {
         }
     };
 
+    const deleteFood = async (id: string) => {
+        const updated = dietItems.filter(i => i.id !== id);
+        setDietItems(updated);
+        if (updated.length === 0) {
+            await AsyncStorage.removeItem(STORAGE_KEYS.DIET_ITEMS);
+        }
+    };
+
+    const clearDiet = async () => {
+        setDietItems([]);
+        await AsyncStorage.removeItem(STORAGE_KEYS.DIET_ITEMS);
+    };
+
     // --- Renderers ---
 
     const renderHistory = () => (
-        <View className="space-y-4">
-            <View className="flex-row justify-between items-center mb-2">
-                <Text style={{ color: colors.text }} className="text-xl font-bold">Health History</Text>
-                <TouchableOpacity onPress={() => setShowConditionModal(true)} className={`px-3 py-1.5 rounded-full ${isDark ? 'bg-white/10' : 'bg-black/5'}`}>
+        <View style={styles.tabContent}>
+            <View style={styles.headerRow}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Health History</Text>
+                <TouchableOpacity
+                    onPress={() => setShowConditionModal(true)}
+                    style={[styles.addButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                >
                     <Plus size={16} color={colors.text} />
                 </TouchableOpacity>
             </View>
 
+            {conditions.length === 0 && (
+                <View style={[styles.emptyState, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No health conditions logged</Text>
+                    <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>Track injuries, illnesses, or medications</Text>
+                </View>
+            )}
+
             {conditions.map(c => (
-                <BlurView key={c.id} intensity={30} tint={isDark ? "dark" : "light"} className={`p-4 rounded-2xl border mb-2 ${c.resolved ? 'opacity-60' : ''} ${isDark ? 'border-white/10' : 'border-black/5'}`}>
-                    <View className="flex-row justify-between items-start">
-                        <View className="flex-1">
-                            <View className="flex-row items-center gap-2 mb-1">
-                                <Text style={{ color: colors.text }} className={`font-bold text-lg ${c.resolved ? 'line-through' : ''}`}>{c.name}</Text>
-                                <View className={`px-2 py-0.5 rounded-md ${c.type === 'injury' ? 'bg-red-500/20' : 'bg-blue-500/20'}`}>
-                                    <Text className={`text-xs capitalize ${c.type === 'injury' ? 'text-red-500' : 'text-blue-500'}`}>{c.type}</Text>
+                <View
+                    key={c.id}
+                    style={[
+                        styles.conditionCard,
+                        { backgroundColor: colors.surface, borderColor: colors.border },
+                        c.resolved && { opacity: 0.6 }
+                    ]}
+                >
+                    <View style={styles.conditionHeader}>
+                        <View style={styles.conditionInfo}>
+                            <View style={styles.conditionTitleRow}>
+                                <Text
+                                    style={[
+                                        styles.conditionName,
+                                        { color: colors.text },
+                                        c.resolved && { textDecorationLine: 'line-through' }
+                                    ]}
+                                >
+                                    {c.name}
+                                </Text>
+                                <View style={[styles.typeBadge, { borderColor: colors.border }]}>
+                                    <Text style={[styles.typeText, { color: colors.textSecondary }]}>{c.type}</Text>
                                 </View>
                             </View>
-                            <Text style={{ color: colors.text }} className="text-xs opacity-60 mb-2">{c.date} • {c.notes}</Text>
+                            <Text style={[styles.conditionMeta, { color: colors.textSecondary }]}>
+                                {c.date} {c.notes && `- ${c.notes}`}
+                            </Text>
                         </View>
-                        {!c.resolved && (
-                            <TouchableOpacity onPress={() => setConditions(conditions.map(cond => cond.id === c.id ? { ...cond, resolved: true } : cond))} className="bg-green-500/20 p-2 rounded-lg">
-                                <Check size={16} color="#22c55e" />
-                            </TouchableOpacity>
-                        )}
-                        {c.resolved && (
-                            <TouchableOpacity onPress={() => setConditions(conditions.filter(cond => cond.id !== c.id))} className="bg-red-500/20 p-2 rounded-lg ml-2">
-                                <Trash2 size={16} color="#ef4444" />
-                            </TouchableOpacity>
-                        )}
+                        <View style={styles.conditionActions}>
+                            {!c.resolved && (
+                                <TouchableOpacity
+                                    onPress={() => resolveCondition(c.id)}
+                                    style={[styles.actionButton, { backgroundColor: colors.background }]}
+                                >
+                                    <Check size={16} color={colors.text} />
+                                </TouchableOpacity>
+                            )}
+                            {c.resolved && (
+                                <TouchableOpacity
+                                    onPress={() => deleteCondition(c.id)}
+                                    style={[styles.actionButton, { backgroundColor: colors.background }]}
+                                >
+                                    <Trash2 size={16} color={colors.textSecondary} />
+                                </TouchableOpacity>
+                            )}
+                        </View>
                     </View>
-                </BlurView>
+                </View>
             ))}
 
             {/* Modal for adding condition */}
             <Modal visible={showConditionModal} transparent animationType="fade">
-                <BlurView intensity={90} tint={isDark ? "dark" : "light"} className="flex-1 justify-center p-6">
-                    <View className={`p-6 rounded-3xl border ${isDark ? 'bg-black/50 border-white/10' : 'bg-white/80 border-black/5'}`}>
-                        <Text style={{ color: colors.text }} className="text-xl font-bold mb-4">Add Event</Text>
+                <View style={styles.modalOverlay}>
+                    <View style={[styles.modalContent, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                        <Text style={[styles.modalTitle, { color: colors.text }]}>Add Health Event</Text>
 
-                        <ScrollView horizontal className="mb-4">
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.typeSelector}>
                             {(['injury', 'illness', 'allergy', 'medication'] as const).map(t => (
-                                <TouchableOpacity key={t} onPress={() => setNewCondition({ ...newCondition, type: t })} className={`mr-2 px-3 py-1.5 rounded-full border ${newCondition.type === t ? 'bg-blue-500 border-blue-500' : (isDark ? 'border-white/20' : 'border-black/20')}`}>
-                                    <Text style={{ color: newCondition.type === t ? 'white' : colors.text }} className="capitalize">{t}</Text>
+                                <TouchableOpacity
+                                    key={t}
+                                    onPress={() => setNewCondition({ ...newCondition, type: t })}
+                                    style={[
+                                        styles.typeButton,
+                                        { borderColor: colors.border },
+                                        newCondition.type === t && { backgroundColor: colors.accent }
+                                    ]}
+                                >
+                                    <Text style={[
+                                        styles.typeButtonText,
+                                        { color: newCondition.type === t ? (isDark ? '#000' : '#FFF') : colors.text }
+                                    ]}>
+                                        {t.toUpperCase()}
+                                    </Text>
                                 </TouchableOpacity>
                             ))}
                         </ScrollView>
 
                         <TextInput
                             placeholder="Condition Name"
-                            placeholderTextColor={colors.text + '80'}
+                            placeholderTextColor={colors.textSecondary}
                             value={newCondition.name}
                             onChangeText={t => setNewCondition({ ...newCondition, name: t })}
-                            className={`p-3 rounded-xl border mb-3 ${isDark ? 'bg-white/5 border-white/10' : 'bg-black/5 border-black/10'}`}
-                            style={{ color: colors.text }}
+                            style={[styles.modalInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
                         />
                         <TextInput
                             placeholder="Notes"
-                            placeholderTextColor={colors.text + '80'}
+                            placeholderTextColor={colors.textSecondary}
                             value={newCondition.notes}
                             onChangeText={t => setNewCondition({ ...newCondition, notes: t })}
-                            className={`p-3 rounded-xl border mb-4 ${isDark ? 'bg-white/5 border-white/10' : 'bg-black/5 border-black/10'}`}
-                            style={{ color: colors.text }}
+                            style={[styles.modalInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
                         />
 
-                        <View className="flex-row gap-3">
-                            <TouchableOpacity onPress={() => setShowConditionModal(false)} className={`flex-1 p-3 rounded-xl items-center border ${isDark ? 'border-white/10' : 'border-black/10'}`}>
-                                <Text style={{ color: colors.text }}>Cancel</Text>
+                        <View style={styles.modalButtons}>
+                            <TouchableOpacity
+                                onPress={() => setShowConditionModal(false)}
+                                style={[styles.cancelButton, { borderColor: colors.border }]}
+                            >
+                                <Text style={[styles.cancelText, { color: colors.text }]}>Cancel</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity onPress={addCondition} className="flex-1 bg-blue-500 p-3 rounded-xl items-center">
-                                <Text className="text-white font-bold">Save</Text>
+                            <TouchableOpacity
+                                onPress={addCondition}
+                                style={[styles.saveButton, { backgroundColor: colors.accent }]}
+                            >
+                                <Text style={[styles.saveText, { color: isDark ? '#000' : '#FFF' }]}>Save</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
-                </BlurView>
+                </View>
             </Modal>
         </View>
     );
 
-    const renderDiet = () => (
-        <View className="space-y-4">
-            <View className="p-4 rounded-2xl bg-gradient-to-br from-green-500/20 to-emerald-500/20 border border-green-500/30">
-                <Text style={{ color: colors.text }} className="font-bold mb-2">Detailed Nutrition</Text>
-                <View className="flex-row gap-2 mb-2">
-                    <TextInput
-                        placeholder="e.g. 2 eggs"
-                        placeholderTextColor={colors.text + '80'}
-                        value={foodInput}
-                        onChangeText={setFoodInput}
-                        className={`flex-1 p-2 rounded-lg border ${isDark ? 'bg-black/20 border-white/10' : 'bg-white/50 border-black/10'}`}
-                        style={{ color: colors.text }}
-                    />
-                    <TouchableOpacity onPress={addFood} className="bg-green-500 px-4 justify-center rounded-lg">
-                        <Plus size={20} color="white" />
-                    </TouchableOpacity>
-                </View>
-                <Text style={{ color: colors.text }} className="text-xs opacity-60">Database contains: Chicken, Salmon, Egg, Rice, Oats, etc.</Text>
-            </View>
 
-            {dietItems.map(item => (
-                <View key={item.id} className={`p-3 rounded-xl border mb-2 flex-row justify-between items-center ${isDark ? 'bg-white/5 border-white/5' : 'bg-black/5 border-black/5'}`}>
-                    <View>
-                        <Text style={{ color: colors.text }} className="font-bold">{item.foodName}</Text>
-                        <Text style={{ color: colors.text }} className="text-xs opacity-60">{item.calories}kcal • P:{item.protein} C:{item.carbs} F:{item.fats}</Text>
-                    </View>
-                    <TouchableOpacity onPress={() => setDietItems(dietItems.filter(i => i.id !== item.id))}>
-                        <Trash2 size={16} color={colors.text} className="opacity-40" />
-                    </TouchableOpacity>
-                </View>
-            ))}
-
-            {dietItems.length > 0 && (
-                <View className={`p-4 rounded-xl border mt-2 ${isDark ? 'border-white/10' : 'border-black/10'}`}>
-                    <Text style={{ color: colors.text }} className="font-bold mb-2">Total</Text>
-                    <View className="flex-row justify-between">
-                        <Text style={{ color: colors.text }}>Cal: {Math.round(dietItems.reduce((a, b) => a + b.calories, 0))}</Text>
-                        <Text style={{ color: colors.text }}>P: {Math.round(dietItems.reduce((a, b) => a + b.protein, 0))}g</Text>
-                        <Text style={{ color: colors.text }}>C: {Math.round(dietItems.reduce((a, b) => a + b.carbs, 0))}g</Text>
-                        <Text style={{ color: colors.text }}>F: {Math.round(dietItems.reduce((a, b) => a + b.fats, 0))}g</Text>
-                    </View>
-                </View>
-            )}
-        </View>
-    );
 
     const renderRecs = () => (
-        <View className="space-y-4">
-            <View className="flex-row items-center justify-between mb-2">
-                <Text style={{ color: colors.text }} className="font-bold text-lg">Nutrient Guide</Text>
-                {/* Goal Selector (Simplified) */}
-                <TouchableOpacity onPress={() => setGoal(goal === 'maintain' ? 'bulk_muscle' : 'maintain')} className={`px-3 py-1 rounded-full border ${isDark ? 'border-white/20' : 'border-black/10'}`}>
-                    <Text style={{ color: colors.text }} className="text-xs capitalize">{goal.replace('_', ' ')}</Text>
+        <View style={styles.tabContent}>
+            <View style={styles.headerRow}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Nutrient Guide</Text>
+                <TouchableOpacity
+                    onPress={() => setGoal(goal === 'maintain' ? 'bulk_muscle' : 'maintain')}
+                    style={[styles.goalToggle, { borderColor: colors.border }]}
+                >
+                    <Text style={[styles.goalToggleText, { color: colors.text }]}>
+                        {goal.replace('_', ' ').toUpperCase()}
+                    </Text>
                 </TouchableOpacity>
             </View>
 
             {Object.entries(recs).map(([key, value]) => (
-                <BlurView key={key} intensity={20} tint={isDark ? "dark" : "light"} className={`p-4 rounded-2xl border mb-2 ${isDark ? 'border-white/10' : 'border-black/5'}`}>
-                    <View className="flex-row gap-3">
-                        <View className={`w-10 h-10 rounded-full items-center justify-center ${isDark ? 'bg-white/10' : 'bg-black/5'}`}>
+                <View key={key} style={[styles.recCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <View style={styles.recContent}>
+                        <View style={[styles.recIcon, { backgroundColor: colors.background }]}>
                             <Info size={20} color={colors.text} />
                         </View>
-                        <View className="flex-1">
-                            <Text style={{ color: colors.text }} className="font-bold capitalize text-lg">{key}</Text>
-                            <Text style={{ color: colors.text }} className="opacity-80 leading-5">{value}</Text>
+                        <View style={styles.recTextContent}>
+                            <Text style={[styles.recTitle, { color: colors.text }]}>{key.toUpperCase()}</Text>
+                            <Text style={[styles.recDescription, { color: colors.textSecondary }]}>{value}</Text>
                         </View>
                     </View>
-                </BlurView>
+                </View>
             ))}
         </View>
     );
 
     return (
-        <View className="px-6">
-            <View className="flex-row mb-6 bg-gray-500/10 p-1 rounded-xl">
-                <TouchableOpacity onPress={() => setSubTab('history')} className={`flex-1 py-2 items-center rounded-lg ${subTab === 'history' ? (isDark ? 'bg-white/20' : 'bg-white shadow-sm') : ''}`}>
-                    <Text style={{ color: colors.text }} className="font-bold">History</Text>
+        <View style={styles.container}>
+            <View style={[styles.subTabs, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <TouchableOpacity
+                    onPress={() => setSubTab('history')}
+                    style={[styles.subTab, subTab === 'history' && { backgroundColor: colors.accent }]}
+                >
+                    <Text style={[styles.subTabText, { color: subTab === 'history' ? (isDark ? '#000' : '#FFF') : colors.text }]}>History</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => setSubTab('diet')} className={`flex-1 py-2 items-center rounded-lg ${subTab === 'diet' ? (isDark ? 'bg-white/20' : 'bg-white shadow-sm') : ''}`}>
-                    <Text style={{ color: colors.text }} className="font-bold">Diet</Text>
+                <TouchableOpacity
+                    onPress={() => setSubTab('diet')}
+                    style={[styles.subTab, subTab === 'diet' && { backgroundColor: colors.accent }]}
+                >
+                    <Text style={[styles.subTabText, { color: subTab === 'diet' ? (isDark ? '#000' : '#FFF') : colors.text }]}>Diet</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => setSubTab('recs')} className={`flex-1 py-2 items-center rounded-lg ${subTab === 'recs' ? (isDark ? 'bg-white/20' : 'bg-white shadow-sm') : ''}`}>
-                    <Text style={{ color: colors.text }} className="font-bold">Guide</Text>
+                <TouchableOpacity
+                    onPress={() => setSubTab('recs')}
+                    style={[styles.subTab, subTab === 'recs' && { backgroundColor: colors.accent }]}
+                >
+                    <Text style={[styles.subTabText, { color: subTab === 'recs' ? (isDark ? '#000' : '#FFF') : colors.text }]}>Guide</Text>
                 </TouchableOpacity>
             </View>
 
             {subTab === 'history' && renderHistory()}
-            {subTab === 'diet' && renderDiet()}
+            {subTab === 'diet' && <DietView />}
             {subTab === 'recs' && renderRecs()}
         </View>
     );
 }
+
+const styles = StyleSheet.create({
+    container: {
+        paddingHorizontal: 24,
+    },
+    subTabs: {
+        flexDirection: 'row',
+        padding: 4,
+        borderRadius: 12,
+        marginBottom: 24,
+        borderWidth: 1,
+    },
+    subTab: {
+        flex: 1,
+        paddingVertical: 10,
+        alignItems: 'center',
+        borderRadius: 8,
+    },
+    subTabText: {
+        fontWeight: '700',
+    },
+    tabContent: {
+        gap: 12,
+    },
+    headerRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    sectionTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+    },
+    addButton: {
+        padding: 8,
+        borderRadius: 16,
+        borderWidth: 1,
+    },
+    emptyState: {
+        padding: 32,
+        borderRadius: 16,
+        borderWidth: 1,
+        alignItems: 'center',
+        gap: 8,
+    },
+    emptyText: {
+        fontWeight: '600',
+    },
+    emptySubtext: {
+        fontSize: 12,
+    },
+    conditionCard: {
+        padding: 16,
+        borderRadius: 16,
+        borderWidth: 1,
+    },
+    conditionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+    },
+    conditionInfo: {
+        flex: 1,
+    },
+    conditionTitleRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 4,
+    },
+    conditionName: {
+        fontWeight: '700',
+        fontSize: 16,
+    },
+    typeBadge: {
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 6,
+        borderWidth: 1,
+    },
+    typeText: {
+        fontSize: 10,
+        textTransform: 'uppercase',
+    },
+    conditionMeta: {
+        fontSize: 11,
+    },
+    conditionActions: {
+        flexDirection: 'row',
+        gap: 8,
+    },
+    actionButton: {
+        padding: 8,
+        borderRadius: 8,
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.8)',
+        justifyContent: 'center',
+        padding: 24,
+    },
+    modalContent: {
+        padding: 24,
+        borderRadius: 24,
+        borderWidth: 1,
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: '700',
+        marginBottom: 16,
+    },
+    typeSelector: {
+        marginBottom: 16,
+    },
+    typeButton: {
+        marginRight: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 12,
+        borderWidth: 1,
+    },
+    typeButtonText: {
+        fontSize: 10,
+        fontWeight: '700',
+    },
+    modalInput: {
+        padding: 12,
+        borderRadius: 12,
+        borderWidth: 1,
+        marginBottom: 12,
+    },
+    modalButtons: {
+        flexDirection: 'row',
+        gap: 12,
+        marginTop: 8,
+    },
+    cancelButton: {
+        flex: 1,
+        padding: 12,
+        borderRadius: 12,
+        alignItems: 'center',
+        borderWidth: 1,
+    },
+    cancelText: {},
+    saveButton: {
+        flex: 1,
+        padding: 12,
+        borderRadius: 12,
+        alignItems: 'center',
+    },
+    saveText: {
+        fontWeight: '700',
+    },
+    dietInputCard: {
+        padding: 16,
+        borderRadius: 16,
+        borderWidth: 1,
+    },
+    cardTitle: {
+        fontWeight: '700',
+        marginBottom: 12,
+    },
+    foodInputRow: {
+        flexDirection: 'row',
+        gap: 8,
+    },
+    foodInput: {
+        flex: 1,
+        padding: 10,
+        borderRadius: 8,
+        borderWidth: 1,
+    },
+    addFoodButton: {
+        paddingHorizontal: 16,
+        justifyContent: 'center',
+        borderRadius: 8,
+    },
+    foodHint: {
+        fontSize: 10,
+        marginTop: 8,
+    },
+    dietHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginTop: 8,
+    },
+    clearText: {
+        fontSize: 12,
+    },
+    dietItemCard: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 12,
+        borderRadius: 12,
+        borderWidth: 1,
+    },
+    dietItemInfo: {},
+    dietItemName: {
+        fontWeight: '600',
+    },
+    dietItemMacros: {
+        fontSize: 11,
+    },
+    totalCard: {
+        padding: 16,
+        borderRadius: 16,
+        borderWidth: 1,
+        marginTop: 8,
+    },
+    totalTitle: {
+        fontWeight: '700',
+        marginBottom: 12,
+    },
+    totalRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+    },
+    totalItem: {
+        alignItems: 'center',
+    },
+    totalValue: {
+        fontWeight: '700',
+        fontSize: 16,
+    },
+    totalLabel: {
+        fontSize: 9,
+        letterSpacing: 0.5,
+    },
+    goalToggle: {
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 12,
+        borderWidth: 1,
+    },
+    goalToggleText: {
+        fontSize: 10,
+        fontWeight: '600',
+    },
+    recCard: {
+        padding: 16,
+        borderRadius: 16,
+        borderWidth: 1,
+    },
+    recContent: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    recIcon: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    recTextContent: {
+        flex: 1,
+    },
+    recTitle: {
+        fontWeight: '700',
+        fontSize: 16,
+        marginBottom: 4,
+    },
+    recDescription: {
+        lineHeight: 20,
+    },
+});

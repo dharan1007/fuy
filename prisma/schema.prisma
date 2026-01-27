@@ -104,6 +104,7 @@ model User {
   profileCard  ProfileCard?
   productsSold Product[]     @relation("ProductsSold")
   productViews ProductView[] @relation("ProductViews")
+  wishlists    ProductWishlist[]
 
   // --- Awe Routes & Places ---
   waypoints        RouteWaypoint[]
@@ -188,6 +189,19 @@ model User {
   // --- Profile Access Requests ---
   accessRequestsSent     ProfileAccessRequest[] @relation("AccessRequestsSent")
   accessRequestsReceived ProfileAccessRequest[] @relation("AccessRequestsReceived")
+
+
+  // --- Human Verification ---
+  isHumanVerified       Boolean   @default(false)
+  humanVerifiedAt       DateTime?
+  verificationSelfieUrl String?
+
+  // --- Privacy Settings ---
+  profileCardPrivacy String @default("PUBLIC") // PUBLIC | FOLLOWERS | PRIVATE | SELECTED
+  stalkMePrivacy     String @default("PUBLIC") // PUBLIC | FOLLOWERS | PRIVATE | SELECTED
+  
+  privacyAllowlist PrivacyAllowlist[] @relation("PrivacyOwner")
+  privacyAllowedIn PrivacyAllowlist[] @relation("PrivacyViewer")
 }
 
 model FeedItem {
@@ -565,6 +579,9 @@ model Post {
   impressions Int @default(0)
   shareCount  Int @default(0)
   viewCount   Int @default(0)
+
+  taggedProductId String?
+  taggedProduct   Product? @relation("PostTaggedProduct", fields: [taggedProductId], references: [id], onDelete: SetNull)
 
   @@index([postType])
   @@index([createdAt])
@@ -1866,6 +1883,7 @@ model Product {
   discountPercent Int? // 0-100
   stock           Int     @default(0)
   category        String? // CLOTHING, ELECTRONICS, ACCESSORIES, etc.
+  uniqueCode      String   @unique @default(cuid())
 
   // New fields for Digital Marketplace
   type             String   @default("PHYSICAL") // PHYSICAL, COURSE, EBOOK, DIGITAL_ASSET, TEMPLATE, HOPIN_PLAN
@@ -1886,6 +1904,8 @@ model Product {
   reports      Report[]
   analyticsLog ProductAnalytics?
   views        ProductView[]
+  taggedPosts  Post[]            @relation("PostTaggedProduct")
+  wishlists    ProductWishlist[]
 
   @@unique([brandId, slug])
   @@index([brandId])
@@ -2054,7 +2074,7 @@ model RouteWaypoint {
   lng         Float
   name        String
   description String?
-  emoji       String   @default("📍") // Visual marker
+  emoji       String   @default("ðŸ“") // Visual marker
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -2304,7 +2324,7 @@ model AIChatMessage {
 model ProfileCard {
   id         String   @id @default(cuid())
   userId     String   @unique
-  uniqueCode String   @unique // 7-digit alphanumeric code
+  uniqueCode      String   @unique @default(cuid()) // 7-digit alphanumeric code
   content    String // JSON: stores sections, questions, and answers
   theme      String? // e.g. "dark", "glass", "sunset"
   createdAt  DateTime @default(now())
@@ -2394,6 +2414,7 @@ model BiometricLog {
   @@index([date])
 }
 
+
 model NutritionLog {
   id        String   @id @default(cuid())
   userId    String
@@ -2429,15 +2450,11 @@ model SavedFood {
 
 model UserEmbedding {
   userId         String   @id
-  // JSON array of floats representing user preference vector
   vector         String?  
-  // JSON object: { slashTag: score, ... }
   slashScores    String?  
-  // JSON object: { values: [], skills: [], genres: [], topics: [] }
   profileTags    String?
-  // Behavior patterns
-  activeHours    String?  // JSON array of preferred hours
-  contentPrefs   String?  // JSON: { video: 0.8, image: 0.6, text: 0.4 }
+  activeHours    String?
+  contentPrefs   String?
   updatedAt      DateTime @updatedAt
 }
 
@@ -2446,8 +2463,8 @@ model SlashInteraction {
   userId    String
   slashTag  String
   score     Float    @default(0)
-  positive  Int      @default(0)  // W, like, share, save
-  negative  Int      @default(0)  // L, CAP, hide
+  positive  Int      @default(0)
+  negative  Int      @default(0)
   views     Int      @default(0)
   updatedAt DateTime @updatedAt
 
@@ -2459,18 +2476,14 @@ model SlashInteraction {
 
 model ContentEmbedding {
   contentId   String   @id
-  contentType String   // POST | EVENT | PRODUCT | USER
-  // JSON array of floats
-  vector      String?
-  // JSON array of slash tags
+  contentType String   
+  vector      String?  
   slashes     String?
-  // Engagement stats
   wCount      Int      @default(0)
   lCount      Int      @default(0)
   capCount    Int      @default(0)
   viewCount   Int      @default(0)
   shareCount  Int      @default(0)
-  // Trust score based on engagement ratio
   trustScore  Float    @default(0.5)
   updatedAt   DateTime @updatedAt
 
@@ -2482,11 +2495,11 @@ model RecoFeedback {
   id          String   @id @default(cuid())
   userId      String
   contentId   String
-  contentType String   // POST | EVENT | PRODUCT | USER
-  action      String   // VIEW | W | L | CAP | SHARE | RSVP | PURCHASE | HIDE
-  score       Float    // Weighted score of this action
-  slashes     String?  // JSON array of related slashes
-  source      String?  // feed | explore | search | profile
+  contentType String   
+  action      String   
+  score       Float    
+  slashes     String?  
+  source      String?  
   createdAt   DateTime @default(now())
 
   @@index([userId])
@@ -2494,3 +2507,46 @@ model RecoFeedback {
   @@index([action])
   @@index([createdAt])
 }
+
+model VerificationCode {
+  id        String   @id @default(cuid())
+  email     String
+  code      String
+  type      String   // SIGNUP, RECOVERY
+  expiresAt DateTime
+  metadata  Json?    // Stores temporary data like name, password hash, etc.
+  createdAt DateTime @default(now())
+  
+  @@index([email, code])
+}
+
+model PrivacyAllowlist {
+  id        String   @id @default(cuid())
+  ownerId   String
+  viewerId  String
+  feature   String // POSTS | CARD | STALK_ME
+  createdAt DateTime @default(now())
+
+  owner  User @relation("PrivacyOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  viewer User @relation("PrivacyViewer", fields: [viewerId], references: [id], onDelete: Cascade)
+
+  @@unique([ownerId, viewerId, feature])
+  @@index([ownerId])
+  @@index([viewerId])
+}
+
+model ProductWishlist {
+  id        String   @id @default(cuid())
+  userId    String
+  productId String
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([userId])
+  @@index([productId])
+}
+
+

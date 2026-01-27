@@ -1,0 +1,71 @@
+# Fuy App - Explore Page Detailed Description
+
+This document provides a comprehensive breakdown of every feature, button, and interaction available on the Explore Screen for both the Mobile Application and the Web Platform.
+
+---
+
+## 📱 Mobile Explore Screen
+**File Reference:** `mobile/app/(tabs)/explore.tsx`
+**Key Components:** `FloatingCard`, `MemoizedFloatingCard`, `SlashesModal`, `XrayScratch`
+
+The mobile explore page is an immersive, "infinite canvas" experience where content floats in a 2D space, allowing users to pan freely to discover content throughout the "galaxy."
+
+### 1. Navigation & View Modes
+*   **Infinite Canvas (Galaxy View):**
+    *   **Interaction:** Users can drag in any direction (360 degrees) to pan through content.
+    *   **Structure:** Posts are scattered with varying sizes, rotations, and positions to feel organic, not a rigid grid.
+    *   **Content:** Mixing of all post types (Video, Image, Audio) on the canvas.
+    *   **Decorations:** Animated background elements (Stars, Zaps, Circles, Emojis) float behind posts.
+*   **Top Tabs (Floating):**
+    *   Scrollable horizontal list: `Posts`, `Slashes`, `Chans`, `Auds`, `Chaptes`, `sixts`, `Puds`.
+    *   **Action:** Selecting a tab filters the galaxy content to that specific type.
+    *   **Slashes Tab:** Opens a tag cloud view (`SlashesModal`).
+    *   **Chaptes/Sixts/Texts:** Switches to a clearer grid or list view for readability.
+
+### 2. Search & Filtering
+*   **Search Overlay:**
+    *   Accessible via a Search icon (top right or floating).
+    *   Real-time search for Users and "Slashes" (hashtags).
+    *   **Display:** Results show User Avatar/Name or Tag frequency.
+*   **Safety Filters:**
+    *   Automatically runs purely on the backend/service layer to exclude blocked users or hidden content.
+
+### 3. Post Interaction (Floating Cards)
+Cards are unique, rotatable, and interactive.
+*   **Media Display:**
+    *   **Video:** Autoplays (muted) when the card is "active" (centered/focused).
+    *   **Xray:** Interactive "Scratch" surface. Top layer hides bottom content; user swipes to reveal.
+    *   **Bubbles:** Mini reaction bubbles attached to the card showing video replies.
+*   **Gestures:**
+    *   **Tap:** Opens the full `PostDetailModal` or navigates to the Channel.
+*   **Visuals:**
+    *   Glassmorphism shadows, rounded corners.
+    *   Randomized "scatter" layout (`CARD_CONFIGS`).
+
+### 4. Controls
+*   **Rotation Toggle:**
+    *   Floating button (bottom right).
+    *   **Action:** Toggles between "Auto Rotate/Play" mode (dynamic) and "Pause/Straight" mode (easier for reading).
+
+---
+
+## 💻 Web Explore Screen
+**File Reference:** `src/app/explore/page.tsx`
+
+The web version elevates the "Galaxy" concept into a 3D visualization using Three.js, with similar filtering capabilities.
+
+### 1. 3D Galaxy Scene
+*   **Globe/Galaxy Visualization:**
+    *   Instead of a flat 2D canvas, posts are mapped onto a 3D structure (Globe or Galaxy spiral).
+    *   **Interaction:** User clicks and drags to rotate the globe and explore content.
+    *   **Toggle:** "Show Lines" / "Auto Rotate" control similar to mobile.
+
+### 2. Sidebar & Overlay Controls
+*   **Globe Tabs:**
+    *   Buttons for `Posts`, `Chans`, `Slashes`, etc., overlaid on top.
+    *   Switches the data source for the 3D visualization.
+*   **Back Button:** Floating top-left button to return home/previous.
+
+### 3. Post Details
+*   **Click Action:** Clicking a node/card on the globe opens the `PostDetailModal`.
+*   **Modal Content:** Full high-res media, comments, likes, and extended description.

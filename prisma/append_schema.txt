@@ -1,0 +1,11 @@
+
+model VerificationCode {
+  id        String   @id @default(cuid())
+  email     String
+  code      String
+  type      String   // SIGNUP, RECOVERY
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  
+  @@index([email, code])
+}
