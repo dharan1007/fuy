@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import ScrollStarfield from './ScrollStarfield';
+import CosmicBackground from './CosmicBackground';
 
 interface LoadingSpinnerProps {
   message?: string;
-  variant?: 'default' | 'minimal' | 'auth';
+  variant?: 'default' | 'minimal' | 'auth' | 'fullscreen';
   estimatedTime?: number; // in seconds
 }
 
@@ -40,7 +40,7 @@ export default function LoadingSpinner({
 
   if (variant === 'auth') {
     return (
-      <ScrollStarfield variant="default">
+      <CosmicBackground>
         <div className="min-h-screen flex items-center justify-center px-4">
           <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl p-8 text-center space-y-6 max-w-md w-full shadow-2xl">
             <div className="flex justify-center">
@@ -76,8 +76,26 @@ export default function LoadingSpinner({
             </p>
           </div>
         </div>
-      </ScrollStarfield>
+      </CosmicBackground>
     );
+  }
+
+  if (variant === 'fullscreen') {
+    return (
+      <CosmicBackground>
+        <div className="min-h-screen flex items-center justify-center px-4">
+          <div className="bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl p-10 text-center space-y-8 max-w-lg w-full shadow-2xl">
+            <div className="flex justify-center">
+              <div className="relative w-24 h-24">
+                <div className="absolute inset-0 rounded-full border-4 border-purple-500/30 border-t-purple-500 animate-spin"></div>
+                <div className="absolute inset-4 rounded-full bg-purple-500/10 animate-pulse shadow-[0_0_30px_rgba(168,85,247,0.4)]"></div>
+              </div>
+            </div>
+            <h2 className="text-3xl font-bold text-white tracking-widest uppercase">{message}</h2>
+          </div>
+        </div>
+      </CosmicBackground>
+    )
   }
 
   return (
