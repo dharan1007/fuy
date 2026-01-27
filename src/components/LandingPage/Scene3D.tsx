@@ -697,9 +697,9 @@ function HTMLContent() {
                     Drift through the noise and find your authentic orbit.
                 </p>
                 <div className="flex gap-4">
-                    <Link href="/signup">
+                    <Link href="/explore">
                         <button className="px-10 py-5 bg-black text-white text-xl font-bold rounded-full hover:scale-105 transition-transform flex items-center gap-3 shadow-2xl">
-                            Start Journey <ArrowRight size={24} />
+                            Explore <ArrowRight size={24} />
                         </button>
                     </Link>
                 </div>
