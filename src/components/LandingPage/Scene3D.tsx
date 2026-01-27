@@ -794,7 +794,7 @@ function HTMLContent() {
                         className="px-20 py-8 text-3xl font-bold rounded-full text-white hover:scale-110 transition-transform shadow-2xl flex items-center gap-4 mx-auto"
                         style={{ backgroundColor: ACCENT_COLOR }}
                     >
-                        <Zap fill="white" size={32} /> LAUNCH NOW
+                        <Zap fill="white" size={32} /> Sign Up Now
                     </button>
                 </Link>
             </Section>

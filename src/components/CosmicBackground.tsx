@@ -7,7 +7,7 @@ import * as THREE from 'three';
 
 // --- SHADER DEFINITION (Copied from Scene3D for consistency) ---
 const HeroAuroraMaterial = shaderMaterial(
-    { uTime: 0, uColor1: new THREE.Color('#00FFFF'), uColor2: new THREE.Color('#8A2BE2'), uColor3: new THREE.Color('#32CD32'), uOpacity: 0.5 },
+    { uTime: 0, uColor1: new THREE.Color('#FF0000'), uColor2: new THREE.Color('#FFFFFF'), uColor3: new THREE.Color('#8B0000'), uOpacity: 0.5 },
     // Vertex
     `
     varying vec2 vUv;
@@ -19,9 +19,9 @@ const HeroAuroraMaterial = shaderMaterial(
     // Fragment
     `
     uniform float uTime;
-    uniform vec3 uColor1; // Cyan
-    uniform vec3 uColor2; // Purple
-    uniform vec3 uColor3; // Lime
+    uniform vec3 uColor1; // Red
+    uniform vec3 uColor2; // White
+    uniform vec3 uColor3; // Dark Red
     uniform float uOpacity;
     varying vec2 vUv;
 
