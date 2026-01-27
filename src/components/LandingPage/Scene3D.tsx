@@ -668,8 +668,8 @@ function HTMLContent() {
             <div className="fixed top-0 left-0 w-screen px-6 py-6 z-50 flex justify-between items-start pointer-events-none">
 
                 {/* 1. LOGO CARD (Left) */}
-                <div className="bg-white/10 backdrop-blur-xl p-1 rounded-2xl border border-white/30 shadow-2xl pointer-events-auto cursor-pointer group hover:scale-105 transition-transform w-[220px] h-[72px] flex items-center justify-center">
-                    <CyclingCard items={logoItems} interval={4000} className="w-full h-full" />
+                <div className="bg-white/10 backdrop-blur-xl p-0 rounded-2xl border border-white/30 shadow-2xl pointer-events-auto cursor-pointer group hover:scale-105 transition-transform w-[72px] h-[72px] flex items-center justify-center">
+                    <img src="/icon.png" alt="FUY Logo" className="w-12 h-12 rounded-xl shadow-md" />
                 </div>
 
                 {/* 2. CENTER CARD (Middle) */}
@@ -678,9 +678,9 @@ function HTMLContent() {
                 </div>
 
                 {/* 3. SIGNUP CARD (Right) */}
-                <Link href="/signup">
-                    <div className="bg-black text-white px-1 rounded-2xl border border-gray-800 shadow-2xl hover:scale-105 transition-transform cursor-pointer pointer-events-auto w-[160px] h-[64px] flex items-center justify-center overflow-hidden">
-                        <CyclingCard items={signupItems} interval={3500} className="w-full h-full" />
+                <Link href="/explore">
+                    <div className="bg-black text-white px-2 rounded-2xl border border-gray-800 shadow-2xl hover:scale-105 transition-transform cursor-pointer pointer-events-auto w-[160px] h-[64px] flex items-center justify-center gap-2">
+                        <span className="font-bold text-base">Explore</span> <ArrowRight size={18} />
                     </div>
                 </Link>
             </div>
