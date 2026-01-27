@@ -8,7 +8,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import ScrollStarfield from "@/components/ScrollStarfield";
+import CosmicBackground from "@/components/CosmicBackground";
 
 function LoginContent() {
   const router = useRouter();
@@ -82,7 +82,7 @@ function LoginContent() {
   }
 
   return (
-    <ScrollStarfield variant="default">
+    <CosmicBackground>
       <div className="min-h-screen flex items-center justify-center p-4">
         {/* Main Content */}
         <div className="w-full max-w-md relative z-10">
@@ -190,7 +190,7 @@ function LoginContent() {
           </div>
         </div>
       </div>
-    </ScrollStarfield>
+    </CosmicBackground>
   );
 }
 

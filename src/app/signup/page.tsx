@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import ScrollStarfield from "@/components/ScrollStarfield";
+import CosmicBackground from "@/components/CosmicBackground";
 import { startRegistration } from "@simplewebauthn/browser";
 
 export default function SignupPage() {
@@ -200,7 +200,7 @@ export default function SignupPage() {
   }
 
   return (
-    <ScrollStarfield variant="default">
+    <CosmicBackground>
       <div className="min-h-screen flex items-center justify-center p-4">
         {/* Main Content */}
         <div className="w-full max-w-md relative z-10">
@@ -384,6 +384,6 @@ export default function SignupPage() {
           </div>
         </div>
       </div>
-    </ScrollStarfield >
+    </CosmicBackground>
   );
 }
