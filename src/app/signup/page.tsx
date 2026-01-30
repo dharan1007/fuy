@@ -81,6 +81,16 @@ export default function SignupPage() {
       return;
     }
 
+    // Check Terms Checkbox (using DOM since it's outside controlled state for simplicity, or we can add to state)
+    // Actually, uncontrolled required checkbox prevents submission if HTML5 validation is enough.
+    // unlikely to work with custom handleSubmit preventing default.
+    // Let's add explicit check.
+    const termsCheckbox = document.getElementById('terms') as HTMLInputElement;
+    if (!termsCheckbox?.checked) {
+      setError("You must agree to the Terms, Privacy Policy, and Community Guidelines.");
+      return;
+    }
+
     setLoading(true);
     setLoadingMessage("Verifying security...");
 
@@ -338,6 +348,19 @@ export default function SignupPage() {
                 </div>
               </div>
 
+              {/* Terms Checkbox */}
+              <div className="flex items-start gap-3 mt-4 mb-2">
+                <input
+                  id="terms"
+                  type="checkbox"
+                  required
+                  className="mt-1 w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 bg-white/10 border-white/20"
+                />
+                <label htmlFor="terms" className="text-sm text-gray-300">
+                  I agree to the <Link href="/terms-and-conditions" className="text-blue-400 hover:text-blue-300 underline" target="_blank">Terms & Conditions</Link>, <Link href="/privacy-policy" className="text-blue-400 hover:text-blue-300 underline" target="_blank">Privacy Policy</Link>, and <Link href="/community-guidelines" className="text-blue-400 hover:text-blue-300 underline" target="_blank">Community Guidelines</Link>.
+                </label>
+              </div>
+
               {error && (
                 <div className="bg-red-500/10 border border-red-500/30 text-red-200 px-4 py-3 rounded-lg text-sm backdrop-blur-sm">
                   {error}
@@ -383,7 +406,7 @@ export default function SignupPage() {
             </div>
           </div>
         </div>
-      </div>
-    </CosmicBackground>
+      </div >
+    </CosmicBackground >
   );
 }

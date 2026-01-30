@@ -510,6 +510,9 @@ export default function HomeClient({ isAdmin = false }: { isAdmin?: boolean }) {
                             <ul className="space-y-2">
                                 <li><Link href="/privacy-policy" className="text-sm text-gray-300 hover:text-white transition-colors">Privacy Policy</Link></li>
                                 <li><Link href="/terms-and-conditions" className="text-sm text-gray-300 hover:text-white transition-colors">Terms & Conditions</Link></li>
+                                <li><Link href="/marketplace-policy" className="text-sm text-gray-300 hover:text-white transition-colors">Marketplace Policy</Link></li>
+                                <li><Link href="/community-guidelines" className="text-sm text-gray-300 hover:text-white transition-colors">Community Guidelines</Link></li>
+                                <li><Link href="/health-disclaimer" className="text-sm text-gray-300 hover:text-white transition-colors">Health Disclaimer</Link></li>
                                 <li><Link href="/cancellation-refund-policy" className="text-sm text-gray-300 hover:text-white transition-colors">Cancellation & Refund</Link></li>
                                 <li><Link href="/shipping-policy" className="text-sm text-gray-300 hover:text-white transition-colors">Shipping Policy</Link></li>
                             </ul>

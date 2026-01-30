@@ -18,11 +18,17 @@ export default function SignupScreen() {
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [rememberMe, setRememberMe] = useState(false);
+    const [termsAccepted, setTermsAccepted] = useState(false);
     const [loading, setLoading] = useState(false);
 
     const handleSignup = async () => {
         if (!email || !password || !name || !confirmPassword) {
             showToast('Please fill in all fields', 'error');
+            return;
+        }
+
+        if (!termsAccepted) {
+            showToast('You must agree to the Terms and Conditions', 'error');
             return;
         }
 
@@ -184,7 +190,6 @@ export default function SignupScreen() {
                                 </View>
                             </View>
 
-                            {/* Remember Me */}
                             <TouchableOpacity
                                 onPress={() => setRememberMe(!rememberMe)}
                                 className="flex-row items-center mt-4"
@@ -198,6 +203,37 @@ export default function SignupScreen() {
                                     Remember me
                                 </Text>
                             </TouchableOpacity>
+
+                            {/* Terms Checkbox */}
+                            <View className="flex-row items-start mt-4 pr-4">
+                                <TouchableOpacity
+                                    onPress={() => setTermsAccepted(!termsAccepted)}
+                                    className="mt-0.5"
+                                >
+                                    {termsAccepted ? (
+                                        <CheckSquare color="#3b82f6" size={20} />
+                                    ) : (
+                                        <Square color="rgba(255,255,255,0.4)" size={20} />
+                                    )}
+                                </TouchableOpacity>
+                                <View className="ml-2 flex-1">
+                                    <Text className="text-sm text-white/60 leading-5">
+                                        I agree to the{' '}
+                                        <Link href="/legal/terms" className="text-blue-400 font-semibold" onPress={(e) => { e.preventDefault(); router.push('/legal/terms'); }}>
+                                            Terms
+                                        </Link>
+                                        ,{' '}
+                                        <Link href="/legal/privacy" className="text-blue-400 font-semibold" onPress={(e) => { e.preventDefault(); router.push('/legal/privacy'); }}>
+                                            Privacy Policy
+                                        </Link>
+                                        , and{' '}
+                                        <Link href="/legal/guidelines" className="text-blue-400 font-semibold" onPress={(e) => { e.preventDefault(); router.push('/legal/guidelines'); }}>
+                                            Community Guidelines
+                                        </Link>
+                                        .
+                                    </Text>
+                                </View>
+                            </View>
 
                             <TouchableOpacity
                                 onPress={handleSignup}

@@ -1,4 +1,6 @@
 import { EncryptionProvider, useEncryption } from "@/context/EncryptionContext";
+import { ThemeProvider } from "@/context/ThemeContext";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import PinModal from "@/components/PinModal";
 
 // Client component to handle global lock UI

@@ -150,6 +150,39 @@ export default function SettingsScreen() {
         },
     ];
 
+    const legalItems = [
+        {
+            label: 'Terms of Service',
+            icon: ShieldCheck,
+            colorClass: 'bg-gray-500',
+            onPress: () => router.push('/legal/terms')
+        },
+        {
+            label: 'Privacy Policy',
+            icon: ShieldCheck,
+            colorClass: 'bg-gray-500',
+            onPress: () => router.push('/legal/privacy')
+        },
+        {
+            label: 'Community Guidelines',
+            icon: ShieldCheck,
+            colorClass: 'bg-gray-500',
+            onPress: () => router.push('/legal/guidelines')
+        },
+        {
+            label: 'Marketplace Policy',
+            icon: ShieldCheck,
+            colorClass: 'bg-gray-500',
+            onPress: () => router.push('/legal/marketplace')
+        },
+        {
+            label: 'Health Disclaimer',
+            icon: ShieldCheck,
+            colorClass: 'bg-gray-500',
+            onPress: () => router.push('/legal/health')
+        },
+    ];
+
     const supportItems = [
         {
             label: 'Help & Support',
@@ -184,6 +217,7 @@ export default function SettingsScreen() {
                 <ScrollView showsVerticalScrollIndicator={false}>
                     {renderSection('Account', accountItems)}
                     {renderSection('Appearance', appearanceItems)}
+                    {renderSection('Legal', legalItems)}
                     {renderSection('Support', supportItems)}
                     <Text className="text-center text-xs mb-8" style={{ color: colors.secondary }}>Version 1.0.0</Text>
                 </ScrollView>
