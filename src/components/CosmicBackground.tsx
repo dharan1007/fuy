@@ -1,4 +1,5 @@
-"use client";
+"use strict";
+"client";
 
 import React, { useRef, Suspense, useEffect, useState, memo } from 'react';
 import { Canvas, useFrame, useThree, extend } from '@react-three/fiber';

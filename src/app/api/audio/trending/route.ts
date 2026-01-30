@@ -6,6 +6,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
@@ -78,6 +80,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({
                 trending: popularAudio.map((asset) => ({
                     ...asset,
+                    audioUrl: asset.url,
                     waveformData: asset.waveformData ? JSON.parse(asset.waveformData) : null,
                     recentUsageCount: 0,
                     trendScore: asset.usageCount,
@@ -121,6 +124,7 @@ export async function GET(request: NextRequest) {
 
             return {
                 ...asset,
+                audioUrl: asset.url,
                 waveformData: asset.waveformData ? JSON.parse(asset.waveformData) : null,
                 recentUsageCount,
                 trendScore,

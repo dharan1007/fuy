@@ -72,7 +72,7 @@ export async function GET(
                 attributionText: audioAsset.attributionText,
                 duration: audioAsset.duration,
                 genre: audioAsset.genre,
-                audioUrl: audioAsset.audioUrl,
+                audioUrl: audioAsset.url,
                 waveformData: audioAsset.waveformData
                     ? JSON.parse(audioAsset.waveformData)
                     : null,

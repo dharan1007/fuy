@@ -1,3 +1,5 @@
+'use client';
+
 import { EncryptionProvider, useEncryption } from "@/context/EncryptionContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";

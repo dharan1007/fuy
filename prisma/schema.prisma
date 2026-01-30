@@ -2583,9 +2583,17 @@ model AudioAsset {
   genre           String?
 
   // Media Files
-  audioUrl      String
+  url           String   @map("audioUrl") // Mapped for backward compact if DB has column, but code uses 'url'
   waveformData  String? // JSON array of amplitude values for visualization
   coverImageUrl String?
+
+  // Extended Metadata
+  mimeType    String?
+  size        Int?
+  bpm         Float?
+  key         String?
+  loudness    Float?
+  spectrogram String?
 
   // Usage & Discovery
   usageCount Int     @default(0)
@@ -2645,12 +2653,14 @@ model AudioUsage {
   audioAssetId String
   postId       String
 
+
   // Trim settings
-  startTime Int  @default(0) // Start time in seconds
-  endTime   Int? // End time in seconds (null = full duration)
+  startTime Float  @default(0) // Start time in seconds
+  endTime   Float? // End time in seconds (null = full duration)
 
   // Volume Control (0.0 to 1.0)
   volume Float @default(1.0)
+  speed  Float @default(1.0)
 
   // Track ordering for multiple audio
   trackOrder Int @default(0)

@@ -40,7 +40,7 @@
     "date-fns": "^4.1.0",
     "dotenv-safe": "^9.1.0",
     "express-rate-limit": "^8.2.1",
-    "framer-motion": "^12.23.24",
+    "framer-motion": "^11.2.10",
     "gpxparser": "3.0.8",
     "gsap": "^3.13.0",
     "helmet": "^8.1.0",
@@ -70,7 +70,7 @@
     "tweetnacl": "^1.0.3",
     "tweetnacl-util": "^0.15.1",
     "validator": "^13.15.23",
-    "zod": "3.23.8",
+    "zod": "^3.23.8",
     "zustand": "^5.0.8"
   },
   "devDependencies": {

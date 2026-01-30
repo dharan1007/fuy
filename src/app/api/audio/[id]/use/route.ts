@@ -45,7 +45,7 @@ export async function POST(
                 title: true,
                 attributionText: true,
                 duration: true,
-                audioUrl: true,
+                url: true,
                 waveformData: true,
                 originalCreator: {
                     select: {
@@ -145,7 +145,7 @@ export async function POST(
                 title: audioAsset.title,
                 attributionText: audioAsset.attributionText,
                 duration: audioAsset.duration,
-                audioUrl: audioAsset.audioUrl,
+                audioUrl: audioAsset.url,
                 waveformData: audioAsset.waveformData
                     ? JSON.parse(audioAsset.waveformData)
                     : null,

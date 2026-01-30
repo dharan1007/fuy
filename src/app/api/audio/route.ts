@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
                 title: title || null,
                 attributionText,
                 duration,
-                audioUrl,
+                url: audioUrl,
                 waveformData: waveformData ? JSON.stringify(waveformData) : null,
                 coverImageUrl: coverImageUrl || null,
                 genre: genre || null,
