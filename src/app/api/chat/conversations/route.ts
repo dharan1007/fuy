@@ -34,10 +34,10 @@ export async function GET(req: Request) {
       },
       include: {
         userA: {
-          select: { id: true, name: true, profile: { select: { avatarUrl: true, displayName: true } }, lastSeen: true } as any,
+          select: { id: true, name: true, profile: { select: { avatarUrl: true, displayName: true, publicKey: true } }, lastSeen: true } as any,
         },
         userB: {
-          select: { id: true, name: true, profile: { select: { avatarUrl: true, displayName: true } }, lastSeen: true } as any,
+          select: { id: true, name: true, profile: { select: { avatarUrl: true, displayName: true, publicKey: true } }, lastSeen: true } as any,
         },
         messages: {
           orderBy: { createdAt: 'desc' },

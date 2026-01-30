@@ -153,9 +153,9 @@ export default function SimilarPostsScreen() {
                     supabase.from('HiddenPost').select('postId').eq('userId', myId)
                 ]);
 
-                if (muted.data) excludedUserIds.push(...muted.data.map(m => m.mutedUserId));
-                if (blocked.data) excludedUserIds.push(...blocked.data.map(b => b.blockedId));
-                if (hidden.data) hiddenPostIds.push(...hidden.data.map(h => h.postId));
+                if (muted.data) excludedUserIds.push(...muted.data.map((m: any) => m.mutedUserId));
+                if (blocked.data) excludedUserIds.push(...blocked.data.map((b: any) => b.blockedId));
+                if (hidden.data) hiddenPostIds.push(...hidden.data.map((h: any) => h.postId));
             }
 
             let query = supabase
@@ -178,7 +178,7 @@ export default function SimilarPostsScreen() {
                     slashes:Slash(tag),
                     reactions:Reaction (
                         type,
-                        user:User (name)
+                        userId
                     ),
                     comments:PostComment (
                         id
@@ -203,8 +203,6 @@ export default function SimilarPostsScreen() {
 
             const { data, error } = await query;
             if (error) throw error;
-
-
 
             const processPost = (post: any, isSameType: boolean): SimilarPost => {
                 const reactions = post.reactions || [];
@@ -232,7 +230,7 @@ export default function SimilarPostsScreen() {
 
                     reactionCounts,
                     userReaction: myReaction ? myReaction.type : null,
-                    commentCount: post.comments?.length || 0, // In real app use count aggregate
+                    commentCount: post.comments?.length || 0,
                     shareCount: post.shareCount || 0,
                     views: 0
                 };

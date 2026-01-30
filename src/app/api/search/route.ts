@@ -139,7 +139,8 @@ export async function GET(req: NextRequest) {
           status: "PUBLISHED",
           user: {
             profile: { isPrivate: false } // Only show public posts for now
-          }
+          },
+          postType: { notIn: ["STORY", "STANDARD"] }
         },
         include: {
           user: {

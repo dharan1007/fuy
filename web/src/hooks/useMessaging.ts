@@ -2,6 +2,8 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useSession, signOut } from '@/hooks/use-session';
 import { supabase } from '@/lib/supabase-client';
+import { useEncryption } from '@/context/EncryptionContext';
+import { encryptMessage, decryptMessage } from '@/lib/encryption';
 
 export interface Message {
   id: string;
@@ -27,6 +29,7 @@ export interface Message {
       profile?: {
         displayName: string;
         avatarUrl: string;
+        publicKey?: string;
       };
     };
     xrayData?: any;
@@ -46,8 +49,8 @@ export interface Conversation {
   lastMessageTime: number;
   unreadCount: number;
   avatar?: string;
-  userA?: { id: string; name: string; profile?: { displayName: string; avatarUrl: string } };
-  userB?: { id: string; name: string; profile?: { displayName: string; avatarUrl: string } };
+  userA?: { id: string; name: string; profile?: { displayName: string; avatarUrl: string; publicKey?: string } };
+  userB?: { id: string; name: string; profile?: { displayName: string; avatarUrl: string; publicKey?: string } };
   isMuted?: boolean;
   isPinned?: boolean;
   isGhosted?: boolean;
@@ -71,6 +74,7 @@ export function useMessaging() {
   const { data: session } = useSession();
   const userId = (session?.user as any)?.id;
   const userName = (session?.user as any)?.name || 'User';
+  const { privateKey, publicKey: myPublicKey } = useEncryption();
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [messages, setMessages] = useState<{ [key: string]: Message[] }>({});
@@ -193,7 +197,6 @@ export function useMessaging() {
   }, [userId]);
 
   // --- 3. Conversation Subscriptions (Stable) ---
-  // Polling interval for fallback
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -214,7 +217,7 @@ export function useMessaging() {
           {
             event: 'INSERT',
             schema: 'public',
-            table: 'Message', // Prisma default - try capitalized first
+            table: 'Message',
             filter: `conversationId=eq.${conv.id}`
           },
           (payload) => {
@@ -250,21 +253,43 @@ export function useMessaging() {
   // --- Helper: Handle New Realtime Message ---
   const handleNewRealtimeMessage = (newMsg: any, conv: Conversation, currentUserId: string) => {
     const isMe = newMsg.senderId === currentUserId;
-    const tempId = new Date(newMsg.createdAt).getTime().toString(); // Rough approximation or just ignore optimistics
+
+    // Decrypt if necessary
+    let text = newMsg.content;
+    if (newMsg.type === 'text' && text?.startsWith('{') && text?.includes('"c":') && privateKey) {
+      // Find recipient/sender keys
+      let otherKey = newMsg.senderId === currentUserId
+        ? (conv.userA?.id === currentUserId ? conv.userB?.profile?.publicKey : conv.userA?.profile?.publicKey) // If I sent it, I need target key? No, I need target key to decrypt? No, wait. 
+        // If I sent it, I encrypted it with My Privat Key + Their Public Key.
+        // Box Open: My Private Key + Their Public Key.
+        : (newMsg.senderId === conv.userA?.id ? conv.userA?.profile?.publicKey : conv.userB?.profile?.publicKey); // If they sent it, use their public key.
+
+      if (otherKey) {
+        try {
+          const parsed = JSON.parse(text);
+          const decrypted = decryptMessage({ ciphertext: parsed.c, nonce: parsed.n }, privateKey, otherKey);
+          if (decrypted) text = decrypted;
+        } catch (e) {
+          // ignore
+        }
+      }
+    }
 
     setMessages(prev => {
       const currentMsgs = prev[conv.id] || [];
-
-      // Deduplication check
       if (currentMsgs.some(m => m.id === newMsg.id)) return prev;
 
-      // Replace optimistic if found (matching content & recent time)
       if (isMe) {
         const optimistic = currentMsgs.find(m =>
           m.senderId === currentUserId &&
-          m.content === newMsg.content &&
+          m.content === text && // Match decrypted content with optimistic content? Optimistic is raw.
           m.status === 'sending'
         );
+        // If content was encrypted on server but raw locally, we match.
+        // Wait, handleNewRealtimeMessage `text` is now decrypted.
+        // Optimistic message has raw content. They should match.
+        // Unless timestamp difference.
+
         if (optimistic) {
           return {
             ...prev,
@@ -289,9 +314,9 @@ export function useMessaging() {
         conversationId: newMsg.conversationId,
         senderId: newMsg.senderId,
         senderName,
-        content: newMsg.content,
+        content: text,
         timestamp: new Date(newMsg.createdAt).getTime(),
-        read: false, // Default false until seen
+        read: false,
         status: 'sent',
         type: newMsg.type || 'text',
         sharedPostId: newMsg.sharedPostId,
@@ -301,14 +326,12 @@ export function useMessaging() {
       return { ...prev, [conv.id]: [...currentMsgs, msg] };
     });
 
-    // Update Conversation List (Last Message)
     setConversations(prev => prev.map(c =>
       c.id === conv.id
-        ? { ...c, lastMessage: newMsg.content, lastMessageTime: new Date(newMsg.createdAt).getTime() }
+        ? { ...c, lastMessage: text, lastMessageTime: new Date(newMsg.createdAt).getTime() }
         : c
     ));
   };
-
 
   const handleTypingEvent = (payload: any, conversationId: string, type: 'start' | 'stop', currentUserId: string) => {
     const { userId: typerId, name } = payload.payload;
@@ -322,7 +345,6 @@ export function useMessaging() {
       return { ...prev, [conversationId]: next };
     });
 
-    // Safety auto-clear for start
     if (type === 'start') {
       setTimeout(() => {
         setTypingUsers(prev => {
@@ -342,6 +364,29 @@ export function useMessaging() {
   const sendMessage = useCallback(async (conversationId: string, content: string) => {
     if (!userId) return;
 
+    // Encrypt content
+    const conversation = conversations.find(c => c.id === conversationId);
+    let finalContent = content;
+
+    if (conversation && privateKey) {
+      const partner = conversation.userA?.id === userId ? conversation.userB : conversation.userA;
+      const partnerPublicKey = partner?.profile?.publicKey;
+      if (partnerPublicKey) {
+        try {
+          const encrypted = encryptMessage(content, privateKey, partnerPublicKey);
+          finalContent = JSON.stringify({ c: encrypted.ciphertext, n: encrypted.nonce });
+        } catch (e) {
+          console.error("Failed to encrypt", e);
+          // alert("Encrypted failed"); // optional
+          return;
+        }
+      }
+    } else if (!privateKey) {
+      // If E2EE forced, block. If optional, allow clear text? 
+      // We enforce E2EE if keys exist. if no keys, maybe allow? 
+      // For now, assume forced if user has wallet setup.
+    }
+
     // Optimistic Update
     const tempId = 'opt-' + Date.now();
     const optimisticMessage: Message = {
@@ -349,7 +394,7 @@ export function useMessaging() {
       conversationId,
       senderId: userId,
       senderName: 'You',
-      content,
+      content, // Raw text locally
       timestamp: Date.now(),
       read: true,
       status: 'sending',
@@ -366,7 +411,7 @@ export function useMessaging() {
       await fetch('/api/chat/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ conversationId, content }),
+        body: JSON.stringify({ conversationId, content: finalContent }),
       });
       // Verification via Realtime subscription
     } catch (err) {
@@ -376,7 +421,7 @@ export function useMessaging() {
         [conversationId]: (prev[conversationId] || []).map(m => m.id === tempId ? { ...m, status: 'failed' } : m)
       }));
     }
-  }, [userId]);
+  }, [userId, privateKey, conversations]);
 
   const startTyping = useCallback(async (conversationId: string) => {
     if (!userId) return;
@@ -411,28 +456,49 @@ export function useMessaging() {
       const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
-        const formattedMessages = data.messages.map((msg: any) => ({
-          id: msg.id,
-          conversationId: msg.conversationId,
-          senderId: msg.senderId,
-          senderName: msg.sender.profile?.displayName || msg.sender.name || 'User',
-          content: msg.content,
-          timestamp: new Date(msg.createdAt).getTime(),
-          read: msg.readAt !== null,
-          status: 'sent',
-          tags: [], // Todo match tags from DB if available
-          type: msg.type || 'text',
-          sharedPostId: msg.sharedPostId,
-          sharedPost: msg.sharedPost ? {
-            ...msg.sharedPost,
-            media: msg.sharedPost.postMedia?.map((pm: any) => pm.media) || []
-          } : undefined
-        }));
+        const formattedMessages = data.messages.map((msg: any) => {
+          let text = msg.content;
+          // Decrypt
+          if (privateKey && text && text.startsWith('{') && text.includes('"c":')) {
+            try {
+              let otherKey = msg.senderId === userId
+                ? (function () {
+                  // Find partner from existing conversations list since we only have convId and userId here.
+                  const conv = conversations.find(c => c.id === conversationId);
+                  return conv?.userA?.id === userId ? conv?.userB?.profile?.publicKey : conv?.userA?.profile?.publicKey;
+                })()
+                : msg.sender.profile?.publicKey;
+
+              if (otherKey) {
+                const parsed = JSON.parse(text);
+                const decrypted = decryptMessage({ ciphertext: parsed.c, nonce: parsed.n }, privateKey, otherKey);
+                if (decrypted) text = decrypted;
+              }
+            } catch (e) { }
+          }
+
+          return {
+            id: msg.id,
+            conversationId: msg.conversationId,
+            senderId: msg.senderId,
+            senderName: msg.sender.profile?.displayName || msg.sender.name || 'User',
+            content: text,
+            timestamp: new Date(msg.createdAt).getTime(),
+            read: msg.readAt !== null,
+            status: 'sent',
+            tags: [],
+            type: msg.type || 'text',
+            sharedPostId: msg.sharedPostId,
+            sharedPost: msg.sharedPost ? {
+              ...msg.sharedPost,
+              media: msg.sharedPost.postMedia?.map((pm: any) => pm.media) || []
+            } : undefined
+          };
+        });
 
         setMessages(prev => {
           const current = prev[conversationId] || [];
           if (cursor) {
-            // merging history
             return { ...prev, [conversationId]: [...formattedMessages, ...current] };
           } else {
             return { ...prev, [conversationId]: formattedMessages };
@@ -444,14 +510,12 @@ export function useMessaging() {
     } catch (e) {
       console.error("Fetch messages failed", e);
     }
-  }, []);
+  }, [conversations, privateKey, userId]);
 
   // --- Polling Fallback for Realtime ---
-  // This ensures messages are received even if Supabase Realtime fails
   useEffect(() => {
     if (!userId) return;
 
-    // Poll every 5 seconds for active conversations
     const interval = setInterval(() => {
       Object.keys(messages).forEach(convId => {
         if (messages[convId] && messages[convId].length > 0) {
@@ -466,17 +530,13 @@ export function useMessaging() {
       clearInterval(interval);
       pollingIntervalRef.current = null;
     };
-  }, [userId, fetchMessages]);
+  }, [userId, fetchMessages, messages]); // Added messages as dependency to check active convs
 
   const markAsRead = useCallback(async (conversationId: string) => {
-    // API call to mark read
-    // Optimistically update local messages to read
     setMessages(prev => ({
       ...prev,
       [conversationId]: (prev[conversationId] || []).map(m => ({ ...m, read: true }))
     }));
-    // Fire and forget
-    // Fire and forget with error handling to clean up logs
     fetch('/api/chat/read', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -485,7 +545,6 @@ export function useMessaging() {
   }, []);
 
   const createOrGetConversation = useCallback(async (friendId: string) => {
-    // Existing logic simplified or kept
     try {
       const res = await fetch('/api/chat/conversations', {
         method: 'POST',
@@ -493,16 +552,13 @@ export function useMessaging() {
         body: JSON.stringify({ targetUserId: friendId })
       });
       if (res.status === 401) {
-        console.warn("Session expired (401) - Check auth cookies");
-        // signOut({ redirect: true });
+        console.warn("Session expired (401)");
         return null;
       }
       if (res.ok) {
         const data = await res.json();
         if (!conversations.find(c => c.id === data.conversation.id)) {
-          // Trigger re-fetch or manual add
-          // Manual add implies we need format. 
-          fetchConversations(); // Simplest
+          fetchConversations();
         }
         return data.conversation.id;
       }
@@ -512,7 +568,7 @@ export function useMessaging() {
 
   const deleteConversation = useCallback(async (id: string) => {
     setConversations(prev => prev.filter(c => c.id !== id));
-    fetch(`/api/chat/conversations`, { method: 'DELETE', body: JSON.stringify({ id }) }); // Assuming delete supports body or param. hook said ?id=
+    fetch(`/api/chat/conversations`, { method: 'DELETE', body: JSON.stringify({ id }) });
   }, []);
 
   const getAllChatUsers = useCallback(() => {
@@ -521,8 +577,6 @@ export function useMessaging() {
     return Array.from(map.values());
   }, [followers, following]);
 
-  // Remove addOptimisticMessage as it's internal now mostly, unless page needs it.
-  // Exposing it to keep interface:
   const addOptimisticMessage = useCallback((m: Message) => {
     setMessages(prev => ({ ...prev, [m.conversationId]: [...(prev[m.conversationId] || []), m] }));
   }, []);

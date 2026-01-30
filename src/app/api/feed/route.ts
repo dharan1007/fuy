@@ -27,7 +27,9 @@ async function feedHandler(req: NextRequest) {
         const limit = Math.min(Number(searchParams.get("limit")) || 20, 100);
         const cursor = searchParams.get("cursor");
 
-        const where: any = {};
+        const where: any = {
+            postType: { not: 'STANDARD' }
+        };
 
         // --- Optimized Scope Filtering ---
         if (scope === "me" && userId) {

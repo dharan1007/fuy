@@ -102,8 +102,8 @@ model User {
 
   // --- User Marketplace ---
   profileCard  ProfileCard?
-  productsSold Product[]     @relation("ProductsSold")
-  productViews ProductView[] @relation("ProductViews")
+  productsSold Product[]         @relation("ProductsSold")
+  productViews ProductView[]     @relation("ProductViews")
   wishlists    ProductWishlist[]
 
   // --- Awe Routes & Places ---
@@ -117,22 +117,22 @@ model User {
   // --- Breathing App ---
 
   // --- Wrex (Gym Partners & Workout Plans) ---
-  gymPartnersSent     GymPartner[]  @relation("GymPartnerSender")
-  gymPartnersReceived GymPartner[]  @relation("GymPartnerReceiver")
+  gymPartnersSent     GymPartner[]     @relation("GymPartnerSender")
+  gymPartnersReceived GymPartner[]     @relation("GymPartnerReceiver")
   workoutPlans        WorkoutPlan[]
   // Workout Relations
-  workouts        WorkoutSession[] @relation("UserWorkouts")
-  partnerWorkouts WorkoutSession[] @relation("PartnerWorkouts")
+  workouts            WorkoutSession[] @relation("UserWorkouts")
+  partnerWorkouts     WorkoutSession[] @relation("PartnerWorkouts")
 
   // --- Hopin Plans ---
-  plansCreated    Plan[]           @relation("PlanCreator")
-  planMemberships PlanMember[]
-  moderationLogs  ModerationLog[]
-  reportsMade     Report[]         @relation("Reporter")
-  reportsReceived Report[]         @relation("ReportedUser") // New relation
-  reactions       Reaction[]
+  plansCreated     Plan[]            @relation("PlanCreator")
+  planMemberships  PlanMember[]
+  moderationLogs   ModerationLog[]
+  reportsMade      Report[]          @relation("Reporter")
+  reportsReceived  Report[]          @relation("ReportedUser") // New relation
+  reactions        Reaction[]
   commentReactions CommentReaction[]
-  reactionBubbles ReactionBubble[]
+  reactionBubbles  ReactionBubble[]
 
   // Moderation
   isBanned  Boolean @default(false)
@@ -190,7 +190,6 @@ model User {
   accessRequestsSent     ProfileAccessRequest[] @relation("AccessRequestsSent")
   accessRequestsReceived ProfileAccessRequest[] @relation("AccessRequestsReceived")
 
-
   // --- Human Verification ---
   isHumanVerified       Boolean   @default(false)
   humanVerifiedAt       DateTime?
@@ -199,31 +198,35 @@ model User {
   // --- Privacy Settings ---
   profileCardPrivacy String @default("PUBLIC") // PUBLIC | FOLLOWERS | PRIVATE | SELECTED
   stalkMePrivacy     String @default("PUBLIC") // PUBLIC | FOLLOWERS | PRIVATE | SELECTED
-  
+
   privacyAllowlist PrivacyAllowlist[] @relation("PrivacyOwner")
   privacyAllowedIn PrivacyAllowlist[] @relation("PrivacyViewer")
+
+  // --- Audio System ---
+  audioAssets     AudioAsset[]     @relation("AudioCreator")
+  deletedMessages DeletedMessage[]
 }
 
 model FeedItem {
-  id        String   @id @default(cuid())
-  userId    String
-  postId    String
-  
+  id     String @id @default(cuid())
+  userId String
+  postId String
+
   // Denormalized Data for Zero-Join Reads
   authorName      String?
   authorAvatarUrl String?
   postType        String
   feature         String
   contentSnippet  String?
-  
+
   // Media Previews (JSON array of { type, url, aspect })
-  mediaPreviews   String? 
-  
+  mediaPreviews String?
+
   // Engagement Counts
-  likeCount     Int @default(0)
-  commentCount  Int @default(0)
-  shareCount    Int @default(0)
-  
+  likeCount    Int @default(0)
+  commentCount Int @default(0)
+  shareCount   Int @default(0)
+
   createdAt DateTime
   updatedAt DateTime @updatedAt
 
@@ -235,7 +238,6 @@ model FeedItem {
   @@index([postType])
 }
 
-
 model Todo {
   id        String   @id @default(cuid())
   userId    String
@@ -244,8 +246,8 @@ model Todo {
   priority  String   @default("MEDIUM")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
@@ -294,61 +296,60 @@ model Subscription {
 }
 
 model Plan {
-  id          String   @id @default(cuid())
+  id          String  @id @default(cuid())
   title       String
   description String?
   creatorId   String
-  
+
   // New Fields
-  type          String   @default("SOLO") // SOLO | COMMUNITY
-  location      String?  // Text description or JSON coordinates
-  locationLink  String?  // Google Maps link
+  type             String  @default("SOLO") // SOLO | COMMUNITY
+  location         String? // Text description or JSON coordinates
+  locationLink     String? // Google Maps link
   isLocationLocked Boolean @default(false)
-  
-  latitude      Float?
-  longitude     Float?
-  visibility    String   @default("PRIVATE") // PRIVATE | FOLLOWERS | PUBLIC
-  
-  date          DateTime?
-  maxSize       Int?     
-  mediaUrls     String?  // JSON array of image/video URLs
-  slashes       String?  // JSON array of tags (e.g. #nightout)
-  status        String   @default("OPEN") // OPEN | FULL | COMPLETED | CANCELLED
-  
-  posts         Post[]   @relation("CommunityPosts") // Community posts for the plan
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  latitude   Float?
+  longitude  Float?
+  visibility String @default("PRIVATE") // PRIVATE | FOLLOWERS | PUBLIC
 
-  creator User         @relation("PlanCreator", fields: [creatorId], references: [id], onDelete: Cascade)
-  members PlanMember[]
+  date      DateTime?
+  maxSize   Int?
+  mediaUrls String? // JSON array of image/video URLs
+  slashes   String? // JSON array of tags (e.g. #nightout)
+  status    String    @default("OPEN") // OPEN | FULL | COMPLETED | CANCELLED
+
+  posts Post[] @relation("CommunityPosts") // Community posts for the plan
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  creator   User             @relation("PlanCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  members   PlanMember[]
   waypoints PlanWaypoint[]
-  workouts WorkoutSession[] @relation("PlanWorkouts")
-
+  workouts  WorkoutSession[] @relation("PlanWorkouts")
 
   @@index([creatorId])
   @@index([date])
 }
 
 model PlanWaypoint {
-  id        String   @id @default(cuid())
+  id        String  @id @default(cuid())
   planId    String
   latitude  Float
   longitude Float
-  order     Int      @default(0)
+  order     Int     @default(0)
   name      String?
-  
-  plan      Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
 
   @@index([planId])
 }
 
 model PlanMember {
-  id        String   @id @default(cuid())
-  planId    String
-  userId    String
-  status    String   @default("PENDING") // PENDING, ACCEPTED, REJECTED, INTERESTED
-  
+  id     String @id @default(cuid())
+  planId String
+  userId String
+  status String @default("PENDING") // PENDING, ACCEPTED, REJECTED, INTERESTED
+
   // Verification
   verificationCode String? // 7-digit code generated on ACCEPTED
   qrCodeUrl        String? // URL to QR code image (or generated on client)
@@ -399,23 +400,25 @@ model WorkoutPlan {
 }
 
 model Profile {
-  userId        String  @id
-  displayName   String?
-  avatarUrl     String?
-  bio           String?
-  location      String?
-  tags          String?
-  coverVideoUrl String?
-  coverImageUrl String?
-  isPrivate     Boolean @default(false)
+  userId              String  @id
+  displayName         String?
+  avatarUrl           String?
+  bio                 String?
+  location            String?
+  tags                String?
+  coverVideoUrl       String?
+  coverImageUrl       String?
+  isPrivate           Boolean @default(false)
+  publicKey           String? // Base64 public key for E2EE
+  encryptedPrivateKey String? // Encrypted master private key (wrapped with PIN)
 
   // -- Basics --
   dob                 DateTime? // <--- Replaced 'age'
-  gender              String?   // User's gender
+  gender              String? // User's gender
   height              String? // e.g. "5'10" or "178cm"
   weight              String? // e.g. "70kg"
   city                String?
-  isOpenToWorkout     Boolean @default(false) // Toggle for Gym Pal suggestions
+  isOpenToWorkout     Boolean   @default(false) // Toggle for Gym Pal suggestions
   interactionMode     String?
   conversationStarter String?
 
@@ -534,18 +537,17 @@ model Post {
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
-  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  group    Group?        @relation(fields: [groupId], references: [id], onDelete: SetNull)
-  plan     Plan?         @relation("CommunityPosts", fields: [planId], references: [id], onDelete: SetNull)
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group     Group?        @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  plan      Plan?         @relation("CommunityPosts", fields: [planId], references: [id], onDelete: SetNull)
   // media    Media[] // Removed in favor of PostMedia
   postMedia PostMedia[]
   feedItems FeedItem[]
-  likes    PostLike[]
-  comments PostComment[]
+  likes     PostLike[]
+  comments  PostComment[]
 
-  shares PostShare[]
-  sharedInMessages Message[] @relation("SharedPost")
-
+  shares           PostShare[]
+  sharedInMessages Message[]   @relation("SharedPost")
 
   reports Report[]
 
@@ -573,7 +575,7 @@ model Post {
   hiddenPosts HiddenPost[]
 
   // New Slashes Relation
-  slashes     Slash[]
+  slashes Slash[]
 
   // Metrics
   impressions Int @default(0)
@@ -582,6 +584,10 @@ model Post {
 
   taggedProductId String?
   taggedProduct   Product? @relation("PostTaggedProduct", fields: [taggedProductId], references: [id], onDelete: SetNull)
+
+  // Audio System
+  originalAudioAsset AudioAsset?  @relation("OriginalAudioPost")
+  audioUsages        AudioUsage[]
 
   @@index([postType])
   @@index([createdAt])
@@ -593,8 +599,8 @@ model Slash {
   id        String   @id @default(cuid())
   tag       String   @unique
   createdAt DateTime @default(now())
-  
-  posts     Post[]
+
+  posts Post[]
 
   @@index([tag])
 }
@@ -613,7 +619,6 @@ model PostLike {
   @@index([userId])
 }
 
-
 model PostComment {
   id        String   @id @default(cuid())
   userId    String
@@ -622,9 +627,9 @@ model PostComment {
   createdAt DateTime @default(now())
 
   // Reply Handling
-  parentId  String?
-  parent    PostComment? @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
-  replies   PostComment[] @relation("CommentReplies")
+  parentId String?
+  parent   PostComment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies  PostComment[] @relation("CommentReplies")
 
   post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -635,7 +640,6 @@ model PostComment {
   @@index([userId])
   @@index([parentId])
 }
-
 
 model PostShare {
   id        String   @id @default(cuid())
@@ -750,36 +754,36 @@ model ReactionBubble {
 }
 
 model Media {
-  id        String   @id @default(cuid())
-  userId    String
-  
+  id     String @id @default(cuid())
+  userId String
+
   // Unified Media Type
-  type      String   // IMAGE | VIDEO | AUDIO
-  url       String
-  variant   String?  // thumbnail, xray-top, xray-bottom, standard
-  
+  type    String // IMAGE | VIDEO | AUDIO
+  url     String
+  variant String? // thumbnail, xray-top, xray-bottom, standard
+
   // Metadata
-  mimeType  String?
-  size      Int?     // bytes
-  width     Int?
-  height    Int?
-  duration  Int?     // seconds
-  
+  mimeType String?
+  size     Int? // bytes
+  width    Int?
+  height   Int?
+  duration Int? // seconds
+
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   // Relations
   postMedia PostMedia[]
 }
 
 model PostMedia {
-  id        String   @id @default(cuid())
-  postId    String
-  mediaId   String
-  
-  orderIndex Int     @default(0)
-  
+  id      String @id @default(cuid())
+  postId  String
+  mediaId String
+
+  orderIndex Int @default(0)
+
   post  Post  @relation(fields: [postId], references: [id], onDelete: Cascade)
   media Media @relation(fields: [mediaId], references: [id], onDelete: Cascade)
 
@@ -829,14 +833,14 @@ model ChapterAccessRequest {
 
 // Xrays - 2-layer interactive scratch posts
 model Xray {
-  id              String   @id @default(cuid())
-  postId          String   @unique
+  id             String   @id @default(cuid())
+  postId         String   @unique
   // URLs moved to Media table via PostMedia
   // topLayer -> variant: 'xray-top'
   // bottomLayer -> variant: 'xray-bottom'
-  scratchPattern  String   @default("RANDOM") // RANDOM | GRID | CUSTOM
-  revealPercent   Int      @default(0) // Percentage revealed (for analytics)
-  createdAt       DateTime @default(now())
+  scratchPattern String   @default("RANDOM") // RANDOM | GRID | CUSTOM
+  revealPercent  Int      @default(0) // Percentage revealed (for analytics)
+  createdAt      DateTime @default(now())
 
   post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
 
@@ -845,11 +849,11 @@ model Xray {
 
 // Simple Post - Instagram style (up to 8 media items)
 model SimplePost {
-  id         String   @id @default(cuid())
-  postId     String   @unique
+  id        String   @id @default(cuid())
+  postId    String   @unique
   // Media handled by PostMedia
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
 
@@ -1407,15 +1411,15 @@ model Reminder {
 // ------------------------
 
 model Conversation {
-  id            String    @id @default(cuid())
-  participantA  String // userId of participant A
-  participantB  String // userId of participant B
-  lastMessage   String?
-  lastMessageAt DateTime?
-  wallpaperUrl  String?   // Shared wallpaper for both users
-  messageRetention String @default("immediately") // 'immediately' | '1day'
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id               String    @id @default(cuid())
+  participantA     String // userId of participant A
+  participantB     String // userId of participant B
+  lastMessage      String?
+  lastMessageAt    DateTime?
+  wallpaperUrl     String? // Shared wallpaper for both users
+  messageRetention String    @default("immediately") // 'immediately' | '1day'
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   userA                User                  @relation("ConversationA", fields: [participantA], references: [id], onDelete: Cascade)
   userB                User                  @relation("ConversationB", fields: [participantB], references: [id], onDelete: Cascade)
@@ -1440,10 +1444,10 @@ model ConversationState {
   isMuted        Boolean   @default(false)
   isGhosted      Boolean   @default(false)
   isPinned       Boolean   @default(false)
-  isHidden       Boolean   @default(false)  // Hide from chat list
-  isLocked       Boolean   @default(false)  // Require auth to view
+  isHidden       Boolean   @default(false) // Hide from chat list
+  isLocked       Boolean   @default(false) // Require auth to view
   pinnedAt       DateTime?
-  nickname       String?   // User-specific nickname for the other participant
+  nickname       String? // User-specific nickname for the other participant
   lastDeletedAt  DateTime? // To hide messages before this date if "deleted"
   lastExitedAt   DateTime? // Track when user last exited the chat for retention
   createdAt      DateTime  @default(now())
@@ -1458,11 +1462,11 @@ model ConversationState {
 }
 
 model BlockedUser {
-  id          String   @id @default(cuid())
-  blockerId   String
-  blockedId   String
-  reason      String?
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  blockerId String
+  blockedId String
+  reason    String?
+  createdAt DateTime @default(now())
 
   blocker User @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
   blocked User @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
@@ -1472,31 +1476,48 @@ model BlockedUser {
 }
 
 model Message {
-  id             String    @id @default(cuid())
-  conversationId String
-  senderId       String
-  content        String
-  type           String    @default("text") // text, image, video, audio
-  mediaUrl       String?
-  readAt         DateTime?
-  isSaved        Boolean   @default(false) // Protected from retention-based deletion
-  createdAt      DateTime  @default(now())
+  id              String           @id @default(cuid())
+  conversationId  String
+  senderId        String
+  content         String
+  type            String           @default("text") // text, image, video, audio
+  mediaUrl        String?
+  readAt          DateTime?
+  isSaved         Boolean          @default(false) // Protected from retention-based deletion
+  isEdited        Boolean          @default(false)
+  isDeleted       Boolean          @default(false)
+  deletedMessages DeletedMessage[]
+  createdAt       DateTime         @default(now())
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender       User         @relation("MessagesSent", fields: [senderId], references: [id], onDelete: Cascade)
-  tags         String[]  @default([])
+  tags         String[]     @default([])
   messageTags  MessageTag[]
 
   // Shared Post
   sharedPostId String?
-  sharedPost   Post?     @relation("SharedPost", fields: [sharedPostId], references: [id], onDelete: SetNull)
+  sharedPost   Post?   @relation("SharedPost", fields: [sharedPostId], references: [id], onDelete: SetNull)
 
   // Triggers referencing this message
-  triggers     Trigger[]
+  triggers Trigger[]
 
   @@index([conversationId])
   @@index([senderId])
   @@index([createdAt])
+}
+
+model DeletedMessage {
+  id        String   @id @default(cuid())
+  userId    String
+  messageId String
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, messageId])
+  @@index([userId])
+  @@index([messageId])
 }
 
 model MessageTag {
@@ -1517,8 +1538,8 @@ model MessageTag {
 model TriggerCollection {
   id        String   @id @default(cuid())
   userId    String
-  name      String   // Collection name (e.g., "Sensitive Topics")
-  keyword   String?  // Optional keyword for slash command
+  name      String // Collection name (e.g., "Sensitive Topics")
+  keyword   String? // Optional keyword for slash command
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1533,11 +1554,11 @@ model TriggerCollection {
 model Trigger {
   id             String   @id @default(cuid())
   collectionId   String
-  messageId      String   // Original message
-  selectedText   String   // Full message or selected portion
-  targetUser     String   // 'self' | 'other' | 'both'
-  conditionType  String   // 'exact_match' | 'keyword'
-  warningMessage String?  // Custom warning text
+  messageId      String // Original message
+  selectedText   String // Full message or selected portion
+  targetUser     String // 'self' | 'other' | 'both'
+  conditionType  String // 'exact_match' | 'keyword'
+  warningMessage String? // Custom warning text
   isActive       Boolean  @default(true)
   createdAt      DateTime @default(now())
 
@@ -1592,15 +1613,15 @@ model FeatureSession {
   updatedAt      DateTime @updatedAt
 
   // Collaboration features
-  canvasData      String? // JSON: blocks, drawing state
-  
+  canvasData String? // JSON: blocks, drawing state
+
   // Hopin / Plan fields
-  latitude        Float?
-  longitude       Float?
-  location        String?
-  visibility      String   @default("PRIVATE") // PRIVATE | FOLLOWERS | PUBLIC
-  tags            String?  // JSON array of strings
-  
+  latitude   Float?
+  longitude  Float?
+  location   String?
+  visibility String  @default("PRIVATE") // PRIVATE | FOLLOWERS | PUBLIC
+  tags       String? // JSON array of strings
+
   autoSaveEnabled Boolean   @default(true)
   lastSavedAt     DateTime?
   lastModifiedBy  String?
@@ -1674,7 +1695,6 @@ model CollaborationUpdate {
   @@index([userId])
 }
 
-
 // ------------------------
 // Wrex (Grounding) Features
 // ------------------------
@@ -1686,7 +1706,7 @@ model StressMapEntry {
   region    String
   x         Float
   y         Float
-  z         Float?    @default(0)
+  z         Float?   @default(0)
   intensity Int
   quality   String
   note      String?
@@ -1698,55 +1718,53 @@ model StressMapEntry {
   @@index([createdAt])
 }
 
-
-
 model WorkoutSession {
-  id          String   @id @default(cuid())
-  userId      String
-  name        String
-  date        DateTime @default(now())
-  completed   Boolean  @default(false)
-  exercises   WorkoutExercise[] 
-  partnerId   String?
-  planId      String?
-  calories    Int?     @default(0)
+  id        String            @id @default(cuid())
+  userId    String
+  name      String
+  date      DateTime          @default(now())
+  completed Boolean           @default(false)
+  exercises WorkoutExercise[]
+  partnerId String?
+  planId    String?
+  calories  Int?              @default(0)
 
-  user    User      @relation("UserWorkouts", fields: [userId], references: [id], onDelete: Cascade)
-  partner User?     @relation("PartnerWorkouts", fields: [partnerId], references: [id], onDelete: SetNull)
-  plan    Plan?     @relation("PlanWorkouts", fields: [planId], references: [id], onDelete: SetNull)
+  user    User  @relation("UserWorkouts", fields: [userId], references: [id], onDelete: Cascade)
+  partner User? @relation("PartnerWorkouts", fields: [partnerId], references: [id], onDelete: SetNull)
+  plan    Plan? @relation("PlanWorkouts", fields: [planId], references: [id], onDelete: SetNull)
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId])
   @@index([date])
 }
 
 model WorkoutExercise {
-  id        String   @id @default(cuid())
+  id        String       @id @default(cuid())
   sessionId String
   name      String
-  order     Int      @default(0)
+  order     Int          @default(0)
   sets      WorkoutSet[]
-  
-  session   WorkoutSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  session WorkoutSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@index([sessionId])
 }
 
 model WorkoutSet {
-  id         String   @id @default(cuid())
+  id         String @id @default(cuid())
   exerciseId String
-  
-  reps       Int
-  weight     Float?
-  restSeconds Int     @default(60)
+
+  reps        Int
+  weight      Float?
+  restSeconds Int    @default(60)
 
   // Status for each user (if partner workout)
-  completed  Boolean  @default(false)
+  completed          Boolean @default(false)
   completedByPartner Boolean @default(false)
 
-  exercise   WorkoutExercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  exercise WorkoutExercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
 
   @@index([exerciseId])
 }
@@ -1883,7 +1901,7 @@ model Product {
   discountPercent Int? // 0-100
   stock           Int     @default(0)
   category        String? // CLOTHING, ELECTRONICS, ACCESSORIES, etc.
-  uniqueCode      String   @unique @default(cuid())
+  uniqueCode      String  @unique @default(cuid())
 
   // New fields for Digital Marketplace
   type             String   @default("PHYSICAL") // PHYSICAL, COURSE, EBOOK, DIGITAL_ASSET, TEMPLATE, HOPIN_PLAN
@@ -2324,7 +2342,7 @@ model AIChatMessage {
 model ProfileCard {
   id         String   @id @default(cuid())
   userId     String   @unique
-  uniqueCode      String   @unique @default(cuid()) // 7-digit alphanumeric code
+  uniqueCode String   @unique @default(cuid()) // 7-digit alphanumeric code
   content    String // JSON: stores sections, questions, and answers
   theme      String? // e.g. "dark", "glass", "sunset"
   createdAt  DateTime @default(now())
@@ -2336,13 +2354,13 @@ model ProfileCard {
 }
 
 model ProfileAccessRequest {
-  id          String    @id @default(cuid())
-  requesterId String
+  id           String    @id @default(cuid())
+  requesterId  String
   targetUserId String
-  fields      String?   // JSON array of fields requested, or 'all'
-  status      String    @default("PENDING") // PENDING, APPROVED, DENIED
-  createdAt   DateTime  @default(now())
-  respondedAt DateTime?
+  fields       String? // JSON array of fields requested, or 'all'
+  status       String    @default("PENDING") // PENDING, APPROVED, DENIED
+  createdAt    DateTime  @default(now())
+  respondedAt  DateTime?
 
   requester User @relation("AccessRequestsSent", fields: [requesterId], references: [id], onDelete: Cascade)
   target    User @relation("AccessRequestsReceived", fields: [targetUserId], references: [id], onDelete: Cascade)
@@ -2397,23 +2415,21 @@ model PostTag {
 }
 
 model BiometricLog {
-  id          String   @id @default(cuid())
-  userId      String
-  date        DateTime @default(now())
-  weight      Float?
-  heartRate   Int?
-  sleepHours  Float?
-  hydration   Int?     // ml
-  mood        String?  // 'great' | 'good' | 'meh' | 'bad' | 'terrible'
-  createdAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  userId     String
+  date       DateTime @default(now())
+  weight     Float?
+  heartRate  Int?
+  sleepHours Float?
+  hydration  Int? // ml
+  mood       String? // 'great' | 'good' | 'meh' | 'bad' | 'terrible'
+  createdAt  DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
 
   @@index([userId])
   @@index([date])
 }
-
 
 model NutritionLog {
   id        String   @id @default(cuid())
@@ -2427,6 +2443,7 @@ model NutritionLog {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
   @@index([date])
 }
@@ -2441,6 +2458,7 @@ model SavedFood {
   fats      Int
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId])
 }
 
@@ -2449,13 +2467,13 @@ model SavedFood {
 // ========================
 
 model UserEmbedding {
-  userId         String   @id
-  vector         String?  
-  slashScores    String?  
-  profileTags    String?
-  activeHours    String?
-  contentPrefs   String?
-  updatedAt      DateTime @updatedAt
+  userId       String   @id
+  vector       String?
+  slashScores  String?
+  profileTags  String?
+  activeHours  String?
+  contentPrefs String?
+  updatedAt    DateTime @updatedAt
 }
 
 model SlashInteraction {
@@ -2476,8 +2494,8 @@ model SlashInteraction {
 
 model ContentEmbedding {
   contentId   String   @id
-  contentType String   
-  vector      String?  
+  contentType String
+  vector      String?
   slashes     String?
   wCount      Int      @default(0)
   lCount      Int      @default(0)
@@ -2495,11 +2513,11 @@ model RecoFeedback {
   id          String   @id @default(cuid())
   userId      String
   contentId   String
-  contentType String   
-  action      String   
-  score       Float    
-  slashes     String?  
-  source      String?  
+  contentType String
+  action      String
+  score       Float
+  slashes     String?
+  source      String?
   createdAt   DateTime @default(now())
 
   @@index([userId])
@@ -2512,11 +2530,11 @@ model VerificationCode {
   id        String   @id @default(cuid())
   email     String
   code      String
-  type      String   // SIGNUP, RECOVERY
+  type      String // SIGNUP, RECOVERY
   expiresAt DateTime
-  metadata  Json?    // Stores temporary data like name, password hash, etc.
+  metadata  Json? // Stores temporary data like name, password hash, etc.
   createdAt DateTime @default(now())
-  
+
   @@index([email, code])
 }
 
@@ -2549,4 +2567,123 @@ model ProductWishlist {
   @@index([productId])
 }
 
+// ========================
+// Audio System
+// ========================
 
+model AudioAsset {
+  id                String  @id @default(cuid())
+  originalCreatorId String
+  originalPostId    String? @unique
+
+  // Audio Metadata
+  title           String?
+  attributionText String? // "Original audio by @username"
+  duration        Int // Duration in seconds
+  genre           String?
+
+  // Media Files
+  audioUrl      String
+  waveformData  String? // JSON array of amplitude values for visualization
+  coverImageUrl String?
+
+  // Usage & Discovery
+  usageCount Int     @default(0)
+  isReusable Boolean @default(true)
+  isOriginal Boolean @default(true)
+
+  // Moderation
+  status           String  @default("ACTIVE") // ACTIVE | MUTED | REMOVED
+  moderationReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  originalCreator User               @relation("AudioCreator", fields: [originalCreatorId], references: [id], onDelete: Cascade)
+  originalPost    Post?              @relation("OriginalAudioPost", fields: [originalPostId], references: [id], onDelete: SetNull)
+  usages          AudioUsage[]
+  reports         AudioReport[]
+  fingerprints    AudioFingerprint[]
+
+  @@index([originalCreatorId])
+  @@index([usageCount])
+  @@index([status])
+  @@index([createdAt])
+  @@index([title])
+  @@index([genre])
+}
+
+model AudioFingerprint {
+  id           String @id @default(cuid())
+  audioAssetId String
+
+  // Advanced Fingerprinting Data
+  spectrogramHash String // Hash of spectrogram data
+  frequencyPeaks  String // JSON array of frequency peak positions
+  chromaFeatures  String? // JSON array of chroma/pitch class features
+  mfccData        String? // JSON - Mel-frequency cepstral coefficients
+  tempoSignature  Float? // BPM
+  keySignature    String? // Musical key (e.g., "C major", "A minor")
+
+  // Chunk data for partial matching
+  chunkIndex    Int @default(0)
+  chunkDuration Int @default(5) // Duration of this chunk in seconds
+
+  version   String   @default("v1")
+  createdAt DateTime @default(now())
+
+  audioAsset AudioAsset @relation(fields: [audioAssetId], references: [id], onDelete: Cascade)
+
+  @@index([audioAssetId])
+  @@index([spectrogramHash])
+  @@index([tempoSignature])
+}
+
+model AudioUsage {
+  id           String @id @default(cuid())
+  audioAssetId String
+  postId       String
+
+  // Trim settings
+  startTime Int  @default(0) // Start time in seconds
+  endTime   Int? // End time in seconds (null = full duration)
+
+  // Volume Control (0.0 to 1.0)
+  volume Float @default(1.0)
+
+  // Track ordering for multiple audio
+  trackOrder Int @default(0)
+
+  // Video audio settings (for the post this audio is attached to)
+  videoVolume Float   @default(1.0) // Volume of original video audio
+  isMuted     Boolean @default(false) // Mute original video audio
+
+  createdAt DateTime @default(now())
+
+  audioAsset AudioAsset @relation(fields: [audioAssetId], references: [id], onDelete: Cascade)
+  post       Post       @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, trackOrder])
+  @@index([audioAssetId])
+  @@index([postId])
+}
+
+model AudioReport {
+  id           String   @id @default(cuid())
+  audioAssetId String
+  reporterId   String
+  reason       String // DUPLICATE | INAPPROPRIATE | COPYRIGHT | SPAM | OTHER
+  details      String?
+  status       String   @default("PENDING") // PENDING | RESOLVED | DISMISSED
+  adminNotes   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  audioAsset AudioAsset @relation(fields: [audioAssetId], references: [id], onDelete: Cascade)
+
+  @@index([audioAssetId])
+  @@index([reporterId])
+  @@index([status])
+  @@index([createdAt])
+}

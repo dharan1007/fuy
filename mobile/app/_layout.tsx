@@ -7,6 +7,8 @@ import { AuthProvider, useAuth } from '../context/AuthContext';
 import { useEffect, useState } from 'react';
 import { View, ActivityIndicator, Text, TextInput } from 'react-native';
 import ThemeToggle from '../components/ThemeToggle';
+import PinModal from '../components/PinModal';
+import { useEncryption } from '../context/EncryptionContext';
 
 // Fix font scaling issues
 interface TextWithDefaultProps extends Text {
@@ -33,12 +35,15 @@ const MainLayout = () => {
     const router = useRouter();
 
     const [isRegionAllowed, setIsRegionAllowed] = useState(true);
+    const { isLocked, hasKeys, isLoading: encryptLoading } = useEncryption();
 
     useEffect(() => {
         const checkRegion = () => {
-            // TODO: Re-enable region check after rebuilding native client with expo-localization
-            // const { getLocales } = require('expo-localization');
-            // ... logic commented out to prevent execution errors
+            // CRITICAL FIX: The native module 'ExpoLocalization' is missing in the current client.
+            // Loading it causes a crash even inside try-catch in some environments.
+            // We are disabling the check temporarily to allow the app to function.
+            // TODO: To enable region check, run 'npx expo run:android' to rebuild the native app with the new libraries.
+            console.log("Region check bypassed: Native module missing. defaulting to allowed.");
             setIsRegionAllowed(true);
         };
         checkRegion();
@@ -84,19 +89,37 @@ const MainLayout = () => {
         );
     }
 
+
+
+    // ...
+
     const segs = segments as string[];
     const isHome = (segs.length === 0) ||
         (segs.includes('(tabs)') && (segs.length === 1 || segs[1] === 'index'));
+
+    // E2EE Logic
+    // const { isLocked, hasKeys, isLoading: encryptLoading } = useEncryption(); // Moved up
+    const showPinModal = !!session && !loading && !encryptLoading;
 
     return (
         <View className="flex-1 relative">
             <StatusBar style={mode === 'light' ? 'dark' : 'light'} />
             <Slot />
+
+            {showPinModal && (
+                <PinModal
+                    visible={!hasKeys || isLocked}
+                    mode={!hasKeys ? 'setup' : 'unlock'}
+                // No onClose implies mandatory (cannot use app without unlocking)
+                />
+            )}
         </View>
     );
 };
 
 import { ToastProvider } from '../context/ToastContext';
+import { NotificationProvider } from '../context/NotificationContext';
+import { EncryptionProvider } from '../context/EncryptionContext';
 
 // ... (existing code)
 
@@ -105,9 +128,13 @@ export default function RootLayout() {
         <GestureHandlerRootView style={{ flex: 1 }}>
             <AuthProvider>
                 <ThemeProvider>
-                    <ToastProvider>
-                        <MainLayout />
-                    </ToastProvider>
+                    <EncryptionProvider>
+                        <NotificationProvider>
+                            <ToastProvider>
+                                <MainLayout />
+                            </ToastProvider>
+                        </NotificationProvider>
+                    </EncryptionProvider>
                 </ThemeProvider>
             </AuthProvider>
         </GestureHandlerRootView>

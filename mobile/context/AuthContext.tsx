@@ -24,23 +24,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
         const loadSession = async () => {
             try {
-                // Race between getSession and a timeout
-                // If getSession hangs (e.g. storage issue), we don't want to block the app forever.
-                const timeoutPromise = new Promise<{ data: { session: null } }>((resolve) => {
-                    setTimeout(() => resolve({ data: { session: null } }), 3000);
-                });
+                const { data: { session }, error } = await supabase.auth.getSession();
 
-                const sessionPromise = supabase.auth.getSession();
-
-                const { data: { session } } = await Promise.race([
-                    sessionPromise,
-                    timeoutPromise
-                ]) as any;
+                if (error) {
+                    console.error('Error fetching session:', error);
+                }
 
                 if (mounted) {
-                    if (session) {
-                        setSession(session);
-                    }
+                    setSession(session);
                 }
             } catch (e) {
                 console.error('Auth load error:', e);
@@ -55,7 +46,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
             if (mounted) {
                 setSession(session);
-                // Ensure loading is false on auth change
+                // Ensure loading is false on auth change or sign out
                 setLoading(false);
             }
         });

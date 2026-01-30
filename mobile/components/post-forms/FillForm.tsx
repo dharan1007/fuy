@@ -4,11 +4,26 @@ import * as ImagePicker from 'expo-image-picker';
 import { Video, ResizeMode } from 'expo-av';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import { X, ArrowLeft, Globe, Users, Lock, Film, Play, Slash, Plus } from 'lucide-react-native';
+import { X, ArrowLeft, Globe, Users, Lock, Film, Play, Slash, Plus, Music } from 'lucide-react-native';
 import { MediaUploadService } from '../../services/MediaUploadService';
 import { supabase } from '../../lib/supabase';
 import { analyzeImageForNudity, NudityAnalysisResult } from '../../lib/nudity-detection';
 import NudityWarningModal from '../NudityWarningModal';
+import AudioTrackManager from '../audio/AudioTrackManager';
+
+interface AudioTrack {
+    id: string;
+    audioAssetId: string;
+    title: string;
+    audioUrl: string;
+    waveformData: number[];
+    duration: number;
+    startTime: number;
+    endTime: number;
+    volume: number;
+    attributionText: string;
+    coverImageUrl?: string;
+}
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org';
 const { width } = Dimensions.get('window');
@@ -28,6 +43,12 @@ export default function FillForm({ onBack }: FillFormProps) {
     const [uploadProgress, setUploadProgress] = useState(0);
     const [slashes, setSlashes] = useState<string[]>([]);
     const [slashInput, setSlashInput] = useState('');
+
+    // Audio state
+    const [audioTracks, setAudioTracks] = useState<AudioTrack[]>([]);
+    const [videoVolume, setVideoVolume] = useState(1.0);
+    const [isVideoMuted, setIsVideoMuted] = useState(false);
+    const [showAudioSection, setShowAudioSection] = useState(false);
 
     // Nudity detection state
     const [nudityResult, setNudityResult] = useState<NudityAnalysisResult | null>(null);
@@ -289,6 +310,40 @@ export default function FillForm({ onBack }: FillFormProps) {
                             </View>
                         ))}
                     </View>
+                )}
+            </View>
+
+            {/* Audio Section */}
+            <View style={{ marginBottom: 24 }}>
+                <Text style={{ color: 'rgba(255,255,255,0.5)', marginBottom: 12, fontWeight: '600', fontSize: 11, letterSpacing: 1 }}>AUDIO</Text>
+                {!showAudioSection ? (
+                    <TouchableOpacity
+                        onPress={() => setShowAudioSection(true)}
+                        style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 8,
+                            padding: 16,
+                            backgroundColor: 'rgba(255,255,255,0.05)',
+                            borderRadius: 12,
+                            borderWidth: 1,
+                            borderColor: 'rgba(255,255,255,0.1)',
+                        }}
+                    >
+                        <Music size={18} color="rgba(255,255,255,0.6)" />
+                        <Text style={{ color: 'rgba(255,255,255,0.6)', fontWeight: '600', fontSize: 13 }}>Add Audio Track</Text>
+                    </TouchableOpacity>
+                ) : (
+                    <AudioTrackManager
+                        tracks={audioTracks}
+                        onTracksChange={setAudioTracks}
+                        videoVolume={videoVolume}
+                        isVideoMuted={isVideoMuted}
+                        onVideoVolumeChange={setVideoVolume}
+                        onVideoMuteToggle={() => setIsVideoMuted(!isVideoMuted)}
+                        maxTracks={5}
+                    />
                 )}
             </View>
 

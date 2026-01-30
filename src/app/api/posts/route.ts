@@ -204,7 +204,7 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(Number(searchParams.get("limit")) || 20, 50);
 
   const where: any = {
-    postType: { not: "STORY" }
+    postType: { notIn: ["STORY", "STANDARD"] }
   };
 
   // --- Scope Filtering on FeedItem ---

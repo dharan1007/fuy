@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, TextInput, ScrollView, TouchableOpacity, Image, Modal, Animated, Dimensions, FlatList, ActivityIndicator, Alert, BackHandler, KeyboardAvoidingView, Platform, Keyboard, StatusBar, ImageBackground } from 'react-native';
+import { View, Text, TextInput, ScrollView, TouchableOpacity, Image, Modal, Animated, Dimensions, FlatList, ActivityIndicator, Alert, AlertButton, BackHandler, KeyboardAvoidingView, Platform, Keyboard, StatusBar, ImageBackground } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useNavigation, useFocusEffect } from 'expo-router';
@@ -13,6 +13,8 @@ import { supabase } from '../../lib/supabase';
 import { useNavVisibility } from '../../context/NavContext';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
+import { useEncryption } from '../../context/EncryptionContext';
+import { encryptMessage, decryptMessage } from '../../lib/encryption';
 
 import { MediaUploadService } from '../../services/MediaUploadService';
 import { uploadToR2 } from '../../lib/upload';
@@ -41,6 +43,8 @@ interface Message {
     isSaved?: boolean;
     tags?: string[];
     isEdited?: boolean;
+    isDeleted?: boolean;
+    deletedBy?: string[];
     updatedAt?: string;
 }
 
@@ -58,6 +62,7 @@ interface ChatUser {
     conversationId?: string;
     isHidden?: boolean;
     isLocked?: boolean;
+    publicKey?: string;
 }
 
 // Swipeable Message Component
@@ -106,6 +111,7 @@ export default function ChatScreen() {
     const { session } = useAuth();
     const { setHideNav } = useNavVisibility();
     const currentUserId = session?.user?.id;
+    const { privateKey, publicKey: myPublicKey } = useEncryption();
 
     const [selectedUser, setSelectedUser] = useState<ChatUser | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
@@ -140,6 +146,10 @@ export default function ChatScreen() {
             if (json) setNicknames(JSON.parse(json));
         });
     }, []);
+
+    const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+    const [selectedMessageToDelete, setSelectedMessageToDelete] = useState<Message | null>(null);
+    const [isDeleteForEveryoneAvailable, setIsDeleteForEveryoneAvailable] = useState(false);
 
     const handleSaveNickname = async () => {
         if (!editUser) return;
@@ -522,8 +532,8 @@ export default function ChatScreen() {
                     lastMessageAt,
                     participantA,
                     participantB,
-                    userA:participantA ( id, name, lastSeen, followersCount, profile:Profile(avatarUrl, displayName) ),
-                    userB:participantB ( id, name, lastSeen, followersCount, profile:Profile(avatarUrl, displayName) )
+                    userA:participantA ( id, name, lastSeen, followersCount, profile:Profile(avatarUrl, displayName, publicKey) ),
+                    userB:participantB ( id, name, lastSeen, followersCount, profile:Profile(avatarUrl, displayName, publicKey) )
                 `)
                 .or(`participantA.eq.${currentUser.id},participantB.eq.${currentUser.id}`)
                 .order('lastMessageAt', { ascending: false });
@@ -562,7 +572,8 @@ export default function ChatScreen() {
                     lastSeen: partner.lastSeen,
                     followersCount: partner.followersCount || 0,
                     isPinned: pinnedIds.has(partner.id),
-                    conversationId: c.id
+                    conversationId: c.id,
+                    publicKey: partner.profile?.publicKey
                 };
             }).filter(Boolean).filter((u: any) => !blockedIds.has(u.id)) as ChatUser[];
 
@@ -856,24 +867,72 @@ export default function ChatScreen() {
                     sharedPost:Post!sharedPostId(id, content, postType, user:User(id, name, profile:Profile(displayName, avatarUrl)), postMedia:PostMedia(media:Media(url, type)))
                 `)
                 .eq('conversationId', conversationId)
+                .neq('isDeleted', true)
                 .order('createdAt', { ascending: true });
 
             if (error) throw error;
 
-            const fetchedMessages: Message[] = (messagesData || []).map((m: any) => ({
-                id: m.id,
-                conversationId: m.conversationId,
-                senderId: m.senderId,
-                content: m.content,
-                type: m.type,
-                mediaUrl: m.mediaUrl,
-                timestamp: new Date(m.createdAt).getTime(),
-                sender: m.senderId === user?.id ? 'me' : 'them',
-                role: (m.senderId === user?.id ? 'user' : 'assistant') as 'user' | 'assistant' | 'system',
-                isSaved: m.isSaved,
-                readAt: m.readAt,
-                tags: m.messageTags?.map((t: any) => t.tagType) || []
-            }));
+            // Fetch my deleted messages (soft deleted for me)
+            const { data: myDeletedData } = await supabase
+                .from('DeletedMessage')
+                .select('messageId')
+                .eq('userId', user.id);
+
+            const myDeletedIds = new Set((myDeletedData || []).map(d => d.messageId));
+
+            const fetchedMessages: Message[] = (messagesData || [])
+                .filter((m: any) => !myDeletedIds.has(m.id))
+                .map((m: any) => {
+                    let text = m.content;
+                    // Attempt Decryption
+                    if (text && text.startsWith('{') && text.includes('"c":') && privateKey) {
+                        try {
+                            const isMe = m.senderId === user.id;
+
+                            // For simple 1-on-1, the partner key is always selectedUser.publicKey
+                            // But fetchMessages is called after selectedUser is set?
+                            // Actually we might need to look it up if selectedUser isn't ready, but 
+                            // usually fetchMessages is called when chat is open.
+                            // HOWEVER: fetchMessages does not have access to selectedUser inside this map easily if it's stale?
+                            // We can use the sender's public key from the join for incoming messages.
+                            // For outgoing, we need to know who we sent it to.
+                            // Let's assume selectedUser is available and correct context.
+
+                            // Better: use the sender profile from query for incoming
+                            const senderPubKey = m.sender?.profile?.publicKey;
+                            // But if *I* sent it, m.sender is ME. I need the OTHER person's key.
+                            // We can fall back to selectedUser.publicKey (current chat partner).
+                            const otherKey = isMe ? selectedUser?.publicKey : (senderPubKey || selectedUser?.publicKey);
+
+                            if (otherKey && privateKey) {
+                                const parsed = JSON.parse(text);
+                                if (parsed.c && parsed.n) {
+                                    const decrypted = decryptMessage(
+                                        { ciphertext: parsed.c, nonce: parsed.n },
+                                        privateKey,
+                                        otherKey
+                                    );
+                                    if (decrypted) text = decrypted;
+                                }
+                            }
+                        } catch (e) { /* ignore JSON parse error */ }
+                    }
+
+                    return {
+                        id: m.id,
+                        conversationId: m.conversationId,
+                        senderId: m.senderId,
+                        content: text,
+                        type: m.type,
+                        mediaUrl: m.mediaUrl,
+                        timestamp: new Date(m.createdAt).getTime(),
+                        sender: m.senderId === user?.id ? 'me' : 'them',
+                        role: (m.senderId === user?.id ? 'user' : 'assistant') as 'user' | 'assistant' | 'system',
+                        isSaved: m.isSaved,
+                        readAt: m.readAt,
+                        tags: m.messageTags?.map((t: any) => t.tagType) || []
+                    };
+                });
 
             setMessages(fetchedMessages);
 
@@ -1020,7 +1079,7 @@ export default function ChatScreen() {
             .is('readAt', null)
             .select('id');
 
-        // If retention is 'immediately', delete messages that have been read by both parties
+        // If retention is 'immediately', delete messages that have been read by both parties - SOFT DELETE
         if (messageRetention === 'immediately') {
             // Find all messages where both parties have seen them
             // A message is "seen by both" if:
@@ -1034,9 +1093,9 @@ export default function ChatScreen() {
             if (allMessages && allMessages.length > 0) {
                 const messageIds = allMessages.map(m => m.id);
 
-                // Delete these messages from DB
+                // Soft Delete these messages from DB
                 await supabase.from('Message')
-                    .delete()
+                    .update({ isDeleted: true })
                     .in('id', messageIds);
 
                 // Remove from local state
@@ -1065,7 +1124,27 @@ export default function ChatScreen() {
         const timestamp = Date.now();
 
         let messageType: Message['type'] = type;
+
+        // E2EE Encryption
         let messageContent = content;
+        if (privateKey && selectedUser?.publicKey && type === 'text') {
+            try {
+                const encrypted = encryptMessage(content, privateKey, selectedUser.publicKey);
+                // Pack as JSON
+                messageContent = JSON.stringify({ c: encrypted.ciphertext, n: encrypted.nonce });
+            } catch (e) {
+                console.error("Encryption failed:", e);
+                Alert.alert("Security Error", "Could not encrypt message.");
+                return;
+            }
+        } else if (!privateKey && type === 'text') {
+            // Fallback or warning?
+            // If keys are missing, we might want to block sending or warn.
+            // For now, let's wrap in a warning logic or just send plain if that's the legacy behavior intended (but User asked for security).
+            // Given "Completely secure", let's ALERT if no keys.
+            Alert.alert("Secure Chat Locked", "Please unlock your secure wallet to send messages.");
+            return;
+        }
 
         // Handle Reply
         if (replyTo && type === 'text') {
@@ -1171,17 +1250,17 @@ export default function ChatScreen() {
                     .eq('id', conversationId)
                     .single();
 
-                // Handle retention cleanup
+                // Handle retention cleanup - SOFT DELETE
                 if (conv?.messageRetention === 'immediately') {
                     // Delete read messages that are not saved
-                    await supabase.from('Message').delete()
+                    await supabase.from('Message').update({ isDeleted: true })
                         .eq('conversationId', conversationId)
                         .eq('isSaved', false)
                         .not('readAt', 'is', null);
                 } else if (conv?.messageRetention === '1day') {
                     // Delete messages older than 24 hours (not saved)
                     const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-                    await supabase.from('Message').delete()
+                    await supabase.from('Message').update({ isDeleted: true })
                         .eq('conversationId', conversationId)
                         .eq('isSaved', false)
                         .lt('createdAt', cutoff);
@@ -1417,10 +1496,106 @@ export default function ChatScreen() {
 
     // --- Message Edit & Delete Functions ---
 
-    const handleDeleteMessage = async (message: Message) => {
+    const confirmDelete = async (type: 'me' | 'everyone') => {
+        if (!selectedMessageToDelete || !dbUserId) return;
+
+        try {
+            if (type === 'me') {
+                // Insert into DeletedMessage table
+                const { error } = await supabase.from('DeletedMessage').insert({
+                    userId: dbUserId,
+                    messageId: selectedMessageToDelete.id
+                });
+                if (error) throw error;
+                setMessages(prev => prev.filter(m => m.id !== selectedMessageToDelete.id));
+                showToast("Message deleted for you", "success");
+            } else {
+                // Delete for everyone (Soft delete Message)
+                const { error } = await supabase.from('Message')
+                    .update({ isDeleted: true })
+                    .eq('id', selectedMessageToDelete.id);
+                if (error) throw error;
+                setMessages(prev => prev.filter(m => m.id !== selectedMessageToDelete.id));
+                showToast("Message deleted for everyone", "success");
+            }
+        } catch (err) {
+            console.error("Delete failed:", err);
+            showToast("Failed to delete", "error");
+        } finally {
+            setDeleteModalVisible(false);
+            setSelectedMessageToDelete(null);
+            setTaggingMessageId(null);
+        }
+    };
+
+    const handleDeleteMessage = (message: Message) => {
+        const timeDiff = Date.now() - message.timestamp;
+        const canDeleteForEveryone = timeDiff <= 5 * 60 * 1000 && message.senderId === dbUserId;
+
+        setSelectedMessageToDelete(message);
+        setIsDeleteForEveryoneAvailable(canDeleteForEveryone);
+        setDeleteModalVisible(true);
+    };
+
+    /* OLD CODE BELOW TO DELETE */
+    const _ignore_old_handleDeleteMessage = async (message: Message) => {
+        if (!dbUserId) return;
+        const timeDiff = Date.now() - message.timestamp;
+        const canDeleteForEveryone = timeDiff <= 5 * 60 * 1000 && message.senderId === dbUserId;
+
+        const options: AlertButton[] = [
+            { text: "Cancel", style: "cancel" },
+            {
+                text: "Delete for Me",
+                onPress: async () => {
+                    try {
+                        const currentDeletedBy = message.deletedBy || [];
+                        const updatedDeletedBy = [...currentDeletedBy, dbUserId];
+
+                        const { error } = await supabase.from('Message')
+                            .update({ deletedBy: updatedDeletedBy })
+                            .eq('id', message.id);
+
+                        if (error) throw error;
+                        setMessages(prev => prev.filter(m => m.id !== message.id));
+                        showToast("Message deleted for you", "success");
+                    } catch (err) {
+                        console.error("Delete for me failed:", err);
+                        showToast("Failed to delete", "error");
+                    }
+                }
+            }
+        ];
+
+        if (canDeleteForEveryone) {
+            options.push({
+                text: "Delete for Everyone",
+                style: "destructive",
+                onPress: async () => {
+                    try {
+                        const { error } = await supabase.from('Message').update({ isDeleted: true }).eq('id', message.id);
+                        if (error) throw error;
+                        setMessages(prev => prev.filter(m => m.id !== message.id));
+                        showToast("Message deleted for everyone", "success");
+                    } catch (err) {
+                        console.error("Delete for everyone failed:", err);
+                        showToast("Failed to delete", "error");
+                    }
+                }
+            });
+        }
+
         Alert.alert(
             "Delete Message",
-            "Are you sure you want to delete this message completely?",
+            canDeleteForEveryone ? "Who would you like to delete this message for?" : "This message will be deleted for you.",
+            options
+        );
+        // REMOVED
+        return;
+
+        Alert.alert(
+            "Delete Message",
+            "Are you sure you want to delete this message?",
             [
                 { text: "Cancel", style: "cancel" },
                 {
@@ -1428,10 +1603,12 @@ export default function ChatScreen() {
                     style: "destructive",
                     onPress: async () => {
                         try {
-                            const { error } = await supabase.from('Message').delete().eq('id', message.id);
+                            // Soft Delete
+                            const { error } = await supabase.from('Message').update({ isDeleted: true }).eq('id', message.id);
                             if (error) throw error;
-                            await supabase.from('Trigger').delete().eq('messageId', message.id);
-                            await supabase.from('MessageTag').delete().eq('taggedContent', message.id);
+
+                            // Remove related data locally or via soft delete logic if needed
+                            // For now, just hiding the message is enough as fetchMessages filters it out
                             setMessages(prev => prev.filter(m => m.id !== message.id));
                             showToast("Message deleted", "success");
                             setTaggingMessageId(null);
@@ -1446,6 +1623,13 @@ export default function ChatScreen() {
     };
 
     const handleStartEdit = (message: Message) => {
+        // 5-minute time limit check
+        const timeDiff = Date.now() - message.timestamp;
+        if (timeDiff > 5 * 60 * 1000) {
+            Alert.alert("Time Limit Reached", "You can only edit messages within 5 minutes of sending.");
+            return;
+        }
+
         setEditingMessageId(message.id);
         setInputText(message.content);
         setTaggingMessageId(null);
@@ -2262,18 +2446,18 @@ export default function ChatScreen() {
                                                                 {/* Edit Button */}
                                                                 <TouchableOpacity
                                                                     onPress={() => handleStartEdit(msg)}
-                                                                    className="px-3 py-1.5 bg-zinc-700 rounded-full flex-row items-center gap-1 border border-zinc-600"
+                                                                    className="px-2 py-1 bg-white rounded-full flex-row items-center gap-1 border border-zinc-800"
                                                                 >
-                                                                    <Text className="text-xs font-bold text-white">Edit</Text>
+                                                                    <Text className="text-[10px] font-bold text-black" style={{ color: '#000' }}>Edit</Text>
                                                                 </TouchableOpacity>
 
                                                                 {/* Delete Button */}
                                                                 <TouchableOpacity
                                                                     onPress={() => handleDeleteMessage(msg)}
-                                                                    className="px-3 py-1.5 bg-red-500/20 rounded-full flex-row items-center gap-1 border border-red-500/50"
+                                                                    className="px-2 py-1 bg-red-500/20 rounded-full flex-row items-center gap-1 border border-red-500/50"
                                                                 >
-                                                                    <Trash2 size={12} color="#ef4444" />
-                                                                    <Text className="text-xs font-bold text-red-500">Delete</Text>
+                                                                    <Trash2 size={10} color="#ef4444" />
+                                                                    <Text className="text-[10px] font-bold text-red-500">Delete</Text>
                                                                 </TouchableOpacity>
                                                             </ScrollView>
                                                         ) : (
@@ -2442,8 +2626,8 @@ export default function ChatScreen() {
                                             onChangeText={handleInputChange}
                                             className="flex-1 h-12 px-4 rounded-full border"
                                             style={{
-                                                backgroundColor: editingMessageId ? '#fefce8' : colors.card,
-                                                borderColor: editingMessageId ? '#facc15' : colors.border,
+                                                backgroundColor: editingMessageId ? (mode === 'light' ? '#FFFFFF' : '#27272a') : colors.card,
+                                                borderColor: editingMessageId ? (mode === 'light' ? '#e4e4e7' : '#3f3f46') : colors.border,
                                                 color: colors.text
                                             }}
                                             onSubmitEditing={() => editingMessageId ? saveEditedMessage() : sendMessage()}
@@ -2452,10 +2636,10 @@ export default function ChatScreen() {
                                         <TouchableOpacity
                                             onPress={() => editingMessageId ? saveEditedMessage() : sendMessage()}
                                             className="w-12 h-12 rounded-full items-center justify-center shadow-lg"
-                                            style={{ backgroundColor: editingMessageId ? '#eab308' : colors.primary }}
+                                            style={{ backgroundColor: editingMessageId ? (mode === 'light' ? '#FFFFFF' : '#27272a') : colors.primary }}
                                         >
                                             {editingMessageId ? (
-                                                <CheckCheck color={mode === 'light' ? '#fff' : '#000'} size={20} />
+                                                <CheckCheck color={mode === 'light' ? '#000' : '#fff'} size={20} />
                                             ) : (
                                                 <Send color={mode === 'light' ? '#fff' : '#000'} size={20} />
                                             )}
@@ -2649,10 +2833,11 @@ export default function ChatScreen() {
 
             console.log('[ChatSettings] Retention setting updated to:', messageRetention);
 
-            // Trigger message deletion based on retention setting
+            // Trigger message deletion based on retention setting - USE SOFT DELETE
             if (messageRetention === 'immediately') {
                 // Delete read messages that are not saved
-                const { error: deleteError } = await supabase.from('Message').delete()
+                const { error: deleteError } = await supabase.from('Message')
+                    .update({ isDeleted: true }) // Soft delete instead of hard delete
                     .eq('conversationId', conversationId)
                     .eq('isSaved', false)
                     .not('readAt', 'is', null);
@@ -2660,7 +2845,8 @@ export default function ChatScreen() {
             } else if (messageRetention === '1day') {
                 // Delete messages older than 24 hours (not saved)
                 const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-                const { error: deleteError } = await supabase.from('Message').delete()
+                const { error: deleteError } = await supabase.from('Message')
+                    .update({ isDeleted: true }) // Soft delete
                     .eq('conversationId', conversationId)
                     .eq('isSaved', false)
                     .lt('createdAt', cutoff);
@@ -2698,7 +2884,63 @@ export default function ChatScreen() {
         </Modal>
     );
 
-    // Block Confirmation Modal UI
+    // Delete Confirmation Modal UI
+    const renderDeleteModal = () => (
+        <Modal
+            transparent
+            visible={deleteModalVisible}
+            animationType="fade"
+            onRequestClose={() => setDeleteModalVisible(false)}
+        >
+            <View className="flex-1 justify-center items-center bg-black/50 px-4">
+                <View className={`w-full max-w-sm rounded-[24px] overflow-hidden ${mode === 'light' ? 'bg-white' : 'bg-zinc-900'} p-6`}>
+                    <View className="items-center mb-6">
+                        <View className="w-12 h-12 rounded-full bg-red-100 items-center justify-center mb-4">
+                            <Trash2 size={24} color="#ef4444" />
+                        </View>
+                        <Text className={`text-xl font-bold mb-2 ${mode === 'light' ? 'text-black' : 'text-white'}`}>
+                            Delete Message?
+                        </Text>
+                        <Text className={`text-center ${mode === 'light' ? 'text-zinc-600' : 'text-zinc-400'}`}>
+                            Choose how you want to delete this message.
+                        </Text>
+                    </View>
+
+                    <View className="gap-3">
+                        {isDeleteForEveryoneAvailable && (
+                            <TouchableOpacity
+                                onPress={() => confirmDelete('everyone')}
+                                className="w-full py-4 bg-red-500 rounded-2xl items-center"
+                            >
+                                <Text className="text-white font-bold text-base">Delete for Everyone</Text>
+                            </TouchableOpacity>
+                        )}
+
+                        <TouchableOpacity
+                            onPress={() => confirmDelete('me')}
+                            className={`w-full py-4 rounded-2xl items-center border ${mode === 'light' ? 'bg-zinc-100 border-zinc-200' : 'bg-zinc-800 border-zinc-700'
+                                }`}
+                        >
+                            <Text className={`font-bold text-base ${mode === 'light' ? 'text-black' : 'text-white'}`}>
+                                Delete for Me
+                            </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            onPress={() => setDeleteModalVisible(false)}
+                            className="w-full py-4 items-center"
+                        >
+                            <Text className={`font-bold text-base ${mode === 'light' ? 'text-zinc-500' : 'text-zinc-400'}`}>
+                                Cancel
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </View>
+        </Modal>
+    );
+
+    {/* Block Confirmation Modal UI */ }
     const renderBlockConfirmModal = () => (
         <Modal visible={showBlockConfirm} transparent animationType="fade">
             <View className="flex-1 bg-black/70 justify-center items-center px-6">
@@ -2996,6 +3238,7 @@ export default function ChatScreen() {
                 {renderNicknameModal()}
                 {renderErrorModal()}
                 {renderBlockConfirmModal()}
+                {renderDeleteModal()}
                 {/* User Options Modal */}
                 <Modal visible={showOptionsModal} transparent animationType="fade" onRequestClose={() => setShowOptionsModal(false)}>
                     <TouchableOpacity

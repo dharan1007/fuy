@@ -56,6 +56,7 @@ export async function GET(req: Request) {
               select: {
                 displayName: true,
                 avatarUrl: true,
+                publicKey: true,
               },
             },
           },

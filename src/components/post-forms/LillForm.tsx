@@ -1,11 +1,25 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Upload, Loader2, Image as ImageIcon } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Upload, Loader2, Image as ImageIcon, Music } from 'lucide-react';
 import { uploadFileClientSide } from '@/lib/upload-helper';
-
 import { useCreatePost } from '@/context/CreatePostContext';
+import AudioTrackManager from '@/components/audio/AudioTrackManager';
+
+interface AudioTrack {
+    id: string;
+    audioAssetId: string;
+    title: string;
+    audioUrl: string;
+    waveformData: number[];
+    duration: number;
+    startTime: number;
+    endTime: number;
+    volume: number;
+    attributionText: string;
+    coverImageUrl?: string;
+}
 
 type LillFormProps = {
     onBack?: () => void;
@@ -17,6 +31,8 @@ export default function LillForm({ onBack: propOnBack, initialData }: LillFormPr
     const onBack = propOnBack || contextOnBack || (() => { });
     const data = initialData || contextInitialData;
     const router = useRouter();
+    const searchParams = useSearchParams();
+
     const [loading, setLoading] = useState(false);
     const [loadingMessage, setLoadingMessage] = useState('Creating lill...');
     const [error, setError] = useState('');
@@ -27,6 +43,48 @@ export default function LillForm({ onBack: propOnBack, initialData }: LillFormPr
     const [coverFile, setCoverFile] = useState<File | null>(null);
     const [coverPreview, setCoverPreview] = useState<string | null>(null);
     const [duration, setDuration] = useState(0);
+
+    // Audio state
+    const [audioTracks, setAudioTracks] = useState<AudioTrack[]>([]);
+    const [videoVolume, setVideoVolume] = useState(1.0);
+    const [isVideoMuted, setIsVideoMuted] = useState(false);
+    const [showAudioSection, setShowAudioSection] = useState(false);
+
+    // Load pre-selected audio from URL params (from "Use This Audio" button)
+    useEffect(() => {
+        const audioId = searchParams.get('audioId');
+        if (audioId) {
+            fetchAndAddAudio(audioId);
+            setShowAudioSection(true);
+        }
+    }, [searchParams]);
+
+    const fetchAndAddAudio = async (audioId: string) => {
+        try {
+            const res = await fetch(`/api/audio/${audioId}`);
+            if (!res.ok) return;
+            const data = await res.json();
+            const audio = data.audioAsset;
+
+            const newTrack: AudioTrack = {
+                id: `track-${Date.now()}`,
+                audioAssetId: audio.id,
+                title: audio.title || 'Untitled Audio',
+                audioUrl: audio.audioUrl,
+                waveformData: audio.waveformData || [],
+                duration: audio.duration,
+                startTime: 0,
+                endTime: Math.min(audio.duration, 60),
+                volume: 1.0,
+                attributionText: audio.attributionText,
+                coverImageUrl: audio.coverImageUrl,
+            };
+
+            setAudioTracks([newTrack]);
+        } catch (error) {
+            console.error('Error fetching audio:', error);
+        }
+    };
 
     const handleVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -75,6 +133,19 @@ export default function LillForm({ onBack: propOnBack, initialData }: LillFormPr
                 coverUrl = await uploadFileClientSide(coverFile, 'IMAGE');
             }
 
+            setLoadingMessage("Creating lill...");
+
+            // Prepare audio usage data
+            const audioUsageData = audioTracks.map((track, index) => ({
+                audioAssetId: track.audioAssetId,
+                startTime: track.startTime,
+                endTime: track.endTime,
+                volume: track.volume,
+                trackOrder: index,
+                videoVolume: videoVolume,
+                isMuted: isVideoMuted,
+            }));
+
             // Create lill post
             const res = await fetch('/api/posts', {
                 method: 'POST',
@@ -87,6 +158,9 @@ export default function LillForm({ onBack: propOnBack, initialData }: LillFormPr
                     duration,
                     coverImageUrl: coverUrl,
                     status,
+                    // Audio data
+                    audioUsages: audioUsageData,
+                    videoVolume: isVideoMuted ? 0 : videoVolume,
                 }),
             });
 
@@ -184,6 +258,31 @@ export default function LillForm({ onBack: propOnBack, initialData }: LillFormPr
                             </label>
                         )}
                     </div>
+
+                    {/* Audio Section Toggle */}
+                    {!showAudioSection ? (
+                        <button
+                            type="button"
+                            onClick={() => setShowAudioSection(true)}
+                            className="w-full flex items-center justify-center gap-2 py-3 bg-white/10 hover:bg-white/20 rounded-xl font-medium transition-colors"
+                        >
+                            <Music size={18} />
+                            Add Audio Track
+                        </button>
+                    ) : (
+                        <div className="border-t border-white/10 pt-4">
+                            <AudioTrackManager
+                                tracks={audioTracks}
+                                onTracksChange={setAudioTracks}
+                                videoVolume={videoVolume}
+                                isVideoMuted={isVideoMuted}
+                                onVideoVolumeChange={setVideoVolume}
+                                onVideoMuteToggle={() => setIsVideoMuted(!isVideoMuted)}
+                                maxDuration={60}
+                                maxTracks={3}
+                            />
+                        </div>
+                    )}
 
                     <div>
                         <label className="block text-sm font-medium text-white/80 mb-2">Visibility</label>
