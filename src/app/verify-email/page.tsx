@@ -68,7 +68,7 @@ function VerifyEmailContent() {
 
             // Redirect to profile setup
             setTimeout(() => {
-                router.push('/onboarding');
+                router.push('/profile/setup');
             }, 1000);
 
         } catch (error: any) {
