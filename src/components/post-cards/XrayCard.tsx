@@ -35,7 +35,7 @@ export default function XrayCard({ post, xray, currentUserId, onPostHidden, onRe
     const [isScratching, setIsScratching] = useState(false);
     const lastPos = useRef<{ x: number, y: number } | null>(null);
     const [imageLoaded, setImageLoaded] = useState(false);
-    const [aspectRatio, setAspectRatio] = useState<number>(16 / 9);
+    const [aspectRatio, setAspectRatio] = useState<number>(0.8); // Default 4:5
 
     // Modal states
     const [isCommentsOpen, setIsCommentsOpen] = useState(false);
@@ -178,7 +178,7 @@ export default function XrayCard({ post, xray, currentUserId, onPostHidden, onRe
                                 ref={(el) => {
                                     if (el) el.play().catch(() => { });
                                 }}
-                                className="absolute inset-0 w-full h-full object-cover"
+                                className="absolute inset-0 w-full h-full object-contain bg-black"
                                 controls
                                 muted
                                 loop
@@ -187,7 +187,7 @@ export default function XrayCard({ post, xray, currentUserId, onPostHidden, onRe
                             <img
                                 src={xray.bottomLayerUrl || "/placeholder.png"}
                                 alt="Hidden layer"
-                                className="absolute inset-0 w-full h-full object-cover"
+                                className="absolute inset-0 w-full h-full object-contain bg-black"
                             />
                         )}
 
@@ -211,7 +211,7 @@ export default function XrayCard({ post, xray, currentUserId, onPostHidden, onRe
                         {(!isActivated || !imageLoaded) && (
                             <img
                                 src={xray.topLayerUrl || fallbackCover}
-                                className="absolute inset-0 w-full h-full object-cover z-20 cursor-pointer"
+                                className="absolute inset-0 w-full h-full object-contain bg-black z-20 cursor-pointer"
                                 alt="Scratch cover"
                                 onClick={handleInteractionStart}
                                 onTouchStart={handleInteractionStart}

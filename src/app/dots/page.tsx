@@ -214,7 +214,7 @@ export default function DotsPage() {
                     comments: post._count?.comments ?? post.comments ?? 0,
                     mediaUrl,
                     mediaType,
-                    category: (post.postType || 'MIX').toLowerCase(),
+                    category: (post.postType === 'STORY' ? 'story' : (post.postType || 'MIX')).toLowerCase(),
                     isSubscribed: post.isSubscribed || false,
                     followersCount: post.user?.followersCount || 0,
                     views: viewsCount > 1000 ? (viewsCount / 1000).toFixed(1) + 'K' : viewsCount.toString(),
@@ -536,16 +536,15 @@ export default function DotsPage() {
     }
 
     const getGridAspectRatio = (dot: DotData) => {
-        if (dot.category === 'lills') return 'aspect-[9/16]';
+        if (dot.category === 'lills' || dot.category === 'story') return 'aspect-[9/16]';
         if (dot.category === 'fills') return 'aspect-video';
-        if (dot.mediaType === 'image') return 'aspect-[4/3]';
-        return 'aspect-square';
+        // For everything else (Simple, Xray), use 4:5
+        return 'aspect-[4/5]';
     };
 
     const getFeedObjectFit = (dot: DotData) => {
-        if (dot.category === 'fills') return 'object-contain';
-        if (dot.mediaType === 'image') return 'object-contain';
-        return 'object-cover';
+        // Ensure content is not cut off
+        return 'object-contain bg-black';
     };
 
     return (

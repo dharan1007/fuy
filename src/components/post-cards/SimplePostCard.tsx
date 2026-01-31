@@ -104,11 +104,11 @@ export default function SimplePostCard({ post, currentUserId }: SimplePostCardPr
                 </div>
             ) : (
                 <div className="flex flex-col">
-                    <div className="relative w-full aspect-square bg-black/50 overflow-hidden group">
+                    <div className={`relative w-full ${post.postType === 'STORY' ? 'aspect-[9/16]' : 'aspect-[4/5]'} bg-black/50 overflow-hidden group`}>
                         {post.media[currentMediaIndex].type === 'VIDEO' ? (
                             <video
                                 src={post.media[currentMediaIndex].url}
-                                className="w-full h-full object-cover"
+                                className="w-full h-full object-contain bg-black"
                                 controls
                                 controlsList="nodownload nopictureinpicture noplaybackrate"
                                 disablePictureInPicture
@@ -117,7 +117,7 @@ export default function SimplePostCard({ post, currentUserId }: SimplePostCardPr
                             <img
                                 src={post.media[currentMediaIndex].url}
                                 alt="Post content"
-                                className="w-full h-full object-cover"
+                                className="w-full h-full object-contain bg-black"
                             />
                         )}
 
@@ -127,7 +127,7 @@ export default function SimplePostCard({ post, currentUserId }: SimplePostCardPr
                                 {currentMediaIndex > 0 && (
                                     <button
                                         onClick={prevMedia}
-                                        className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                        className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
                                     >
                                         <ChevronLeft size={20} />
                                     </button>
@@ -135,13 +135,13 @@ export default function SimplePostCard({ post, currentUserId }: SimplePostCardPr
                                 {currentMediaIndex < post.media.length - 1 && (
                                     <button
                                         onClick={nextMedia}
-                                        className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
                                     >
                                         <ChevronRight size={20} />
                                     </button>
                                 )}
                                 {/* Dots Indicator */}
-                                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+                                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1 z-10">
                                     {post.media.map((_: any, idx: number) => (
                                         <div
                                             key={idx}

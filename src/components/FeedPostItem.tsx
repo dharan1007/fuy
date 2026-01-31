@@ -60,6 +60,7 @@ function FeedPostItem({ post, currentUserId, className, isProfileView }: FeedPos
                     switch (post.postType || post.feature) {
                         case 'SIMPLE':
                         case 'SIMPLE_TEXT':
+                        case 'STORY': // Add STORY support
                             return <SimplePostCard {...commonProps} />;
                         case 'CHAPTER':
                             return <ChapterCard {...commonProps} onRefresh={onRefresh} onPostHidden={() => handleHide(post.id)} />;
