@@ -1898,19 +1898,36 @@ export default function ChatScreen() {
 
     // --- Render Components ---
 
+    const getGreeting = () => {
+        const hour = new Date().getHours();
+        if (hour < 12) return 'Good Morning';
+        if (hour < 18) return 'Good Afternoon';
+        return 'Good Evening';
+    };
+
     const renderHeader = () => (
-        <View className="px-6 pt-4 pb-2 flex-row justify-between items-center z-10 pl-16">
-            <Text className="text-3xl font-bold" style={{ color: colors.text }}>Messages</Text>
-            <TouchableOpacity>
+        <View className="px-6 pt-6 pb-2 flex-row justify-between items-center z-10">
+            <View>
+                <Text className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-1">
+                    {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}
+                </Text>
+                <Text className="text-3xl font-bold" style={{ color: colors.text }}>
+                    {getGreeting()}
+                </Text>
+            </View>
+            <TouchableOpacity
+                className="shadow-lg"
+                style={{ shadowColor: colors.primary, shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } }}
+            >
                 {currentUserAvatar ? (
                     <Image
                         source={{ uri: currentUserAvatar }}
-                        className="w-10 h-10 rounded-full border-2"
-                        style={{ borderColor: colors.border }}
+                        className="w-12 h-12 rounded-full border-2"
+                        style={{ borderColor: colors.card }}
                     />
                 ) : (
-                    <View className="w-10 h-10 rounded-full border-2 items-center justify-center bg-zinc-800" style={{ borderColor: colors.border }}>
-                        <UserIcon size={20} color={colors.text} />
+                    <View className="w-12 h-12 rounded-full border-2 items-center justify-center bg-zinc-800" style={{ borderColor: colors.card }}>
+                        <UserIcon size={24} color={colors.text} />
                     </View>
                 )}
             </TouchableOpacity>
@@ -1918,31 +1935,34 @@ export default function ChatScreen() {
     );
 
     const renderSearchBar = () => (
-        <View className="px-6 py-4">
+        <View className="px-6 py-2 mb-2">
             <BlurView
-                intensity={30}
+                intensity={20}
                 tint={mode === 'light' ? 'light' : 'dark'}
-                className="flex-row items-center px-4 py-3 rounded-2xl overflow-hidden border"
-                style={{ borderColor: colors.border }}
+                className="flex-row items-center px-4 py-3.5 rounded-full overflow-hidden border"
+                style={{ borderColor: 'rgba(255,255,255,0.1)', backgroundColor: mode === 'light' ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.05)' }}
             >
-                <Search color={colors.text} size={20} />
+                <Search color={colors.secondary} size={18} />
                 <TextInput
-                    placeholder="Search users..."
+                    placeholder="Search conversations..."
                     placeholderTextColor={colors.secondary}
                     value={searchQuery}
                     onChangeText={(t) => { setSearchQuery(t); searchUsers(t); }}
-                    className="flex-1 ml-3 text-base"
+                    className="flex-1 ml-3 text-base font-medium"
                     style={{ color: colors.text }}
                 />
             </BlurView>
-            <TouchableOpacity
-                onPress={() => setSortMode(prev => prev === 'pinned' ? 'recent' : prev === 'recent' ? 'followers' : 'pinned')}
-                className="mt-2 self-end"
-            >
-                <Text style={{ color: colors.primary, fontSize: 12 }}>
-                    Sort: {sortMode.charAt(0).toUpperCase() + sortMode.slice(1)}
-                </Text>
-            </TouchableOpacity>
+            <View className="flex-row justify-end mt-3 px-2">
+                <TouchableOpacity
+                    onPress={() => setSortMode(prev => prev === 'pinned' ? 'recent' : prev === 'recent' ? 'followers' : 'pinned')}
+                    className="flex-row items-center gap-1.5 opacity-80"
+                >
+                    <Text className="text-xs font-semibold" style={{ color: colors.secondary }}>
+                        Sort by {sortMode.charAt(0).toUpperCase() + sortMode.slice(1)}
+                    </Text>
+                    <ChevronDown size={12} color={colors.secondary} />
+                </TouchableOpacity>
+            </View>
         </View>
     );
 
@@ -2033,96 +2053,170 @@ export default function ChatScreen() {
         }
     };
 
+    const renderActiveNow = () => {
+        const activeUsers = conversations.filter(u => u.status === 'online');
+        if (activeUsers.length === 0) return null;
+
+        return (
+            <View className="mb-6">
+                <Text className="text-xs font-bold mb-3 px-6 tracking-widest text-zinc-500 uppercase">
+                    Active Now
+                </Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 24, gap: 16 }}>
+                    {activeUsers.map(user => (
+                        <TouchableOpacity
+                            key={user.id}
+                            onPress={() => handleUserSelect(user)}
+                            className="items-center mr-1"
+                        >
+                            <View className="relative mb-2">
+                                <Image
+                                    source={{ uri: user.avatar || '' }}
+                                    className="w-14 h-14 rounded-full border-2"
+                                    style={{ borderColor: colors.card }}
+                                />
+                                <View className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2" style={{ borderColor: colors.background }} />
+                            </View>
+                            <Text className="text-xs font-medium text-center" numberOfLines={1} style={{ color: colors.text, maxWidth: 60 }}>
+                                {nicknames[user.id] || user.name.split(' ')[0]}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </ScrollView>
+            </View>
+        );
+    };
+
     const renderUserList = () => (
-        <ScrollView className="flex-1 px-4 pt-2" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+        <ScrollView className="flex-1 pt-2" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+            {/* Active Now Section */}
+            {!searchQuery && renderActiveNow()}
+
             {/* Section Title */}
-            <Text className="text-xs font-bold mb-3 ml-1 tracking-widest text-zinc-500 uppercase">
-                {searchQuery ? 'SEARCH RESULTS' : 'CHATS'}
+            <Text className="text-xs font-bold mb-3 px-6 tracking-widest text-zinc-500 uppercase">
+                {searchQuery ? 'SEARCH RESULTS' : 'RECENT CHATS'}
             </Text>
 
-            {getSortedConversations().map((user) => (
-                <View
-                    key={user.id}
-                    className="mb-2 relative"
-                >
-                    {/* Main Card - Redesigned */}
-                    <TouchableOpacity
-                        onPress={() => handleUserSelect(user)}
-                        className="flex-row items-center p-3 rounded-2xl bg-zinc-900 border border-zinc-800"
-                        style={{ overflow: 'hidden' }}
-                        activeOpacity={0.7}
+            <View className="px-4">
+                {getSortedConversations().map((user) => (
+                    <View
+                        key={user.id}
+                        className="mb-3 relative"
                     >
-                        {/* Drag Handle for Pinned Chats */}
-                        {(user as any).isPinned && (
-                            <View className="flex-col items-center justify-center mr-2 -ml-1">
-                                <TouchableOpacity onPress={() => movePinnedUp(user.id)} className="p-1 rounded-full mb-1 bg-zinc-800">
-                                    <ChevronUp size={12} color="#71717a" />
-                                </TouchableOpacity>
-                                <GripVertical size={12} color="#52525b" />
-                                <TouchableOpacity onPress={() => movePinnedDown(user.id)} className="p-1 rounded-full mt-1 bg-zinc-800">
-                                    <ChevronDown size={12} color="#71717a" />
-                                </TouchableOpacity>
-                            </View>
-                        )}
+                        {/* Main Card - Floating Glass Aesthetic */}
+                        <BlurView
+                            intensity={0} // Using simple transparency for performance, but styled like glass
+                            className="rounded-[24px] overflow-hidden border"
+                            style={{
+                                borderColor: 'rgba(255,255,255,0.05)',
+                                backgroundColor: mode === 'light' ? '#FFFFFF' : 'rgba(24, 24, 27, 0.6)'
+                            }}
+                        >
+                            <TouchableOpacity
+                                onPress={() => handleUserSelect(user)}
+                                className="flex-row items-center p-4"
+                                activeOpacity={0.7}
+                            >
+                                {/* Drag Handle for Pinned Chats */}
+                                {(user as any).isPinned && (
+                                    <View className="flex-col items-center justify-center mr-3 -ml-1 opacity-50">
+                                        <GripVertical size={14} color={colors.secondary} />
+                                    </View>
+                                )}
 
-                        {/* Avatar Section - Smaller */}
-                        <View className="relative mr-3">
-                            {user.avatar ? (
-                                <Image
-                                    source={{ uri: user.avatar }}
-                                    className="w-12 h-12 rounded-full border border-zinc-700"
-                                />
-                            ) : (
-                                <View className="w-12 h-12 rounded-full border border-zinc-700 bg-zinc-800 items-center justify-center">
-                                    <UserIcon size={20} color="#52525b" />
-                                </View>
-                            )}
-                            {user.status === 'online' && (
-                                <View className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-zinc-900" />
-                            )}
-                        </View>
-
-                        {/* Content Section */}
-                        <View className="flex-1 pr-8 justify-center">
-                            {/* Top Row: Name & Time */}
-                            <View className="flex-row justify-between items-center mb-0.5">
-                                <Text className="text-base font-bold text-white tracking-tight" numberOfLines={1}>
-                                    {nicknames[user.id] || user.name}
-                                </Text>
-
-                                <View className="flex-row items-center gap-2">
-                                    {/* Pinned Icon */}
-                                    {user.isPinned && <Anchor size={12} color="#a1a1aa" style={{ transform: [{ rotate: '45deg' }] }} />}
-
-                                    {/* Date & Time */}
-                                    {user.lastMessageAt && (
-                                        <Text className="text-[10px] font-medium text-zinc-500 text-right">
-                                            {new Date(user.lastMessageAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                                        </Text>
+                                {/* Avatar Section */}
+                                <View className="relative mr-4">
+                                    {user.avatar ? (
+                                        <Image
+                                            source={{ uri: user.avatar }}
+                                            className="w-14 h-14 rounded-full border"
+                                            style={{ borderColor: 'rgba(255,255,255,0.1)' }}
+                                        />
+                                    ) : (
+                                        <View className="w-14 h-14 rounded-full border border-white/10 bg-zinc-800 items-center justify-center">
+                                            <UserIcon size={24} color="#52525b" />
+                                        </View>
+                                    )}
+                                    {/* Status Indicator overlapping avatar */}
+                                    {user.status === 'online' && (
+                                        <View className="absolute bottom-0 right-0 w-4 h-4 bg-emerald-500 rounded-full border-2" style={{ borderColor: mode === 'dark' ? '#18181b' : '#fff' }} />
                                     )}
                                 </View>
-                            </View>
 
-                            {/* Second Row: Last Message (No Quick Reply) */}
-                            <Text
-                                numberOfLines={1}
-                                className={`text-sm ${user.unreadCount && user.unreadCount > 0 ? 'text-white font-bold' : 'text-zinc-500 font-normal'}`}
-                            >
-                                {user.lastMessage || 'New connection'}
-                            </Text>
-                        </View>
-                    </TouchableOpacity>
+                                {/* Content Section */}
+                                <View className="flex-1 justify-center space-y-1">
+                                    {/* Top Row: Name & Time */}
+                                    <View className="flex-row justify-between items-center">
+                                        <View className="flex-row items-center gap-1.5 flex-1 mr-2">
+                                            <Text className="text-base font-bold tracking-tight" numberOfLines={1} style={{ color: colors.text }}>
+                                                {nicknames[user.id] || user.name}
+                                            </Text>
+                                            {user.isPinned && <Anchor size={10} color={colors.primary} style={{ transform: [{ rotate: '45deg' }] }} />}
+                                            {/* Locked Icon */}
+                                            {lockedConversationIds.has(user.conversationId || user.id) && (
+                                                <Lock size={10} color={colors.secondary} />
+                                            )}
+                                        </View>
 
-                    {/* 3-Dots Menu - Vertical Icon */}
-                    <TouchableOpacity
-                        onPress={() => handleShowOptions(user)}
-                        className="absolute right-3 top-4 p-2 z-10 opacity-70"
-                    >
-                        <MoreVertical size={18} color="#71717a" />
-                    </TouchableOpacity>
+                                        {user.lastMessageAt && (
+                                            <Text className="text-[10px] font-medium opacity-60" style={{ color: colors.secondary }}>
+                                                {new Date(user.lastMessageAt).getTime() > new Date().setHours(0, 0, 0, 0) ?
+                                                    new Date(user.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) :
+                                                    new Date(user.lastMessageAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+                                                }
+                                            </Text>
+                                        )}
+                                    </View>
 
-                </View>
-            ))}
+                                    {/* Second Row: Last Message */}
+                                    <View className="flex-row justify-between items-center">
+                                        <Text
+                                            numberOfLines={1}
+                                            className={`text-sm flex-1 mr-4 ${user.unreadCount && user.unreadCount > 0 ? 'font-bold' : 'font-normal opacity-70'}`}
+                                            style={{ color: user.unreadCount && user.unreadCount > 0 ? colors.text : colors.secondary }}
+                                        >
+                                            {hiddenConversationIds.has(user.conversationId || user.id) ?
+                                                <Text className="italic">Hidden conversation</Text> :
+                                                (user.lastMessage || 'Start a new conversation')
+                                            }
+                                        </Text>
+
+                                        {/* Unread Badge */}
+                                        {user.unreadCount && user.unreadCount > 0 ? (
+                                            <View className="min-w-[20px] h-5 px-1.5 rounded-full items-center justify-center" style={{ backgroundColor: colors.primary }}>
+                                                <Text className="text-[10px] font-bold text-black">
+                                                    {user.unreadCount > 99 ? '99+' : user.unreadCount}
+                                                </Text>
+                                            </View>
+                                        ) : null}
+                                    </View>
+                                </View>
+                            </TouchableOpacity>
+                        </BlurView>
+
+                        {/* 3-Dots Menu - Vertical Icon - OUTSIDE the touch area for clearer separation */}
+                        <TouchableOpacity
+                            onPress={() => handleShowOptions(user)}
+                            className="absolute right-2 top-2 p-2 z-10 opacity-0 bg-transparent h-full w-10"
+                        // Keeping it visually hidden but accessible via long press usually, 
+                        // but here we have a dedicated button. 
+                        // Let's make it an actual visible button in the corner if preferred, 
+                        // OR relying on the swipe actions/long press.
+                        // For this design, let's keep it subtle but visible.
+                        >
+                            {/* Hidden interaction layer if needed, but we'll use a visible button below */}
+                        </TouchableOpacity>
+
+                        {/* Actual Visible Menu Button overlaying the top right corner slightly */}
+                        <TouchableOpacity
+                            onPress={() => handleShowOptions(user)}
+                            className="absolute top-4 right-4 p-1 rounded-full opacity-30"
+                        >
+                            <MoreVertical size={16} color={colors.secondary} />
+                        </TouchableOpacity>
+                    </View>
+                ))}
+            </View>
 
             {/* Visual Spacer at bottom */}
             <View className="h-20" />

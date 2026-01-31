@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
         });
 
         // 4. Send Email
-        await resend.emails.send({
+        const { data, error } = await resend.emails.send({
             from: 'Fuy <verify@fuymedia.org>',
             to: email,
             subject: 'Reset your password',
@@ -39,6 +39,11 @@ export async function POST(request: NextRequest) {
                 <p>If you didn't request this, ignore this email.</p>
             </div>`
         });
+
+        if (error) {
+            console.error("Resend recovery error:", error);
+            return NextResponse.json({ error: error.message }, { status: 400 });
+        }
 
         return NextResponse.json({ success: true });
 

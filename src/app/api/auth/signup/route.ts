@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
         });
 
         // 4. Send Email
-        await resend.emails.send({
+        const { data, error } = await resend.emails.send({
             from: 'Fuy <verify@fuymedia.org>',
             to: email,
             subject: 'Verify your Fuy account',
@@ -44,7 +44,12 @@ export async function POST(request: NextRequest) {
             </div>`
         });
 
-        return NextResponse.json({ success: true });
+        if (error) {
+            console.error("Resend error:", error);
+            return NextResponse.json({ error: error.message }, { status: 400 });
+        }
+
+        return NextResponse.json({ success: true, data });
 
     } catch (error: any) {
         console.error("Signup error:", error);
