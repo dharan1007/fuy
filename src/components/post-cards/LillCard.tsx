@@ -32,6 +32,10 @@ export default function LillCard({ lill, user, post, currentUserId, onPostHidden
     const lastTapRef = useRef<number>(0);
     const [manualPaused, setManualPaused] = useState(false);
 
+    // ALL hooks must be called unconditionally FIRST
+    const { videoRef, isPlaying } = useVideoAutoplay(post?.id || lill.id);
+    const [isMuted, setIsMuted] = useState(true);
+
     // Early returns AFTER all hooks
     if (!lill) return null;
     if (!lill.videoUrl) {
@@ -42,42 +46,6 @@ export default function LillCard({ lill, user, post, currentUserId, onPostHidden
             </div>
         );
     }
-
-    // Double-tap to like handler
-    const handleDoubleTap = async (e: React.MouseEvent) => {
-        // e.stopPropagation(); // We might want to allow this to bubble or not.
-
-        const now = Date.now();
-        const DOUBLE_TAP_DELAY = 300;
-
-        if (now - lastTapRef.current < DOUBLE_TAP_DELAY) {
-            // Double tap detected - trigger W reaction
-            setShowLikeAnimation(true);
-            setTimeout(() => setShowLikeAnimation(false), 800);
-
-            try {
-                await fetch('/api/posts/react', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ postId: post?.id || lill.id, type: 'W' })
-                });
-                onRefresh?.();
-            } catch (e) {
-                console.error('Failed to react:', e);
-            }
-        } else {
-            // Single tap logic (optional, but effectively handled by separate Play/Pause button if we want)
-            // For now, double tap is dedicated to Like.
-            // We can allow togglePlay on single tap if we wait, but that delays responsiveness.
-            // I'll leave this exclusively for double tap usage.
-            // Play/Pause will be handled by the overlay button.
-        }
-        lastTapRef.current = now;
-    };
-
-    // ALL hooks must be called unconditionally FIRST
-    const { videoRef, isPlaying } = useVideoAutoplay(post?.id || lill.id);
-    const [isMuted, setIsMuted] = useState(true);
 
     const toggleMute = (e: React.MouseEvent) => {
         e.stopPropagation();
