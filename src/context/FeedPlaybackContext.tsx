@@ -16,7 +16,7 @@ export function useFeedPlayback() {
 }
 
 // Hook for individual Video Cards
-export function useVideoAutoplay(postId: string) {
+export function useVideoAutoplay(postId: string, dependency?: any) {
     const context = useFeedPlayback();
     const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -30,7 +30,7 @@ export function useVideoAutoplay(postId: string) {
         return () => {
             context.unregisterVideo(postId);
         };
-    }, [context, postId]);
+    }, [context, postId, dependency]);
 
     useEffect(() => {
         if (!context || !videoRef.current) return;

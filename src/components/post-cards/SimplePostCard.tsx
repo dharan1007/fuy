@@ -11,6 +11,7 @@ import CommentsModal from '@/components/CommentsModal';
 import ShareModal from '@/components/ShareModal';
 import { useFeedItem } from '@/context/FeedItemContext';
 import { VerifiedBadge } from '@/components/VerifiedBadge';
+import { useVideoAutoplay } from '@/context/FeedPlaybackContext';
 
 interface SimplePostCardProps {
     post: any;
@@ -23,6 +24,8 @@ export default function SimplePostCard({ post, currentUserId }: SimplePostCardPr
     const onPostHidden = contextOnPostHidden ? () => contextOnPostHidden(post.id) : (() => { });
 
     const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
+    const { videoRef } = useVideoAutoplay(post.id, currentMediaIndex); // Dependent on slide change
+
     const [isHidden, setIsHidden] = useState(false);
     const [isCommentsOpen, setIsCommentsOpen] = useState(false);
     const [isShareOpen, setIsShareOpen] = useState(false);
@@ -107,9 +110,13 @@ export default function SimplePostCard({ post, currentUserId }: SimplePostCardPr
                     <div className={`relative w-full ${post.postType === 'STORY' ? 'aspect-[9/16]' : 'aspect-[4/5]'} bg-black/50 overflow-hidden group`}>
                         {post.media[currentMediaIndex].type === 'VIDEO' ? (
                             <video
+                                ref={videoRef}
                                 src={post.media[currentMediaIndex].url}
                                 className="w-full h-full object-contain bg-black"
                                 controls
+                                muted
+                                playsInline
+                                loop
                                 controlsList="nodownload nopictureinpicture noplaybackrate"
                                 disablePictureInPicture
                             />

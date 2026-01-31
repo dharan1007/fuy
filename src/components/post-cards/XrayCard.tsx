@@ -9,6 +9,8 @@ import PostActionMenu from '@/components/PostActionMenu';
 import CommentsModal from '@/components/CommentsModal';
 import ShareModal from '@/components/ShareModal';
 
+import { useVideoAutoplay } from '@/context/FeedPlaybackContext';
+
 type XrayCardProps = {
     post: any;
     xray: {
@@ -36,6 +38,8 @@ export default function XrayCard({ post, xray, currentUserId, onPostHidden, onRe
     const lastPos = useRef<{ x: number, y: number } | null>(null);
     const [imageLoaded, setImageLoaded] = useState(false);
     const [aspectRatio, setAspectRatio] = useState<number>(0.8); // Default 4:5
+
+    const { videoRef } = useVideoAutoplay(post.id);
 
     // Modal states
     const [isCommentsOpen, setIsCommentsOpen] = useState(false);
@@ -175,13 +179,12 @@ export default function XrayCard({ post, xray, currentUserId, onPostHidden, onRe
                         {xray.bottomLayerType === 'VIDEO' ? (
                             <video
                                 src={xray.bottomLayerUrl}
-                                ref={(el) => {
-                                    if (el) el.play().catch(() => { });
-                                }}
+                                ref={videoRef}
                                 className="absolute inset-0 w-full h-full object-contain bg-black"
                                 controls
                                 muted
                                 loop
+                                playsInline
                             />
                         ) : (
                             <img
