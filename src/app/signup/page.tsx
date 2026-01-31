@@ -118,6 +118,7 @@ export default function SignupPage() {
       }
 
       // 2. Account created successfully. Redirect to email verification.
+      sessionStorage.setItem('signup_password', formData.password);
       setLoadingMessage("Redirecting to verification...");
       router.push(`/verify-email?email=${encodeURIComponent(normalizedEmail)}`);
 
