@@ -61,7 +61,7 @@ export const EncryptionProvider = ({ children }: { children: React.ReactNode }) 
                 .from('Profile')
                 .select('publicKey, encryptedPrivateKey')
                 .eq('userId', userId)
-                .single();
+                .maybeSingle();
 
             if (data?.publicKey && data?.encryptedPrivateKey) {
                 setHasKeys(true);
@@ -97,12 +97,13 @@ export const EncryptionProvider = ({ children }: { children: React.ReactNode }) 
             const encrypted = wrapPrivateKey(pair.privateKey, pin);
 
             const { error } = await supabase
+            const { error } = await supabase
                 .from('Profile')
-                .update({
+                .upsert({
+                    userId: userId,
                     publicKey: pair.publicKey,
                     encryptedPrivateKey: encrypted
-                })
-                .eq('userId', userId);
+                });
 
             if (error) {
                 console.error("Setup upload failed:", error);

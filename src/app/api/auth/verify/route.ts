@@ -91,6 +91,16 @@ export async function POST(request: NextRequest) {
                         name: name,
                     },
                 });
+
+                // 3. Ensure Profile record exists (for encryption keys)
+                await prisma.profile.upsert({
+                    where: { userId: userId },
+                    create: {
+                        userId: userId,
+                        displayName: name
+                    },
+                    update: {},
+                });
             }
         }
 
