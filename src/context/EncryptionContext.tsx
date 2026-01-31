@@ -97,7 +97,6 @@ export const EncryptionProvider = ({ children }: { children: React.ReactNode }) 
             const encrypted = wrapPrivateKey(pair.privateKey, pin);
 
             const { error } = await supabase
-            const { error } = await supabase
                 .from('Profile')
                 .upsert({
                     userId: userId,
