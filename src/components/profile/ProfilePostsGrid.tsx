@@ -117,19 +117,104 @@ export default function ProfilePostsGrid({ posts: initialPosts, isMe, userId, on
         }
     };
 
+    // State for separate feeds
+    const [postsByTab, setPostsByTab] = useState<{ [key: string]: Post[] }>({
+        ALL: safePosts
+    });
+    const [loadingTab, setLoadingTab] = useState<{ [key: string]: boolean }>({});
+    const [tabCursors, setTabCursors] = useState<{ [key: string]: string | null }>({});
+    const [tabHasMore, setTabHasMore] = useState<{ [key: string]: boolean }>({});
+
     const [filter, setFilter] = useState<'ALL' | 'FILLS' | 'LILLS' | 'SIMPLE' | 'AUDIO' | 'CHANNELS'>('ALL');
 
-    // ... (rest of state)
+    // Pre-load logic (Run once on mount)
+    useEffect(() => {
+        // Automatically pre-load FILLS if not already present
+        const preloadTab = async (type: string) => {
+            if (postsByTab[type]) return; // Already loaded or loading
 
-    const filteredPosts = posts.filter(p => {
-        if (filter === 'ALL') return true;
-        if (filter === 'FILLS') return p.postType === 'FILL';
-        if (filter === 'LILLS') return p.postType === 'LILL';
-        if (filter === 'SIMPLE') return !p.postType || p.postType === 'TEXT' || p.postType === 'SIMPLE';
-        if (filter === 'AUDIO') return p.postType === 'AUD';
-        if (filter === 'CHANNELS') return p.postType === 'CHAN';
-        return true;
-    });
+            // Mark as loading silently (or visible if we want) - usually silent for reload
+            // But here we just want to fetch.
+            try {
+                const res = await fetch(`/api/posts/user?userId=${userId}&type=${type}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setPostsByTab(prev => ({ ...prev, [type]: data.posts || [] }));
+                    setTabCursors(prev => ({ ...prev, [type]: data.nextCursor }));
+                    setTabHasMore(prev => ({ ...prev, [type]: !!data.nextCursor }));
+                }
+            } catch (e) {
+                console.error(`Failed to preload ${type}`, e);
+            }
+        };
+
+        preloadTab('FILLS');
+    }, [userId]); // Run once per userId
+
+    // Handle Tab Change
+    const handleTabChange = async (newFilter: typeof filter) => {
+        setFilter(newFilter);
+
+        // If data exists, no need to fetch (unless we implement 'refresh on click')
+        if (postsByTab[newFilter]) return;
+
+        setLoadingTab(prev => ({ ...prev, [newFilter]: true }));
+        try {
+            const res = await fetch(`/api/posts/user?userId=${userId}&type=${newFilter}`);
+            if (res.ok) {
+                const data = await res.json();
+                setPostsByTab(prev => ({ ...prev, [newFilter]: data.posts || [] }));
+                setTabCursors(prev => ({ ...prev, [newFilter]: data.nextCursor }));
+                setTabHasMore(prev => ({ ...prev, [newFilter]: !!data.nextCursor }));
+            }
+        } catch (e) {
+            console.error(`Failed to load ${newFilter}`, e);
+        } finally {
+            setLoadingTab(prev => ({ ...prev, [newFilter]: false }));
+        }
+    };
+
+    // Current data based on active filter
+    const currentPosts = postsByTab[filter] || [];
+    const isCurrentLoading = loadingTab[filter];
+    const currentHasMore = filter === 'ALL' ? hasMore : (tabHasMore[filter] || false);
+
+    const handleLoadMoreTabs = async () => {
+        const cursor = filter === 'ALL' ? nextCursor : tabCursors[filter];
+        if (!cursor) return;
+
+        const setGlobalLoading = filter === 'ALL' ? setLoadingMore : (val: boolean) => { }; // ALL uses existing state
+        if (filter !== 'ALL') setLoadingTab(prev => ({ ...prev, [filter]: true }));
+        else setGlobalLoading(true);
+
+        try {
+            const res = await fetch(`/api/posts/user?userId=${userId}&cursor=${cursor}&type=${filter}`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data.posts?.length > 0) {
+                    if (filter === 'ALL') {
+                        setPosts(prev => [...prev, ...data.posts]);
+                        setNextCursor(data.nextCursor);
+                        setHasMore(!!data.nextCursor);
+                        // Sync ALLtab
+                        setPostsByTab(prev => ({ ...prev, ALL: [...(prev.ALL || []), ...data.posts] }));
+                    } else {
+                        setPostsByTab(prev => ({ ...prev, [filter]: [...(prev[filter] || []), ...data.posts] }));
+                        setTabCursors(prev => ({ ...prev, [filter]: data.nextCursor }));
+                        setTabHasMore(prev => ({ ...prev, [filter]: !!data.nextCursor }));
+                    }
+                } else {
+                    if (filter === 'ALL') setHasMore(false);
+                    else setTabHasMore(prev => ({ ...prev, [filter]: false }));
+                }
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            if (filter !== 'ALL') setLoadingTab(prev => ({ ...prev, [filter]: false }));
+            else setGlobalLoading(false);
+        }
+    }
 
     return (
         <section className="mb-10 relative">
@@ -138,7 +223,7 @@ export default function ProfilePostsGrid({ posts: initialPosts, isMe, userId, on
                     {(['ALL', 'FILLS', 'LILLS', 'SIMPLE', 'AUDIO', 'CHANNELS'] as const).map((t) => (
                         <button
                             key={t}
-                            onClick={() => setFilter(t)}
+                            onClick={() => handleTabChange(t)}
                             className={`text-sm font-black tracking-widest uppercase pb-2 border-b-2 transition-all shrink-0 ${filter === t ? 'text-white border-white' : 'text-white/40 border-transparent hover:text-white/70'}`}
                         >
                             {t}
@@ -148,9 +233,9 @@ export default function ProfilePostsGrid({ posts: initialPosts, isMe, userId, on
 
                 <div className="flex items-center gap-4">
                     <span className="text-xs font-bold text-white/40 uppercase tracking-widest">
-                        {filteredPosts.length} Posts
+                        {currentPosts.length} Posts
                     </span>
-                    {isMe && posts.length > 0 && (
+                    {isMe && currentPosts.length > 0 && (
                         <button
                             onClick={toggleSelectionMode}
                             className={`px-3 py-1.5 text-xs font-black uppercase tracking-wider rounded-lg transition-colors flex items-center gap-2 ${selectionMode
@@ -168,21 +253,19 @@ export default function ProfilePostsGrid({ posts: initialPosts, isMe, userId, on
                 </div>
             </div>
 
-            {filteredPosts.length > 0 ? (
+            {isCurrentLoading && currentPosts.length === 0 ? (
+                // SKELETON LOADER
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} className="aspect-[3/4] rounded-xl bg-white/5 animate-pulse border border-white/10" />
+                    ))}
+                </div>
+            ) : currentPosts.length > 0 ? (
                 <FeedRefreshProvider onRefresh={() => onActionComplete ? onActionComplete() : router.refresh()}>
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-                        {filteredPosts.map((p) => {
+                        {currentPosts.map((p) => {
                             const isSelected = selectedIds.has(p.id);
-
-                            // Determine layout - simple uniform grid for profile to maximize space/density
-                            // Fills/Chans can still be larger if desired, but "horizontally grid wise" usually implies uniformity or masonry.
-                            // Given user asked for "more posts horizontally", uniform grid is safer.
-                            // However, key logic `spanClass` existed. I'll modify to be responsive but mostly uniform unless explicit.
                             let spanClass = "col-span-1";
-                            // if (p.postType === 'CHAN' || p.postType === 'FILL') {
-                            //    spanClass = "col-span-2"; // Optional: keep or remove. User said "more posts horizontally". Uniform might be better. 
-                            //    I'll remove span to fit more posts, unless truly necessary.
-                            // }
 
                             return (
                                 <div key={p.id} className={`${spanClass} relative group`}>
@@ -222,14 +305,14 @@ export default function ProfilePostsGrid({ posts: initialPosts, isMe, userId, on
             )}
 
             {/* Load More Button */}
-            {hasMore && (
+            {currentHasMore && (
                 <div className="mt-8 flex justify-center">
                     <button
-                        onClick={handleLoadMore}
-                        disabled={loadingMore}
+                        onClick={filter === 'ALL' ? handleLoadMore : handleLoadMoreTabs}
+                        disabled={loadingMore || (filter !== 'ALL' && loadingTab[filter])}
                         className="px-6 py-2.5 bg-white/10 hover:bg-white/20 text-white font-medium rounded-full transition-colors disabled:opacity-50"
                     >
-                        {loadingMore ? 'Loading...' : 'Load More'}
+                        {(loadingMore || (filter !== 'ALL' && loadingTab[filter])) ? 'Loading...' : 'Load More'}
                     </button>
                 </div>
             )}

@@ -7,17 +7,33 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get('userId');
     const cursor = searchParams.get('cursor');
+    const type = searchParams.get('type'); // Filter by postType
 
     if (!userId) return NextResponse.json({ error: 'Missing userId' }, { status: 400 });
 
     try {
         const limit = 12;
+
+        let where: any = {
+            userId,
+            status: 'PUBLISHED',
+        };
+
+        if (type && type !== 'ALL') {
+            // Basic mapping from frontend tabs to DB 'postType'
+            // 'ALL', 'FILLS', 'LILLS', 'SIMPLE', 'AUDIO', 'CHANNELS'
+            if (type === 'FILLS') where.postType = 'FILL';
+            else if (type === 'LILLS') where.postType = 'LILL';
+            else if (type === 'AUDIO') where.postType = 'AUD';
+            else if (type === 'CHANNELS') where.postType = 'CHAN';
+            else if (type === 'SIMPLE') where.postType = { in: ['STANDARD', 'TEXT', 'SIMPLE'] };
+        } else {
+            // Default behavior: exclude CHAN unless asked
+            where.postType = { not: 'CHAN' };
+        }
+
         const posts = await prisma.post.findMany({
-            where: {
-                userId,
-                status: 'PUBLISHED',
-                postType: { not: 'CHAN' },
-            },
+            where,
             take: limit + 1, // Fetch one extra to get next cursor
             cursor: cursor ? { id: cursor } : undefined,
             skip: cursor ? 1 : 0,
