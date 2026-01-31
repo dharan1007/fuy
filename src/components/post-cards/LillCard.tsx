@@ -47,6 +47,38 @@ export default function LillCard({ lill, user, post, currentUserId, onPostHidden
         );
     }
 
+    // Double-tap to like handler
+    const handleDoubleTap = async (e: React.MouseEvent) => {
+        // e.stopPropagation(); // We might want to allow this to bubble or not.
+
+        const now = Date.now();
+        const DOUBLE_TAP_DELAY = 300;
+
+        if (now - lastTapRef.current < DOUBLE_TAP_DELAY) {
+            // Double tap detected - trigger W reaction
+            setShowLikeAnimation(true);
+            setTimeout(() => setShowLikeAnimation(false), 800);
+
+            try {
+                await fetch('/api/posts/react', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ postId: post?.id || lill.id, type: 'W' })
+                });
+                onRefresh?.();
+            } catch (e) {
+                console.error('Failed to react:', e);
+            }
+        } else {
+            // Single tap logic (optional, but effectively handled by separate Play/Pause button if we want)
+            // For now, double tap is dedicated to Like.
+            // We can allow togglePlay on single tap if we wait, but that delays responsiveness.
+            // I'll leave this exclusively for double tap usage.
+            // Play/Pause will be handled by the overlay button.
+        }
+        lastTapRef.current = now;
+    };
+
     const toggleMute = (e: React.MouseEvent) => {
         e.stopPropagation();
         if (videoRef.current) {
