@@ -48,8 +48,36 @@ export async function POST(request: NextRequest) {
             }
 
             // Fix: Ensure public User record exists manually since trigger might be missing
-            const userId = authData?.user?.id;
+            // 1. Handle "User already registered" case to get the correct User ID if needed
+            let userId = authData?.user?.id;
+
+            if (!userId && createError?.message.includes('already been registered')) {
+                // User exists in Supabase. We need their ID.
+                // Admin `listUsers` is the reliable way to search by email without logging in.
+                const { data: { users } } = await supabaseAdmin.auth.admin.listUsers();
+                const existingAuthUser = users.find(u => u.email?.toLowerCase() === email.toLowerCase());
+                if (existingAuthUser) {
+                    userId = existingAuthUser.id;
+                }
+            }
+
             if (userId) {
+                // 2. Check for "Zombie" records in Prisma (Same email, diff ID)
+                // This causes "Unique constraint failed" if we try to upsert with a new ID
+                const existingPrismaUser = await prisma.user.findUnique({
+                    where: { email },
+                });
+
+                if (existingPrismaUser && existingPrismaUser.id !== userId) {
+                    console.log(`[Verify] Found stale Prisma user ${existingPrismaUser.id} for ${email}. Deleting to sync with Supabase ID ${userId}.`);
+                    // Delete the stale record so we can recreate it with the correct sync ID
+                    try {
+                        await prisma.user.delete({ where: { id: existingPrismaUser.id } });
+                    } catch (e) {
+                        console.error("[Verify] Failed to cleanup stale user:", e);
+                    }
+                }
+
                 await prisma.user.upsert({
                     where: { id: userId },
                     create: {
@@ -57,7 +85,11 @@ export async function POST(request: NextRequest) {
                         email: email,
                         name: name,
                     },
-                    update: {},
+                    update: {
+                        // If it exists with correct ID, just update details
+                        email: email,
+                        name: name,
+                    },
                 });
             }
         }
