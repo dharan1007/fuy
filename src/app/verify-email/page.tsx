@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import Link from 'next/link';
 import CosmicBackground from '@/components/CosmicBackground';
+import { supabase } from '@/lib/supabase-client';
 
 function VerifyEmailContent() {
     const router = useRouter();
@@ -64,12 +65,27 @@ function VerifyEmailContent() {
             // Cleanup session storage on success
             sessionStorage.removeItem('signup_password');
 
-            setMessage({ type: 'success', text: 'Email verified! Redirecting...' });
+            setMessage({ type: 'success', text: 'Email verified! Signing in...' });
+
+            // Auto Sign-In
+            const { error: signInError } = await supabase.auth.signInWithPassword({
+                email,
+                password
+            });
+
+            if (signInError) {
+                console.error("Auto sign-in failed:", signInError);
+                setMessage({ type: 'error', text: 'Verification successful but auto-login failed. Please sign in manually.' });
+                setTimeout(() => router.push('/login'), 2000);
+                return;
+            }
+
+            setMessage({ type: 'success', text: 'Signed in! Redirecting to setup...' });
 
             // Redirect to profile setup
             setTimeout(() => {
                 router.push('/profile/setup');
-            }, 1000);
+            }, 500);
 
         } catch (error: any) {
             setMessage({ type: 'error', text: error.message });
