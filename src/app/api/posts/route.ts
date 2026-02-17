@@ -204,20 +204,28 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(Number(searchParams.get("limit")) || 20, 50);
 
   const where: any = {
-    postType: { notIn: ["STORY", "STANDARD"] }
+    // Hide specialized types from main feed if needed, similar to original logic
+    postType: { notIn: ["STORY", "CLOCK"] },
+    status: "PUBLISHED"
   };
 
-  // --- Scope Filtering on FeedItem ---
-  if (scope === "me" && userId) {
+  // --- Scope Filtering ---
+  if (scope === "public") {
+    where.visibility = "PUBLIC";
+  } else if (scope === "me" && userId) {
     where.userId = userId;
   } else if (scope === "friends" && userId) {
+    where.visibility = { in: ["PUBLIC", "FRIENDS"] };
     const friends = await prisma.friendship.findMany({
-      where: { OR: [{ userId, status: "ACCEPTED" }, { friendId: userId, status: "ACCEPTED" }] },
+      where: {
+        OR: [{ userId, status: "ACCEPTED" }, { friendId: userId, status: "ACCEPTED" }]
+      },
       select: { userId: true, friendId: true }
     });
     const friendIds = friends.map(f => f.userId === userId ? f.friendId : f.userId);
     where.userId = { in: [...friendIds, userId] };
   } else if (scope === "bloom" && userId) {
+    // Bloom scope - strictly people I subscribe to
     const subs = await prisma.subscription.findMany({
       where: { subscriberId: userId },
       select: { subscribedToId: true }
@@ -225,7 +233,7 @@ export async function GET(req: NextRequest) {
     where.userId = { in: subs.map(s => s.subscribedToId) };
   }
 
-  // --- Safety Filtering ---
+  // --- Safety Filtering (Block/Mute/Hidden) ---
   if (userId) {
     const [blocked, blockedBy, muted, hidden] = await Promise.all([
       prisma.blockedUser.findMany({ where: { blockerId: userId }, select: { blockedId: true } }),
@@ -242,31 +250,82 @@ export async function GET(req: NextRequest) {
 
     const hiddenPostIds = hidden.map(h => h.postId);
 
-    // Add to where clause
     if (excludedUserIds.length > 0) {
       where.userId = { ...where.userId, notIn: excludedUserIds };
     }
     if (hiddenPostIds.length > 0) {
-      where.postId = { notIn: hiddenPostIds };
+      where.id = { notIn: hiddenPostIds };
     }
   }
 
-  // Fetch from FeedItem (Result Set 1)
-  const feedItems = await prisma.feedItem.findMany({
+  // --- Fetch Posts from Canonical 'Post' Table ---
+  const posts = await prisma.post.findMany({
     where,
     orderBy: { createdAt: "desc" },
     take: limit,
+    include: {
+      user: {
+        select: {
+          id: true,
+          email: true,
+          isHumanVerified: true,
+          profile: {
+            select: {
+              displayName: true,
+              avatarUrl: true,
+              location: true
+            }
+          }
+        }
+      },
+      // Relations for media and specialized data
+      postMedia: {
+        include: {
+          media: true
+        },
+        orderBy: {
+          orderIndex: 'asc'
+        }
+      },
+      lillData: true,
+      fillData: true,
+      chanData: true,
+      audData: true,
+      xrayData: true,
+      simpleData: true,
+
+      // Engagement
+      _count: {
+        select: {
+          likes: true,
+          comments: true,
+          shares: true
+        }
+      },
+      // Check if liked by me
+      likes: userId ? {
+        where: { userId },
+        select: { id: true }
+      } : false,
+
+      // Top bubbles
+      reactionBubbles: {
+        take: 3,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: {
+            select: {
+              id: true,
+              profile: { select: { avatarUrl: true, displayName: true } }
+            }
+          }
+        }
+      }
+    }
   });
 
-  // --- Hydrate User State (LikedByMe) ---
-  const postIds = feedItems.map((f: any) => f.postId);
-  const myLikes = userId ? await prisma.postLike.findMany({
-    where: { userId, postId: { in: postIds } },
-    select: { postId: true }
-  }) : [];
-  const likedPostIds = new Set(myLikes.map(l => l.postId));
-
-  // --- Fetch Real-Time Reaction Counts ---
+  // --- Fetch Real-Time Reaction Counts (Granular W/L/CAP) ---
+  const postIds = posts.map(p => p.id);
   const allReactions = await prisma.reaction.groupBy({
     by: ['postId', 'type'],
     where: { postId: { in: postIds } },
@@ -274,11 +333,8 @@ export async function GET(req: NextRequest) {
   });
 
   const reactionMap: Record<string, { W: number; L: number; CAP: number }> = {};
-
   allReactions.forEach(r => {
-    if (!reactionMap[r.postId]) {
-      reactionMap[r.postId] = { W: 0, L: 0, CAP: 0 };
-    }
+    if (!reactionMap[r.postId]) reactionMap[r.postId] = { W: 0, L: 0, CAP: 0 };
     const type = r.type as keyof typeof reactionMap[string];
     if (reactionMap[r.postId][type] !== undefined) {
       reactionMap[r.postId][type] = r._count.type;
@@ -286,53 +342,67 @@ export async function GET(req: NextRequest) {
   });
 
   // --- Transform to Frontend Format ---
-  const transformed = feedItems.map((item: any) => {
-    let media = [];
-    try {
-      media = item.mediaPreviews ? JSON.parse(item.mediaPreviews) : [];
-    } catch (e) { }
+  const transformed = posts.map((post) => {
+    // 1. Process Media
+    // Map PostMedia -> MediaPreview format expected by frontend
+    const media = post.postMedia.map(pm => ({
+      type: pm.media.type, // IMAGE, VIDEO, AUDIO
+      url: pm.media.url,
+      variant: pm.media.variant || undefined,
+      thumbnailUrl: undefined // Could map from variant if needed
+    }));
 
-    const realTimeCounts = reactionMap[item.postId] || { W: 0, L: 0, CAP: 0 };
-    const totalLikes = Object.values(realTimeCounts).reduce((a: number, b: number) => a + b, 0);
+    // 2. Synthesize Data (using helper or inline)
+    const realTimeCounts = reactionMap[post.id] || { W: 0, L: 0, CAP: 0 };
+    const totalLikes = Object.values(realTimeCounts).reduce((a, b) => a + b, 0);
+
+    const synthesized = synthesizePostData(
+      {
+        postId: post.id,
+        postType: post.postType,
+        contentSnippet: post.content,
+        authorName: post.user.profile?.displayName || 'User'
+      },
+      media
+    );
 
     return {
-      id: item.postId,
-      userId: item.userId,
-      feature: item.feature,
-      postType: item.postType,
-      content: item.contentSnippet,
-      createdAt: item.createdAt,
+      id: post.id,
+      userId: post.userId,
+      feature: post.feature,
+      postType: post.postType,
+      content: post.content,
+      createdAt: post.createdAt,
       user: {
-        id: item.userId,
-        profile: {
-          displayName: item.authorName,
-          avatarUrl: item.authorAvatarUrl
-        }
+        id: post.user.id,
+        email: post.user.email,
+        profile: post.user.profile
       },
       media: media,
 
       // Counts
-      likes: totalLikes, // Override stored count with real-time sum
-      comments: item.commentCount,
-      shares: item.shareCount,
+      likes: totalLikes > 0 ? totalLikes : post._count.likes,
+      comments: post._count.comments,
+      shares: post.shareCount || post._count.shares,
 
       // Reaction Details
       reactionCounts: realTimeCounts,
 
       // Context
-      likedByMe: likedPostIds.has(item.postId),
-      isSubscribed: false,
+      likedByMe: post.likes && post.likes.length > 0,
+      isSubscribed: false, // Need subscription check if critical, else skip for list view
 
-      // Synthesize specialized post type data
-      ...synthesizePostData(
-        {
-          postId: item.postId,
-          postType: item.postType,
-          contentSnippet: item.contentSnippet,
-          authorName: item.authorName
-        },
-        media
-      ),
+      // Bubbles
+      topBubbles: post.reactionBubbles,
+      totalBubbles: 0, // Need separate count if important
+
+      // Specialized Data
+      ...synthesized,
+      // Manual overrides if synthesize doesn't cover everything from joined tables
+      lillData: post.lillData ? { ...synthesized.lillData, ...post.lillData } : synthesized.lillData,
+      fillData: post.fillData ? { ...synthesized.fillData, ...post.fillData } : synthesized.fillData,
+      chanData: post.chanData ? { ...synthesized.chanData, ...post.chanData } : synthesized.chanData,
+      xrayData: post.xrayData ? { ...synthesized.xrayData, ...post.xrayData } : synthesized.xrayData,
     };
   });
 
