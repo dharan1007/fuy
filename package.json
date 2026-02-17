@@ -16,6 +16,7 @@
     "@aws-sdk/s3-request-presigner": "^3.958.0",
     "@headlessui/react": "^2.2.9",
     "@hello-pangea/dnd": "^18.0.1",
+    "@mediapipe/tasks-vision": "^0.10.32",
     "@prisma/client": "^6.19.0",
     "@react-three/drei": "^9.99.0",
     "@react-three/fiber": "^8.15.16",
