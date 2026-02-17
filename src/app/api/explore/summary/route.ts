@@ -81,7 +81,7 @@ export async function GET() {
                 postMedia: {
                     select: {
                         media: {
-                            select: { id: true, type: true, url: true, thumbnailUrl: true }
+                            select: { id: true, type: true, url: true }
                         }
                     },
                     take: 1 // Only first media for preview
@@ -134,7 +134,7 @@ export async function GET() {
             // Fast normalize media
             return posts.map((post: any) => {
                 const media = post.postMedia?.[0]?.media;
-                let thumbnail = media ? { type: media.type, url: media.url, thumbnailUrl: media.thumbnailUrl } : null;
+                let thumbnail = media ? { type: media.type, url: media.url, thumbnailUrl: null } : null;
 
                 // Type-specific thumbnail fallbacks
                 if (!thumbnail) {
