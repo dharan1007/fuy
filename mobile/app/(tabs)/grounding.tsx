@@ -3,13 +3,13 @@ import { View, Text, TouchableOpacity, ScrollView, Dimensions, StatusBar, Modal,
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft, Plus, X, Save, Zap, Droplets } from 'lucide-react-native';
-import HumanBodySVG from '../components/HumanBodySVG';
-import { useTheme } from '../context/ThemeContext';
-import WorkoutView from '../components/grounding/WorkoutView';
-import HealthView from '../components/grounding/HealthView';
-import ActivityView from '../components/grounding/ActivityView';
-import DietView from '../components/grounding/DietView'; // Still needed for HealthView
-import { calculateNutritionRequirements, FitnessGoal, Gender } from '../lib/nutritionScience';
+import HumanBodySVG from '../../components/HumanBodySVG';
+import { useTheme } from '../../context/ThemeContext';
+import WorkoutView from '../../components/grounding/WorkoutView';
+import HealthView from '../../components/grounding/HealthView';
+import ActivityView from '../../components/grounding/ActivityView';
+import DietView from '../../components/grounding/DietView'; // Still needed for HealthView
+import { calculateNutritionRequirements, FitnessGoal, Gender } from '../../lib/nutritionScience';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');

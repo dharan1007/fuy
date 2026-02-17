@@ -7,7 +7,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../context/ThemeContext';
-import { getApiUrl } from '../lib/api';
+import { PostService } from '../services/PostService';
+import FeedPostItem from '../components/FeedPostItem';
+
 
 const { width } = Dimensions.get('window');
 
@@ -64,13 +66,18 @@ export default function FeedScreen() {
 
     const fetchFeed = async () => {
         try {
-            const API_URL = getApiUrl();
-            const response = await fetch(`${API_URL}/api/feed`);
-            if (response.ok) {
-                const data = await response.json();
-                if (data.posts?.length > 0) {
-                    setPosts(data.posts);
-                }
+            const data = await PostService.getFeed();
+            if (data) {
+                const formatted = data.map((p: any) => ({
+                    id: p.id,
+                    content: p.content,
+                    media: p.postMedia?.map((pm: any) => pm.media) || [],
+                    user: Array.isArray(p.user) ? p.user[0] : p.user,
+                    likeCount: p.likes?.[0]?.count || 0,
+                    commentCount: p.comments?.[0]?.count || 0,
+                    createdAt: p.createdAt
+                }));
+                setPosts(formatted);
             }
         } catch (e) {
             console.error('Feed fetch error:', e);
@@ -106,66 +113,30 @@ export default function FeedScreen() {
         return `${Math.floor(hours / 24)}d ago`;
     };
 
+    const [activePostId, setActivePostId] = useState<string | null>(null);
+    const isScreenFocused = true; // Feed is focused if this screen is active
+
     const renderPost = ({ item }: { item: FeedPost }) => (
-        <View style={{ marginBottom: 20 }}>
-            {/* Header */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 }}>
-                <TouchableOpacity onPress={() => router.push(`/profile/${item.user.profile?.displayName}`)}>
-                    <Image
-                        source={{ uri: item.user.profile?.avatarUrl }}
-                        style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.card }}
-                    />
-                </TouchableOpacity>
-                <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={{ color: colors.text, fontWeight: '700', fontSize: 14 }}>{item.user.name}</Text>
-                    <Text style={{ color: colors.secondary, fontSize: 12 }}>@{item.user.profile?.displayName}</Text>
-                </View>
-                <TouchableOpacity>
-                    <MoreHorizontal color={colors.secondary} size={20} />
-                </TouchableOpacity>
-            </View>
-
-            {/* Media */}
-            {item.media?.[0] && (
-                <TouchableOpacity activeOpacity={0.95} onPress={() => router.push(`/post/${item.id}`)}>
-                    <Image
-                        source={{ uri: item.media[0].url }}
-                        style={{ width, height: width, backgroundColor: colors.card }}
-                        resizeMode="cover"
-                    />
-                </TouchableOpacity>
-            )}
-
-            {/* Actions */}
-            <View style={{ flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 12, gap: 16 }}>
-                <TouchableOpacity onPress={() => toggleLike(item.id)} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Heart size={24} color={liked.has(item.id) ? '#ef4444' : colors.text} fill={liked.has(item.id) ? '#ef4444' : 'transparent'} />
-                    <Text style={{ color: colors.text, fontWeight: '600' }}>{item.likeCount + (liked.has(item.id) ? 1 : 0)}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <MessageCircle size={22} color={colors.text} />
-                    <Text style={{ color: colors.text, fontWeight: '600' }}>{item.commentCount}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity>
-                    <Share2 size={22} color={colors.text} />
-                </TouchableOpacity>
-                <View style={{ flex: 1 }} />
-                <TouchableOpacity>
-                    <Bookmark size={22} color={colors.text} />
-                </TouchableOpacity>
-            </View>
-
-            {/* Content */}
-            {item.content && (
-                <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
-                    <Text style={{ color: colors.text, fontSize: 14, lineHeight: 20 }}>
-                        <Text style={{ fontWeight: '700' }}>{item.user.name} </Text>
-                        {item.content}
-                    </Text>
-                    <Text style={{ color: colors.secondary, fontSize: 11, marginTop: 4 }}>{formatTime(item.createdAt)}</Text>
-                </View>
-            )}
-        </View>
+        <FeedPostItem
+            item={{
+                ...item,
+                postMedia: item.media ? item.media.map(m => ({ url: m.url, type: m.type === 'video' ? 'VIDEO' : 'IMAGE' })) : [],
+                commentCount: item.commentCount,
+                reactionCounts: { W: item.likeCount, L: 0, CAP: 0 }, // Map legacy counts
+                userReaction: liked.has(item.id) ? 'W' : null
+            }}
+            isActive={activePostId === item.id}
+            colors={colors}
+            mode={mode}
+            onReact={(id, type) => toggleLike(id)}
+            onAddBubble={() => { }}
+            onActivate={() => setActivePostId(item.id)}
+            onMenuPress={() => { }}
+            onCommentPress={() => { }}
+            onSharePress={() => { }}
+            isScreenFocused={isScreenFocused}
+            onToggleScroll={() => { }}
+        />
     );
 
     return (

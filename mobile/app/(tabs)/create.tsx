@@ -5,6 +5,7 @@ import ScreenWrapper from '../../components/ScreenWrapper';
 import { Image as ImageIcon, BookOpen, Search, Smartphone, Video, Radio, Clock, BarChart2, FileEdit } from 'lucide-react-native';
 import SimpleForm from '../../components/post-forms/SimpleForm';
 import ChapterForm from '../../components/post-forms/ChapterForm';
+// Force reload: 2026-02-03T16:50
 import LillForm from '../../components/post-forms/LillForm';
 import FillForm from '../../components/post-forms/FillForm';
 import XrayForm from '../../components/post-forms/XrayForm';
@@ -25,7 +26,7 @@ const POST_TYPES = [
     { type: 'CHAPTER', name: 'Chapters', description: 'Multi-media collections', Icon: BookOpen },
     { type: 'XRAY', name: 'Xrays', description: 'Scratch to reveal', Icon: Search },
     { type: 'LILL', name: 'Lills', description: 'Short vertical videos', Icon: Smartphone },
-    { type: 'FILL', name: 'Fills', description: 'Long horizontal videos', Icon: Video },
+    // { type: 'FILL', name: 'Fills', description: 'Long horizontal videos', Icon: Video }, // V2 - hidden for now
     { type: 'AUD', name: 'Auds', description: 'Audio with waveform', Icon: Radio },
     { type: 'CLOCK', name: 'Clocks', description: 'Timed stories', Icon: Clock },
     { type: 'PULLUPDOWN', name: 'PUDS', description: 'Voting polls', Icon: BarChart2 },

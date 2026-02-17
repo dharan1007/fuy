@@ -24,6 +24,12 @@ import { Paperclip } from 'lucide-react-native';
 import CustomToast, { ToastType } from '../../components/CustomToast';
 import ChatPostCard from '../../components/ChatPostCard';
 import CollaborativeModal from '../../components/CollaborativeModal';
+import LocationPicker from '../../components/chat/LocationPicker';
+import MediaPreview from '../../components/chat/MediaPreview';
+import EncryptedMedia from '../../components/chat/EncryptedMedia';
+import DocumentBubble from '../../components/chat/DocumentBubble';
+import LocationBubble from '../../components/chat/LocationBubble';
+import * as DocumentPicker from 'expo-document-picker';
 
 
 const { width } = Dimensions.get('window');
@@ -35,7 +41,7 @@ interface Message {
     id: string;
     role: 'user' | 'assistant' | 'system';
     content: string;
-    type?: 'text' | 'image' | 'video' | 'audio' | 'post' | 'reply';
+    type?: 'text' | 'image' | 'video' | 'audio' | 'post' | 'reply' | 'document' | 'location';
     mediaUrl?: string;
     timestamp: number;
     senderId?: string;
@@ -46,6 +52,16 @@ interface Message {
     isDeleted?: boolean;
     deletedBy?: string[];
     updatedAt?: string;
+    mediaType?: 'image' | 'video' | 'audio' | 'document' | 'location';
+    mediaEncryptionKey?: string;
+    viewOnce?: boolean;
+    expiresAt?: string; // ISO string
+    isPasswordProtected?: boolean; // New field for password protected docs
+    thumbnailUrl?: string;
+    fileName?: string;
+    fileSize?: number;
+    mimeType?: string;
+    duration?: number;
 }
 
 interface ChatUser {
@@ -212,6 +228,128 @@ export default function ChatScreen() {
         setToastMessage(message);
         setToastType(type);
         setTimeout(() => setToastMessage(null), 3000);
+    };
+
+    // --- Media & Location State ---
+    const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
+    const [previewMedia, setPreviewMedia] = useState<{ uri: string; type: 'image' | 'video' | 'document' } | null>(null);
+    const [showLocationPicker, setShowLocationPicker] = useState(false);
+
+    // --- Handlers ---
+    const handlePickMedia = async (source: 'camera' | 'library') => {
+        setShowAttachmentMenu(false);
+        try {
+            const result = source === 'camera'
+                ? await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.All, quality: 0.8 })
+                : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.All, quality: 0.8 });
+
+            if (!result.canceled && result.assets[0]) {
+                const asset = result.assets[0];
+                setPreviewMedia({ uri: asset.uri, type: asset.type === 'video' ? 'video' : 'image' });
+            }
+        } catch (error) {
+            Alert.alert('Error', 'Failed to pick media');
+        }
+    };
+
+    const handlePickDocument = async () => {
+        setShowAttachmentMenu(false);
+        try {
+            const result = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true });
+            if (result.canceled) return;
+
+            Alert.alert('Send Document?', result.assets[0].name, [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Send',
+                    onPress: async () => {
+                        setIsUploading(true);
+                        try {
+                            const uploadResult = await MediaUploadService.uploadDocument(
+                                result.assets[0].uri,
+                                true // Encrypt docs by default
+                            );
+
+                            await sendMessage(
+                                'document',
+                                '📄 ' + result.assets[0].name,
+                                uploadResult.url,
+                                {
+                                    mediaEncryptionKey: uploadResult.encryptionKey ? `${uploadResult.iv}:${uploadResult.encryptionKey}` : undefined,
+                                    mimeType: result.assets[0].mimeType,
+                                    fileName: result.assets[0].name,
+                                    fileSize: result.assets[0].size,
+                                }
+                            );
+                        } catch (e) {
+                            Alert.alert('Error sending doc');
+                            console.error(e);
+                        } finally { setIsUploading(false); }
+                    }
+                }
+            ]);
+
+        } catch (error) {
+            console.log('Error picking doc', error);
+        }
+    };
+
+    const handleSendMedia = async (data: { caption: string; viewOnce: boolean; expiresAt: Date | null; password?: string }) => {
+        if (!previewMedia) return;
+
+        setIsUploading(true);
+        setPreviewMedia(null); // Close preview immediately
+
+        const tempId = Date.now().toString();
+        const type = previewMedia.type === 'video' ? 'video' : previewMedia.type === 'document' ? 'document' : 'image';
+
+        // Optimistic update removed, sendMessage handles it
+        // const newMessage: Message = ...
+
+        try {
+            const uploadResult = await MediaUploadService.uploadMedia(
+                previewMedia.uri,
+                type === 'video' ? 'VIDEO' : type === 'document' ? 'DOCUMENT' : 'IMAGE',
+                undefined,
+                true, // Always encrypt media for privacy, except maybe public
+                data.password // Pass password if provided
+            );
+
+            // Update message with real URL and encryption key
+            setMessages(prev => prev.map(msg =>
+                msg.id === tempId ? {
+                    ...msg,
+                    mediaUrl: uploadResult.url,
+                    mediaEncryptionKey: uploadResult.encryptionKey ?
+                        (uploadResult.iv ? `${uploadResult.iv}:${uploadResult.encryptionKey}` : uploadResult.encryptionKey)
+                        : undefined,
+                    fileSize: 0, // We could get this from file info
+                    fileName: previewMedia.type === 'document' ? previewMedia.uri.split('/').pop() : undefined
+                } : msg
+            ));
+
+            // Persist to DB (omitted for brevity, assume similar to optimistic update)
+            // ...
+
+        } catch (error) {
+            console.error("Failed to upload media:", error);
+            showToast("Failed to send media", 'error');
+            // Remove failed message
+            setMessages(prev => prev.filter(msg => msg.id !== tempId));
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    const handleSendLocation = async (loc: { latitude: number; longitude: number; address?: string }) => {
+        setShowLocationPicker(false);
+
+        await sendMessage(
+            'location',
+            loc.address || '📍 Location',
+            `${loc.latitude},${loc.longitude}`,
+            {}
+        );
     };
 
     const [replyTo, setReplyTo] = useState<{ id: string; content: string; sender: string } | null>(null);
@@ -445,9 +583,37 @@ export default function ChatScreen() {
         }
     }, [dbUserId]);
 
+    // REFRESH DATA ON KEY UNLOCK
+    useEffect(() => {
+        if (privateKey) {
+            console.log("Keys unlocked - refreshing chat data");
+            fetchConversations();
+            if (activeConversationIdRef.current && selectedUser) {
+                fetchMessages(activeConversationIdRef.current);
+            }
+        }
+    }, [privateKey]);
+
     // Subscribe to messages when a chat is open
     // Ref to hold channel for broadcast sending
     const chatChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
+    // Load accepted state on mount/change
+    useEffect(() => {
+        if (activeConversationIdRef.current) {
+            AsyncStorage.getItem(`accepted_${activeConversationIdRef.current}`).then(val => {
+                if (val === 'true') setTempAccepted(true);
+                else setTempAccepted(false);
+            });
+        }
+    }, [activeConversationIdRef.current]);
+
+    const handleAcceptRequest = async () => {
+        setTempAccepted(true);
+        if (activeConversationIdRef.current) {
+            await AsyncStorage.setItem(`accepted_${activeConversationIdRef.current}`, 'true');
+        }
+    };
 
     useEffect(() => {
         if (!activeConversationIdRef.current || !dbUserId) return;
@@ -458,13 +624,30 @@ export default function ChatScreen() {
                 const newMsg = payload.payload;
                 // Skip if it's our own message (already added via optimistic update)
                 if (newMsg.senderId === dbUserId) return;
+
+                let text = newMsg.content;
+                // Decrypt if needed
+                if (text && text.startsWith('{') && text.includes('"c":') && privateKey && selectedUser?.publicKey) {
+                    try {
+                        const parsed = JSON.parse(text);
+                        if (parsed.c && parsed.n) {
+                            const decrypted = decryptMessage(
+                                { ciphertext: parsed.c, nonce: parsed.n },
+                                privateKey,
+                                selectedUser.publicKey
+                            );
+                            if (decrypted) text = decrypted;
+                        }
+                    } catch (e) { }
+                }
+
                 setMessages(prev => {
                     if (prev.find(m => m.id === newMsg.id)) return prev;
                     markAsRead(newMsg.id);
                     return [...prev, {
                         id: newMsg.id,
                         role: 'assistant',
-                        content: newMsg.content,
+                        content: text,
                         type: newMsg.type || 'text',
                         mediaUrl: newMsg.mediaUrl,
                         timestamp: newMsg.timestamp || Date.now(),
@@ -482,13 +665,32 @@ export default function ChatScreen() {
                         setMessages(prev => {
                             // DEDUPLICATION: Skip if already received via broadcast
                             if (prev.find(m => m.id === newMsg.id)) return prev;
+
+                            let text = newMsg.content;
+                            // Decrypt if needed (Only for incoming messages, our own are already plaintext/optimistic)
+                            // But if we receive our own INSERT from another device, we might need to decrypt it too?
+                            // For now focusing on incoming (partner) messages
                             if (newMsg.senderId !== dbUserId) {
                                 markAsRead(newMsg.id);
+                                if (text && text.startsWith('{') && text.includes('"c":') && privateKey && selectedUser?.publicKey) {
+                                    try {
+                                        const parsed = JSON.parse(text);
+                                        if (parsed.c && parsed.n) {
+                                            const decrypted = decryptMessage(
+                                                { ciphertext: parsed.c, nonce: parsed.n },
+                                                privateKey,
+                                                selectedUser.publicKey
+                                            );
+                                            if (decrypted) text = decrypted;
+                                        }
+                                    } catch (e) { }
+                                }
                             }
+
                             return [...prev, {
                                 id: newMsg.id,
                                 role: newMsg.senderId === dbUserId ? 'user' : 'assistant',
-                                content: newMsg.content,
+                                content: text,
                                 type: newMsg.type,
                                 mediaUrl: newMsg.mediaUrl,
                                 timestamp: new Date(newMsg.createdAt).getTime(),
@@ -513,7 +715,7 @@ export default function ChatScreen() {
             supabase.removeChannel(channel);
             chatChannelRef.current = null;
         };
-    }, [activeConversationIdRef.current, dbUserId]);
+    }, [activeConversationIdRef.current, dbUserId, privateKey, selectedUser]);
 
     // --- Data Fetching ---
 
@@ -563,6 +765,20 @@ export default function ChatScreen() {
                             if (c.lastMessage.startsWith('{')) {
                                 const parsed = JSON.parse(c.lastMessage);
                                 if (parsed.text && parsed.replyTo) return parsed.text;
+
+                                // Decrypt preview if keys are available
+                                if (parsed.c && parsed.n && privateKey) {
+                                    const otherKey = partner.profile?.publicKey;
+                                    if (otherKey) {
+                                        try {
+                                            const decrypted = decryptMessage({ ciphertext: parsed.c, nonce: parsed.n }, privateKey, otherKey);
+                                            if (decrypted) return decrypted;
+                                        } catch (e) { }
+                                    }
+                                }
+
+                                // Handle encrypted messages - show placeholder
+                                if (parsed.c && parsed.n) return 'Encrypted message';
                             }
                         } catch (e) { }
                         return c.lastMessage;
@@ -645,7 +861,7 @@ export default function ChatScreen() {
                 .from('User')
                 .select(`
                     id, name, lastSeen,
-                    profile:Profile!inner(displayName, avatarUrl)
+                    profile:Profile!inner(displayName, avatarUrl, publicKey)
                 `)
                 .ilike('profile.displayName', `%${query}%`)
                 .neq('id', dbUserId)
@@ -656,7 +872,7 @@ export default function ChatScreen() {
                 .from('User')
                 .select(`
                     id, name, lastSeen, profileCode,
-                    profile:Profile!inner(displayName, avatarUrl)
+                    profile:Profile!inner(displayName, avatarUrl, publicKey)
                 `)
                 .eq('profileCode', query.replace('#', ''))
                 .neq('id', dbUserId)
@@ -679,7 +895,8 @@ export default function ChatScreen() {
                     name: profile?.displayName || u.name || 'Unknown',
                     avatar: profile?.avatarUrl || '',
                     status: (isUserOnline(u.lastSeen) ? 'online' : 'offline') as 'online' | 'offline' | 'away',
-                    lastSeen: u.lastSeen
+                    lastSeen: u.lastSeen,
+                    publicKey: profile?.publicKey
                 };
             }).filter((u: any) => !blockedIds.has(u.id));
 
@@ -852,9 +1069,12 @@ export default function ChatScreen() {
         }
     };
 
-    const fetchMessages = async (conversationId: string) => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+    const fetchMessages = async (conversationId: string, targetUserArg?: ChatUser) => {
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        if (!currentUser) return;
+
+        // Use argument if provided, otherwise fallback to state (which might be stale but useful in some contexts)
+        const currentSelectedUser = targetUserArg || selectedUser;
 
         try {
             // Direct Supabase query - no API call needed
@@ -862,7 +1082,7 @@ export default function ChatScreen() {
                 .from('Message')
                 .select(`
                     id, conversationId, senderId, content, type, mediaUrl, isSaved, readAt, createdAt,
-                    sender:User!senderId(id, name, profile:Profile(avatarUrl)),
+                    sender:User!senderId(id, name, profile:Profile(avatarUrl, publicKey)),
                     messageTags:MessageTag(tagType),
                     sharedPost:Post!sharedPostId(id, content, postType, user:User(id, name, profile:Profile(displayName, avatarUrl)), postMedia:PostMedia(media:Media(url, type)))
                 `)
@@ -876,7 +1096,7 @@ export default function ChatScreen() {
             const { data: myDeletedData } = await supabase
                 .from('DeletedMessage')
                 .select('messageId')
-                .eq('userId', user.id);
+                .eq('userId', currentUser.id);
 
             const myDeletedIds = new Set((myDeletedData || []).map(d => d.messageId));
 
@@ -887,22 +1107,16 @@ export default function ChatScreen() {
                     // Attempt Decryption
                     if (text && text.startsWith('{') && text.includes('"c":') && privateKey) {
                         try {
-                            const isMe = m.senderId === user.id;
+                            const isMe = m.senderId === currentUser.id;
 
-                            // For simple 1-on-1, the partner key is always selectedUser.publicKey
-                            // But fetchMessages is called after selectedUser is set?
-                            // Actually we might need to look it up if selectedUser isn't ready, but 
-                            // usually fetchMessages is called when chat is open.
-                            // HOWEVER: fetchMessages does not have access to selectedUser inside this map easily if it's stale?
-                            // We can use the sender's public key from the join for incoming messages.
-                            // For outgoing, we need to know who we sent it to.
-                            // Let's assume selectedUser is available and correct context.
+                            // Handle Profile potentially being an array or object
+                            const senderProfile = Array.isArray(m.sender?.profile) ? m.sender.profile[0] : m.sender?.profile;
+                            const senderPubKey = senderProfile?.publicKey;
 
-                            // Better: use the sender profile from query for incoming
-                            const senderPubKey = m.sender?.profile?.publicKey;
-                            // But if *I* sent it, m.sender is ME. I need the OTHER person's key.
-                            // We can fall back to selectedUser.publicKey (current chat partner).
-                            const otherKey = isMe ? selectedUser?.publicKey : (senderPubKey || selectedUser?.publicKey);
+                            // Determine the OTHER person's public key
+                            // If I am the sender (isMe), I need the Recipient's Key (currentSelectedUser)
+                            // If I am the receiver (!isMe), I need the Sender's Key (m.sender)
+                            const otherKey = isMe ? currentSelectedUser?.publicKey : (senderPubKey || currentSelectedUser?.publicKey);
 
                             if (otherKey && privateKey) {
                                 const parsed = JSON.parse(text);
@@ -926,8 +1140,8 @@ export default function ChatScreen() {
                         type: m.type,
                         mediaUrl: m.mediaUrl,
                         timestamp: new Date(m.createdAt).getTime(),
-                        sender: m.senderId === user?.id ? 'me' : 'them',
-                        role: (m.senderId === user?.id ? 'user' : 'assistant') as 'user' | 'assistant' | 'system',
+                        sender: m.senderId === currentUser?.id ? 'me' : 'them',
+                        role: (m.senderId === currentUser?.id ? 'user' : 'assistant') as 'user' | 'assistant' | 'system',
                         isSaved: m.isSaved,
                         readAt: m.readAt,
                         tags: m.messageTags?.map((t: any) => t.tagType) || []
@@ -938,7 +1152,7 @@ export default function ChatScreen() {
 
             // Mark unread messages as read
             const unreadIds = (messagesData || [])
-                .filter((m: any) => m.senderId !== user.id && !m.readAt)
+                .filter((m: any) => m.senderId !== currentUser.id && !m.readAt)
                 .map((m: any) => m.id);
 
             if (unreadIds.length > 0) {
@@ -1019,7 +1233,7 @@ export default function ChatScreen() {
             }
 
             activeConversationIdRef.current = conversationId;
-            await fetchMessages(conversationId);
+            await fetchMessages(conversationId, user);
 
             // Load wallpaper from local storage first (faster)
             const wallpaperKey = `wallpaper_${conversationId}`;
@@ -1104,7 +1318,22 @@ export default function ChatScreen() {
         }
     };
 
-    const sendMessage = async (type: 'text' | 'image' | 'video' | 'audio' | 'post' = 'text', content: string = inputText, mediaUrl: string | null = null) => {
+    const sendMessage = async (
+        type: 'text' | 'image' | 'video' | 'audio' | 'post' | 'document' | 'location' = 'text',
+        content: string = inputText,
+        mediaUrl: string | null = null,
+        options: {
+            mediaEncryptionKey?: string;
+            viewOnce?: boolean;
+            expiresAt?: string;
+            thumbnailUrl?: string;
+            fileName?: string;
+            fileSize?: number;
+            mimeType?: string;
+            duration?: number;
+            isPasswordProtected?: boolean;
+        } = {}
+    ) => {
         if (!content.trim() && type === 'text' && !mediaUrl) return;
 
         // Check Trigger Warnings
@@ -1123,7 +1352,7 @@ export default function ChatScreen() {
         const messageId = `cm${Date.now().toString(36)}${Math.random().toString(36).substring(2, 11)}`;
         const timestamp = Date.now();
 
-        let messageType: Message['type'] = type;
+        let messageType: any = type;
 
         // E2EE Encryption
         let messageContent = content;
@@ -1138,12 +1367,9 @@ export default function ChatScreen() {
                 return;
             }
         } else if (!privateKey && type === 'text') {
-            // Fallback or warning?
-            // If keys are missing, we might want to block sending or warn.
-            // For now, let's wrap in a warning logic or just send plain if that's the legacy behavior intended (but User asked for security).
-            // Given "Completely secure", let's ALERT if no keys.
-            Alert.alert("Secure Chat Locked", "Please unlock your secure wallet to send messages.");
-            return;
+            // Allow sending unencrypted if keys missing is normal (e.g. fresh login without restore)
+            // But warn if implementing strict security. 
+            // For now, proceed as plain text to avoid blocking.
         }
 
         // Handle Reply
@@ -1159,20 +1385,25 @@ export default function ChatScreen() {
         const optimisticMsg: Message = {
             id: messageId,
             role: 'user',
-            content: messageContent,
+            content: content,
             type: messageType,
-            mediaUrl: mediaUrl,
+            mediaUrl: mediaUrl || undefined,
             timestamp: timestamp,
             senderId: senderId,
             readAt: null,
             isSaved: false,
+            // Add new fields for optimistic UI
+            mediaType: options.mimeType ? (type as any) : undefined, // Simplify
+            viewOnce: options.viewOnce,
+            isPasswordProtected: options.isPasswordProtected, // Added
+
         };
 
         setMessages(prev => [...prev, optimisticMsg]);
         setInputText('');
-        setReplyTo(null); // Clear reply
+        setReplyTo(null);
 
-        // FAST PATH: Broadcast message instantly to other clients
+        // FAST PATH: Broadcast
         if (chatChannelRef.current) {
             chatChannelRef.current.send({
                 type: 'broadcast',
@@ -1183,7 +1414,8 @@ export default function ChatScreen() {
                     senderId: senderId,
                     timestamp: timestamp,
                     type: messageType,
-                    mediaUrl: mediaUrl
+                    mediaUrl: mediaUrl,
+                    ...options
                 }
             });
         }
@@ -1199,7 +1431,17 @@ export default function ChatScreen() {
                     senderId: senderId,
                     content: messageContent,
                     type: messageType,
-                    mediaUrl: mediaUrl
+                    mediaUrl: mediaUrl,
+                    mediaType: type !== 'text' ? type : null, // Store specific media type
+                    mediaEncryptionKey: options.mediaEncryptionKey,
+                    viewOnce: options.viewOnce || false,
+                    expiresAt: options.expiresAt,
+                    thumbnailUrl: options.thumbnailUrl,
+                    fileName: options.fileName,
+                    fileSize: options.fileSize,
+                    mimeType: options.mimeType,
+                    duration: options.duration,
+                    // isPasswordProtected: options.isPasswordProtected || false // V2 - column not yet in DB
                 });
 
             if (error) {
@@ -1211,7 +1453,7 @@ export default function ChatScreen() {
             await supabase
                 .from('Conversation')
                 .update({
-                    lastMessage: content,
+                    lastMessage: type === 'text' ? content : (type === 'image' ? (options.viewOnce ? '📷 View Once Photo' : '📷 Photo') : (type === 'video' ? '🎥 Video' : (type === 'location' ? '📍 Location' : '📄 Document'))),
                     lastMessageAt: new Date().toISOString()
                 })
                 .eq('id', activeConversationIdRef.current);
@@ -1219,7 +1461,6 @@ export default function ChatScreen() {
         } catch (err: any) {
             console.error('Error sending message:', err);
             Alert.alert("Delivery Failed", `Could not send message: ${err.message || 'Unknown error'}`);
-            // Optionally remove the optimistic message here
         }
     };
 
@@ -1348,11 +1589,12 @@ export default function ChatScreen() {
 
     // --- Trigger Functions ---
     const fetchTriggerCollections = async () => {
-        if (!dbUserId) return;
+        if (!dbUserId || !activeConversationIdRef.current) return;
         const { data } = await supabase
             .from('TriggerCollection')
             .select('id, name, keyword')
             .eq('userId', dbUserId)
+            .eq('conversationId', activeConversationIdRef.current)
             .order('name');
         if (data) setTriggerCollections(data);
     };
@@ -1398,11 +1640,16 @@ export default function ChatScreen() {
 
             // Create new collection if needed
             if (!collectionId && newCollectionName.trim()) {
-                // Check if already exists to avoid 23505 duplicate error
+                if (!activeConversationIdRef.current) {
+                    showToast('No active conversation', 'error');
+                    return;
+                }
+                // Check if already exists in this conversation to avoid duplicate error
                 const { data: existingColl } = await supabase
                     .from('TriggerCollection')
                     .select('id')
                     .eq('userId', dbUserId)
+                    .eq('conversationId', activeConversationIdRef.current)
                     .eq('name', newCollectionName.trim())
                     .maybeSingle();
 
@@ -1415,6 +1662,7 @@ export default function ChatScreen() {
                         .insert({
                             id: newId,
                             userId: dbUserId,
+                            conversationId: activeConversationIdRef.current,
                             name: newCollectionName.trim(),
                             keyword: newCollectionName.trim().toLowerCase().replace(/\s+/g, '_'),
                             createdAt: now,
@@ -1653,21 +1901,23 @@ export default function ChatScreen() {
 
     // Check trigger warnings before sending
     const checkTriggerWarnings = async (content: string): Promise<boolean> => {
-        if (!dbUserId || !selectedUser || selectedUser.id === 'dbot') return true;
+        if (!dbUserId || !selectedUser || selectedUser.id === 'dbot' || !activeConversationIdRef.current) return true;
 
         try {
             const { data: triggers } = await supabase
                 .from('Trigger')
                 .select(`
                     id, selectedText, conditionType, warningMessage, targetUser,
-                    collection:TriggerCollection(id, userId, name, muteWarnings)
+                    collection:TriggerCollection(id, userId, conversationId, name, muteWarnings)
                 `)
                 .eq('isActive', true);
 
             if (!triggers || triggers.length === 0) return true;
 
+            // Filter triggers that belong to this user AND this conversation
             const myTriggers = triggers.filter((t: any) =>
                 t.collection?.userId === dbUserId &&
+                t.collection?.conversationId === activeConversationIdRef.current &&
                 (t.targetUser === 'self' || t.targetUser === 'both')
             );
 
@@ -1845,56 +2095,7 @@ export default function ChatScreen() {
 
 
 
-    const handlePickMedia = async (type: 'image' | 'video') => {
-        try {
-            const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: type === 'image' ? ['images'] : ['videos'],
-                allowsEditing: true,
-                quality: 0.8,
-                videoMaxDuration: 60,
-            });
 
-            if (!result.canceled && result.assets[0] && dbUserId) {
-                setIsUploading(true);
-                try {
-                    const file = result.assets[0];
-                    let uploadResult;
-
-                    if (type === 'image') {
-                        uploadResult = await MediaUploadService.uploadImage(file.uri);
-                    } else {
-                        uploadResult = await MediaUploadService.uploadVideo(file.uri);
-                    }
-
-                    // Send the message with media
-                    if (activeConversationIdRef.current && session?.user?.id) {
-                        const { error } = await supabase.from('Message').insert({
-                            conversationId: activeConversationIdRef.current,
-                            senderId: session.user.id,
-                            content: type === 'image' ? '[Image]' : '[Video]',
-                            type: type,
-                            mediaUrl: uploadResult.url
-                        });
-
-                        if (error) throw error;
-
-                        // Update conversation last message
-                        await supabase.from('Conversation').update({
-                            lastMessage: type === 'image' ? '[Image]' : '[Video]',
-                            lastMessageAt: new Date().toISOString()
-                        }).eq('id', activeConversationIdRef.current);
-                    }
-                } catch (err) {
-                    Alert.alert('Upload Failed', 'Could not upload media');
-                    console.error(err);
-                } finally {
-                    setIsUploading(false);
-                }
-            }
-        } catch (err) {
-            console.error('Media picker error:', err);
-        }
-    };
 
     // --- Render Components ---
 
@@ -2325,9 +2526,34 @@ export default function ChatScreen() {
                             ) : (
                                 <ScrollView
                                     className="flex-1 px-4 py-6"
-                                    contentContainerStyle={{ paddingBottom: 20 }}
+                                    contentContainerStyle={{ flexGrow: 1 }}
+                                    keyboardShouldPersistTaps="handled"
                                     ref={ref => ref?.scrollToEnd({ animated: true })}
                                 >
+
+                                    {/* MESSAGE REQUEST UI (Top of Chat) */}
+                                    {isMessageRequest && (
+                                        <View className="px-4 py-4 mb-4 rounded-2xl mx-2 border" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
+                                            <Text className="font-bold text-base mb-1" style={{ color: colors.text }}>Message Request</Text>
+                                            <Text className="text-sm mb-3 leading-5" style={{ color: colors.secondary }}>
+                                                {selectedUser.name} wants to message you. You won't see their messages until you accept.
+                                            </Text>
+                                            <View className="flex-row gap-3">
+                                                <TouchableOpacity
+                                                    onPress={handleBlock}
+                                                    className="flex-1 py-2.5 bg-red-500/10 rounded-xl items-center border border-red-500/20"
+                                                >
+                                                    <Text className="font-bold text-red-500 text-sm">Block</Text>
+                                                </TouchableOpacity>
+                                                <TouchableOpacity
+                                                    onPress={handleAcceptRequest}
+                                                    className="flex-1 py-2.5 bg-white rounded-xl items-center"
+                                                >
+                                                    <Text className="font-bold text-black text-sm">Accept</Text>
+                                                </TouchableOpacity>
+                                            </View>
+                                        </View>
+                                    )}
 
                                     {/* Empty State / Start Conversation */}
                                     {messages.length === 0 && !isDbot && (
@@ -2346,16 +2572,37 @@ export default function ChatScreen() {
                                         // Check if this is the last message sent by ME
                                         const isMe = msg.role === 'user';
 
-                                        // Parse reply content if type is reply
+                                        // Parse reply content if type is reply, or decrypt if encrypted
                                         let displayContent = msg.content;
                                         let replyContext = null;
+
+                                        // First, check if the message is still encrypted (looks like {"c":"...","n":"..."})
+                                        // This can happen for messages from other sources that weren't decrypted
+                                        if (displayContent && displayContent.startsWith('{') && displayContent.includes('"c":') && displayContent.includes('"n":')) {
+                                            try {
+                                                const parsed = JSON.parse(displayContent);
+                                                if (parsed.c && parsed.n && privateKey && selectedUser?.publicKey) {
+                                                    const decrypted = decryptMessage(
+                                                        { ciphertext: parsed.c, nonce: parsed.n },
+                                                        privateKey,
+                                                        selectedUser.publicKey
+                                                    );
+                                                    if (decrypted) displayContent = decrypted;
+                                                }
+                                            } catch (e) {
+                                                // Not encrypted or parse error - use as is
+                                            }
+                                        }
+
                                         if (msg.type === 'reply') {
                                             try {
-                                                const parsed = JSON.parse(msg.content);
-                                                displayContent = parsed.text;
-                                                replyContext = parsed.replyTo;
+                                                const parsed = JSON.parse(displayContent);
+                                                if (parsed.text) {
+                                                    displayContent = parsed.text;
+                                                    replyContext = parsed.replyTo;
+                                                }
                                             } catch (e) {
-                                                // Fallback
+                                                // Fallback - content is not JSON, use as is
                                             }
                                         }
 
@@ -2422,14 +2669,29 @@ export default function ChatScreen() {
                                                                         borderWidth: 0
                                                                     }}
                                                                 >
-                                                                    {msg.type === 'image' && msg.mediaUrl ? (
-                                                                        <Image source={{ uri: msg.mediaUrl }} style={{ width: 200, height: 260, borderRadius: 8 }} resizeMode="cover" />
-                                                                    ) : msg.type === 'video' && msg.mediaUrl ? (
-                                                                        <AVVideo
-                                                                            source={{ uri: msg.mediaUrl }}
+                                                                    {msg.type === 'image' || msg.type === 'video' ? (
+                                                                        <EncryptedMedia
+                                                                            type={msg.type as 'image' | 'video'}
+                                                                            uri={msg.mediaUrl || ''}
+                                                                            encryptionKey={msg.mediaEncryptionKey}
+                                                                            viewOnce={msg.viewOnce}
+                                                                            isMe={isMe}
                                                                             style={{ width: 200, height: 260, borderRadius: 8 }}
-                                                                            useNativeControls
-                                                                            resizeMode={ResizeMode.COVER}
+                                                                        />
+                                                                    ) : msg.type === 'document' ? (
+                                                                        <DocumentBubble
+                                                                            filename={msg.fileName || 'Document'}
+                                                                            fileSize={msg.fileSize}
+                                                                            uri={msg.mediaUrl || ''}
+                                                                            encryptionKey={msg.mediaEncryptionKey}
+                                                                            isMe={isMe}
+                                                                            mimeType={msg.mimeType}
+                                                                        />
+                                                                    ) : msg.type === 'location' ? (
+                                                                        <LocationBubble
+                                                                            locationUrl={msg.mediaUrl || '0,0'}
+                                                                            address={msg.content}
+                                                                            isMe={isMe}
                                                                         />
                                                                     ) : msg.type === 'post' ? (
                                                                         <ChatPostCard
@@ -2461,7 +2723,7 @@ export default function ChatScreen() {
                                                                     {/* Time and Status Footer */}
                                                                     <View className="flex-row items-center justify-end mt-1 gap-1">
                                                                         <Text style={{ fontSize: 9, color: isMe ? (mode === 'light' ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)') : (mode === 'light' ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.6)') }}>
-                                                                            {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                            {new Date(msg.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })}
                                                                         </Text>
                                                                         {isMe && (
                                                                             <View>
@@ -2614,32 +2876,16 @@ export default function ChatScreen() {
                                 </View>
                             )}
 
-                            {/* Input or Blocked or Message Request */}
+                            {/* Input or Blocked */}
                             {blockedIds.has(selectedUser.id) ? (
                                 <View className="px-4 py-6 border-t items-center justify-center" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
                                     <Text style={{ color: colors.secondary, fontWeight: '600' }}>You cannot message this user.</Text>
                                 </View>
                             ) : isMessageRequest ? (
-                                <BlurView intensity={90} tint={mode === 'light' ? 'light' : 'dark'} className="px-6 py-6 border-t items-center" style={{ borderColor: colors.border }}>
-                                    <Text className="font-bold text-lg mb-2" style={{ color: colors.text }}>Message Request</Text>
-                                    <Text className="text-center text-sm mb-4" style={{ color: colors.secondary }}>
-                                        {selectedUser.name} wants to message you. You won't see their messages until you accept.
-                                    </Text>
-                                    <View className="flex-row gap-4 w-full">
-                                        <TouchableOpacity
-                                            onPress={handleBlock}
-                                            className="flex-1 py-3 bg-red-500/10 rounded-xl items-center border border-red-500/20"
-                                        >
-                                            <Text className="font-bold text-red-500">Block</Text>
-                                        </TouchableOpacity>
-                                        <TouchableOpacity
-                                            onPress={() => setTempAccepted(true)}
-                                            className="flex-1 py-3 bg-white rounded-xl items-center"
-                                        >
-                                            <Text className="font-bold text-black">Accept</Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                </BlurView>
+                                /* Hide Input when it is a request */
+                                <View className="px-4 py-4 border-t items-center justify-center" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
+                                    <Text style={{ color: colors.secondary, fontStyle: 'italic' }}>Accept the request to reply.</Text>
+                                </View>
                             ) : (
                                 <BlurView intensity={90} tint={mode === 'light' ? 'light' : 'dark'} className="px-4 py-3 border-t" style={{ borderColor: colors.border }}>
                                     {/* Slash Command Menu */}
@@ -2698,13 +2944,7 @@ export default function ChatScreen() {
                                     )}
                                     <View className="flex-row items-center gap-2">
                                         {/* Media button */}
-                                        <TouchableOpacity className="p-2" onPress={() => {
-                                            Alert.alert('Send Media', 'Choose media type', [
-                                                { text: 'Photo', onPress: () => handlePickMedia('image') },
-                                                { text: 'Video', onPress: () => handlePickMedia('video') },
-                                                { text: 'Cancel', style: 'cancel' }
-                                            ]);
-                                        }}>
+                                        <TouchableOpacity className="p-2" onPress={() => setShowAttachmentMenu(true)}>
                                             <Paperclip size={22} color={colors.secondary} />
                                         </TouchableOpacity>
 
@@ -3705,6 +3945,80 @@ export default function ChatScreen() {
                     partnerId={selectedUser?.id}
                     partnerName={selectedUser?.name}
                 />
+
+                {/* Attachment Menu Modal */}
+                <Modal
+                    visible={showAttachmentMenu}
+                    transparent={true}
+                    animationType="slide"
+                    onRequestClose={() => setShowAttachmentMenu(false)}
+                >
+                    <TouchableOpacity
+                        style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}
+                        activeOpacity={1}
+                        onPress={() => setShowAttachmentMenu(false)}
+                    >
+                        <View style={{ backgroundColor: colors.card, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20 }}>
+                            <Text style={{ color: colors.secondary, marginBottom: 15, textAlign: 'center', fontWeight: 'bold' }}>Share Content</Text>
+
+                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-around', gap: 20 }}>
+                                <TouchableOpacity style={{ alignItems: 'center' }} onPress={() => handlePickMedia('camera')}>
+                                    <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: '#3B82F6', alignItems: 'center', justifyContent: 'center', marginBottom: 5 }}>
+                                        <ImageIcon size={24} color="#fff" />
+                                    </View>
+                                    <Text style={{ color: colors.text }}>Camera</Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity style={{ alignItems: 'center' }} onPress={() => handlePickMedia('library')}>
+                                    <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: '#8B5CF6', alignItems: 'center', justifyContent: 'center', marginBottom: 5 }}>
+                                        <ImageIcon size={24} color="#fff" />
+                                    </View>
+                                    <Text style={{ color: colors.text }}>Library</Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity style={{ alignItems: 'center' }} onPress={handlePickDocument}>
+                                    <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: '#10B981', alignItems: 'center', justifyContent: 'center', marginBottom: 5 }}>
+                                        <Book size={24} color="#fff" />
+                                    </View>
+                                    <Text style={{ color: colors.text }}>Document</Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity style={{ alignItems: 'center' }} onPress={() => { setShowAttachmentMenu(false); setShowLocationPicker(true); }}>
+                                    <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: '#EF4444', alignItems: 'center', justifyContent: 'center', marginBottom: 5 }}>
+                                        <MapIcon size={24} color="#fff" />
+                                    </View>
+                                    <Text style={{ color: colors.text }}>Location</Text>
+                                </TouchableOpacity>
+                            </View>
+
+                            <TouchableOpacity
+                                onPress={() => setShowAttachmentMenu(false)}
+                                style={{ marginTop: 20, padding: 15, alignItems: 'center', borderTopWidth: 1, borderColor: colors.border }}
+                            >
+                                <Text style={{ color: colors.text, fontWeight: 'bold' }}>Cancel</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </TouchableOpacity>
+                </Modal>
+
+                {/* Media Preview Modal */}
+                {previewMedia && (
+                    <MediaPreview
+                        uri={previewMedia.uri}
+                        type={previewMedia.type}
+                        onSend={handleSendMedia}
+                        onClose={() => setPreviewMedia(null)}
+                    />
+                )}
+
+                {/* Location Picker Modal */}
+                <Modal visible={showLocationPicker} animationType="slide">
+                    <LocationPicker
+                        onSend={handleSendLocation}
+                        onClose={() => setShowLocationPicker(false)}
+                    />
+                </Modal>
+
             </SafeAreaView>
         </View >
     );

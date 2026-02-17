@@ -5,8 +5,8 @@ import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Mail, ArrowLeft, ArrowRight } from 'lucide-react-native';
+import { supabase } from '../../lib/supabase';
 import { useToast } from '../../context/ToastContext';
-import { getApiUrl } from '../../lib/api';
 
 export default function ForgotPasswordScreen() {
     const router = useRouter();
@@ -22,26 +22,9 @@ export default function ForgotPasswordScreen() {
 
         setLoading(true);
         try {
-            const API_URL = getApiUrl();
-            const response = await fetch(`${API_URL}/api/auth/recover`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: email.toLowerCase().trim() }),
-            });
+            const { error } = await supabase.auth.resetPasswordForEmail(email.toLowerCase().trim());
 
-            // Check if response is JSON before parsing
-            const contentType = response.headers.get('content-type');
-            if (!contentType || !contentType.includes('application/json')) {
-                const text = await response.text();
-                console.error('Non-JSON response from recover API:', text.substring(0, 300));
-                throw new Error('Server unavailable. Please try again later.');
-            }
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error || 'Failed to send code');
-            }
+            if (error) throw error;
 
             showToast('Recovery code sent to your email!', 'success');
             router.push({

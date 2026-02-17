@@ -57,6 +57,7 @@ export default function FillsTab({ onBack }: FillsTabProps) {
     const [activeCategory, setActiveCategory] = useState('All');
     const [playerVisible, setPlayerVisible] = useState(false);
     const [selectedIndex, setSelectedIndex] = useState(0);
+    const [resizeMode, setResizeMode] = useState(ResizeMode.CONTAIN);
 
     useEffect(() => {
         fetchFills();
@@ -396,7 +397,7 @@ export default function FillsTab({ onBack }: FillsTabProps) {
                                     <Video
                                         source={{ uri: filteredFills[selectedIndex].mediaUrl }}
                                         style={styles.playerVideo}
-                                        resizeMode={ResizeMode.CONTAIN}
+                                        resizeMode={resizeMode}
                                         shouldPlay={isFocused && playerVisible}
                                         isLooping
                                         useNativeControls
@@ -411,12 +412,27 @@ export default function FillsTab({ onBack }: FillsTabProps) {
                             </View>
 
                             <SafeAreaView style={styles.playerInfo}>
-                                <Text style={styles.playerTitle}>{filteredFills[selectedIndex].title}</Text>
-                                <View style={styles.playerMeta}>
-                                    {filteredFills[selectedIndex].avatar && (
-                                        <Image source={{ uri: filteredFills[selectedIndex].avatar }} style={styles.playerAvatar} />
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 10 }}>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.playerTitle}>{filteredFills[selectedIndex].title}</Text>
+                                        <View style={styles.playerMeta}>
+                                            {filteredFills[selectedIndex].avatar && (
+                                                <Image source={{ uri: filteredFills[selectedIndex].avatar }} style={styles.playerAvatar} />
+                                            )}
+                                            <Text style={styles.playerUsername}>@{filteredFills[selectedIndex].username}</Text>
+                                        </View>
+                                    </View>
+                                    {/* Resize Toggle */}
+                                    {filteredFills[selectedIndex].mediaType === 'video' && (
+                                        <TouchableOpacity
+                                            onPress={() => setResizeMode(prev => prev === ResizeMode.CONTAIN ? ResizeMode.COVER : ResizeMode.CONTAIN)}
+                                            style={{ backgroundColor: 'rgba(0,0,0,0.5)', padding: 8, borderRadius: 20 }}
+                                        >
+                                            <Text style={{ color: '#fff', fontSize: 10, fontWeight: 'bold' }}>
+                                                {resizeMode === ResizeMode.CONTAIN ? 'FILL' : 'FIT'}
+                                            </Text>
+                                        </TouchableOpacity>
                                     )}
-                                    <Text style={styles.playerUsername}>@{filteredFills[selectedIndex].username}</Text>
                                 </View>
                             </SafeAreaView>
                         </>

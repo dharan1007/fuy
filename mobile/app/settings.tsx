@@ -118,8 +118,14 @@ export default function SettingsScreen() {
         {
             label: 'Visibility & Preferences',
             icon: Eye,
-            colorClass: 'bg-purple-500',
+            colorClass: 'bg-sky-500',
             onPress: () => router.push('/settings/visibility')
+        },
+        {
+            label: 'Tagging Settings',
+            icon: User,
+            colorClass: 'bg-teal-500',
+            onPress: () => router.push('/settings/tagging')
         },
     ];
 

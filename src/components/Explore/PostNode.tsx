@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { Html } from '@react-three/drei';
-import { Vector3 } from 'three';
 
 interface PostNodeProps {
     post: any;
@@ -8,180 +7,120 @@ interface PostNodeProps {
     onClick: (post: any) => void;
 }
 
-export function PostNode({ post, position, onClick }: PostNodeProps) {
+// Memoized PostNode for better performance
+export const PostNode = React.memo(function PostNode({ post, position, onClick }: PostNodeProps) {
     const [hovered, setHovered] = useState(false);
 
-    // Get the best thumbnail for display
-    const getThumbnail = () => {
-        // LILL - prioritize cover image
-        if (post.postType === 'LILL') {
-            if (post.lillData?.coverImageUrl) return { type: 'IMAGE', url: post.lillData.coverImageUrl };
-            if (post.lillData?.thumbnailUrl) return { type: 'IMAGE', url: post.lillData.thumbnailUrl };
-            if (post.media?.[0]?.type === 'IMAGE') return post.media[0];
-            if (post.media?.[0]?.thumbnailUrl) return { type: 'IMAGE', url: post.media[0].thumbnailUrl };
-            if (post.media?.[0]?.url) return { type: 'VIDEO', url: post.media[0].url };
-        }
-        // FILL - prioritize cover image
-        if (post.postType === 'FILL') {
-            if (post.fillData?.coverImageUrl) return { type: 'IMAGE', url: post.fillData.coverImageUrl };
-            if (post.fillData?.thumbnailUrl) return { type: 'IMAGE', url: post.fillData.thumbnailUrl };
-            if (post.media?.[0]?.type === 'IMAGE') return post.media[0];
-            if (post.media?.[0]?.thumbnailUrl) return { type: 'IMAGE', url: post.media[0].thumbnailUrl };
-            if (post.media?.[0]?.url) return { type: 'VIDEO', url: post.media[0].url };
-        }
-        // AUD - cover image
-        if (post.postType === 'AUD' && post.audData?.coverImageUrl) {
-            return { type: 'IMAGE', url: post.audData.coverImageUrl };
-        }
-        // CHAN - cover
-        if (post.postType === 'CHAN') {
-            if (post.chanData?.coverImageUrl) return { type: 'IMAGE', url: post.chanData.coverImageUrl };
-            if (post.media?.[0]?.url) return post.media[0];
-        }
+    // Memoized thumbnail getter
+    const thumbnail = useMemo(() => {
+        // LILL/FILL - prioritize cover
+        if (post.lillData?.coverImageUrl) return { type: 'IMAGE', url: post.lillData.coverImageUrl };
+        if (post.fillData?.coverImageUrl) return { type: 'IMAGE', url: post.fillData.coverImageUrl };
+        if (post.audData?.coverImageUrl) return { type: 'IMAGE', url: post.audData.coverImageUrl };
+        if (post.chanData?.coverImageUrl) return { type: 'IMAGE', url: post.chanData.coverImageUrl };
+        if (post.xrayData?.topLayerUrl) return { type: 'IMAGE', url: post.xrayData.topLayerUrl };
+
         // Default media
         if (post.media?.[0]) return post.media[0];
         return null;
-    };
+    }, [post]);
 
-    const thumbnail = getThumbnail();
+    // Memoized size classes
+    const sizeClasses = useMemo(() => {
+        switch (post.postType) {
+            case 'FILL': return "w-48 h-28";
+            case 'LILL': return "w-28 h-48";
+            case 'PULLUPDOWN': return "w-36 h-36";
+            case 'CHAPTER': return "w-36 h-44";
+            default: return "w-32 h-40";
+        }
+    }, [post.postType]);
 
-    // Determine dimensions and base style based on Type
-    let sizeClasses = "w-40 h-52"; // Default Portrait
-    if (post.postType === 'FILL') sizeClasses = "w-60 h-36"; // Landscape
-    if (post.postType === 'LILL') sizeClasses = "w-36 h-64"; // Tall Portrait
-    if (post.postType === 'PULLUPDOWN') sizeClasses = "w-48 h-48"; // Square-ish
-    if (post.postType === 'CHAPTER') sizeClasses = "w-44 h-56"; // Book page ratio
+    // Memoized handlers
+    const handleClick = useCallback(() => onClick(post), [onClick, post]);
+    const handleMouseEnter = useCallback(() => setHovered(true), []);
+    const handleMouseLeave = useCallback(() => setHovered(false), []);
 
     return (
         <group position={position}>
-            <mesh visible={true}>
-                <sphereGeometry args={[0.1]} />
-                <meshBasicMaterial color="red" transparent opacity={0.5} />
-            </mesh>
             <Html
                 transform
-                scale={1.0}
+                scale={0.8}
                 style={{
-                    transition: 'all 0.2s',
-                    opacity: 1,
-                    transform: `scale(${hovered ? 1.2 : 1})`,
-                    pointerEvents: 'none' // Let inner div handle events
+                    transition: 'transform 0.15s ease-out',
+                    transform: `scale(${hovered ? 1.1 : 1})`,
+                    pointerEvents: 'none'
                 }}
+                distanceFactor={10}
+                zIndexRange={[0, 10]}
             >
                 <div
-                    className={`${sizeClasses} bg-black rounded-xl overflow-hidden cursor-pointer border border-white/20 hover:border-white/80 hover:shadow-[0_0_20px_rgba(255,255,255,0.4)] transition-all duration-300 relative group pointer-events-auto`}
-                    onClick={() => onClick(post)}
-                    onMouseEnter={() => setHovered(true)}
-                    onMouseLeave={() => setHovered(false)}
+                    className={`${sizeClasses} bg-black/90 rounded-lg overflow-hidden cursor-pointer border border-white/20 hover:border-white/60 transition-all duration-200 relative pointer-events-auto shadow-xl`}
+                    onClick={handleClick}
+                    onMouseEnter={handleMouseEnter}
+                    onMouseLeave={handleMouseLeave}
                 >
-                    {/* PUD Rendering - Poll Visuals */}
-                    {post.postType === 'PULLUPDOWN' || post.feature === 'PULLUPDOWN' ? (
-                        <div className="w-full h-full flex flex-col p-3 bg-gradient-to-br from-gray-800 to-gray-900">
-                            <div className="flex-1 flex flex-col justify-center">
-                                <span className="text-white font-bold text-sm leading-tight mb-3 line-clamp-3">
-                                    {post.question || post.content}
-                                </span>
-                                <div className="space-y-1.5 opacity-80">
-                                    {post.options?.slice(0, 3).map((opt: any, i: number) => (
-                                        <div key={i} className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
-                                            <div
-                                                className="h-full bg-white/60"
-                                                style={{ width: `${Math.random() * 80 + 10}%` }}
-                                            />
-                                        </div>
-                                    ))}
-                                </div>
+                    {/* PUD - minimal poll visual */}
+                    {(post.postType === 'PULLUPDOWN') ? (
+                        <div className="w-full h-full flex flex-col p-2 bg-gradient-to-br from-gray-800 to-gray-900">
+                            <span className="text-white font-semibold text-[10px] leading-tight mb-2 line-clamp-2">
+                                {post.question || post.content}
+                            </span>
+                            <div className="flex-1 flex flex-col justify-center gap-1 opacity-70">
+                                {[1, 2, 3].map((_, i) => (
+                                    <div key={i} className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
+                                        <div className="h-full bg-white/50" style={{ width: `${40 + i * 15}%` }} />
+                                    </div>
+                                ))}
                             </div>
-                            <div className="mt-2 flex justify-between items-center text-[9px] font-bold tracking-wider text-yellow-400">
-                                <span>PUD</span>
-                                <span>VOTE</span>
-                            </div>
+                            <span className="text-[8px] text-yellow-400 font-bold mt-1">PUD</span>
                         </div>
                     ) : post.postType === 'CHAPTER' ? (
-                        <div className="w-full h-full p-4 bg-[#f5f5f0] text-black overflow-hidden relative">
-                            {/* Paper texture feel */}
-                            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/paper.png')] opacity-50 pointer-events-none"></div>
-
-                            <h3 className="font-serif font-bold text-lg leading-tight mb-2 opacity-90 line-clamp-2">
-                                {post.title || "Untitled Chapter"}
+                        <div className="w-full h-full p-2 bg-amber-50 text-black">
+                            <h3 className="font-serif font-bold text-[10px] leading-tight mb-1 line-clamp-2">
+                                {post.title || "Untitled"}
                             </h3>
-                            <p className="font-serif text-[10px] leading-relaxed opacity-80 line-clamp-[8] text-justify">
+                            <p className="font-serif text-[8px] opacity-70 line-clamp-4">
                                 {post.content || "..."}
                             </p>
-                            <div className="absolute bottom-2 right-3 text-[8px] font-bold uppercase tracking-wider opacity-50">
-                                Chapter
-                            </div>
-                        </div>
-                    ) : post.postType === 'XRAY' ? (
-                        <div className="w-full h-full bg-black relative flex flex-col items-center justify-center overflow-hidden">
-                            {post.xrayData?.topLayerUrl ? (
-                                <img src={post.xrayData.topLayerUrl} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" alt="XRay" />
-                            ) : (
-                                <div className="absolute inset-0 bg-neutral-900 flex items-center justify-center">
-                                    <span className="text-2xl font-bold text-white/20">X-RAY</span>
-                                </div>
-                            )}
-                            <div className="absolute inset-0 flex items-center justify-center">
-                                <div className="w-12 h-12 rounded-full border-2 border-white/30 flex items-center justify-center backdrop-blur-sm bg-black/20">
-                                    <span className="text-[10px] font-bold tracking-widest text-white">REVEAL</span>
-                                </div>
-                            </div>
+                            <span className="absolute bottom-1 right-2 text-[7px] opacity-40">Chapter</span>
                         </div>
                     ) : thumbnail ? (
-                        // Show thumbnail content
                         <div className="w-full h-full relative bg-black">
-                            {thumbnail.type === 'IMAGE' ? (
-                                <img
-                                    src={thumbnail.url}
-                                    alt={post.content || "Post"}
-                                    className="w-full h-full object-cover"
-                                />
-                            ) : (
-                                <video
-                                    src={thumbnail.url}
-                                    className="w-full h-full object-cover"
-                                    muted
-                                    preload="metadata"
-                                    poster={thumbnail.thumbnailUrl}
-                                    onMouseOver={e => e.currentTarget.play().catch(() => { })}
-                                    onMouseOut={e => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }}
-                                />
-                            )}
-                            {/* Type badge */}
-                            <div className="absolute top-2 right-2 px-1.5 py-0.5 bg-black/60 backdrop-blur-md rounded text-[7px] font-bold uppercase tracking-wider text-white border border-white/10">
+                            {/* Always use image for performance - no video autoplay */}
+                            <img
+                                src={thumbnail.thumbnailUrl || thumbnail.url}
+                                alt=""
+                                className="w-full h-full object-cover"
+                                loading="lazy"
+                            />
+                            {/* Minimal overlay */}
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                            <span className="absolute top-1 right-1 px-1 py-0.5 bg-black/60 rounded text-[6px] font-bold text-white/80">
                                 {post.postType}
-                            </div>
-
-                            {/* Gradient overlay for text readability if needed */}
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60"></div>
-
-                            <div className="absolute bottom-3 left-3 right-3">
-                                <p className="text-[10px] font-medium text-white line-clamp-2 leading-snug drop-shadow-md">
+                            </span>
+                            {post.content && (
+                                <p className="absolute bottom-1 left-1 right-1 text-[8px] text-white line-clamp-2 drop-shadow">
                                     {post.content}
                                 </p>
-                            </div>
+                            )}
                         </div>
                     ) : (
-                        // Text-only content (Simple Posts)
-                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-900 via-purple-900 to-black p-4 text-center relative overflow-hidden">
-                            {/* Abstract background shape */}
-                            <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/5 rounded-full blur-2xl"></div>
-
-                            <p className="text-sm text-white font-medium leading-relaxed line-clamp-6 drop-shadow-md relative z-10">
+                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900 p-2">
+                            <p className="text-[9px] text-white/80 leading-snug line-clamp-4 text-center">
                                 {post.content || "View post"}
                             </p>
                         </div>
                     )}
 
-                    {/* User avatar overlay - Tiny */}
+                    {/* User avatar - tiny */}
                     {post.user?.profile?.avatarUrl && (
-                        <div className="absolute top-2 left-2 w-5 h-5 rounded-full overflow-hidden border border-white/50 shadow-sm z-20">
-                            <img src={post.user.profile.avatarUrl} alt="" className="w-full h-full object-cover" />
+                        <div className="absolute top-1 left-1 w-4 h-4 rounded-full overflow-hidden border border-white/40">
+                            <img src={post.user.profile.avatarUrl} alt="" className="w-full h-full object-cover" loading="lazy" />
                         </div>
                     )}
                 </div>
             </Html>
         </group>
     );
-}
-
+});

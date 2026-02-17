@@ -1,15 +1,25 @@
 export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireUserId } from "@/lib/session";
+import { requireUserId, requireUser } from "@/lib/session";
 
 // Helper to check admin status (Placeholder: In production, check user role or email)
 async function requireAdmin() {
-    const userId = await requireUserId();
-    // TODO: Implement real admin check. For now, we allow any authenticated user to access this 
-    // IF they know the URL, but in a real app you'd check `user.role === 'ADMIN'`.
-    // For this task, we assume the dashboard is accessible to demonstrate functionality.
-    return userId;
+    const user = await requireUser();
+
+    // SECURITY PATCH: Whitelist Admins via Environment Variable
+    // Provide a comma-separated list of emails in .env
+    const ADMIN_EMAILS = process.env.ADMIN_EMAILS ? process.env.ADMIN_EMAILS.split(',').map(e => e.trim().toLowerCase()) : [];
+
+    // Fallback hardcoded admin if env var missing during dev (optional, remove for prod)
+    // if (ADMIN_EMAILS.length === 0) ADMIN_EMAILS.push('admin@fuy.com');
+
+    if (!user.email || !ADMIN_EMAILS.includes(user.email.toLowerCase())) {
+        console.warn(`Unauthorized admin access attempt by: ${user.email}`);
+        throw new Error("UNAUTHORIZED_ADMIN_ACCESS");
+    }
+
+    return user.id;
 }
 
 export async function GET(req: NextRequest) {

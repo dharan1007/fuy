@@ -14,7 +14,7 @@ const NAV_LINKS = [
   { href: '/dashboard', label: 'Dashboard', icon: '📊' },
   { href: '/friends', label: 'Friends', icon: '👥' },
   { href: '/feed', label: 'Feed', icon: '📰' },
-  { href: '/shop', label: 'Shop', icon: '🛍️' },
+  // Shop hidden until next update
   { href: '/profile', label: 'Profile', icon: '👤' },
 ];
 

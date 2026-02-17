@@ -3,7 +3,8 @@ import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, Sty
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ChevronLeft, Eye } from 'lucide-react-native';
-import { api } from '../lib/api-client';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../context/AuthContext';
 
 interface ProductView {
     id: string;
@@ -23,15 +24,40 @@ export default function ViewsScreen() {
     const [views, setViews] = useState<ProductView[]>([]);
     const [loading, setLoading] = useState(true);
 
+    const { session } = useAuth();
+
     useEffect(() => {
-        fetchViews();
-    }, []);
+        if (session?.user) {
+            fetchViews();
+        }
+    }, [session]);
 
     const fetchViews = async () => {
+        if (!session?.user) return;
         try {
-            const { data, error } = await api.get<ProductView[]>('/api/user/views');
+            const { data, error } = await supabase
+                .from('ProductView')
+                .select(`
+                    id,
+                    viewedAt,
+                    product:Product(
+                        id,
+                        name,
+                        images,
+                        type,
+                        price,
+                        slug
+                    )
+                `)
+                .eq('userId', session.user.id)
+                .order('viewedAt', { ascending: false });
+
             if (data && !error) {
-                setViews(data);
+                const formattedViews = data.map((view: any) => ({
+                    ...view,
+                    product: Array.isArray(view.product) ? view.product[0] : view.product
+                }));
+                setViews(formattedViews);
             }
         } catch (e) {
             console.error('Failed to fetch views:', e);

@@ -10,8 +10,8 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useToast } from '../context/ToastContext';
 import ConfirmModal from './ConfirmModal';
-import { getApiUrl } from '../lib/api';
 import SlashesModal from './SlashesModal';
+import { PostService } from '../services/PostService';
 
 const { width } = Dimensions.get('window');
 
@@ -210,43 +210,15 @@ export default function PostOptionsModal({ visible, onClose, post, onReport, onD
     const confirmDelete = async () => {
         setSubmitting(true);
         try {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session?.access_token) throw new Error("Not authenticated");
+            await PostService.deletePost(post.id);
 
-            // Optimistic update - notify parent immediately
+            showToast("Post deleted", "success");
             if (onDelete) onDelete();
-
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
-
-            // Use dynamic API URL
-            const API_URL = getApiUrl();
-            const response = await fetch(`${API_URL}/api/posts/delete`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session.access_token}`
-                },
-                body: JSON.stringify({ postId: post.id }),
-                signal: controller.signal
-            });
-
-            clearTimeout(timeoutId);
-
-            if (!response.ok) {
-                const result = await response.json();
-                throw new Error(result.error || "Failed to delete post");
-            }
-
             onClose();
 
         } catch (e: any) {
-            console.error("API Delete Error:", e);
-            if (e.name === 'AbortError') {
-                showToast("Server timeout. Check connection.", "error");
-            } else {
-                showToast(`Failed to delete: ${e.message}`, "error");
-            }
+            console.error("Delete Error:", e);
+            showToast(`Failed to delete: ${e.message}`, "error");
         } finally {
             setSubmitting(false);
         }

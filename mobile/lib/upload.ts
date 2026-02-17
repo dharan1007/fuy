@@ -1,15 +1,5 @@
-// Mobile R2 Upload Helper
-// Uses web API presigned URLs for Cloudflare R2 uploads
-
-import { getApiUrl } from './api';
-
-type MediaType = 'IMAGE' | 'VIDEO' | 'AUDIO';
-
-function getMediaType(contentType: string): MediaType {
-    if (contentType.startsWith('video/')) return 'VIDEO';
-    if (contentType.startsWith('audio/')) return 'AUDIO';
-    return 'IMAGE';
-}
+import { supabase } from './supabase';
+import * as FileSystem from 'expo-file-system/legacy';
 
 export interface UploadResult {
     publicUrl: string;
@@ -18,61 +8,63 @@ export interface UploadResult {
 }
 
 /**
- * Upload a file to Cloudflare R2 via presigned URL
- * Fast: Direct upload to R2, no server proxy
+ * Upload a file to Cloudflare R2 via Supabase Edge Function
  */
 export async function uploadToR2(
     file: { uri: string; name: string; type: string },
-    authToken?: string
+    authToken?: string // Unused, kept for compatibility
 ): Promise<UploadResult> {
-    // 1. Get presigned URL from web API
-    const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-    };
-    if (authToken) {
-        headers['Authorization'] = `Bearer ${authToken}`;
+    try {
+        const type = file.type.startsWith('video/') ? 'video' : file.type.startsWith('audio/') ? 'audio' : 'image';
+        // Ensure unique filename
+        const filename = file.name || `${Date.now()}_${Math.random().toString(36).substring(7)}.${type === 'image' ? 'jpg' : 'mp4'}`;
+
+        // 1. Get Signed URL from Edge Function
+        const { data, error } = await supabase.functions.invoke('upload-presigned', {
+            body: {
+                filename,
+                contentType: file.type,
+                type: type.toUpperCase() // 'IMAGE', 'VIDEO', 'AUDIO'
+            }
+        });
+
+        if (error || !data) {
+            throw new Error(`Failed to get signed URL: ${error?.message || 'No data returned'}`);
+        }
+
+        const { signedUrl, publicUrl, key } = data;
+
+        // 2. Upload to R2 using the signed URL
+        const uploadRes = await FileSystem.uploadAsync(signedUrl, file.uri, {
+            httpMethod: 'PUT',
+            headers: {
+                'Content-Type': file.type,
+            },
+            uploadType: 1 as any, // 1 = BINARY_CONTENT
+        });
+
+        if (uploadRes.status !== 200) {
+            throw new Error(`Upload failed with status ${uploadRes.status}`);
+        }
+
+        return {
+            publicUrl,
+            key,
+            provider: 'r2'
+        };
+
+    } catch (error: any) {
+        console.error('[upload] Upload error details:', {
+            message: error.message,
+            stack: error.stack,
+            cause: error.cause
+        });
+        throw error;
     }
-
-    const API_BASE = getApiUrl();
-    const presignedRes = await fetch(`${API_BASE}/api/upload/presigned`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-            filename: file.name,
-            contentType: file.type,
-            type: getMediaType(file.type),
-        }),
-    });
-
-    if (!presignedRes.ok) {
-        const err = await presignedRes.text();
-        throw new Error(`Failed to get presigned URL: ${err}`);
-    }
-
-    const { signedUrl, publicUrl, key, provider } = await presignedRes.json();
-
-    // 2. Fetch file as blob (fast for local files)
-    const fileRes = await fetch(file.uri);
-    const blob = await fileRes.blob();
-
-    // 3. Upload directly to R2 (fast, no server proxy)
-    const uploadRes = await fetch(signedUrl, {
-        method: 'PUT',
-        headers: {
-            'Content-Type': file.type,
-        },
-        body: blob,
-    });
-
-    if (!uploadRes.ok) {
-        throw new Error(`Failed to upload to R2: ${uploadRes.status}`);
-    }
-
-    return { publicUrl, key, provider };
 }
 
 /**
- * Upload multiple files in parallel for speed
+ * Upload multiple files in parallel
  */
 export async function uploadMultipleToR2(
     files: Array<{ uri: string; name: string; type: string }>,

@@ -26,9 +26,10 @@ import FeedPostItem from '../../components/FeedPostItem';
 import SharePostModal from '../../components/SharePostModal';
 import { MediaUploadService } from '../../services/MediaUploadService';
 import { getSafetyFilters, applySafetyFilters } from '../../services/SafetyService';
-import { getApiUrl } from '../../lib/api';
+import { PostService } from '../../services/PostService';
+import { FeedCacheService } from '../../services/FeedCacheService';
 
-const API_URL = getApiUrl();
+
 
 // Viewability Config Constant
 const VIEWABILITY_CONFIG = { itemVisiblePercentThreshold: 60 };
@@ -155,7 +156,7 @@ export default function FeedScreen() {
                 .select(`id, content, createdAt, postType, expiresAt, postMedia: PostMedia(media: Media(url, type)), user: User(id, name, profile: Profile(displayName, avatarUrl))`)
                 .eq('postType', 'CLOCK')
                 .order('createdAt', { ascending: false })
-                .limit(50);
+                .limit(10); // Reduced from 50 to 10 to prevent OOM
 
             if (error) {
                 console.error("Fetch clocks error (Supabase):", error);
@@ -171,6 +172,8 @@ export default function FeedScreen() {
                 data.forEach((post: any) => {
                     // Check expiry
                     let expiresAt = post.expiresAt;
+                    // ... (rest of logic unchanged)
+
                     console.log(`[fetchClocks] Post ${post.id} expiry raw:`, expiresAt);
 
                     // Compatibility: If older post lacks expiresAt, assume 24h from createdAt
@@ -215,8 +218,21 @@ export default function FeedScreen() {
     };
 
     // REDEFINED fetchFeed to use session if needed or keep using currentUserId state
-    const fetchFeed = useCallback(async () => {
-        setLoading(true);
+    const fetchFeed = useCallback(async (skipCache = false) => {
+        // 1. Try loading cached data first (instant display, no spinner)
+        if (!skipCache) {
+            const cached = await FeedCacheService.getHomeFeed<any[]>();
+            if (cached && cached.length > 0) {
+                console.log('[Feed] Using cached data, fetching fresh in background');
+                setPosts(cached as any);
+                setLoading(false);
+                // Continue to fetch fresh data in background (don't return)
+            } else {
+                setLoading(true);
+            }
+        } else {
+            setLoading(true);
+        }
         try {
             // Get current user directly to avoid race condition
             const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -244,6 +260,9 @@ export default function FeedScreen() {
                     shareCount, 
                     user:User(id, name, isHumanVerified, profile:Profile(avatarUrl, displayName, location)), 
                     postMedia:PostMedia(media:Media(url, type, variant)), 
+                    lillData:Lill(thumbnailUrl),
+                    fillData:Fill(thumbnailUrl),
+                    chanData:Chan(coverImageUrl),
                     reactions:Reaction(type, userId), 
                     reactionBubbles:ReactionBubble(id, mediaUrl, mediaType, user:User(profile:Profile(avatarUrl))), 
                     slashes:Slash(tag), 
@@ -253,7 +272,7 @@ export default function FeedScreen() {
                 .eq('visibility', 'PUBLIC')
                 .neq('postType', 'CLOCK') // Exclude Clocks from main feed
                 .order('createdAt', { ascending: false })
-                .limit(20);
+                .limit(5); // Reduced from 20 to 5 to prevent OOM
 
             if (userId) {
                 query = applySafetyFilters(query, filters);
@@ -277,6 +296,12 @@ export default function FeedScreen() {
                 const userObj = Array.isArray(p.user) ? p.user[0] : p.user;
                 const profileObj = userObj && Array.isArray(userObj.profile) ? userObj.profile[0] : userObj?.profile;
 
+                // Extract thumbnail
+                const thumbnailUrl = p.lillData?.thumbnailUrl
+                    || p.fillData?.thumbnailUrl
+                    || p.chanData?.coverImageUrl
+                    || null;
+
                 const reactions = p.reactions || [];
                 const counts = {
                     W: reactions.filter((r: any) => r.type === 'W').length,
@@ -285,6 +310,14 @@ export default function FeedScreen() {
                 };
 
                 const userReaction = currentUserId ? reactions.find((r: any) => r.userId === currentUserId)?.type || null : null;
+
+                // Process media
+                const processedMedia = (p.postMedia || []).map((pm: any) => {
+                    const m = pm.media;
+                    // Attach thumbnail if available and this is the first item or logic dictates
+                    if (m && thumbnailUrl) m.thumbnailUrl = thumbnailUrl;
+                    return m;
+                }).filter(Boolean);
 
                 return {
                     id: p.id,
@@ -295,7 +328,7 @@ export default function FeedScreen() {
                         ...userObj,
                         profile: profileObj
                     },
-                    postMedia: (p.postMedia || []).map((pm: any) => pm.media).filter(Boolean),
+                    postMedia: processedMedia,
                     slashes: p.slashes || [],
                     reactionCounts: counts,
                     topBubbles: (p.reactionBubbles || []).slice(0, 3),
@@ -306,6 +339,8 @@ export default function FeedScreen() {
                 };
             }) as FeedPost[];
 
+            // Cache the transformed posts
+            await FeedCacheService.setHomeFeed(transformedPosts);
             setPosts(transformedPosts);
 
         } catch (error) {
@@ -364,11 +399,8 @@ export default function FeedScreen() {
         }));
 
         try {
-            await fetch(`${API_URL}/api/posts/react`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ postId, type }),
-            });
+            if (!currentUserId) return;
+            await PostService.handleReaction(postId, currentUserId, type);
         } catch (error) {
             console.error("Failed to react:", error);
         }
@@ -426,51 +458,44 @@ export default function FeedScreen() {
 
                 const uploadUrl = uploadResult.url;
 
-                const res = await fetch(`${API_URL}/api/posts/bubble`, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Authorization": `Bearer ${session?.access_token}`
-                    },
-                    body: JSON.stringify({
-                        postId,
-                        mediaUrl: uploadUrl,
-                        mediaType: asset.type === 'video' ? 'VIDEO' : 'IMAGE'
-                    }),
+                await PostService.addBubble(postId, session.user.id, {
+                    url: uploadUrl,
+                    type: asset.type === 'video' ? 'VIDEO' : 'IMAGE'
                 });
 
-                if (res.ok) {
-                    // Success: Refresh feed silently to get real data (optional, or just keep optimistic)
-                    // fetchFeed(); 
-                    // We can skip fetchFeed to avoid redraw flicker, or call it later. 
-                    // Given reported "loading" issues, let's NOT call fetchFeed immediately but let strict update happen next refresh.
-                    // Actually, getting the real ID/Url is better. I'll call it but NO LOADING spinner.
-                    fetchFeed();
-                } else {
-                    const error = await res.json();
-                    Alert.alert("Upload Failed", error.error || "Failed to upload reaction");
-                    // Revert optimistic update? (Complex, skip for now or trigger refresh)
-                    fetchFeed();
-                }
+                // Success: Refresh feed logic can remain same or be optimized
+                fetchFeed();
             } catch (error) {
                 console.error("Bubble upload failed:", error);
                 Alert.alert("Error", "Failed to upload bubble.");
                 fetchFeed(); // Revert state
             }
+
         }
     }, [fetchFeed]);
 
     // ... (renderClockRail unchanged)
     const renderClockRail = () => {
+        const myStory = currentUserId ? clocks.find(c => c.user.id === currentUserId) : null;
+        const otherClocks = currentUserId ? clocks.filter(c => c.user.id !== currentUserId) : clocks;
+
+        const railData = myStory
+            ? [{ ...myStory, isMine: true }, ...otherClocks]
+            : [{ id: 'add-story' }, ...otherClocks];
+
         return (
             <View className="py-3 mb-2" style={{ borderBottomWidth: 1, borderBottomColor: mode === 'light' ? '#f0f0f0' : '#222' }}>
                 <Text style={{ paddingHorizontal: 16, marginBottom: 12, fontWeight: 'bold', color: colors.text, fontSize: 13, letterSpacing: 0.5 }}>CLOCKS</Text>
                 <FlatList
                     horizontal
-                    data={[{ id: 'add-story' }, ...clocks]}
+                    data={railData}
                     keyExtractor={(item: any) => item.id}
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={{ paddingHorizontal: 16, gap: 14 }}
+                    // OOM Optimizations
+                    initialNumToRender={5}
+                    windowSize={2}
+                    removeClippedSubviews={true}
                     renderItem={({ item, index }: { item: any, index: number }) => {
                         if (item.id === 'add-story') {
                             return (
@@ -486,8 +511,9 @@ export default function FeedScreen() {
                             );
                         }
 
-                        // Show seconds for the first 2 actual clocks (indices 1 and 2, since 0 is add button)
-                        const showSeconds = index >= 1 && index <= 2;
+                        // If it's my story, passing isMine to item (handled in ClockRailItem prop potentially, or just logic here)
+                        // Show seconds for the first few items
+                        const showSeconds = index <= 2;
 
                         return (
                             <ClockRailItem

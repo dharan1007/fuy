@@ -119,34 +119,14 @@ export default function ProfileScreen() {
                 throw new Error("Not authenticated");
             }
 
-            // Batch Delete using new endpoint
-            // Using local IP 192.168.0.101 to hit local Next.js server (where batch-delete exists)
-            const apiUrl = `http://192.168.0.101:3000/api/posts/batch-delete`;
-            console.log("Using Batch Delete Endpoint:", apiUrl);
+            // Batch Delete using direct Supabase
+            const { error, count } = await supabase
+                .from('Post')
+                .delete({ count: 'exact' })
+                .in('id', ids);
 
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout for bulk op
-
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session.access_token}`
-                },
-                body: JSON.stringify({ postIds: ids }),
-                signal: controller.signal
-            });
-
-            clearTimeout(timeoutId);
-            const text = await response.text();
-            console.log(`Batch Response:`, response.status, text);
-
-            if (!response.ok) {
-                throw new Error(`Batch delete failed: Status ${response.status}`);
-            }
-
-            const resJson = JSON.parse(text);
-            console.log("Deleted count:", resJson.count);
+            if (error) throw error;
+            console.log("Deleted count:", count);
 
             // Update local state
             setProfileData(prev => {
@@ -210,6 +190,8 @@ export default function ProfileScreen() {
                     createdAt,
                     postMedia:PostMedia(media:Media(url, type)),
                     chanData:Chan(coverImageUrl),
+                    lillData:Lill(thumbnailUrl),
+                    fillData:Fill(thumbnailUrl),
                     user:User(name, profile:Profile(displayName, avatarUrl))
                 `)
                 .eq('userId', userId)
@@ -219,8 +201,19 @@ export default function ProfileScreen() {
             if (postsError) console.error("Posts fetch error:", postsError.message);
 
             const allPosts = (postsData || []).map((p: any) => {
+                // Extract thumbnail
+                const thumbnailUrl = p.lillData?.thumbnailUrl
+                    || p.fillData?.thumbnailUrl
+                    || p.chanData?.coverImageUrl
+                    || null;
+
                 // Extract media from PostMedia relationship
-                const mediaItems = (p.postMedia || []).map((pm: any) => pm.media).filter(Boolean);
+                const mediaItems = (p.postMedia || []).map((pm: any) => {
+                    const m = pm.media;
+                    if (m && thumbnailUrl) m.thumbnailUrl = thumbnailUrl;
+                    return m;
+                }).filter(Boolean);
+
                 return {
                     id: p.id,
                     content: p.content,
@@ -542,12 +535,12 @@ export default function ProfileScreen() {
 
             {/* Glass Stats Card */}
             <BlurView intensity={30} tint={mode === 'light' ? 'light' : 'dark'} className="flex-row justify-between w-full px-6 py-4 mb-8 rounded-3xl overflow-hidden">
-                <TouchableOpacity onPress={() => fetchSocialList('following')} className="items-center flex-1">
+                <TouchableOpacity onPress={() => router.push({ pathname: '/following', params: { initialTab: 'following' } })} className="items-center flex-1">
                     <Text style={{ color: colors.text }} className="text-lg font-bold">{profileData?.followingCount || 0}</Text>
                     <Text style={{ color: colors.secondary }} className="text-xs uppercase tracking-wider">Following</Text>
                 </TouchableOpacity>
                 <View className="w-[1px] h-full" style={{ backgroundColor: 'rgba(255,255,255,0.2)' }} />
-                <TouchableOpacity onPress={() => fetchSocialList('followers')} className="items-center flex-1">
+                <TouchableOpacity onPress={() => router.push({ pathname: '/following', params: { initialTab: 'followers' } })} className="items-center flex-1">
                     <Text style={{ color: colors.text }} className="text-lg font-bold">{profileData?.followersCount || 0}</Text>
                     <Text style={{ color: colors.secondary }} className="text-xs uppercase tracking-wider">Followers</Text>
                 </TouchableOpacity>
@@ -606,7 +599,8 @@ export default function ProfileScreen() {
             return true;
         });
 
-        const filters: Array<'ALL' | 'FILLS' | 'LILLS' | 'SIMPLE' | 'AUDIO' | 'CHANNELS' | 'XRAYS'> = ['ALL', 'FILLS', 'LILLS', 'SIMPLE', 'AUDIO', 'CHANNELS', 'XRAYS'];
+        // V2 - FILLS and CHANNELS hidden for now
+        const filters: Array<'ALL' | 'FILLS' | 'LILLS' | 'SIMPLE' | 'AUDIO' | 'CHANNELS' | 'XRAYS'> = ['ALL', /* 'FILLS', */ 'LILLS', 'SIMPLE', 'AUDIO', /* 'CHANNELS', */ 'XRAYS'];
 
         return (
             <View style={{ flex: 1, borderTopLeftRadius: 32, borderTopRightRadius: 32, overflow: 'hidden', minHeight: 500, backgroundColor: colors.card }}>
@@ -650,20 +644,34 @@ export default function ProfileScreen() {
                         <Text style={{ color: colors.text, marginTop: 16, fontWeight: '500' }}>No posts yet</Text>
                     </View>
                 ) : (
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', padding: 4 }}>
-                        {displayPosts.map((post) => (
+                    <FlatList
+                        data={displayPosts}
+                        keyExtractor={(item) => item.id}
+                        numColumns={3}
+                        renderItem={({ item }) => (
                             <PostCard
-                                key={post.id}
-                                post={post}
+                                post={item}
                                 colors={colors}
                                 router={router}
                                 width={width}
                                 isSelectionMode={isSelectionMode}
-                                isSelected={selectedPostIds.has(post.id)}
-                                onSelect={() => togglePostSelection(post.id)}
+                                isSelected={selectedPostIds.has(item.id)}
+                                onSelect={() => togglePostSelection(item.id)}
                             />
-                        ))}
-                    </View>
+                        )}
+                        columnWrapperStyle={{ paddingHorizontal: 4 }}
+                        contentContainerStyle={{ paddingVertical: 4 }}
+                        // Virtualization optimizations
+                        initialNumToRender={9}
+                        maxToRenderPerBatch={9}
+                        windowSize={5}
+                        removeClippedSubviews={true}
+                        getItemLayout={(data, index) => {
+                            const cardSize = Math.floor((width - 12 - 8) / 3);
+                            return { length: cardSize + 4, offset: (cardSize + 4) * Math.floor(index / 3), index };
+                        }}
+                        scrollEnabled={false}
+                    />
                 )}
                 <View style={{ height: 100 }} />
             </View>
@@ -720,10 +728,27 @@ export default function ProfileScreen() {
             );
         };
 
-        // Get media URL
-        let mediaUrl = post.media?.[0]?.url;
+        // Get media URL - prioritize thumbnailUrl for videos
+        let mediaUrl = null;
         if (isChannel && post.chanData?.[0]?.coverImageUrl) {
             mediaUrl = post.chanData[0].coverImageUrl;
+        } else if (post.media && post.media.length > 0) {
+            const firstMedia = post.media[0];
+
+            // For videos, prioritize thumbnailUrl 
+            if (firstMedia.thumbnailUrl) {
+                mediaUrl = firstMedia.thumbnailUrl;
+            } else if (firstMedia.type === 'IMAGE' || firstMedia.url?.match(/\.(jpg|jpeg|png|webp|gif)$/i)) {
+                // It's an image, use directly
+                mediaUrl = firstMedia.url;
+            } else {
+                // It's a video without thumbnailUrl - try to find another image in the array
+                const imageMedia = post.media.find((m: any) =>
+                    m.type === 'IMAGE' ||
+                    m.url?.match(/\.(jpg|jpeg|png|webp|gif)$/i)
+                );
+                mediaUrl = imageMedia?.url || null;
+            }
         }
 
         // Text/Simple Post Card
@@ -869,15 +894,16 @@ export default function ProfileScreen() {
                 {mediaUrl ? (
                     isVideo ? (
                         <View style={{ width: '100%', height: '100%', backgroundColor: '#000' }}>
-                            <ExpoVideo
+                            {/* Use Image thumbnail instead of Video for performance - video plays on post detail */}
+                            <Image
                                 source={{ uri: mediaUrl }}
                                 style={{ width: '100%', height: '100%' }}
-                                resizeMode={ResizeMode.COVER}
-                                shouldPlay={false}
-                                isMuted={true}
+                                resizeMode="cover"
                             />
-                            <View style={{ position: 'absolute', inset: 0, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.2)' }}>
-                                <Play size={24} color="#fff" fill="rgba(255,255,255,0.5)" />
+                            <View style={{ position: 'absolute', inset: 0, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)' }}>
+                                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.9)', justifyContent: 'center', alignItems: 'center' }}>
+                                    <Play size={18} color="#000" fill="#000" />
+                                </View>
                             </View>
                         </View>
                     ) : (
@@ -888,9 +914,14 @@ export default function ProfileScreen() {
                         />
                     )
                 ) : (
-                    <View style={{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
-                        {isVideo ? <Play size={24} color={colors.secondary} /> : <Grid size={24} color={colors.secondary} />}
-                        <Text style={{ color: colors.secondary, fontSize: 10, marginTop: 4 }}>{isVideo ? 'Video' : 'No Media'}</Text>
+                    // Fallback for videos without thumbnail - show branded placeholder
+                    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(30,30,30,1)' }}>
+                        <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }}>
+                            <Play size={24} color="rgba(255,255,255,0.7)" fill="rgba(255,255,255,0.3)" />
+                        </View>
+                        <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, marginTop: 8, textTransform: 'uppercase' }}>
+                            {post.postType || (isVideo ? 'Video' : 'Post')}
+                        </Text>
                     </View>
                 )}
 

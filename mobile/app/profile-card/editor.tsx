@@ -222,17 +222,11 @@ export default function ProfileCardEditor() {
 
             if (error) throw error;
 
-            // 2. Upsert ProfileCard via Backend API (Bypasses RLS issues)
-            const { data: { session } } = await supabase.auth.getSession();
-            const token = session?.access_token;
-
-            const apiResponse = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/profile-card`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
+            // 2. Upsert ProfileCard directly
+            const { error: cardError } = await supabase
+                .from('ProfileCard')
+                .upsert({
+                    userId: dbUserId,
                     content: {
                         sections: [
                             { id: 'identity', title: 'Identity', data: { bio: profile.bio, ...profile } },
@@ -243,14 +237,11 @@ export default function ProfileCardEditor() {
                         ],
                         settings: settings
                     },
-                    theme: 'dark'
-                })
-            });
+                    theme: 'dark',
+                    updatedAt: new Date().toISOString()
+                }, { onConflict: 'userId' });
 
-            if (!apiResponse.ok) {
-                const errData = await apiResponse.json();
-                throw new Error(errData.error || "Failed to create profile card");
-            }
+            if (cardError) throw new Error(cardError.message || "Failed to create profile card");
 
             const { data: updatedUser } = await supabase
                 .from('User')

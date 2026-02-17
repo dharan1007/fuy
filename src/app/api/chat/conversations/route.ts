@@ -104,6 +104,20 @@ export async function POST(req: Request) {
 
     const userId = session.user.id;
 
+    // Check if either user has blocked the other
+    const blockExists = await prisma.blockedUser.findFirst({
+      where: {
+        OR: [
+          { blockerId: userId, blockedId: targetUserId },
+          { blockerId: targetUserId, blockedId: userId },
+        ]
+      }
+    });
+
+    if (blockExists) {
+      return NextResponse.json({ error: 'Cannot message this user' }, { status: 403 });
+    }
+
     // Check existing
     const existing = await prisma.conversation.findFirst({
       where: {

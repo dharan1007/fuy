@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, Dimensions, FlatList, TouchableOpacity, Image, ScrollView, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -12,13 +12,14 @@ import { Grid, ChevronLeft, MapPin, Heart, MessageCircle, Share2, MoreHorizontal
 import { VerifiedBadge } from '../../components/VerifiedBadge';
 import { useToast } from '../../context/ToastContext';
 import ShareCardModal from '../../components/ShareCardModal';
+import InstantMediaCard from '../../components/InstantMediaCard';
 import * as Crypto from 'expo-crypto';
 
 const { width } = Dimensions.get('window');
 
 interface Post {
     id: string;
-    media: { url: string; type: string }[] | null;
+    media: { url: string; type: string; thumbnailUrl?: string }[] | null;
     content?: string;
     postType?: string;
     createdAt?: string;
@@ -91,55 +92,50 @@ export default function PublicProfileScreen() {
     };
 
     const handleFollow = async () => {
-        if (!session?.user || !session?.access_token) {
+        if (!session?.user) {
             showToast("Please login to follow", "info");
             return;
         }
         setFollowLoading(true);
-        const apiUrl = isFollowing
-            ? `http://192.168.0.101:3000/api/users/unfollow`
-            : `http://192.168.0.101:3000/api/users/follow`;
 
         try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000);
+            if (isFollowing) {
+                // Unfollow
+                const { error } = await supabase
+                    .from('Subscription')
+                    .delete()
+                    .eq('subscriberId', session.user.id)
+                    .eq('subscribedToId', userId);
 
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session.access_token}`
-                },
-                body: JSON.stringify({ targetUserId: userId }),
-                signal: controller.signal
-            });
+                if (error) throw error;
 
-            clearTimeout(timeoutId);
+                setIsFollowing(false);
+                setProfileData(prev => prev ? ({ ...prev, followersCount: Math.max(0, prev.followersCount - 1) }) : null);
+                showToast("Unfollowed", "success");
+            } else {
+                // Follow
+                const { error } = await supabase
+                    .from('Subscription')
+                    .insert({
+                        subscriberId: session.user.id,
+                        subscribedToId: userId
+                    });
 
-            if (!response.ok) {
-                const text = await response.text();
-                throw new Error(text || 'Network request failed');
-            }
-
-            const data = await response.json();
-
-            if (data.success) {
-                if (isFollowing) {
-                    setIsFollowing(false);
-                    setProfileData(prev => prev ? ({ ...prev, followersCount: Math.max(0, prev.followersCount - 1) }) : null);
-                    showToast("Unfollowed", "success");
+                if (error) {
+                    if (error.code === '23505') { // Unique constraint violation (already following)
+                        setIsFollowing(true);
+                    } else {
+                        throw error;
+                    }
                 } else {
                     setIsFollowing(true);
                     setProfileData(prev => prev ? ({ ...prev, followersCount: prev.followersCount + 1 }) : null);
                     showToast("Following", "success");
                 }
-            } else {
-                throw new Error(data.message || 'Action failed');
             }
         } catch (e: any) {
             console.error("Follow error:", e);
-            const msg = e.name === 'AbortError' ? 'Request timed out' : 'Failed to update follow status';
-            showToast(msg, "error");
+            showToast("Failed to update follow status", "error");
         } finally {
             setFollowLoading(false);
         }
@@ -178,13 +174,26 @@ export default function PublicProfileScreen() {
                     createdAt,
                     postMedia:PostMedia(media:Media(url, type)),
                     chanData:Chan(coverImageUrl),
+                    lillData:Lill(thumbnailUrl),
+                    fillData:Fill(thumbnailUrl),
                     user:User(name, profile:Profile(displayName, avatarUrl))
                 `)
                 .eq('userId', userId)
                 .order('createdAt', { ascending: false });
 
             const allPosts = (postsData || []).map((p: any) => {
-                const mediaItems = (p.postMedia || []).map((pm: any) => pm.media).filter(Boolean);
+                // Extract thumbnail
+                const thumbnailUrl = p.lillData?.thumbnailUrl
+                    || p.fillData?.thumbnailUrl
+                    || p.chanData?.coverImageUrl
+                    || null;
+
+                const mediaItems = (p.postMedia || []).map((pm: any) => {
+                    const m = pm.media;
+                    if (m && thumbnailUrl) m.thumbnailUrl = thumbnailUrl;
+                    return m;
+                }).filter(Boolean);
+
                 return {
                     id: p.id,
                     content: p.content,
@@ -330,15 +339,21 @@ export default function PublicProfileScreen() {
 
                 {/* Glass Stats Card - No Border, Thin Dividers */}
                 <BlurView intensity={30} tint={mode === 'light' ? 'light' : 'dark'} className="flex-row justify-between w-full px-6 py-4 mb-8 rounded-3xl overflow-hidden">
-                    <View className="items-center flex-1">
+                    <TouchableOpacity
+                        onPress={() => router.push({ pathname: '/following', params: { userId: userId, initialTab: 'following' } })}
+                        className="items-center flex-1"
+                    >
                         <Text style={{ color: colors.text }} className="text-lg font-bold">{profileData?.followingCount || 0}</Text>
                         <Text style={{ color: colors.secondary }} className="text-xs uppercase tracking-wider">Following</Text>
-                    </View>
+                    </TouchableOpacity>
                     <View className="w-[1px] h-full" style={{ backgroundColor: 'rgba(255,255,255,0.2)' }} />
-                    <View className="items-center flex-1">
+                    <TouchableOpacity
+                        onPress={() => router.push({ pathname: '/following', params: { userId: userId, initialTab: 'followers' } })}
+                        className="items-center flex-1"
+                    >
                         <Text style={{ color: colors.text }} className="text-lg font-bold">{profileData?.followersCount || 0}</Text>
                         <Text style={{ color: colors.secondary }} className="text-xs uppercase tracking-wider">Followers</Text>
-                    </View>
+                    </TouchableOpacity>
                     <View className="w-[1px] h-full" style={{ backgroundColor: 'rgba(255,255,255,0.2)' }} />
                     <View className="items-center flex-1">
                         <Text style={{ color: colors.text }} className="text-lg font-bold">{stats?.posts || 0}</Text>
@@ -352,9 +367,9 @@ export default function PublicProfileScreen() {
                         onPress={handleFollow}
                         disabled={followLoading}
                         className="flex-1 py-3 rounded-2xl items-center justify-center"
-                        style={{ backgroundColor: isFollowing ? colors.card : colors.primary, borderWidth: isFollowing ? 1 : 0, borderColor: isFollowing ? colors.border : 'transparent' }}
+                        style={{ backgroundColor: isFollowing ? colors.card : '#fff', borderWidth: isFollowing ? 1 : 0, borderColor: isFollowing ? colors.border : 'transparent' }}
                     >
-                        <Text className="font-bold" style={{ color: isFollowing ? colors.text : 'white' }}>
+                        <Text className="font-bold" style={{ color: isFollowing ? colors.text : '#000' }}>
                             {followLoading ? '...' : isFollowing ? 'Following' : 'Follow'}
                         </Text>
                     </TouchableOpacity>
@@ -444,17 +459,31 @@ export default function PublicProfileScreen() {
                         <Text style={{ color: colors.text, marginTop: 16, fontWeight: '500' }}>No posts yet</Text>
                     </View>
                 ) : (
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', padding: 4 }}>
-                        {displayPosts.map((post) => (
+                    <FlatList
+                        data={displayPosts}
+                        keyExtractor={(item) => item.id}
+                        numColumns={3}
+                        renderItem={({ item }) => (
                             <PostCard
-                                key={post.id}
-                                post={post}
+                                post={item}
                                 colors={colors}
                                 router={router}
                                 width={width}
                             />
-                        ))}
-                    </View>
+                        )}
+                        columnWrapperStyle={{ paddingHorizontal: 4 }}
+                        contentContainerStyle={{ paddingVertical: 4 }}
+                        // Virtualization optimizations
+                        initialNumToRender={9}
+                        maxToRenderPerBatch={9}
+                        windowSize={5}
+                        removeClippedSubviews={true}
+                        getItemLayout={(data, index) => {
+                            const cardSize = Math.floor((width - 12 - 8) / 3);
+                            return { length: cardSize + 4, offset: (cardSize + 4) * Math.floor(index / 3), index };
+                        }}
+                        scrollEnabled={false}
+                    />
                 )}
                 <View style={{ height: 100 }} />
             </View>
@@ -488,6 +517,10 @@ const PostCard = ({ post, colors, router, width: screenWidth }: { post: any; col
     const margin = 2; // Tighter margin for 3x3
     const cardWidth = Math.floor((screenWidth - (margin * 6) - 10) / 3); // 3 columns
 
+    // LILL posts are vertically oriented - make them taller
+    const isLill = post.postType === 'LILL';
+    const cardHeight = isLill ? Math.floor(cardWidth * 1.5) : cardWidth;
+
     const isVideo = post.media?.[0]?.type === 'VIDEO' || post.postType === 'FILL' || post.postType === 'LILL';
     const isAudio = post.postType === 'AUD';
     const isChannel = post.postType === 'CHAN';
@@ -498,10 +531,35 @@ const PostCard = ({ post, colors, router, width: screenWidth }: { post: any; col
         router.push(`/post/${post.id}`);
     };
 
-    // Get media URL
-    let mediaUrl = post.media?.[0]?.url;
+    // Get media URL - prioritize thumbnailUrl for videos
+    let mediaUrl: string | null = null;
+    let videoUrl: string | null = null; // Store video URL for thumbnail extraction
+
     if (isChannel && post.chanData?.[0]?.coverImageUrl) {
         mediaUrl = post.chanData[0].coverImageUrl;
+    } else if (post.media && post.media.length > 0) {
+        const firstMedia = post.media[0];
+
+        // Check if it's a video
+        const isVideoType = firstMedia.type === 'VIDEO' || firstMedia.url?.match(/\.(mp4|mov|webm)$/i);
+
+        if (isVideoType) {
+            videoUrl = firstMedia.url; // Store video URL for thumbnail extraction
+            // For videos, prioritize thumbnailUrl 
+            if (firstMedia.thumbnailUrl) {
+                mediaUrl = firstMedia.thumbnailUrl;
+            } else {
+                // Try to find another image in the array
+                const imageMedia = post.media.find((m: any) =>
+                    m.type === 'IMAGE' ||
+                    m.url?.match(/\.(jpg|jpeg|png|webp|gif)$/i)
+                );
+                mediaUrl = imageMedia?.url || null;
+            }
+        } else {
+            // It's an image, use directly
+            mediaUrl = firstMedia.url;
+        }
     }
 
     // Text/Simple Post Card
@@ -584,40 +642,20 @@ const PostCard = ({ post, colors, router, width: screenWidth }: { post: any; col
             onPress={handlePress}
             style={{
                 width: cardWidth,
-                height: cardWidth,
+                height: cardHeight,
                 margin: margin,
                 backgroundColor: 'rgba(255,255,255,0.05)',
                 borderRadius: 12,
                 overflow: 'hidden'
             }}
         >
-            {mediaUrl ? (
-                isVideo ? (
-                    <View style={{ width: '100%', height: '100%', backgroundColor: '#000' }}>
-                        <ExpoVideo
-                            source={{ uri: mediaUrl }}
-                            style={{ width: '100%', height: '100%' }}
-                            resizeMode={ResizeMode.COVER}
-                            shouldPlay={false}
-                            isMuted={true}
-                        />
-                        <View style={{ position: 'absolute', inset: 0, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.2)' }}>
-                            <Play size={24} color="#fff" fill="rgba(255,255,255,0.5)" />
-                        </View>
-                    </View>
-                ) : (
-                    <Image
-                        source={{ uri: mediaUrl }}
-                        style={{ width: '100%', height: '100%', opacity: 0.9 }}
-                        resizeMode="cover"
-                    />
-                )
-            ) : (
-                <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                    {isVideo ? <Play size={24} color={colors.secondary} /> : <Grid color={colors.secondary} size={24} />}
-                    <Text style={{ color: colors.secondary, fontSize: 10, marginTop: 4 }}>{isVideo ? 'Video' : 'No Media'}</Text>
-                </View>
-            )}
+            {/* INSTANT MEDIA - Never blank */}
+            <InstantMediaCard
+                imageUrl={mediaUrl}
+                postType={post.postType}
+                postId={post.id}
+                style={{ width: '100%', height: '100%' }}
+            />
 
             {/* Type Indicator Overlay */}
             <View style={{ position: 'absolute', top: 6, right: 6, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>

@@ -89,9 +89,7 @@ model User {
   collaborationInvitesReceived CollaborationInvite[] @relation("CollaborationInvitesReceived")
   collaborationUpdates         CollaborationUpdate[]
 
-  // --- AI Chatbot ("dbot") ---
-  userInsights   UserInsight[]
-  aiChatSessions AIChatSession[]
+
 
   // --- Shop & E-commerce ---
   brandsOwned    Brand[]         @relation("BrandsOwned")
@@ -1427,6 +1425,7 @@ model Conversation {
   sessionLogs          ChatSessionLog[]
   collaborationInvites CollaborationInvite[]
   reports              Report[]
+  triggerCollections   TriggerCollection[]
 
   states ConversationState[]
 
@@ -1482,9 +1481,19 @@ model Message {
   content         String
   type            String           @default("text") // text, image, video, audio
   mediaUrl        String?
+  mediaType       String?          // image, video, document, audio, location
+  mediaEncryptionKey String?       // Encrypted symmetric key for the file
+  thumbnailUrl    String?
+  mimeType        String?
+  fileName        String?
+  fileSize        Int?
+  duration        Int?             // For audio/video in seconds
+  expiresAt       DateTime?
+  viewOnce        Boolean          @default(false)
   readAt          DateTime?
   isSaved         Boolean          @default(false) // Protected from retention-based deletion
   isEdited        Boolean          @default(false)
+  isPasswordProtected Boolean      @default(false) // New field
   isDeleted       Boolean          @default(false)
   deletedMessages DeletedMessage[]
   createdAt       DateTime         @default(now())
@@ -1536,18 +1545,22 @@ model MessageTag {
 
 // Trigger Collections for warning system
 model TriggerCollection {
-  id        String   @id @default(cuid())
-  userId    String
-  name      String // Collection name (e.g., "Sensitive Topics")
-  keyword   String? // Optional keyword for slash command
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String   @id @default(cuid())
+  userId         String
+  conversationId String?  // Scoped to specific conversation
+  name           String   // Collection name (e.g., "Sensitive Topics")
+  keyword        String?  // Optional keyword for slash command
+  muteWarnings   Boolean  @default(false) // Auto-send without showing warning
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  triggers Trigger[]
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  triggers     Trigger[]
 
-  @@unique([userId, name])
+  @@unique([userId, conversationId, name])
   @@index([userId])
+  @@index([conversationId])
   @@index([keyword])
 }
 
@@ -2294,50 +2307,7 @@ model WebhookLog {
 // AI Chatbot / Podcaster ("dbot")
 // ------------------------
 
-model UserInsight {
-  id         String   @id @default(cuid())
-  userId     String
-  // e.g. "User feels anxious about work", "User likes nature metaphors"
-  content    String
-  // Confidence score (0.0 - 1.0)
-  confidence Float    @default(1.0)
-  createdAt  DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-}
-
-model AIChatSession {
-  id        String   @id @default(cuid())
-  userId    String
-  title     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  messages AIChatMessage[]
-
-  @@index([userId])
-  @@index([updatedAt])
-}
-
-model AIChatMessage {
-  id        String   @id @default(cuid())
-  sessionId String
-  role      String // "user" | "assistant" | "system"
-  content   String
-  createdAt DateTime @default(now())
-
-  session AIChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-
-  @@index([sessionId])
-  @@index([createdAt])
-}
-
-// ------------------------
-// Profile Cards
-// ------------------------
 
 model ProfileCard {
   id         String   @id @default(cuid())

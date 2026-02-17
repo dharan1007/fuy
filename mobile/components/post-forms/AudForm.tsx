@@ -10,8 +10,12 @@ import { supabase } from '../../lib/supabase';
 import SuccessOverlay from '../SuccessOverlay';
 import { analyzeImageForNudity, NudityAnalysisResult } from '../../lib/nudity-detection';
 import NudityWarningModal from '../NudityWarningModal';
+import PostPreview from '../PostPreview';
+import { Eye, EyeOff } from 'lucide-react-native';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org';
+import MediaFilterSelector from '../MediaFilterSelector';
+import UserTagSelector from '../UserTagSelector';
+import { PostService, PostVisibility } from '../../services/PostService';
 const { width } = Dimensions.get('window');
 
 interface AudFormProps {
@@ -39,6 +43,28 @@ export default function AudForm({ onBack }: AudFormProps) {
     const [nudityResult, setNudityResult] = useState<NudityAnalysisResult | null>(null);
     const [showNudityWarning, setShowNudityWarning] = useState(false);
     const [pendingSubmit, setPendingSubmit] = useState(false);
+
+    // Preview state
+    const [showPreview, setShowPreview] = useState(true);
+    const [userName, setUserName] = useState('');
+    const [userAvatar, setUserAvatar] = useState<string | undefined>(undefined);
+
+    // Fetch user info for preview
+    React.useEffect(() => {
+        const fetchUser = async () => {
+            if (!session?.user?.email) return;
+            const { data } = await supabase
+                .from('User')
+                .select('name, avatar')
+                .eq('email', session.user.email)
+                .single();
+            if (data) {
+                setUserName(data.name || 'You');
+                setUserAvatar(data.avatar || undefined);
+            }
+        };
+        fetchUser();
+    }, [session]);
 
     const pickAudio = async () => {
         try {
@@ -111,49 +137,31 @@ export default function AudForm({ onBack }: AudFormProps) {
             }
             setUploadProgress(80);
 
-            const headers: Record<string, string> = {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Referer': 'https://www.fuymedia.org/',
-                'Origin': 'https://www.fuymedia.org',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Sec-Fetch-Dest': 'empty',
-                'Sec-Fetch-Mode': 'cors',
-                'Sec-Fetch-Site': 'same-origin',
-                'X-Requested-With': 'XMLHttpRequest'
-            };
+            setUploadProgress(80);
 
-            if (session?.access_token) {
-                headers['Authorization'] = `Bearer ${session.access_token}`;
-            }
+            let mediaItems = [];
+            if (audioResult) mediaItems.push({ uri: audioResult.url, type: 'AUDIO', duration: audioResult.duration || 0 });
+            if (coverUrl) mediaItems.push({ uri: coverUrl, type: 'IMAGE', duration: 0 });
 
-            const response = await fetch(`${API_URL}/api/posts/create`, {
-                method: 'POST',
-                headers,
-                body: JSON.stringify({
-                    userId: userData.id,
-                    postType: 'AUD',
-                    content: description || title,
-                    visibility,
-                    audData: {
-                        audioUrl: audioResult.url,
-                        duration: audioResult.duration || 0,
-                        coverImageUrl: coverUrl,
-                        title,
-                        artist: artist || null,
-                        genre: genre || null,
-                    },
-                    mediaUrls: coverUrl ? [audioResult.url, coverUrl] : [audioResult.url],
-                    mediaTypes: coverUrl ? ['AUDIO', 'IMAGE'] : ['AUDIO'],
-                    mediaVariants: coverUrl ? ['sometrack', 'thumbnail'] : ['sometrack'],
-                    slashes: slashes.filter(s => s.trim()),
-                }),
+            await PostService.createPost({
+                userId: userData.id,
+                postType: 'AUD',
+                content: description || title,
+                visibility: visibility as PostVisibility,
+                media: mediaItems,
+                audData: {
+                    title,
+                    artist: artist || null,
+                    genre: genre || null,
+                    audioUrl: audioResult.url,
+                    duration: audioResult.duration || 0,
+                    coverImageUrl: coverUrl,
+                },
+                slashes: slashes.filter(s => s.trim()),
             });
 
             setUploadProgress(100);
-            if (!response.ok) throw new Error((await response.json()).error || 'Failed');
-            // Alert.alert('Done', 'Posted successfully', [{ text: 'OK', onPress: onBack }]);
+
             setShowSuccess(true);
             setPendingSubmit(false);
             setNudityResult(null);
@@ -183,6 +191,26 @@ export default function AudForm({ onBack }: AudFormProps) {
                     <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>Audio with waveform preview</Text>
                 </View>
                 <Radio size={24} color="rgba(255,255,255,0.3)" />
+            </View>
+
+            {/* Post Preview Component */}
+            <View style={{ marginBottom: 20 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontWeight: '600', fontSize: 11, letterSpacing: 1 }}>PREVIEW</Text>
+                    <TouchableOpacity onPress={() => setShowPreview(!showPreview)} style={{ padding: 4 }}>
+                        {showPreview ? <Eye size={16} color="rgba(255,255,255,0.6)" /> : <EyeOff size={16} color="rgba(255,255,255,0.4)" />}
+                    </TouchableOpacity>
+                </View>
+
+                {showPreview && (
+                    <PostPreview
+                        userName={userName}
+                        userAvatar={userAvatar}
+                        content={title + (artist ? ` - ${artist}` : '') + (description ? '\n' + description : '')}
+                        media={coverImage ? [{ uri: coverImage, type: 'image' }] : []}
+                        visibility={visibility}
+                    />
+                )}
             </View>
 
             {/* Audio & Cover Row */}

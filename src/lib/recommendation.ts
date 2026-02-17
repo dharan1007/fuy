@@ -226,12 +226,13 @@ export async function scoreContent(
     score += overlapScore * 5; // Weight overlap
 
     // Get content trust score
-    const embedding = await prisma.contentEmbedding.findUnique({
-        where: { contentId }
-    });
-    if (embedding) {
-        score += (embedding.trustScore - 0.5) * 3; // Trust adjustment
-    }
+    // REMOVED: AI Embeddings logic
+    // const embedding = await prisma.contentEmbedding.findUnique({
+    //     where: { contentId }
+    // });
+    // if (embedding) {
+    //     score += (embedding.trustScore - 0.5) * 3; // Trust adjustment
+    // }
 
     // Social boost: check if friends liked this (simplified)
     if (contentCreatorId && contentCreatorId !== userId) {

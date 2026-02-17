@@ -6,10 +6,24 @@ import { getUserSlashPreferences, calculateTagOverlap, extractProfileTags } from
 
 export const dynamic = 'force-dynamic';
 
+// In-memory cache for better performance
+let cachedData: any = null;
+let cacheTimestamp = 0;
+const CACHE_TTL = 30000; // 30 seconds cache
+
 export async function GET() {
     try {
         const user = await getSessionUser();
         const userId = user?.id;
+
+        // Return cached data for non-authenticated users
+        if (!userId && cachedData && Date.now() - cacheTimestamp < CACHE_TTL) {
+            return NextResponse.json(cachedData, {
+                headers: {
+                    'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
+                }
+            });
+        }
 
         // Get user preferences for personalization
         let slashPrefs: Record<string, number> = {};
@@ -44,15 +58,15 @@ export async function GET() {
             hiddenPostIds = hidden.map(h => h.postId);
         }
 
-        // Helper to fetch posts by type
-        const fetchByType = async (type?: string, limit = 20) => {
-            const where: any = { status: 'PUBLISHED' };
+        // Optimized fetch - lean queries with minimal includes
+        const fetchByType = async (type?: string, limit = 15) => {
+            const where: any = { status: 'PUBLISHED', visibility: 'PUBLIC' };
+
             if (type) {
                 where.postType = type;
             } else {
                 where.postType = { notIn: ['STORY', 'CHAN', 'XRAY'] };
             }
-            where.visibility = 'PUBLIC';
 
             // Safety Filtering
             if (excludedUserIds.length > 0) {
@@ -62,205 +76,137 @@ export async function GET() {
                 where.id = { notIn: hiddenPostIds };
             }
 
+            // Lean include - only essential fields
             const include: any = {
                 postMedia: {
-                    include: {
-                        media: true
+                    select: {
+                        media: {
+                            select: { id: true, type: true, url: true, thumbnailUrl: true }
+                        }
+                    },
+                    take: 1 // Only first media for preview
+                },
+                user: {
+                    select: {
+                        id: true,
+                        profile: {
+                            select: { displayName: true, avatarUrl: true }
+                        }
                     }
                 },
-                user: { select: { id: true, profile: { select: { displayName: true, avatarUrl: true } } } },
-                slashes: { select: { tag: true } },
-                _count: { select: { likes: true, comments: true, reactionBubbles: true, shares: true } }
+                slashes: { select: { tag: true }, take: 5 },
+                _count: { select: { likes: true, comments: true } }
             };
 
+            // Type-specific includes (minimal)
             if (type === 'CHAN') {
                 include.chanData = {
-                    include: {
-                        shows: {
-                            include: {
-                                episodes: {
-                                    orderBy: { createdAt: 'desc' },
-                                    take: 1
-                                }
-                            },
-                            orderBy: { createdAt: 'desc' },
-                            take: 1
-                        }
+                    select: {
+                        id: true,
+                        channelName: true,
+                        coverImageUrl: true,
+                        isLive: true,
+                        watchingCount: true
                     }
                 };
             }
             if (type === 'PULLUPDOWN') {
                 include.pullUpDownData = {
-                    include: {
-                        options: true,
-                        votes: userId ? { where: { userId }, select: { optionId: true } } : false
+                    select: {
+                        question: true,
+                        options: { select: { id: true, text: true } }
                     }
                 };
             }
-            if (type === 'CHAPTER') include.chapterData = true;
-            if (type === 'XRAY') include.xrayData = true;
-            if (type === 'SIMPLE') include.simpleData = true;
-            if (type === 'LILL') include.lillData = true;
-            if (type === 'FILL') include.fillData = true;
-            if (type === 'AUD') include.audData = true;
+            if (type === 'CHAPTER') include.chapterData = { select: { title: true } };
+            if (type === 'XRAY') include.xrayData = { select: { topLayerUrl: true } };
+            if (type === 'LILL') include.lillData = { select: { coverImageUrl: true, thumbnailUrl: true, videoUrl: true } };
+            if (type === 'FILL') include.fillData = { select: { coverImageUrl: true, thumbnailUrl: true, videoUrl: true } };
+            if (type === 'AUD') include.audData = { select: { coverImageUrl: true, audioUrl: true, title: true } };
 
             const posts = await prisma.post.findMany({
                 where,
                 orderBy: { createdAt: 'desc' },
                 include,
-                take: limit * 2 // Fetch more to score and filter
+                take: limit // Direct limit, no over-fetch
             });
 
-            // Normalize media and score posts
-            const normalized = posts.map((post: any) => {
-                const normalizedMedia = post.postMedia?.map((pm: any) => pm.media) || [];
+            // Fast normalize media
+            return posts.map((post: any) => {
+                const media = post.postMedia?.[0]?.media;
+                let thumbnail = media ? { type: media.type, url: media.url, thumbnailUrl: media.thumbnailUrl } : null;
 
-                // LILL: Add cover image or video
-                if (post.lillData?.coverImageUrl) {
-                    normalizedMedia.unshift({
-                        id: `lill-cover-${post.id}`,
-                        type: 'IMAGE',
-                        url: post.lillData.coverImageUrl,
-                        feature: 'LILL'
-                    });
-                }
-                if (post.lillData?.videoUrl) {
-                    normalizedMedia.push({
-                        id: `lill-${post.id}`,
-                        type: 'VIDEO',
-                        url: post.lillData.videoUrl,
-                        thumbnailUrl: post.lillData.thumbnailUrl || post.lillData.coverImageUrl,
-                        feature: 'LILL'
-                    });
+                // Type-specific thumbnail fallbacks
+                if (!thumbnail) {
+                    if (post.lillData?.coverImageUrl) thumbnail = { type: 'IMAGE', url: post.lillData.coverImageUrl, thumbnailUrl: null };
+                    else if (post.fillData?.coverImageUrl) thumbnail = { type: 'IMAGE', url: post.fillData.coverImageUrl, thumbnailUrl: null };
+                    else if (post.audData?.coverImageUrl) thumbnail = { type: 'IMAGE', url: post.audData.coverImageUrl, thumbnailUrl: null };
+                    else if (post.chanData?.coverImageUrl) thumbnail = { type: 'IMAGE', url: post.chanData.coverImageUrl, thumbnailUrl: null };
+                    else if (post.xrayData?.topLayerUrl) thumbnail = { type: 'IMAGE', url: post.xrayData.topLayerUrl, thumbnailUrl: null };
                 }
 
-                // FILL: Add cover image or video
-                if (post.fillData?.coverImageUrl) {
-                    normalizedMedia.unshift({
-                        id: `fill-cover-${post.id}`,
-                        type: 'IMAGE',
-                        url: post.fillData.coverImageUrl,
-                        feature: 'FILL'
-                    });
-                }
-                if (post.fillData?.videoUrl) {
-                    normalizedMedia.push({
-                        id: `fill-${post.id}`,
-                        type: 'VIDEO',
-                        url: post.fillData.videoUrl,
-                        thumbnailUrl: post.fillData.thumbnailUrl || post.fillData.coverImageUrl,
-                        feature: 'FILL'
-                    });
-                }
-
-                // AUD: audio with cover
-                if (post.audData?.audioUrl) {
-                    normalizedMedia.push({
-                        id: `aud-${post.id}`,
-                        type: 'AUDIO',
-                        url: post.audData.audioUrl,
-                        coverImageUrl: post.audData.coverImageUrl,
-                        feature: 'AUD'
-                    });
-                }
-
-                // CHAN: cover
-                if (post.chanData?.coverImageUrl) {
-                    normalizedMedia.push({
-                        id: `chan-${post.id}`,
-                        type: 'IMAGE',
-                        url: post.chanData.coverImageUrl,
-                        feature: 'CHAN'
-                    });
-                } else if (post.chanData?.shows?.[0]?.episodes?.[0]?.coverUrl) {
-                    normalizedMedia.push({
-                        id: `chan-ep-${post.id}`,
-                        type: 'IMAGE',
-                        url: post.chanData.shows[0].episodes[0].coverUrl,
-                        feature: 'CHAN'
-                    });
-                } else if (post.user?.profile?.avatarUrl) {
-                    normalizedMedia.push({
-                        id: `chan-user-${post.id}`,
-                        type: 'IMAGE',
-                        url: post.user.profile.avatarUrl,
-                        feature: 'CHAN'
-                    });
-                }
-
-                // XRAY: top layer
-                if (post.xrayData?.topLayerUrl) {
-                    normalizedMedia.push({
-                        id: `xray-${post.id}`,
-                        type: 'IMAGE',
-                        url: post.xrayData.topLayerUrl,
-                        feature: 'XRAY'
-                    });
-                }
-
-                // Calculate recommendation score
+                // Simple score for logged-in users
                 let recoScore = 0;
-                const postSlashes = post.slashes?.map((s: any) => s.tag) || [];
-
-                // Slash preference matching
-                for (const tag of postSlashes) {
-                    recoScore += slashPrefs[tag] || 0;
-                }
-
-                // Profile tag overlap
-                if (userTags.length > 0) {
-                    recoScore += calculateTagOverlap(userTags, postSlashes) * 5;
-                }
-
-                // Engagement boost
-                const engagementScore = (post._count.likes + post._count.comments * 2) / 10;
-                recoScore += Math.min(engagementScore, 3);
-
-                // Extract userVote for PullUpDown
-                let userVote = null;
-                if (post.postType === 'PULLUPDOWN' && post.pullUpDownData?.votes?.length > 0) {
-                    userVote = post.pullUpDownData.votes[0].optionId;
+                if (userId) {
+                    const postSlashes = post.slashes?.map((s: any) => s.tag) || [];
+                    for (const tag of postSlashes) {
+                        recoScore += slashPrefs[tag] || 0;
+                    }
+                    recoScore += (post._count.likes + post._count.comments) / 20;
                 }
 
                 return {
-                    ...post,
-                    media: normalizedMedia,
-                    recoScore: Math.round(recoScore * 100) / 100,
-                    slashTags: postSlashes,
-                    userVote // For PullUpDown posts
+                    id: post.id,
+                    postType: post.postType,
+                    content: post.content?.substring(0, 100), // Truncate content
+                    createdAt: post.createdAt,
+                    user: post.user,
+                    media: thumbnail ? [thumbnail] : [],
+                    slashTags: post.slashes?.map((s: any) => s.tag) || [],
+                    likeCount: post._count.likes,
+                    commentCount: post._count.comments,
+                    recoScore,
+                    // Type-specific data
+                    ...(post.chanData && { chanData: post.chanData }),
+                    ...(post.pullUpDownData && {
+                        question: post.pullUpDownData.question,
+                        options: post.pullUpDownData.options
+                    }),
+                    ...(post.chapterData && { title: post.chapterData.title }),
+                    ...(post.lillData && { lillData: post.lillData }),
+                    ...(post.fillData && { fillData: post.fillData }),
+                    ...(post.audData && { audData: post.audData }),
+                    ...(post.xrayData && { xrayData: post.xrayData }),
                 };
-            });
-
-            // Sort by recommendation score if user is logged in
-            if (userId) {
-                normalized.sort((a: any, b: any) => b.recoScore - a.recoScore);
-            }
-
-            return normalized.slice(0, limit);
+            }).sort((a: any, b: any) => b.recoScore - a.recoScore);
         };
 
-        const [main, chans, lills, fills, auds, chapters, xrays, puds, texts] = await Promise.all([
-            fetchByType(undefined, 40),
-            fetchByType('CHAN', 20),
-            fetchByType('LILL', 20),
-            fetchByType('FILL', 20),
-            fetchByType('AUD', 20),
-            fetchByType('CHAPTER', 20),
-            fetchByType('XRAY', 20),
-            fetchByType('PULLUPDOWN', 20),
-            fetchByType('SIMPLE_TEXT', 20),
+        // Reduced parallel queries - fetch only what's needed
+        const [main, chans, lills, fills, auds, chapters, puds, texts] = await Promise.all([
+            fetchByType(undefined, 25), // Reduced from 40
+            fetchByType('CHAN', 12),    // Reduced from 20
+            fetchByType('LILL', 12),
+            fetchByType('FILL', 12),
+            fetchByType('AUD', 12),
+            fetchByType('CHAPTER', 12),
+            fetchByType('PULLUPDOWN', 12),
+            fetchByType('SIMPLE_TEXT', 12),
         ]);
 
-        return NextResponse.json({
-            main,
-            chans,
-            lills,
-            fills,
-            auds,
-            chapters,
-            xrays,
-            puds,
-            texts
+        const responseData = { main, chans, lills, fills, auds, chapters, puds, texts };
+
+        // Cache for non-authenticated requests
+        if (!userId) {
+            cachedData = responseData;
+            cacheTimestamp = Date.now();
+        }
+
+        return NextResponse.json(responseData, {
+            headers: {
+                'Cache-Control': userId
+                    ? 'private, no-cache'
+                    : 'public, s-maxage=30, stale-while-revalidate=60',
+            }
         });
 
     } catch (error: any) {

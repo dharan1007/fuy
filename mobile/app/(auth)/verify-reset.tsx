@@ -5,8 +5,8 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Lock, ArrowLeft, ArrowRight, Key } from 'lucide-react-native';
+import { supabase } from '../../lib/supabase';
 import { useToast } from '../../context/ToastContext';
-import { getApiUrl } from '../../lib/api';
 
 export default function VerifyResetScreen() {
     const router = useRouter();
@@ -26,32 +26,27 @@ export default function VerifyResetScreen() {
 
         setLoading(true);
         try {
-            const API_URL = getApiUrl();
-            const response = await fetch(`${API_URL}/api/auth/reset-password`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    email: email,
-                    code: code,
-                    newPassword: newPassword
-                }),
+            // 1. Verify the recovery code (logs user in)
+            const { error: verifyError } = await supabase.auth.verifyOtp({
+                email,
+                token: code,
+                type: 'recovery'
             });
 
-            // Check if response is JSON before parsing
-            const contentType = response.headers.get('content-type');
-            if (!contentType || !contentType.includes('application/json')) {
-                const text = await response.text();
-                console.error('Non-JSON response from reset-password API:', text.substring(0, 300));
-                throw new Error('Server unavailable. Please try again later.');
-            }
+            if (verifyError) throw verifyError;
 
-            const data = await response.json();
+            // 2. Update password
+            const { error: updateError } = await supabase.auth.updateUser({
+                password: newPassword
+            });
 
-            if (!response.ok) {
-                throw new Error(data.error || 'Failed to reset password');
-            }
+            if (updateError) throw updateError;
 
-            showToast('Password reset successfully! Please login.', 'success');
+            showToast('Password reset successfully! please user the new password to login.', 'success');
+            // Supabase maintains session after update, but let's force a clean login flow or just go to home
+            // Usually, after reset, you might want them to login again or just proceed.
+            // The original code went to login. Let's redirect to login to be safe/clear.
+            await supabase.auth.signOut();
             router.replace('/(auth)/login');
 
         } catch (error: any) {

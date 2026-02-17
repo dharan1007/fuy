@@ -4,6 +4,8 @@ import notifee, { AndroidImportance, EventType } from '@notifee/react-native';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { useRouter, useSegments } from 'expo-router';
+import * as SecureStore from 'expo-secure-store';
+import { decryptMessage } from '../lib/encryption';
 
 interface NotificationContextType {
     // expose methods if needed, currently automatic
@@ -70,29 +72,58 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
                     // For now, let's just show it. If user is in app, it shows as a heads-up or existing UI handles it.
                     // Ideally check router state.
 
-                    // Fetch sender name for nicer notification
+                    // Fetch sender name and public key for decryption
                     let title = 'New Message';
+                    let senderPublicKey: string | null = null;
                     try {
-                        // Optimize: cache users or just query specific specific fields
                         const { data: sender } = await supabase
                             .from('User')
-                            .select('name, profile:Profile(displayName)')
+                            .select('name, profile:Profile(displayName, publicKey)')
                             .eq('id', newMessage.senderId)
                             .single();
 
                         if (sender) {
-                            // usage of any for safety against array/object returns
                             const profile = Array.isArray(sender.profile) ? sender.profile[0] : sender.profile;
                             title = profile?.displayName || sender.name || 'Anonymous';
+                            senderPublicKey = profile?.publicKey || null;
                         }
                     } catch (e) {
                         console.error('Error fetching sender details', e);
                     }
 
-                    // 3. Display Notification
+                    // 3. Prepare Body (Decrypt if needed)
+                    let body = newMessage.content;
+                    const isEncrypted = body && body.startsWith('{') && body.includes('"c":') && body.includes('"n":');
+
+                    if (isEncrypted) {
+                        // Attempt decryption
+                        let decrypted = null;
+                        try {
+                            const myPrivateKey = await SecureStore.getItemAsync('unlocked_private_key');
+                            if (myPrivateKey && senderPublicKey) {
+                                const parsed = JSON.parse(body);
+                                decrypted = decryptMessage(
+                                    { ciphertext: parsed.c, nonce: parsed.n },
+                                    myPrivateKey,
+                                    senderPublicKey
+                                );
+                            }
+                        } catch (e) {
+                            // Decryption failed or keys missing
+                        }
+
+                        // If decrypted, show it; otherwise show placeholder
+                        body = decrypted || 'Encrypted Message';
+                    } else if (!body && newMessage.mediaUrl) {
+                        body = 'Sent a media file';
+                    } else if (!body) {
+                        body = 'Sent a message';
+                    }
+
+                    // 4. Display Notification
                     await notifee.displayNotification({
                         title: title,
-                        body: newMessage.content || (newMessage.mediaUrl ? 'Sent a media file' : 'Sent a message'),
+                        body: body,
                         data: { conversationId: newMessage.conversationId },
                         android: {
                             channelId: 'messages',

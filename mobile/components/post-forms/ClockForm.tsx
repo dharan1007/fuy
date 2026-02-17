@@ -8,8 +8,11 @@ import { MediaUploadService } from '../../services/MediaUploadService';
 import { supabase } from '../../lib/supabase';
 import { analyzeImageForNudity, NudityAnalysisResult } from '../../lib/nudity-detection';
 import NudityWarningModal from '../NudityWarningModal';
+import PostPreview from '../PostPreview';
+import { Eye, EyeOff } from 'lucide-react-native';
+import { PostService, PostVisibility } from '../../services/PostService';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org';
+
 const { width, height } = Dimensions.get('window');
 
 interface ClockFormProps {
@@ -32,6 +35,28 @@ export default function ClockForm({ onBack }: ClockFormProps) {
     const [nudityResult, setNudityResult] = useState<NudityAnalysisResult | null>(null);
     const [showNudityWarning, setShowNudityWarning] = useState(false);
     const [pendingSubmit, setPendingSubmit] = useState(false);
+
+    // Preview state
+    const [showPreview, setShowPreview] = useState(true);
+    const [userName, setUserName] = useState('');
+    const [userAvatar, setUserAvatar] = useState<string | undefined>(undefined);
+
+    // Fetch user info for preview
+    React.useEffect(() => {
+        const fetchUser = async () => {
+            if (!session?.user?.email) return;
+            const { data } = await supabase
+                .from('User')
+                .select('name, avatar')
+                .eq('email', session.user.email)
+                .single();
+            if (data) {
+                setUserName(data.name || 'You');
+                setUserAvatar(data.avatar || undefined);
+            }
+        };
+        fetchUser();
+    }, [session]);
 
     const takePhoto = async () => {
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -106,27 +131,21 @@ export default function ClockForm({ onBack }: ClockFormProps) {
 
             const expiresAt = new Date(Date.now() + duration * 60 * 60 * 1000).toISOString();
 
-            const response = await fetch(`${API_URL}/api/posts/create`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userId: userData.id,
-                    postType: 'CLOCK',
-                    content: caption || 'New Story',
-                    visibility,
-                    status: asDraft ? 'DRAFT' : 'PUBLISHED',
-                    clockData: {
-                        mediaUrl: uploadResult.url,
-                        mediaType: media.type === 'video' ? 'VIDEO' : 'IMAGE',
-                        duration,
-                        expiresAt,
-                    },
-                    mediaUrls: [uploadResult.url],
-                    mediaTypes: [media.type === 'video' ? 'VIDEO' : 'IMAGE'],
-                }),
+            await PostService.createPost({
+                userId: userData.id,
+                postType: 'CLOCK',
+                content: caption || 'New Story',
+                visibility: visibility as PostVisibility,
+                status: asDraft ? 'DRAFT' : 'PUBLISHED',
+                media: [{ uri: uploadResult.url, type: media.type === 'video' ? 'VIDEO' : 'IMAGE' }],
+                clockData: {
+                    mediaUrl: uploadResult.url,
+                    mediaType: media.type === 'video' ? 'VIDEO' : 'IMAGE',
+                    duration,
+                    expiresAt,
+                },
             });
 
-            if (!response.ok) throw new Error((await response.json()).error || 'Failed');
             setPendingSubmit(false);
             setNudityResult(null);
             Alert.alert('Done', asDraft ? 'Saved as draft' : 'Story posted', [{ text: 'OK', onPress: onBack }]);
@@ -156,6 +175,26 @@ export default function ClockForm({ onBack }: ClockFormProps) {
                     <Text style={styles.titleText}>New Story</Text>
                 </View>
                 <View style={{ width: 44 }} />
+            </View>
+
+            {/* Post Preview Component */}
+            <View style={{ marginBottom: 20 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontWeight: '600', fontSize: 11, letterSpacing: 1 }}>PREVIEW</Text>
+                    <TouchableOpacity onPress={() => setShowPreview(!showPreview)} style={{ padding: 4 }}>
+                        {showPreview ? <Eye size={16} color="rgba(255,255,255,0.6)" /> : <EyeOff size={16} color="rgba(255,255,255,0.4)" />}
+                    </TouchableOpacity>
+                </View>
+
+                {showPreview && (
+                    <PostPreview
+                        userName={userName}
+                        userAvatar={userAvatar}
+                        content={caption}
+                        media={media ? [media] : []}
+                        visibility={visibility}
+                    />
+                )}
             </View>
 
             {/* Media Section */}

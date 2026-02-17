@@ -58,6 +58,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid user" }, { status: 400 });
     }
 
+    // Check if either user has blocked the other
+    const blockExists = await prisma.blockedUser.findFirst({
+      where: {
+        OR: [
+          { blockerId: session.user.id, blockedId: friendId },
+          { blockerId: friendId, blockedId: session.user.id },
+        ]
+      }
+    });
+
+    if (blockExists) {
+      return NextResponse.json({ error: "Cannot send request to this user" }, { status: 403 });
+    }
+
     // Check existing friendship
     const existing = await prisma.friendship.findFirst({
       where: {

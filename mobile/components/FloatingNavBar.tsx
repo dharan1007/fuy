@@ -1,10 +1,69 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, TouchableOpacity, StyleSheet, Dimensions, Animated, PanResponder, Image, Platform } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { Home, Search, PlusSquare, MessageCircle, User, Circle, ShoppingBag } from 'lucide-react-native';
+import { Home, Search, PlusSquare, MessageCircle, User, Circle } from 'lucide-react-native';
+import Svg, { Path, Circle as SvgCircle, Line } from 'react-native-svg';
 import { useTheme } from '../context/ThemeContext';
 import { useRouter, useSegments } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+// Custom WREX Body Icon Component for Nav
+function WrexNavIcon({ color, size = 24 }: { color: string; size?: number }) {
+    return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+            {/* Head */}
+            <SvgCircle cx="12" cy="4" r="2.5" stroke={color} strokeWidth="1.5" fill="none" />
+            {/* Neck */}
+            <Line x1="12" y1="6.5" x2="12" y2="8" stroke={color} strokeWidth="1.5" />
+            {/* Torso */}
+            <Path
+                d="M 8 8 L 16 8 L 15 16 L 9 16 Z"
+                stroke={color}
+                strokeWidth="1.5"
+                fill="none"
+                strokeLinejoin="round"
+            />
+            {/* Abs lines */}
+            <Line x1="12" y1="9" x2="12" y2="15" stroke={color} strokeWidth="0.75" opacity="0.5" />
+            <Line x1="9.5" y1="11" x2="14.5" y2="11" stroke={color} strokeWidth="0.75" opacity="0.5" />
+            <Line x1="9.5" y1="13" x2="14.5" y2="13" stroke={color} strokeWidth="0.75" opacity="0.5" />
+            {/* Left arm */}
+            <Path
+                d="M 8 8 L 4 12 L 3 17"
+                stroke={color}
+                strokeWidth="1.5"
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+            {/* Right arm */}
+            <Path
+                d="M 16 8 L 20 12 L 21 17"
+                stroke={color}
+                strokeWidth="1.5"
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+            {/* Left leg */}
+            <Path
+                d="M 9 16 L 7 22"
+                stroke={color}
+                strokeWidth="1.5"
+                fill="none"
+                strokeLinecap="round"
+            />
+            {/* Right leg */}
+            <Path
+                d="M 15 16 L 17 22"
+                stroke={color}
+                strokeWidth="1.5"
+                fill="none"
+                strokeLinecap="round"
+            />
+        </Svg>
+    );
+}
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 // Updated to match image size (44) for a tighter fit
@@ -156,7 +215,7 @@ export default function FloatingNavBar({ currentRoute, onNavigate }: FloatingNav
         { route: 'dots', icon: Circle, label: 'Dots' },
         { route: 'create', icon: PlusSquare, label: 'Create' },
         { route: 'chat', icon: MessageCircle, label: 'Chat' },
-        { route: 'shop', icon: ShoppingBag, label: 'Shop' },
+        { route: 'grounding', icon: null, label: 'Wrex', isWrex: true },
     ];
 
     const animatedWidth = expandAnim.interpolate({
@@ -223,10 +282,17 @@ export default function FloatingNavBar({ currentRoute, onNavigate }: FloatingNav
                                         onPress={() => onNavigate(item.route)}
                                         style={styles.navItem}
                                     >
-                                        <IconComponent
-                                            color={isFocused ? '#ffffff' : '#888888'}
-                                            size={24}
-                                        />
+                                        {(item as any).isWrex ? (
+                                            <WrexNavIcon
+                                                color={isFocused ? '#ffffff' : '#888888'}
+                                                size={24}
+                                            />
+                                        ) : IconComponent ? (
+                                            <IconComponent
+                                                color={isFocused ? '#ffffff' : '#888888'}
+                                                size={24}
+                                            />
+                                        ) : null}
                                     </TouchableOpacity>
                                 );
                             })}

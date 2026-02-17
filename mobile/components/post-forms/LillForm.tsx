@@ -1,414 +1,482 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Dimensions } from 'react-native';
+// LillForm - Fixed Preview using Native Poster & Re-added Slashes
+import React, { useState, useRef } from 'react';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Dimensions, StyleSheet, Modal } from 'react-native';
+import { BlurView } from 'expo-blur';
 import * as ImagePicker from 'expo-image-picker';
+import * as VideoThumbnails from 'expo-video-thumbnails';
 import { Video, ResizeMode } from 'expo-av';
-import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import { X, ArrowLeft, Globe, Users, Lock, Smartphone, Play, Slash, Plus, Music } from 'lucide-react-native';
+import { X, ArrowLeft, Globe, Users, Lock, Play, Check, Upload, Hash, Plus, Music, Mic, Disc, Image as ImageIcon } from 'lucide-react-native';
 import { MediaUploadService } from '../../services/MediaUploadService';
 import { supabase } from '../../lib/supabase';
 import SuccessOverlay from '../SuccessOverlay';
-import { analyzeImageForNudity, NudityAnalysisResult } from '../../lib/nudity-detection';
-import NudityWarningModal from '../NudityWarningModal';
-import AudioTrackManager from '../audio/AudioTrackManager';
+import { PostService, PostVisibility } from '../../services/PostService';
 
-interface AudioTrack {
-    id: string;
-    audioAssetId: string;
-    title: string;
-    audioUrl: string;
-    waveformData: number[];
-    duration: number;
-    startTime: number;
-    endTime: number;
-    volume: number;
-    attributionText: string;
-    coverImageUrl?: string;
-}
+const { width: SW } = Dimensions.get('window');
+const PREVIEW_WIDTH = SW * 0.6; // Slightly smaller to ensure fit
+const PREVIEW_HEIGHT = PREVIEW_WIDTH * (16 / 9);
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org';
-const MAX_DURATION = 60;
-const { width } = Dimensions.get('window');
-
-interface LillFormProps {
-    onBack: () => void;
-}
-
-export default function LillForm({ onBack }: LillFormProps) {
-    const { isDark } = useTheme();
+export default function LillForm({ onBack }: { onBack: () => void }) {
     const { session } = useAuth();
-    const [description, setDescription] = useState('');
-    const [visibility, setVisibility] = useState('PUBLIC');
-    const [video, setVideo] = useState<ImagePicker.ImagePickerAsset | null>(null);
-    const [loading, setLoading] = useState(false);
-    const [uploadProgress, setUploadProgress] = useState(0);
-    const [showSuccess, setShowSuccess] = useState(false);
-    const [slashes, setSlashes] = useState<string[]>([]);
+    const videoRef = useRef<Video>(null);
+    const [videoUri, setVideoUri] = useState<string | null>(null);
+    const [posterUri, setPosterUri] = useState<string | null>(null);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [duration, setDuration] = useState(0);
+    const [caption, setCaption] = useState('');
+    const [visibility, setVisibility] = useState<'PUBLIC' | 'FRIENDS' | 'PRIVATE'>('PUBLIC');
+    const [filter, setFilter] = useState('none');
+    const [picking, setPicking] = useState(false);
+    const [posting, setPosting] = useState(false);
+    const [progress, setProgress] = useState(0);
+    const [success, setSuccess] = useState(false);
     const [slashInput, setSlashInput] = useState('');
+    const [slashes, setSlashes] = useState<string[]>([]);
 
     // Audio state
-    const [audioTracks, setAudioTracks] = useState<AudioTrack[]>([]);
-    const [videoVolume, setVideoVolume] = useState(1.0);
-    const [isVideoMuted, setIsVideoMuted] = useState(false);
-    const [showAudioSection, setShowAudioSection] = useState(false);
+    const [audioUri, setAudioUri] = useState<string | null>(null);
+    const [audioName, setAudioName] = useState<string | null>(null);
+    const [showAudioPicker, setShowAudioPicker] = useState(false);
 
-    // Nudity detection state
-    const [nudityResult, setNudityResult] = useState<NudityAnalysisResult | null>(null);
-    const [showNudityWarning, setShowNudityWarning] = useState(false);
-    const [pendingSubmit, setPendingSubmit] = useState(false);
+    const FILTERS = [
+        { id: 'none', label: 'None', color: 'transparent', overlay: 'transparent' },
+        { id: 'warm', label: 'Warm', color: '#D4915C', overlay: 'rgba(255,150,50,0.25)' },
+        { id: 'cool', label: 'Cool', color: '#4A7AB0', overlay: 'rgba(50,120,220,0.25)' },
+        { id: 'dark', label: 'Dark', color: '#333333', overlay: 'rgba(0,0,0,0.4)' },
+    ];
 
-    const pickVideo = async () => {
-        const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ['videos'], // Use string literal for MediaType
-            allowsEditing: true,
-            quality: 0.8,
-            videoMaxDuration: MAX_DURATION,
-        });
-
-        if (!result.canceled && result.assets[0]) {
-            const asset = result.assets[0];
-            if (asset.duration && asset.duration > MAX_DURATION * 1000) {
-                Alert.alert('Too Long', `Maximum ${MAX_DURATION} seconds allowed`);
-                return;
-            }
-            setVideo(asset);
+    const generateThumbnail = async (uri: string) => {
+        try {
+            const { uri: thumb } = await VideoThumbnails.getThumbnailAsync(uri, { time: 500 });
+            setPosterUri(thumb);
+        } catch (e) {
+            console.log('Thumb error:', e);
         }
     };
 
-    const handleSubmit = async () => {
-        if (!video) {
-            Alert.alert('Error', 'Please select a video');
-            return;
-        }
-        if (!session?.user?.email) {
-            Alert.alert('Error', 'Please log in first');
-            return;
-        }
-
-        // Nudity Detection: Check video for inappropriate content
-        if (!pendingSubmit) {
-            const nudityCheck = await analyzeImageForNudity(video.uri);
-
-            if (nudityCheck.classification === 'EXPLICIT') {
-                setNudityResult(nudityCheck);
-                setShowNudityWarning(true);
-                return;
-            } else if (nudityCheck.classification === 'SUGGESTIVE') {
-                setNudityResult(nudityCheck);
-                setShowNudityWarning(true);
-                return;
-            }
-        }
-
-        setLoading(true);
-        setUploadProgress(0);
-
+    const pickThumbnail = async () => {
         try {
-            const { data: userData } = await supabase.from('User').select('id').eq('email', session.user.email).single();
-            if (!userData?.id) throw new Error('User not found');
-
-            setUploadProgress(20);
-            const uploadResult = await MediaUploadService.uploadVideo(video.uri, `lill_${Date.now()}.mp4`);
-            setUploadProgress(80);
-
-            const headers: Record<string, string> = {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Referer': 'https://www.fuymedia.org/',
-                'Origin': 'https://www.fuymedia.org',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Sec-Fetch-Dest': 'empty',
-                'Sec-Fetch-Mode': 'cors',
-                'Sec-Fetch-Site': 'same-origin',
-                'X-Requested-With': 'XMLHttpRequest'
-            };
-
-            if (session?.access_token) {
-                headers['Authorization'] = `Bearer ${session.access_token}`;
-            }
-
-            const response = await fetch(`${API_URL}/api/posts/create`, {
-                method: 'POST',
-                headers,
-                body: JSON.stringify({
-                    userId: userData.id,
-                    postType: 'LILL',
-                    content: description || 'New Lill',
-                    visibility,
-                    mediaUrls: [uploadResult.url],
-                    mediaTypes: ['VIDEO'],
-                    lillData: {
-                        videoUrl: uploadResult.url,
-                        duration: video.duration ? Math.floor(video.duration / 1000) : MAX_DURATION,
-                        aspectRatio: '9:16',
-                    },
-                    slashes: slashes.filter(s => s.trim()),
-                }),
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ['images'],
+                allowsEditing: true,
+                aspect: [9, 16],
+                quality: 0.8,
             });
 
-            setUploadProgress(100);
-
-            if (!response.ok) {
-                const errText = await response.text();
-                // Check if HTML (Vercel Block)
-                if (errText.trim().startsWith('<')) {
-                    console.error('[LillForm] Blocked by Firewall:', errText.slice(0, 300));
-                    throw new Error(`Post blocked by Firewall (${response.status})`);
-                }
-
-                try {
-                    const jsonErr = JSON.parse(errText);
-                    throw new Error(jsonErr.error || 'Failed to create post');
-                } catch (e) {
-                    throw new Error(`Failed: ${response.status} ${errText.slice(0, 50)}`);
-                }
-            } else {
-                // Double check success body isn't HTML
-                const textBody = await response.text();
-                if (textBody.trim().startsWith('<')) {
-                    console.error('[LillForm] Success 200 but got HTML:', textBody.slice(0, 300));
-                    throw new Error('Post blocked (200 OK but HTML returned)');
-                }
-                // If clean JSON, we are good
+            if (!result.canceled && result.assets[0]) {
+                setPosterUri(result.assets[0].uri);
             }
-
-            // Alert.alert('Done', 'Posted successfully', [{ text: 'OK', onPress: onBack }]);
-            setShowSuccess(true);
-            setPendingSubmit(false);
-            setNudityResult(null);
-        } catch (error: any) {
-            console.error('[LillForm] Error:', error);
-            Alert.alert('Error', error.message);
-        } finally {
-            setLoading(false);
+        } catch (e) {
+            console.error('Thumbnail pick error:', e);
         }
     };
 
-    // Handle proceeding with suggestive content
-    const handleProceedWithWarning = () => {
-        setShowNudityWarning(false);
-        setPendingSubmit(true);
-        setTimeout(() => handleSubmit(), 100);
+    const pick = async () => {
+        if (picking) return;
+        setPicking(true);
+        setIsPlaying(false);
+        try {
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ['videos'],
+                allowsEditing: true,
+                quality: 0.8,
+                videoMaxDuration: 60,
+            });
+            if (!result.canceled && result.assets[0]) {
+                const asset = result.assets[0];
+                setVideoUri(asset.uri);
+                setDuration(asset.duration ? Math.floor(asset.duration / 1000) : 0);
+                setIsPlaying(false);
+                // Generate poster immediately
+                generateThumbnail(asset.uri);
+            }
+        } catch (e) {
+            console.error('Video pick error:', e);
+        }
+        setPicking(false);
     };
 
+    const pickAudio = () => {
+        setShowAudioPicker(true);
+    };
+
+    const selectAudioSource = (type: 'library' | 'original') => {
+        if (type === 'library') {
+            setAudioName('Trending Audio');
+            setAudioUri('library://trending');
+        } else {
+            setAudioName('Original Sound');
+            setAudioUri('original');
+        }
+        setShowAudioPicker(false);
+    };
+
+    const clearAudio = () => {
+        setAudioUri(null);
+        setAudioName(null);
+    };
+
+    const clear = () => {
+        setVideoUri(null);
+        setPosterUri(null);
+        setDuration(0);
+        setFilter('none');
+        setIsPlaying(false);
+    };
+
+    const togglePlay = () => {
+        setIsPlaying(!isPlaying);
+    };
+
+    const addSlash = () => {
+        const tag = slashInput.trim().replace(/^#/, '').toLowerCase();
+        if (tag && !slashes.includes(tag) && slashes.length < 10) {
+            setSlashes([...slashes, tag]);
+            setSlashInput('');
+        }
+    };
+
+    const removeSlash = (tag: string) => {
+        setSlashes(slashes.filter(s => s !== tag));
+    };
+
+    const post = async () => {
+        if (!videoUri || !session?.user?.email) return;
+        setPosting(true);
+        setProgress(0);
+        try {
+            const { data: u } = await supabase.from('User').select('id').eq('email', session.user.email).single();
+            if (!u?.id) throw new Error('User not found');
+            setProgress(20);
+
+            // Upload Video
+            const upload = await MediaUploadService.uploadVideo(videoUri, `lill_${Date.now()}.mp4`);
+            setProgress(60);
+
+            // Upload Thumbnail (if available)
+            let uploadedThumbnailUrl = null;
+            if (posterUri) {
+                try {
+                    const thumbUpload = await MediaUploadService.uploadImage(posterUri, `lill_thumb_${Date.now()}.jpg`);
+                    uploadedThumbnailUrl = thumbUpload.url;
+                } catch (e) {
+                    console.log('Thumbnail upload failed, proceeding without it:', e);
+                }
+            }
+            setProgress(80);
+
+            await PostService.createPost({
+                userId: u.id,
+                postType: 'LILL',
+                content: caption || 'New Lill',
+                visibility: visibility as PostVisibility,
+                media: [{ uri: upload.url, type: 'VIDEO', duration: duration || 60, thumbnailUrl: uploadedThumbnailUrl || undefined }], // Add to media
+                lillData: {
+                    duration: duration || 60,
+                    aspectRatio: '9:16',
+                    thumbnailUrl: uploadedThumbnailUrl || undefined // Add to lillData
+                },
+                slashes: slashes,
+            });
+            setProgress(100);
+            setSuccess(true);
+        } catch (e: any) {
+            Alert.alert('Error', e.message);
+        }
+        setPosting(false);
+    };
+
+    const currentFilter = FILTERS.find(f => f.id === filter);
+
     return (
-        <ScrollView style={{ flex: 1, backgroundColor: '#000' }} contentContainerStyle={{ padding: 16 }}>
-            {/* Header */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24 }}>
-                <TouchableOpacity onPress={onBack} style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', marginRight: 16 }}>
+        <View style={s.root}>
+            {/* HEADER */}
+            <View style={s.hdr}>
+                <TouchableOpacity onPress={onBack} style={s.back}>
                     <ArrowLeft size={20} color="#fff" />
                 </TouchableOpacity>
-                <View style={{ flex: 1 }}>
-                    <Text style={{ color: '#fff', fontSize: 20, fontWeight: '700', letterSpacing: 0.5 }}>New Lill</Text>
-                    <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>Vertical video (max {MAX_DURATION}s)</Text>
-                </View>
-                <Smartphone size={24} color="rgba(255,255,255,0.3)" />
+                <Text style={s.title}>Create Lill</Text>
             </View>
 
-            {/* Video Preview */}
-            <View style={{ marginBottom: 20, alignItems: 'center' }}>
-                <Text style={{ color: 'rgba(255,255,255,0.5)', marginBottom: 12, fontWeight: '600', fontSize: 11, letterSpacing: 1, alignSelf: 'flex-start' }}>VIDEO</Text>
-                {video ? (
-                    <View style={{ width: width * 0.5, aspectRatio: 9 / 16, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
-                        <Video source={{ uri: video.uri }} style={{ width: '100%', height: '100%' }} resizeMode={ResizeMode.COVER} shouldPlay={false} />
-                        <TouchableOpacity
-                            onPress={() => setVideo(null)}
-                            style={{ position: 'absolute', top: 8, right: 8, backgroundColor: '#000', borderRadius: 14, padding: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' }}
-                        >
-                            <X size={14} color="#fff" />
-                        </TouchableOpacity>
-                        <View style={{ position: 'absolute', bottom: 8, left: 8, backgroundColor: 'rgba(0,0,0,0.7)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 }}>
-                            <Text style={{ color: '#fff', fontSize: 11, fontWeight: '600' }}>{video.duration ? `${Math.floor(video.duration / 1000)}s` : 'Ready'}</Text>
+            <ScrollView style={s.scroll} contentContainerStyle={s.content}>
+                {/* PREVIEW */}
+                <Text style={s.lbl}>POST PREVIEW</Text>
+
+                <View style={s.previewContainer}>
+                    <TouchableOpacity
+                        onPress={videoUri ? togglePlay : pick}
+                        activeOpacity={1}
+                        style={[s.mediaBox, !videoUri && s.mediaBoxEmpty]}
+                    >
+                        {videoUri ? (
+                            <View style={s.videoWrapper}>
+                                <Video
+                                    ref={videoRef}
+                                    source={{ uri: videoUri }}
+                                    style={s.video}
+                                    resizeMode={ResizeMode.COVER}
+                                    shouldPlay={isPlaying}
+                                    isLooping
+                                    isMuted={!!audioUri}
+                                    useNativeControls={false}
+                                    usePoster={true}
+                                    posterSource={posterUri ? { uri: posterUri } : undefined}
+                                    posterStyle={{ resizeMode: 'cover' }}
+                                />
+
+                                {/* Filter overlay */}
+                                <View style={[s.filterOverlay, { backgroundColor: currentFilter?.overlay || 'transparent' }]} />
+
+                                {/* Play Button overlay */}
+                                {!isPlaying && (
+                                    <View style={s.playOverlay}>
+                                        <View style={s.playBtn}>
+                                            <Play size={28} color="#fff" fill="#fff" />
+                                        </View>
+                                        <Text style={s.tapToPlay}>Preview</Text>
+                                    </View>
+                                )}
+
+                                <View style={s.durBadge}>
+                                    <Text style={s.durTxt}>{duration}s</Text>
+                                </View>
+                            </View>
+                        ) : picking ? (
+                            <ActivityIndicator color="#fff" size="large" />
+                        ) : (
+                            <View style={s.center}>
+                                <View style={s.playCircle}>
+                                    <Play size={32} color="#fff" />
+                                </View>
+                                <Text style={s.emptyTxt}>Select Video</Text>
+                            </View>
+                        )}
+                    </TouchableOpacity>
+
+                    {/* Actions outside */}
+                    {videoUri && (
+                        <View style={s.actionsRight}>
+                            <TouchableOpacity onPress={clear} style={s.actionBtn}>
+                                <X size={18} color="#fff" />
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={pick} style={s.actionBtn}>
+                                <Upload size={18} color="#fff" />
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={pickThumbnail} style={s.actionBtn}>
+                                <ImageIcon size={18} color="#fff" />
+                            </TouchableOpacity>
                         </View>
+                    )}
+                </View>
+
+                {/* FILTERS */}
+                {videoUri && (
+                    <>
+                        <Text style={s.lbl}>FILTER</Text>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.filterRow}>
+                            {FILTERS.map(f => (
+                                <TouchableOpacity key={f.id} onPress={() => setFilter(f.id)} style={s.filterBtn}>
+                                    <View style={[s.filterCircle, filter === f.id && s.filterActive, { backgroundColor: f.id === 'none' ? '#333' : f.color }]}>
+                                        {filter === f.id && <Check size={14} color="#fff" />}
+                                    </View>
+                                    <Text style={[s.filterLabel, filter === f.id && s.filterLabelActive]}>{f.label}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+                    </>
+                )}
+
+                {/* AUDIO */}
+                <Text style={s.lbl}>AUDIO / MUSIC</Text>
+                {audioUri ? (
+                    <View style={s.audioSelected}>
+                        <View style={s.audioIcon}><Music size={20} color="#fff" /></View>
+                        <View style={s.audioInfo}>
+                            <Text style={s.audioName} numberOfLines={1}>{audioName}</Text>
+                            <Text style={s.audioSource}>Tap to preview</Text>
+                        </View>
+                        <TouchableOpacity onPress={clearAudio} style={s.audioRemove}><X size={16} color="#888" /></TouchableOpacity>
                     </View>
                 ) : (
-                    <TouchableOpacity
-                        onPress={pickVideo}
-                        style={{
-                            width: width * 0.5,
-                            aspectRatio: 9 / 16,
-                            borderRadius: 16,
-                            borderWidth: 1,
-                            borderStyle: 'dashed',
-                            borderColor: 'rgba(255,255,255,0.3)',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            backgroundColor: 'rgba(255,255,255,0.02)',
-                        }}
-                    >
-                        <Play size={32} color="rgba(255,255,255,0.5)" />
-                        <Text style={{ color: 'rgba(255,255,255,0.5)', marginTop: 12, fontWeight: '600', fontSize: 13 }}>Select Video</Text>
-                        <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, marginTop: 4 }}>9:16 vertical</Text>
+                    <TouchableOpacity onPress={pickAudio} style={s.audioBtn}>
+                        <Music size={20} color="#888" />
+                        <Text style={s.audioBtnTxt}>Add Music or Sound</Text>
+                        <Plus size={18} color="#888" />
                     </TouchableOpacity>
                 )}
-            </View>
 
-            {/* Caption */}
-            <View style={{ marginBottom: 20 }}>
-                <Text style={{ color: 'rgba(255,255,255,0.5)', marginBottom: 8, fontWeight: '600', fontSize: 11, letterSpacing: 1 }}>CAPTION</Text>
-                <TextInput
-                    value={description}
-                    onChangeText={setDescription}
-                    placeholder="Describe your Lill..."
-                    placeholderTextColor="rgba(255,255,255,0.3)"
-                    multiline
-                    numberOfLines={3}
-                    style={{
-                        color: '#fff',
-                        backgroundColor: 'rgba(255,255,255,0.05)',
-                        padding: 16,
-                        borderRadius: 12,
-                        borderWidth: 1,
-                        borderColor: 'rgba(255,255,255,0.1)',
-                        minHeight: 80,
-                        textAlignVertical: 'top',
-                        fontSize: 15,
-                    }}
-                />
-            </View>
+                {/* CAPTION */}
+                <Text style={s.lbl}>CAPTION</Text>
+                <TextInput value={caption} onChangeText={setCaption} placeholder="Write something..." placeholderTextColor="#666" style={s.input} multiline maxLength={300} />
 
-            {/* Visibility */}
-            <View style={{ marginBottom: 24 }}>
-                <Text style={{ color: 'rgba(255,255,255,0.5)', marginBottom: 12, fontWeight: '600', fontSize: 11, letterSpacing: 1 }}>VISIBILITY</Text>
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                    {[{ value: 'PUBLIC', label: 'Public', Icon: Globe }, { value: 'FRIENDS', label: 'Friends', Icon: Users }, { value: 'PRIVATE', label: 'Private', Icon: Lock }].map(opt => (
-                        <TouchableOpacity
-                            key={opt.value}
-                            onPress={() => setVisibility(opt.value)}
-                            style={{
-                                flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-                                padding: 12, borderRadius: 8, borderWidth: 1,
-                                backgroundColor: visibility === opt.value ? '#fff' : 'transparent',
-                                borderColor: visibility === opt.value ? '#fff' : 'rgba(255,255,255,0.2)',
-                            }}
-                        >
-                            <opt.Icon size={14} color={visibility === opt.value ? '#000' : 'rgba(255,255,255,0.5)'} />
-                            <Text style={{ color: visibility === opt.value ? '#000' : 'rgba(255,255,255,0.5)', fontWeight: '600', fontSize: 11, marginLeft: 6 }}>{opt.label}</Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
-            </View>
-
-            {/* Slashes */}
-            <View style={{ marginBottom: 24 }}>
-                <Text style={{ color: 'rgba(255,255,255,0.5)', marginBottom: 12, fontWeight: '600', fontSize: 11, letterSpacing: 1 }}>SLASHES</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 12 }}>
-                        <Slash size={16} color="rgba(255,255,255,0.4)" />
-                        <TextInput
-                            value={slashInput}
-                            onChangeText={setSlashInput}
-                            placeholder="Add a slash tag..."
-                            placeholderTextColor="rgba(255,255,255,0.3)"
-                            style={{ flex: 1, color: '#fff', paddingVertical: 12, paddingHorizontal: 8, fontSize: 14 }}
-                            onSubmitEditing={() => {
-                                if (slashInput.trim() && !slashes.includes(slashInput.trim().toLowerCase())) {
-                                    setSlashes([...slashes, slashInput.trim().toLowerCase()]);
-                                    setSlashInput('');
-                                }
-                            }}
-                            returnKeyType="done"
-                        />
-                        <TouchableOpacity
-                            onPress={() => {
-                                if (slashInput.trim() && !slashes.includes(slashInput.trim().toLowerCase())) {
-                                    setSlashes([...slashes, slashInput.trim().toLowerCase()]);
-                                    setSlashInput('');
-                                }
-                            }}
-                            style={{ padding: 8 }}
-                        >
-                            <Plus size={18} color="rgba(255,255,255,0.5)" />
-                        </TouchableOpacity>
-                    </View>
+                {/* SLASHES / TAGS */}
+                <Text style={s.lbl}>SLASHES</Text>
+                <View style={s.slashInputRow}>
+                    <Hash size={16} color="#666" />
+                    <TextInput
+                        value={slashInput}
+                        onChangeText={setSlashInput}
+                        placeholder="Add a slash tag..."
+                        placeholderTextColor="#666"
+                        style={s.slashInput}
+                        onSubmitEditing={addSlash}
+                        returnKeyType="done"
+                    />
+                    <TouchableOpacity onPress={addSlash} style={s.addSlashBtn}>
+                        <Plus size={18} color="#fff" />
+                    </TouchableOpacity>
                 </View>
                 {slashes.length > 0 && (
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                        {slashes.map((slash, idx) => (
-                            <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.1)', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 16 }}>
-                                <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, marginRight: 4 }}>/</Text>
-                                <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>{slash}</Text>
-                                <TouchableOpacity onPress={() => setSlashes(slashes.filter((_, i) => i !== idx))} style={{ marginLeft: 8 }}>
-                                    <X size={12} color="rgba(255,255,255,0.5)" />
-                                </TouchableOpacity>
-                            </View>
+                    <View style={s.slashTags}>
+                        {slashes.map(tag => (
+                            <TouchableOpacity key={tag} onPress={() => removeSlash(tag)} style={s.slashTag}>
+                                <Text style={s.slashTagTxt}>#{tag}</Text>
+                                <X size={12} color="#888" />
+                            </TouchableOpacity>
                         ))}
                     </View>
                 )}
-            </View>
 
-            {/* Audio Section */}
-            <View style={{ marginBottom: 24 }}>
-                <Text style={{ color: 'rgba(255,255,255,0.5)', marginBottom: 12, fontWeight: '600', fontSize: 11, letterSpacing: 1 }}>AUDIO</Text>
-                {!showAudioSection ? (
-                    <TouchableOpacity
-                        onPress={() => setShowAudioSection(true)}
-                        style={{
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: 8,
-                            padding: 16,
-                            backgroundColor: 'rgba(255,255,255,0.05)',
-                            borderRadius: 12,
-                            borderWidth: 1,
-                            borderColor: 'rgba(255,255,255,0.1)',
-                        }}
-                    >
-                        <Music size={18} color="rgba(255,255,255,0.6)" />
-                        <Text style={{ color: 'rgba(255,255,255,0.6)', fontWeight: '600', fontSize: 13 }}>Add Audio Track</Text>
-                    </TouchableOpacity>
-                ) : (
-                    <AudioTrackManager
-                        tracks={audioTracks}
-                        onTracksChange={setAudioTracks}
-                        videoVolume={videoVolume}
-                        isVideoMuted={isVideoMuted}
-                        onVideoVolumeChange={setVideoVolume}
-                        onVideoMuteToggle={() => setIsVideoMuted(!isVideoMuted)}
-                        maxDuration={MAX_DURATION}
-                        maxTracks={3}
-                    />
-                )}
-            </View>
-
-            {/* Progress */}
-            {loading && (
-                <View style={{ marginBottom: 16 }}>
-                    <View style={{ height: 2, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 1, overflow: 'hidden' }}>
-                        <View style={{ width: `${uploadProgress}%`, height: '100%', backgroundColor: '#fff' }} />
-                    </View>
-                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, marginTop: 8, textAlign: 'center', letterSpacing: 0.5 }}>UPLOADING {Math.round(uploadProgress)}%</Text>
+                {/* VISIBILITY */}
+                <Text style={s.lbl}>VISIBILITY</Text>
+                <View style={s.visRow}>
+                    {[{ v: 'PUBLIC', l: 'Public', I: Globe }, { v: 'FRIENDS', l: 'Friends', I: Users }, { v: 'PRIVATE', l: 'Private', I: Lock }].map((o: any) => (
+                        <TouchableOpacity key={o.v} onPress={() => setVisibility(o.v)} style={[s.visBtn, visibility === o.v && s.visBtnActive]}>
+                            <o.I size={14} color={visibility === o.v ? '#000' : '#888'} />
+                            <Text style={[s.visTxt, visibility === o.v && s.visTxtActive]}>{o.l}</Text>
+                        </TouchableOpacity>
+                    ))}
                 </View>
-            )}
 
-            {/* Submit */}
-            <TouchableOpacity
-                onPress={handleSubmit}
-                disabled={loading || !video}
-                style={{ backgroundColor: '#fff', padding: 16, borderRadius: 8, alignItems: 'center', marginBottom: 40, opacity: loading || !video ? 0.3 : 1 }}
-            >
-                {loading ? <ActivityIndicator color="#000" /> : <Text style={{ color: '#000', fontWeight: '700', fontSize: 14, letterSpacing: 0.5 }}>POST LILL</Text>}
-            </TouchableOpacity>
+                {/* POST BUTTON */}
+                <TouchableOpacity onPress={post} disabled={posting || !videoUri} style={[s.postBtn, (!videoUri || posting) && s.postBtnOff]}>
+                    {posting ? <ActivityIndicator color="#000" /> : <Text style={s.postTxt}>POST LILL</Text>}
+                </TouchableOpacity>
+            </ScrollView>
+            <SuccessOverlay visible={success} message="Posted!" onFinish={onBack} />
 
-            <SuccessOverlay
-                visible={showSuccess}
-                message="Lill Posted Successfully!"
-                onFinish={onBack}
-            />
+            {/* AUDIO PICKER MODAL */}
+            <Modal visible={showAudioPicker} transparent animationType="fade" onRequestClose={() => setShowAudioPicker(false)}>
+                <View style={s.modalOverlay}>
+                    <TouchableOpacity style={s.modalBackdrop} activeOpacity={1} onPress={() => setShowAudioPicker(false)} />
+                    <BlurView intensity={40} tint="dark" style={s.modalContent}>
+                        <View style={s.modalHandle} />
+                        <Text style={s.modalTitle}>Choose Audio</Text>
 
-            <NudityWarningModal
-                visible={showNudityWarning}
-                result={nudityResult}
-                onClose={() => {
-                    setShowNudityWarning(false);
-                    setNudityResult(null);
-                    setPendingSubmit(false);
-                }}
-                onProceed={nudityResult?.classification === 'SUGGESTIVE' ? handleProceedWithWarning : undefined}
-                isSubmitting={loading}
-            />
-        </ScrollView >
+                        <TouchableOpacity style={s.modalOption} onPress={() => selectAudioSource('library')}>
+                            <View style={[s.modalIconBox, { backgroundColor: '#FF3366' }]}>
+                                <Disc size={24} color="#fff" />
+                            </View>
+                            <View>
+                                <Text style={s.modalOptionTitle}>Music Library</Text>
+                                <Text style={s.modalOptionDesc}>Browse trending tracks & sounds</Text>
+                            </View>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity style={s.modalOption} onPress={() => selectAudioSource('original')}>
+                            <View style={[s.modalIconBox, { backgroundColor: '#3366FF' }]}>
+                                <Mic size={24} color="#fff" />
+                            </View>
+                            <View>
+                                <Text style={s.modalOptionTitle}>Original Audio</Text>
+                                <Text style={s.modalOptionDesc}>Use audio from your video</Text>
+                            </View>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity style={s.modalCancel} onPress={() => setShowAudioPicker(false)}>
+                            <Text style={s.modalCancelText}>Cancel</Text>
+                        </TouchableOpacity>
+                    </BlurView>
+                </View>
+            </Modal>
+        </View>
     );
 }
+
+const s = StyleSheet.create({
+    root: { flex: 1, backgroundColor: '#000' },
+
+    // Modal Styles
+    modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.6)' },
+    modalBackdrop: { ...StyleSheet.absoluteFillObject },
+    modalContent: { backgroundColor: '#1a1a1a', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40, overflow: 'hidden' },
+    modalHandle: { width: 40, height: 4, backgroundColor: '#444', borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
+    modalTitle: { color: '#fff', fontSize: 20, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
+    modalOption: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#2a2a2a', padding: 16, borderRadius: 16, marginBottom: 12, borderWidth: 1, borderColor: '#333' },
+    modalIconBox: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginRight: 16 },
+    modalOptionTitle: { color: '#fff', fontSize: 16, fontWeight: '600', marginBottom: 2 },
+    modalOptionDesc: { color: '#888', fontSize: 13 },
+    modalCancel: { marginTop: 12, paddingVertical: 16, alignItems: 'center', borderRadius: 16, backgroundColor: '#222' },
+    modalCancelText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+    hdr: { flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#222' },
+    back: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#222', alignItems: 'center', justifyContent: 'center' },
+    title: { color: '#fff', fontSize: 18, fontWeight: '700', marginLeft: 12 },
+    scroll: { flex: 1 },
+    content: { padding: 16, paddingBottom: 60 },
+    lbl: { color: '#888', fontSize: 11, fontWeight: '600', letterSpacing: 1, marginBottom: 10, marginTop: 20 },
+
+    // Preview
+    previewContainer: { flexDirection: 'row', justifyContent: 'center' },
+    mediaBox: { width: PREVIEW_WIDTH, height: PREVIEW_HEIGHT, backgroundColor: '#111', borderRadius: 12 },
+    mediaBoxEmpty: { borderWidth: 2, borderStyle: 'dashed', borderColor: '#444' },
+    videoWrapper: { width: '100%', height: '100%', borderRadius: 12, overflow: 'hidden', backgroundColor: '#000' },
+    video: { width: '100%', height: '100%', backgroundColor: '#000' }, // Ensure black bg
+    center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    actionsRight: { marginLeft: 16, gap: 12, paddingTop: 10 },
+    actionBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#222', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#333' },
+
+    // Play overlay
+    playOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.2)' },
+    playBtn: { width: 50, height: 50, borderRadius: 25, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.5)' },
+    tapToPlay: { color: '#fff', fontSize: 11, marginTop: 8, fontWeight: '600', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 },
+    filterOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, pointerEvents: 'none' },
+    durBadge: { position: 'absolute', bottom: 10, left: 10, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 },
+    durTxt: { color: '#fff', fontSize: 11, fontWeight: '600' },
+
+    playCircle: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#222', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+    emptyTxt: { color: '#888', fontSize: 14, fontWeight: '600' },
+
+    // Filters
+    filterRow: { marginBottom: 10 },
+    filterBtn: { alignItems: 'center', marginRight: 16 },
+    filterCircle: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'transparent', marginBottom: 4 },
+    filterActive: { borderColor: '#fff' },
+    filterLabel: { color: '#666', fontSize: 10, fontWeight: '500' },
+    filterLabelActive: { color: '#fff' },
+
+    // Audio
+    audioBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#111', padding: 14, borderRadius: 12, borderWidth: 1, borderColor: '#222', gap: 10 },
+    audioBtnTxt: { flex: 1, color: '#888', fontSize: 14 },
+    audioSelected: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1a1a1a', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#333', gap: 12 },
+    audioIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#333', alignItems: 'center', justifyContent: 'center' },
+    audioInfo: { flex: 1 },
+    audioName: { color: '#fff', fontSize: 14, fontWeight: '600' },
+    audioSource: { color: '#666', fontSize: 11, marginTop: 2 },
+    audioRemove: { padding: 8 },
+
+    input: { color: '#fff', backgroundColor: '#111', padding: 14, borderRadius: 12, minHeight: 80, textAlignVertical: 'top', fontSize: 15, borderWidth: 1, borderColor: '#222' },
+
+    // Slashes
+    slashInputRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#111', borderRadius: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: '#222' },
+    slashInput: { flex: 1, color: '#fff', paddingVertical: 12, marginLeft: 8, fontSize: 14 },
+    addSlashBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#333', alignItems: 'center', justifyContent: 'center' },
+    slashTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
+    slashTag: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1a1a1a', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, gap: 6, borderWidth: 1, borderColor: '#333' },
+    slashTagTxt: { color: '#fff', fontSize: 13 },
+
+    // Vis
+    visRow: { flexDirection: 'row', gap: 10 },
+    visBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: '#333', gap: 6, backgroundColor: '#111' },
+    visBtnActive: { backgroundColor: '#fff', borderColor: '#fff' },
+    visTxt: { color: '#888', fontSize: 12, fontWeight: '600' },
+    visTxtActive: { color: '#000' },
+
+    postBtn: { backgroundColor: '#fff', paddingVertical: 16, borderRadius: 12, alignItems: 'center', marginTop: 28 },
+    postBtnOff: { opacity: 0.3 },
+    postTxt: { color: '#000', fontSize: 15, fontWeight: '700' },
+
+    progBox: { marginTop: 24, alignItems: 'center' },
+    progBar: { width: '100%', height: 4, backgroundColor: '#222', borderRadius: 2, overflow: 'hidden' },
+    progFill: { height: '100%', backgroundColor: '#fff' },
+    progTxt: { color: '#666', fontSize: 11, marginTop: 8 },
+});

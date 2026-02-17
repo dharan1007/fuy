@@ -1,0 +1,15 @@
+# Gradle cache - often locked during builds
+android/.gradle/
+android/build/
+android/app/build/
+
+# Node modules already ignored by default
+node_modules/
+
+# iOS build artifacts
+ios/build/
+ios/Pods/
+
+# Temporary files
+*.log
+*.lock

@@ -45,11 +45,9 @@ export async function POST(req: NextRequest) {
                 reason,
                 details,
                 status: "PENDING",
+                target: "POST",
             },
         });
-
-        // Notify admins (Optional: In a real app, this might go to a Slack channel or Admin DB queue)
-        // For now, we rely on the Admin Dashboard to fetch these.
 
         return NextResponse.json({ success: true, report });
     } catch (error: any) {
@@ -63,4 +61,3 @@ export async function POST(req: NextRequest) {
         );
     }
 }
-

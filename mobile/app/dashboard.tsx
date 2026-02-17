@@ -3,7 +3,6 @@ import { View, Text, TouchableOpacity, Dimensions, ScrollView, StyleSheet, Activ
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { getApiUrl } from '../lib/api';
 import {
     Anchor,
     ShoppingBag,
@@ -35,7 +34,7 @@ const ITEM_WIDTH = (width - (GAP * 5)) / 4;
 
 // Quick Action Buttons (horizontal pills)
 const QUICK_ACTIONS = [
-    { id: 'store', title: 'My Store', icon: ShoppingBag, route: '/dashboard/store', bg: '#1a1a1a' },
+    // { id: 'store', title: 'My Store', icon: ShoppingBag, route: '/dashboard/store', bg: '#1a1a1a' },
     { id: 'channel', title: 'Channel', icon: Tv, route: '/channel', bg: '#fff', textColor: '#000' },
     { id: 'connections', title: 'Connections', icon: Heart, route: '/bonds', bg: '#dc2626' },
 ];

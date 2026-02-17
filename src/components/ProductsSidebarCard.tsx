@@ -15,6 +15,9 @@ interface SuggestedProduct {
 }
 
 export default function ProductsSidebarCard() {
+    // Hidden until next update - shop features coming soon
+    return null;
+
     const [products, setProducts] = useState<SuggestedProduct[]>([]);
     const [loading, setLoading] = useState(true);
     const router = useRouter();

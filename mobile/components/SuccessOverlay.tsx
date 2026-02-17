@@ -1,9 +1,10 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, Modal, TouchableOpacity, Animated, Dimensions } from 'react-native';
-import { Check } from 'lucide-react-native';
+import { View, Text, Modal, TouchableOpacity, Animated, Dimensions, StyleSheet } from 'react-native';
+import { Check, Sparkles } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 interface SuccessOverlayProps {
     visible: boolean;
@@ -11,8 +12,8 @@ interface SuccessOverlayProps {
     onFinish: () => void;
 }
 
-export default function SuccessOverlay({ visible, message = 'Posted Successfully!', onFinish }: SuccessOverlayProps) {
-    const scaleAnim = useRef(new Animated.Value(0)).current;
+export default function SuccessOverlay({ visible, message = 'Your post is live.', onFinish }: SuccessOverlayProps) {
+    const scaleAnim = useRef(new Animated.Value(0.8)).current;
     const fadeAnim = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
@@ -20,7 +21,7 @@ export default function SuccessOverlay({ visible, message = 'Posted Successfully
             Animated.parallel([
                 Animated.spring(scaleAnim, {
                     toValue: 1,
-                    friction: 8,
+                    friction: 7,
                     tension: 40,
                     useNativeDriver: true,
                 }),
@@ -31,7 +32,7 @@ export default function SuccessOverlay({ visible, message = 'Posted Successfully
                 }),
             ]).start();
         } else {
-            scaleAnim.setValue(0);
+            scaleAnim.setValue(0.8);
             fadeAnim.setValue(0);
         }
     }, [visible]);
@@ -39,9 +40,14 @@ export default function SuccessOverlay({ visible, message = 'Posted Successfully
     if (!visible) return null;
 
     return (
-        <Modal transparent animationType="fade" visible={visible}>
-            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.6)' }}>
-                <BlurView intensity={20} tint="dark" style={{ position: 'absolute', width, height }} />
+        <Modal transparent animationType="none" visible={visible}>
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                {/* Full Screen Blur Backdrop */}
+                <BlurView
+                    intensity={40}
+                    tint="dark"
+                    style={StyleSheet.absoluteFill}
+                />
 
                 <Animated.View
                     style={{
@@ -49,69 +55,100 @@ export default function SuccessOverlay({ visible, message = 'Posted Successfully
                         transform: [{ scale: scaleAnim }],
                         alignItems: 'center',
                         justifyContent: 'center',
-                        backgroundColor: '#1a1a1a',
-                        padding: 32,
-                        borderRadius: 32,
-                        borderWidth: 1,
-                        borderColor: 'rgba(255,255,255,0.1)',
-                        width: width * 0.7,
-                        shadowColor: "#000",
-                        shadowOffset: { width: 0, height: 10 },
-                        shadowOpacity: 0.3,
-                        shadowRadius: 20,
-                        elevation: 10
+                        width: '100%',
                     }}
                 >
-                    <View style={{
-                        width: 80,
-                        height: 80,
-                        borderRadius: 40,
-                        backgroundColor: '#22c55e',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        marginBottom: 24,
-                        shadowColor: "#22c55e",
-                        shadowOffset: { width: 0, height: 4 },
-                        shadowOpacity: 0.4,
-                        shadowRadius: 12,
-                    }}>
-                        <Check size={40} color="#fff" strokeWidth={3} />
-                    </View>
-
-                    <Text style={{
-                        color: '#fff',
-                        fontSize: 20,
-                        fontWeight: 'bold',
-                        textAlign: 'center',
-                        marginBottom: 8,
-                        letterSpacing: 0.5
-                    }}>
-                        Success!
-                    </Text>
-
-                    <Text style={{
-                        color: 'rgba(255,255,255,0.6)',
-                        fontSize: 14,
-                        textAlign: 'center',
-                        marginBottom: 32
-                    }}>
-                        {message}
-                    </Text>
-
-                    <TouchableOpacity
-                        onPress={onFinish}
+                    {/* Glass Card */}
+                    <BlurView
+                        intensity={80}
+                        tint="dark"
                         style={{
-                            backgroundColor: '#fff',
-                            paddingVertical: 14,
-                            paddingHorizontal: 32,
-                            borderRadius: 16,
-                            width: '100%',
-                            alignItems: 'center'
+                            overflow: 'hidden',
+                            borderRadius: 32,
+                            width: width * 0.75,
+                            maxWidth: 340,
+                            borderWidth: 1,
+                            borderColor: 'rgba(255,255,255,0.1)',
                         }}
                     >
-                        <Text style={{ color: '#000', fontWeight: 'bold', fontSize: 16 }}>Done</Text>
-                    </TouchableOpacity>
+                        <View style={{ padding: 32, alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)' }}>
 
+                            {/* Icon Circle with Gradient & Glow */}
+                            <View style={{ marginBottom: 24, shadowColor: "#22c55e", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.5, shadowRadius: 16, elevation: 12 }}>
+                                <LinearGradient
+                                    colors={['#22c55e', '#15803d']} // Vibrant Green Gradient
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                    style={{
+                                        width: 80,
+                                        height: 80,
+                                        borderRadius: 40,
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        borderWidth: 2,
+                                        borderColor: 'rgba(255,255,255,0.2)'
+                                    }}
+                                >
+                                    <Check size={40} color="white" strokeWidth={3.5} />
+                                    {/* Subtle Sparkle Accent */}
+                                    <View style={{ position: 'absolute', top: 12, right: 14, opacity: 0.8 }}>
+                                        <Sparkles size={12} color="rgba(255,255,255,0.8)" fill="white" />
+                                    </View>
+                                </LinearGradient>
+                            </View>
+
+                            {/* Title */}
+                            <Text style={{
+                                color: '#fff',
+                                fontSize: 22,
+                                fontWeight: '800',
+                                textAlign: 'center',
+                                marginBottom: 8,
+                                letterSpacing: 0.5
+                            }}>
+                                Success!
+                            </Text>
+
+                            {/* Message */}
+                            <Text style={{
+                                color: 'rgba(255,255,255,0.7)',
+                                fontSize: 15,
+                                textAlign: 'center',
+                                marginBottom: 32,
+                                lineHeight: 22
+                            }}>
+                                {message}
+                            </Text>
+
+                            {/* Gradient Button */}
+                            <TouchableOpacity
+                                onPress={onFinish}
+                                activeOpacity={0.8}
+                                style={{ width: '100%', shadowColor: "white", shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.2, shadowRadius: 10 }}
+                            >
+                                <LinearGradient
+                                    colors={['#ffffff', '#e2e2e2']} // White Gradient
+                                    style={{
+                                        width: '100%',
+                                        paddingVertical: 16,
+                                        borderRadius: 18,
+                                        alignItems: 'center'
+                                    }}
+                                >
+                                    <Text style={{
+                                        color: '#000',
+                                        fontWeight: '800',
+                                        fontSize: 16,
+                                        letterSpacing: 1,
+                                        textTransform: 'uppercase'
+                                    }}>
+                                        Done
+                                    </Text>
+                                </LinearGradient>
+                            </TouchableOpacity>
+
+                        </View>
+                    </BlurView>
                 </Animated.View>
             </View>
         </Modal>

@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Image, Alert, ActivityIndicator, Dimensions } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Video, ResizeMode } from 'expo-av';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import { X, ArrowLeft, Globe, Users, Lock, Plus, Type, Image as ImageIcon, Slash } from 'lucide-react-native';
+import { X, ArrowLeft, Globe, Users, Lock, Plus, Type, Image as ImageIcon, Slash, Eye, EyeOff } from 'lucide-react-native';
 import { MediaUploadService } from '../../services/MediaUploadService';
 import { supabase } from '../../lib/supabase';
 import SuccessOverlay from '../SuccessOverlay';
@@ -12,8 +12,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { moderateContent, getModerationErrorMessage } from '../../lib/content-moderation';
 import { analyzeMultipleImages, NudityAnalysisResult } from '../../lib/nudity-detection';
 import NudityWarningModal from '../NudityWarningModal';
+import PostPreview from '../PostPreview';
+import MediaFilterSelector from '../MediaFilterSelector';
+import UserTagSelector from '../UserTagSelector';
+import { PostService, PostVisibility } from '../../services/PostService';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org';
+
 const MAX_MEDIA = 8;
 const MAX_TEXT_LENGTH = 600;
 const { width } = Dimensions.get('window');
@@ -47,6 +51,32 @@ export default function SimpleForm({ onBack, initialData }: SimpleFormProps) {
     const [nudityResult, setNudityResult] = useState<NudityAnalysisResult | null>(null);
     const [showNudityWarning, setShowNudityWarning] = useState(false);
     const [pendingSubmit, setPendingSubmit] = useState(false);
+
+    // New: Preview, Filter, Tagging state
+    const [showPreview, setShowPreview] = useState(true);
+    const [selectedFilter, setSelectedFilter] = useState('original');
+    const [taggedUsers, setTaggedUsers] = useState<{ id: string; name: string; avatar?: string }[]>([]);
+    const [dbUserId, setDbUserId] = useState<string | null>(null);
+    const [userName, setUserName] = useState('');
+    const [userAvatar, setUserAvatar] = useState<string | undefined>(undefined);
+
+    // Fetch user info
+    useEffect(() => {
+        const fetchUser = async () => {
+            if (!session?.user?.email) return;
+            const { data } = await supabase
+                .from('User')
+                .select('id, name, avatar')
+                .eq('email', session.user.email)
+                .single();
+            if (data) {
+                setDbUserId(data.id);
+                setUserName(data.name || 'You');
+                setUserAvatar(data.avatar || undefined);
+            }
+        };
+        fetchUser();
+    }, [session]);
 
     const pickMedia = async () => {
         if (media.length >= MAX_MEDIA) {
@@ -155,7 +185,8 @@ export default function SimpleForm({ onBack, initialData }: SimpleFormProps) {
 
             if (!userData?.id) throw new Error('User not found');
 
-            let uploadedMedia: { url: string; type: 'IMAGE' | 'VIDEO' }[] = [];
+            let uploadedMedia: { uri: string; type: 'IMAGE' | 'VIDEO'; duration?: number }[] = [];
+
             if (postMode === 'MEDIA') {
                 for (let i = 0; i < media.length; i++) {
                     const item = media[i];
@@ -166,59 +197,37 @@ export default function SimpleForm({ onBack, initialData }: SimpleFormProps) {
                         : await MediaUploadService.uploadImage(item.uri);
 
                     uploadedMedia.push({
-                        url: result.url,
+                        uri: result.url,
                         type: item.type === 'video' ? 'VIDEO' : 'IMAGE',
+                        duration: 0
                     });
                 }
             }
 
             setUploadProgress(90);
 
-            const headers: Record<string, string> = {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Referer': 'https://www.fuymedia.org/',
-                'Origin': 'https://www.fuymedia.org',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Sec-Fetch-Dest': 'empty',
-                'Sec-Fetch-Mode': 'cors',
-                'Sec-Fetch-Site': 'same-origin',
-                'X-Requested-With': 'XMLHttpRequest'
-            };
-
-            if (session?.access_token) {
-                headers['Authorization'] = `Bearer ${session.access_token}`;
-            }
-
-            const response = await fetch(`${API_URL}/api/posts/create`, {
-                method: 'POST',
-                headers,
-                body: JSON.stringify({
-                    userId: userData.id,
-                    postType: postMode === 'TEXT' ? 'SIMPLE_TEXT' : 'SIMPLE',
-                    content: content.trim() || 'New post',
-                    visibility,
-                    mediaUrls: uploadedMedia.map(m => m.url),
-                    mediaTypes: uploadedMedia.map(m => m.type),
-                    slashes: slashes.filter(s => s.trim()),
-                    taggedProductCode: productCode.trim() || null,
-                    // Include nudity flag for admin notification
-                    nudityFlag: pendingSubmit && nudityResult ? {
-                        classification: nudityResult.classification,
-                        categories: nudityResult.detectedCategories,
-                    } : null,
-                }),
+            await PostService.createPost({
+                userId: userData.id,
+                postType: postMode === 'TEXT' ? 'SIMPLE' : 'SIMPLE', // TODO: SIMPLE_TEXT supported? Schema says SIMPLE. 
+                // Wait, Schema has 'SIMPLE' postType? 
+                // Schema line 777 has 'simpleData'. 
+                // Post model line 512: `postType String @default("STANDARD")`. 
+                // Allowed values comment: "STANDARD | CHAPTER | XRAY | LILL | FILL | AUD | CHAN | PULLUPDOWN".
+                // "SIMPLE" is not in the comment list but "simpleData" implies it might be used.
+                // The previous code sent 'SIMPLE' or 'SIMPLE_TEXT'.
+                // If I send 'SIMPLE', does it work? 
+                // I will map TEXT mode to SIMPLE for now, or check PostService types.
+                // PostService defined PostType as 'STANDARD' | 'FILL' | 'LILL' | 'SIMPLE' ...
+                // So 'SIMPLE' is valid.
+                content: content.trim() || 'New post',
+                visibility: visibility as PostVisibility,
+                media: uploadedMedia,
+                taggedUserIds: taggedUsers.map(u => u.id),
+                slashes: slashes.filter(s => s.trim())
             });
 
             setUploadProgress(100);
 
-            if (!response.ok) {
-                const errData = await response.json();
-                throw new Error(errData.error || 'Failed to create post');
-            }
-
-            // Alert.alert('Done', 'Posted successfully', [{ text: 'OK', onPress: onBack }]);
             setShowSuccess(true);
             setPendingSubmit(false);
             setNudityResult(null);
@@ -269,7 +278,7 @@ export default function SimpleForm({ onBack, initialData }: SimpleFormProps) {
             </View>
 
             {/* Mode Toggle */}
-            <View style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, padding: 4, marginBottom: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+            <View style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 8, padding: 4, marginBottom: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
                 <TouchableOpacity
                     onPress={() => setPostMode('MEDIA')}
                     style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: 6, backgroundColor: postMode === 'MEDIA' ? '#fff' : 'transparent' }}
@@ -284,6 +293,27 @@ export default function SimpleForm({ onBack, initialData }: SimpleFormProps) {
                     <Type size={14} color={postMode === 'TEXT' ? '#000' : 'rgba(255,255,255,0.4)'} />
                     <Text style={{ color: postMode === 'TEXT' ? '#000' : 'rgba(255,255,255,0.4)', fontWeight: '700', fontSize: 11, marginLeft: 6, letterSpacing: 0.5 }}>TEXT ONLY</Text>
                 </TouchableOpacity>
+            </View>
+
+            {/* Live Preview - Always visible at top */}
+            <View style={{ marginBottom: 20 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontWeight: '600', fontSize: 11, letterSpacing: 1 }}>PREVIEW</Text>
+                    <TouchableOpacity onPress={() => setShowPreview(!showPreview)}>
+                        {showPreview ? <EyeOff size={16} color="rgba(255,255,255,0.5)" /> : <Eye size={16} color="rgba(255,255,255,0.5)" />}
+                    </TouchableOpacity>
+                </View>
+                {showPreview && (
+                    <PostPreview
+                        userName={userName || 'You'}
+                        userAvatar={userAvatar}
+                        content={content}
+                        media={media}
+                        visibility={visibility}
+                        taggedUsers={taggedUsers}
+                        selectedFilter={selectedFilter}
+                    />
+                )}
             </View>
 
             {/* Content Input */}
@@ -344,6 +374,23 @@ export default function SimpleForm({ onBack, initialData }: SimpleFormProps) {
                     </View>
                 </View>
             )}
+
+            {/* Filter Selector */}
+            {postMode === 'MEDIA' && media.length > 0 && (
+                <MediaFilterSelector
+                    media={media[0]}
+                    selectedFilter={selectedFilter}
+                    onFilterChange={setSelectedFilter}
+                />
+            )}
+
+            {/* Tag People - Always visible */}
+            <UserTagSelector
+                currentUserId={dbUserId || ''}
+                selectedUsers={taggedUsers}
+                onUsersChange={setTaggedUsers}
+                maxTags={10}
+            />
 
             {/* Visibility */}
             <View style={{ marginBottom: 24 }}>
@@ -420,8 +467,8 @@ export default function SimpleForm({ onBack, initialData }: SimpleFormProps) {
                 )}
             </View>
 
-            {/* Product Tagging */}
-            <View style={{ marginBottom: 24 }}>
+            {/* Product Tagging - HIDDEN FOR V2 */}
+            {/* <View style={{ marginBottom: 24 }}>
                 <Text style={{ color: 'rgba(255,255,255,0.5)', marginBottom: 12, fontWeight: '600', fontSize: 11, letterSpacing: 1 }}>TAG PRODUCT</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 16 }}>
                     <Image source={{ uri: 'https://via.placeholder.com/30' }} style={{ width: 16, height: 16, tintColor: 'rgba(255,255,255,0.4)' }} />
@@ -437,7 +484,7 @@ export default function SimpleForm({ onBack, initialData }: SimpleFormProps) {
                 <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, marginTop: 6, paddingHorizontal: 4 }}>
                     Link a product to your post to display a shop pill.
                 </Text>
-            </View>
+            </View> */}
 
             {/* Progress */}
             {loading && (

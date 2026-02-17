@@ -22,6 +22,7 @@ interface FeedPost {
         type: 'IMAGE' | 'VIDEO';
     }[];
     postType?: string;
+    shareCount?: number;
 }
 
 interface SharePostModalProps {
@@ -247,13 +248,10 @@ export default function SharePostModal({ visible, onClose, post }: SharePostModa
             }
             Alert.alert('Sent!', `Post shared with ${selectedUsers.size} user(s).`);
 
-            // Increment share count
-            const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://fuy.fun';
-            fetch(`${API_URL}/api/posts/share`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ postId: post.id })
-            }).catch(err => console.error('Failed to increment share:', err));
+            // Increment share count (Client-side update)
+            supabase.from('Post').update({ shareCount: (post.shareCount || 0) + 1 }).eq('id', post.id).then(({ error }) => {
+                if (error) console.error('Failed to increment share count:', error);
+            });
 
             setSelectedUsers(new Set());
             onClose();
@@ -279,12 +277,10 @@ export default function SharePostModal({ visible, onClose, post }: SharePostModa
 
             if (result.action === Share.sharedAction) {
                 // Increment share count
-                const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://fuy.fun';
-                fetch(`${API_URL}/api/posts/share`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ postId: post.id })
-                }).catch(err => console.error('Failed to increment share:', err));
+                // Increment share count
+                supabase.from('Post').update({ shareCount: (post.shareCount || 0) + 1 }).eq('id', post.id).then(({ error }) => {
+                    if (error) console.error('Failed to increment share count:', error);
+                });
             }
         } catch (error) {
             console.error('Share error:', error);

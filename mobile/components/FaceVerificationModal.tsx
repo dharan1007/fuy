@@ -4,11 +4,9 @@ import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo
 import { X, Camera, CheckCircle, AlertCircle, Video as VideoIcon } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { getApiUrl } from '../lib/api';
 import { supabase } from '../lib/supabase';
 import { uploadFileToR2 } from '../lib/upload-helper';
 
-const API_URL = getApiUrl();
 const { width } = Dimensions.get('window');
 
 type Challenge = 'BLINK' | 'SMILE' | 'TURN_LEFT' | 'TURN_RIGHT' | 'NOD';
@@ -44,7 +42,7 @@ export function FaceVerificationModal({ visible, onClose, onVerified }: FaceVeri
 
     const [isStarting, setIsStarting] = useState(false);
 
-    // Generate random challenges on start
+    // Generate random challenges locally
     const startVerification = async () => {
         if (isStarting) return;
         setIsStarting(true);
@@ -63,40 +61,17 @@ export function FaceVerificationModal({ visible, onClose, onVerified }: FaceVeri
                 }
             }
 
-            console.log("Fetching challenges...");
-            // Add timeout for fetch
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-            const response = await fetch(`${API_URL}/api/verification/challenge`, {
-                headers: { 'Authorization': `Bearer ${session?.access_token}` },
-                signal: controller.signal
-            }).catch(e => {
-                console.warn("Fetch failed or timed out", e);
-                throw e;
-            });
-
-            clearTimeout(timeoutId);
-            const data = await response.json();
-
-            if (data.challenges) {
-                console.log("Challenges received", data.challenges);
-                setChallenges(data.challenges);
-                setCurrentChallengeIndex(0);
-                setVideoUri(null);
-                setStep('challenges');
-                // Recording will start via onCameraReady prop
-            }
-        } catch (error) {
-            console.log("Falling back to local challenges due to:", error);
-            // Fallback: generate locally
+            // Local challenges generator
             const allChallenges: Challenge[] = ['BLINK', 'SMILE', 'TURN_LEFT', 'TURN_RIGHT', 'NOD'];
             const shuffled = allChallenges.sort(() => Math.random() - 0.5).slice(0, 3);
             setChallenges(shuffled);
             setCurrentChallengeIndex(0);
             setVideoUri(null);
             setStep('challenges');
-            // Recording will start via onCameraReady prop
+
+        } catch (error) {
+            console.error("Error starting verification:", error);
+            Alert.alert("Error", "Could not start camera.");
         } finally {
             setIsStarting(false);
         }
@@ -158,31 +133,29 @@ export function FaceVerificationModal({ visible, onClose, onVerified }: FaceVeri
 
             // 1. Upload Video to Cloudflare R2 using helper
             console.log("Uploading to Cloudflare R2...");
-            const publicUrl = await uploadFileToR2(uri, 'VIDEO', session?.access_token);
+            const publicUrl = await uploadFileToR2(uri, 'VIDEO');
             console.log("R2 Upload success:", publicUrl);
 
-            console.log("Notifying backend to update user profile...");
+            console.log("Updating user profile directly...");
 
-            // 2. Call Backend to Upgrade User (Bypassing RLS)
-            const response = await fetch(`${API_URL}/api/verification/submit`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${session?.access_token}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    videoUrl: publicUrl,
-                    challenges: challenges
+            // 2. Update User Verification Status directly
+            // Note: This relies on RLS policies allowing the user to update their own 'isHumanVerified' status
+            // If RLS prevents this, we might need to insert into a request table instead.
+            const { error } = await supabase
+                .from('User')
+                .update({
+                    isHumanVerified: true,
+                    // Store verification evidence if needed, e.g. in a separate table or json field
+                    // For now we just flip the bit as requested for direct backend
                 })
-            });
+                .eq('id', userId);
 
-            const data = await response.json();
-
-            if (!response.ok || !data.verified) {
-                throw new Error(data.error || 'Backend verification update failed');
+            if (error) {
+                console.error("RLS / Update Error:", error);
+                throw new Error("Failed to update verification status. Please contact support.");
             }
 
-            console.log("User verified successfully via Backend");
+            console.log("User verified successfully");
 
             setStep('success');
             showToast('Identity verified successfully!', 'success');

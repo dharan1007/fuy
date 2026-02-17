@@ -1,15 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Dimensions } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as VideoThumbnails from 'expo-video-thumbnails';
 import { Video, ResizeMode } from 'expo-av';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import { X, ArrowLeft, Globe, Users, Lock, Film, Play, Slash, Plus, Music } from 'lucide-react-native';
+import { X, ArrowLeft, Globe, Users, Lock, Film, Play, Slash, Plus, Music, Eye, EyeOff, Image as ImageIcon } from 'lucide-react-native';
 import { MediaUploadService } from '../../services/MediaUploadService';
 import { supabase } from '../../lib/supabase';
 import { analyzeImageForNudity, NudityAnalysisResult } from '../../lib/nudity-detection';
 import NudityWarningModal from '../NudityWarningModal';
 import AudioTrackManager from '../audio/AudioTrackManager';
+import PostPreview from '../PostPreview';
+import MediaFilterSelector from '../MediaFilterSelector';
+import UserTagSelector from '../UserTagSelector';
+import { PostService, PostVisibility } from '../../services/PostService';
 
 interface AudioTrack {
     id: string;
@@ -25,7 +30,7 @@ interface AudioTrack {
     coverImageUrl?: string;
 }
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org';
+
 const { width } = Dimensions.get('window');
 
 interface FillFormProps {
@@ -55,6 +60,34 @@ export default function FillForm({ onBack }: FillFormProps) {
     const [showNudityWarning, setShowNudityWarning] = useState(false);
     const [pendingSubmit, setPendingSubmit] = useState(false);
 
+    // New: Preview, Filter, Tagging state
+    const [showPreview, setShowPreview] = useState(true);
+    const [selectedFilter, setSelectedFilter] = useState('original');
+    const [taggedUsers, setTaggedUsers] = useState<{ id: string; name: string; avatar?: string }[]>([]);
+    const [dbUserId, setDbUserId] = useState<string | null>(null);
+    const [userName, setUserName] = useState('');
+    const [userAvatar, setUserAvatar] = useState<string | undefined>(undefined);
+
+    // Fetch user info
+    useEffect(() => {
+        const fetchUser = async () => {
+            if (!session?.user?.email) return;
+            const { data } = await supabase
+                .from('User')
+                .select('id, name, avatar')
+                .eq('email', session.user.email)
+                .single();
+            if (data) {
+                setDbUserId(data.id);
+                setUserName(data.name || 'You');
+                setUserAvatar(data.avatar || undefined);
+            }
+        };
+        fetchUser();
+    }, [session]);
+
+    const [customThumbnail, setCustomThumbnail] = useState<string | null>(null);
+
     const pickVideo = async () => {
         try {
             // Fix deprecation: Use string array or MediaType enum if available. 
@@ -69,6 +102,7 @@ export default function FillForm({ onBack }: FillFormProps) {
                 const asset = result.assets[0];
                 // Direct assignment without compression (Compressor requires native rebuild)
                 setVideo(asset);
+                setCustomThumbnail(null); // Reset thumbnail on new video
 
                 // Warn if file is huge? Optional.
                 if (asset.fileSize && asset.fileSize > 200 * 1024 * 1024) {
@@ -78,6 +112,23 @@ export default function FillForm({ onBack }: FillFormProps) {
         } catch (e) {
             Alert.alert('Error', 'Failed to select video');
             console.error(e);
+        }
+    };
+
+    const pickThumbnail = async () => {
+        try {
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ['images'],
+                allowsEditing: true,
+                aspect: [16, 9],
+                quality: 0.8,
+            });
+
+            if (!result.canceled && result.assets[0]) {
+                setCustomThumbnail(result.assets[0].uri);
+            }
+        } catch (e) {
+            console.error('Thumbnail pick error:', e);
         }
     };
 
@@ -125,32 +176,57 @@ export default function FillForm({ onBack }: FillFormProps) {
             const { data: userData } = await supabase.from('User').select('id').eq('email', session.user.email).single();
             if (!userData?.id) throw new Error('User not found');
 
-            setUploadProgress(20);
+            setUploadProgress(10);
+
+            // 1. Prepare Thumbnail (Custom or Generated)
+            let thumbnailUrl = null;
+            try {
+                let thumbUri = customThumbnail;
+
+                // If no custom thumbnail, generate one
+                if (!thumbUri) {
+                    const { uri } = await VideoThumbnails.getThumbnailAsync(video.uri, { time: 1000 });
+                    thumbUri = uri;
+                }
+
+                if (thumbUri) {
+                    // 2. Upload Thumbnail
+                    const thumbUpload = await MediaUploadService.uploadImage(thumbUri, `fill_thumb_${Date.now()}.jpg`);
+                    thumbnailUrl = thumbUpload.url;
+                }
+            } catch (e) {
+                console.log('Thumbnail generation/upload failed:', e);
+            }
+
+            setUploadProgress(30);
+
+            // 3. Upload Video (use direct upload)
             const uploadResult = await MediaUploadService.uploadVideo(video.uri, `fill_${Date.now()}.mp4`);
             setUploadProgress(80);
 
-            const response = await fetch(`${API_URL}/api/posts/create`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userId: userData.id,
-                    postType: 'FILL',
-                    content: description || title,
-                    visibility,
-                    mediaUrls: [uploadResult.url],
-                    mediaTypes: ['VIDEO'],
-                    fillData: {
-                        videoUrl: uploadResult.url,
-                        title,
-                        duration: video.duration ? Math.floor(video.duration / 1000) : 0,
-                        aspectRatio: '16:9',
-                    },
-                    slashes: slashes.filter(s => s.trim()),
-                }),
+            // 4. Create Post
+            await PostService.createPost({
+                userId: userData.id,
+                postType: 'FILL',
+                content: title + (description ? '\n\n' + description : ''),
+                visibility: visibility as PostVisibility,
+                media: [{
+                    uri: uploadResult.url,
+                    type: 'VIDEO',
+                    duration: video.duration ? Math.floor(video.duration / 1000) : 0,
+                    thumbnailUrl: thumbnailUrl || undefined
+                }],
+                fillData: {
+                    duration: video.duration ? Math.floor(video.duration / 1000) : 0,
+                    aspectRatio: '16:9',
+                    thumbnailUrl: thumbnailUrl || undefined
+                },
+                taggedUserIds: taggedUsers.map(u => u.id),
+                slashes: slashes.filter(s => s.trim())
             });
 
             setUploadProgress(100);
-            if (!response.ok) throw new Error((await response.json()).error || 'Failed');
+            // Response check removed since createPost throws on error
             setPendingSubmit(false);
             setNudityResult(null);
             Alert.alert('Done', 'Posted successfully', [{ text: 'OK', onPress: onBack }]);
@@ -182,21 +258,74 @@ export default function FillForm({ onBack }: FillFormProps) {
                 <Film size={24} color="rgba(255,255,255,0.3)" />
             </View>
 
+            {/* Post Preview Component */}
+            <View style={{ marginBottom: 20 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontWeight: '600', fontSize: 11, letterSpacing: 1 }}>PREVIEW</Text>
+                    <TouchableOpacity onPress={() => setShowPreview(!showPreview)} style={{ padding: 4 }}>
+                        {showPreview ? <Eye size={16} color="rgba(255,255,255,0.6)" /> : <EyeOff size={16} color="rgba(255,255,255,0.4)" />}
+                    </TouchableOpacity>
+                </View>
+
+                {showPreview && (
+                    <PostPreview
+                        userName={userName}
+                        userAvatar={userAvatar}
+                        content={description}
+                        media={video ? [{ uri: video.uri, type: 'video' }] : []}
+                        visibility={visibility}
+                        taggedUsers={taggedUsers}
+                        selectedFilter={selectedFilter}
+                    />
+                )}
+            </View>
+
             {/* Video Preview */}
             <View style={{ marginBottom: 20 }}>
-                <Text style={{ color: 'rgba(255,255,255,0.5)', marginBottom: 12, fontWeight: '600', fontSize: 11, letterSpacing: 1 }}>VIDEO</Text>
+                <Text style={{ color: 'rgba(255,255,255,0.5)', marginBottom: 12, fontWeight: '600', fontSize: 11, letterSpacing: 1 }}>VIDEO & COVER</Text>
                 {video ? (
-                    <View style={{ width: '100%', aspectRatio: 16 / 9, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
-                        <Video source={{ uri: video.uri }} style={{ width: '100%', height: '100%' }} resizeMode={ResizeMode.COVER} shouldPlay={false} />
-                        <TouchableOpacity
-                            onPress={() => setVideo(null)}
-                            style={{ position: 'absolute', top: 8, right: 8, backgroundColor: '#000', borderRadius: 14, padding: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' }}
-                        >
-                            <X size={14} color="#fff" />
-                        </TouchableOpacity>
-                        <View style={{ position: 'absolute', bottom: 8, left: 8, backgroundColor: 'rgba(0,0,0,0.7)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 }}>
-                            <Text style={{ color: '#fff', fontSize: 11, fontWeight: '600' }}>{video.duration ? formatDuration(video.duration) : 'Ready'}</Text>
+                    <View>
+                        <View style={{ width: '100%', aspectRatio: 16 / 9, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+                            <Video
+                                source={{ uri: video.uri }}
+                                style={{ width: '100%', height: '100%' }}
+                                resizeMode={ResizeMode.COVER}
+                                shouldPlay={false}
+                                usePoster={true}
+                                posterSource={customThumbnail ? { uri: customThumbnail } : undefined}
+                                posterStyle={{ resizeMode: 'cover' }}
+                            />
+                            <TouchableOpacity
+                                onPress={() => setVideo(null)}
+                                style={{ position: 'absolute', top: 8, right: 8, backgroundColor: '#000', borderRadius: 14, padding: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' }}
+                            >
+                                <X size={14} color="#fff" />
+                            </TouchableOpacity>
+                            <View style={{ position: 'absolute', bottom: 8, left: 8, backgroundColor: 'rgba(0,0,0,0.7)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 }}>
+                                <Text style={{ color: '#fff', fontSize: 11, fontWeight: '600' }}>{video.duration ? formatDuration(video.duration) : 'Ready'}</Text>
+                            </View>
                         </View>
+
+                        {/* Custom Cover Button */}
+                        <TouchableOpacity
+                            onPress={pickThumbnail}
+                            style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                marginTop: 12,
+                                padding: 12,
+                                backgroundColor: 'rgba(255,255,255,0.1)',
+                                borderRadius: 8,
+                                borderWidth: 1,
+                                borderColor: 'rgba(255,255,255,0.2)'
+                            }}
+                        >
+                            <ImageIcon size={16} color="#fff" style={{ marginRight: 8 }} />
+                            <Text style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>
+                                {customThumbnail ? 'Change Cover Image' : 'Upload Cover Image'}
+                            </Text>
+                        </TouchableOpacity>
                     </View>
                 ) : (
                     <TouchableOpacity
@@ -263,6 +392,23 @@ export default function FillForm({ onBack }: FillFormProps) {
                     }}
                 />
             </View>
+
+            {/* Filter Selector */}
+            {video && (
+                <MediaFilterSelector
+                    media={{ uri: video.uri, type: 'video' }}
+                    selectedFilter={selectedFilter}
+                    onFilterChange={setSelectedFilter}
+                />
+            )}
+
+            {/* Tag People - Always visible */}
+            <UserTagSelector
+                currentUserId={dbUserId || ''}
+                selectedUsers={taggedUsers}
+                onUsersChange={setTaggedUsers}
+                maxTags={10}
+            />
 
             {/* Visibility */}
             <View style={{ marginBottom: 24 }}>

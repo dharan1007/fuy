@@ -72,6 +72,9 @@ export default function NotificationsScreen() {
                 notifQuery = notifQuery.eq('read', false);
             }
 
+            // Filter out FRIEND_REQUEST type from generic notifications to avoid duplicates with manual Friendship fetch
+            notifQuery = notifQuery.neq('type', 'FRIEND_REQUEST');
+
             const { data: notifs } = await notifQuery;
 
             // 3. Get sender info for FOLLOW notifications

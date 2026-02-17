@@ -167,3 +167,111 @@ export const decryptMessage = (
         return null; // Return null to indicate unable to decrypt (might show "Encrypted Message")
     }
 };
+// --- 3. File Encryption (Symmetric AES) ---
+
+import * as FileSystem from 'expo-file-system';
+
+/**
+ * Encrypts a file using AES-256.
+ * Returns the path to the encrypted file and the encryption key/IV.
+ * NOTE: For large video files, this JS-based approach might be slow or hit memory limits.
+ * Native modules (react-native-aes-crypto) are recommended for production large files.
+ */
+export const encryptFile = async (uri: string, password?: string): Promise<{ encryptedUri: string; key: string; iv: string } | null> => {
+    try {
+        const fileData = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' });
+
+        let key: string;
+        let keyHex: string;
+        const iv = Random.getRandomBytes(16);
+        const ivHex = Buffer.from(iv).toString('hex');
+
+        if (password) {
+            // Password-based encryption
+            const salt = Random.getRandomBytes(16);
+            const saltHex = Buffer.from(salt).toString('hex');
+
+            // Derive key using PBKDF2
+            const derivedKey = CryptoJS.PBKDF2(password, CryptoJS.enc.Hex.parse(saltHex), {
+                keySize: 256 / 32,
+                iterations: 1000
+            });
+
+            keyHex = derivedKey.toString();
+            // Prefix key with pw: and salt for easy identification
+            key = `pw:${saltHex}`;
+        } else {
+            // Standard random key encryption
+            const randomKey = Random.getRandomBytes(32);
+            keyHex = Buffer.from(randomKey).toString('hex');
+            key = keyHex;
+        }
+
+        // Encrypt
+        const encrypted = CryptoJS.AES.encrypt(fileData, CryptoJS.enc.Hex.parse(keyHex), {
+            iv: CryptoJS.enc.Hex.parse(ivHex)
+        }).toString();
+
+        const fileName = (uri.split('/').pop() || 'temp_enc') + '.enc';
+        const encryptedUri = (FileSystem as any).cacheDirectory + fileName;
+
+        await FileSystem.writeAsStringAsync(encryptedUri, encrypted);
+
+        return {
+            encryptedUri,
+            key,
+            iv: ivHex
+        };
+    } catch (error) {
+        console.error("File encryption error:", error);
+        return null;
+    }
+};
+
+/**
+ * Decrypts a file using the provided key and IV.
+ */
+export const decryptFile = async (encryptedUri: string, keyString: string, ivHex: string, password?: string): Promise<string | null> => {
+    try {
+        const encryptedData = await FileSystem.readAsStringAsync(encryptedUri);
+
+        let decryptionKey = keyString;
+
+        if (keyString.startsWith('pw:')) {
+            if (!password) {
+                console.warn("Password required for decryption");
+                return null;
+            }
+            const saltHex = keyString.split(':')[1];
+            // Derive key
+            const derivedKey = CryptoJS.PBKDF2(password, CryptoJS.enc.Hex.parse(saltHex), {
+                keySize: 256 / 32,
+                iterations: 1000
+            });
+            decryptionKey = derivedKey.toString();
+        }
+
+        const decrypted = CryptoJS.AES.decrypt(encryptedData, CryptoJS.enc.Hex.parse(decryptionKey), {
+            iv: CryptoJS.enc.Hex.parse(ivHex)
+        });
+
+        const base64Data = decrypted.toString(CryptoJS.enc.Utf8);
+        if (!base64Data) throw new Error("Decryption failed (result empty)");
+
+        // Identify extension or default to .dat - ideally we store original mime/ext
+        // For now, let's assume valid base64 is returned and we can just use it (e.g. Image uri)
+        // Check if we need to write to file or return base64 data uri prefix
+        // Let's write to a temp file
+
+        // Generate a random filename to avoid conflicts
+        const tempFileName = 'dec_' + Date.now() + '.tmp';
+        const targetUri = (FileSystem as any).cacheDirectory + tempFileName;
+
+        await FileSystem.writeAsStringAsync(targetUri, base64Data, { encoding: 'base64' });
+
+        return targetUri;
+    } catch (error) {
+        console.error("File decryption error:", error);
+        return null;
+    }
+};

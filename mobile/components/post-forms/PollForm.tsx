@@ -4,8 +4,11 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { ArrowLeft, Globe, Users, Lock, BarChart2, ChevronUp, ChevronDown, Slash, Plus, X } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
+import PostPreview from '../PostPreview';
+import { Eye, EyeOff } from 'lucide-react-native';
+import { PostService, PostVisibility } from '../../services/PostService';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org';
+
 const { width } = Dimensions.get('window');
 
 interface PollFormProps {
@@ -23,6 +26,28 @@ export default function PollForm({ onBack }: PollFormProps) {
     const [loading, setLoading] = useState(false);
     const [slashes, setSlashes] = useState<string[]>([]);
     const [slashInput, setSlashInput] = useState('');
+
+    // Preview state
+    const [showPreview, setShowPreview] = useState(true);
+    const [userName, setUserName] = useState('');
+    const [userAvatar, setUserAvatar] = useState<string | undefined>(undefined);
+
+    // Fetch user info for preview
+    React.useEffect(() => {
+        const fetchUser = async () => {
+            if (!session?.user?.email) return;
+            const { data } = await supabase
+                .from('User')
+                .select('name, avatar')
+                .eq('email', session.user.email)
+                .single();
+            if (data) {
+                setUserName(data.name || 'You');
+                setUserAvatar(data.avatar || undefined);
+            }
+        };
+        fetchUser();
+    }, [session]);
 
     const handleSubmit = async () => {
         if (!question.trim()) {
@@ -44,20 +69,16 @@ export default function PollForm({ onBack }: PollFormProps) {
             const { data: userData } = await supabase.from('User').select('id').eq('email', session.user.email).single();
             if (!userData?.id) throw new Error('User not found');
 
-            const response = await fetch(`${API_URL}/api/posts/create`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userId: userData.id,
-                    postType: 'PULLUPDOWN',
-                    content: question,
-                    visibility,
-                    pullUpDownData: { question, optionA, optionB, allowMultiple },
-                    slashes: slashes.filter(s => s.trim()),
-                }),
+            await PostService.createPost({
+                userId: userData.id,
+                postType: 'PULLUPDOWN',
+                content: question,
+                visibility: visibility as PostVisibility,
+                media: [],
+                pullUpDownData: { question, optionA, optionB, allowMultiple },
+                slashes: slashes.filter(s => s.trim()),
             });
 
-            if (!response.ok) throw new Error((await response.json()).error || 'Failed');
             Alert.alert('Done', 'Poll created', [{ text: 'OK', onPress: onBack }]);
         } catch (error: any) {
             Alert.alert('Error', error.message);
@@ -78,6 +99,26 @@ export default function PollForm({ onBack }: PollFormProps) {
                     <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>Pull Up or Pull Down voting</Text>
                 </View>
                 <BarChart2 size={24} color="rgba(255,255,255,0.3)" />
+            </View>
+
+            {/* Post Preview Component */}
+            <View style={{ marginBottom: 20 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontWeight: '600', fontSize: 11, letterSpacing: 1 }}>PREVIEW</Text>
+                    <TouchableOpacity onPress={() => setShowPreview(!showPreview)} style={{ padding: 4 }}>
+                        {showPreview ? <Eye size={16} color="rgba(255,255,255,0.6)" /> : <EyeOff size={16} color="rgba(255,255,255,0.4)" />}
+                    </TouchableOpacity>
+                </View>
+
+                {showPreview && (
+                    <PostPreview
+                        userName={userName}
+                        userAvatar={userAvatar}
+                        content={`${question}\n\n[Option A] ${optionA}\n[Option B] ${optionB}`}
+                        media={[]}
+                        visibility={visibility}
+                    />
+                )}
             </View>
 
             {/* Question */}

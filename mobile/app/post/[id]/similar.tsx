@@ -416,8 +416,18 @@ export default function SimilarPostsScreen() {
                                     isActive={item.id === activeId}
                                     onActivate={() => setActiveId(item.id)}
                                     onReact={handleReact}
-                                    colors={colors}
-                                    mode={colorScheme}
+                                    // Force Dark Theme Colors for this screen since it has a hardcoded black background
+                                    colors={{
+                                        text: '#FFFFFF',
+                                        background: '#000000',
+                                        tint: '#FFFFFF',
+                                        secondary: '#A1A1AA', // zinc-400
+                                        primary: '#FFFFFF',
+                                        card: '#18181b', // zinc-900
+                                        border: '#27272a', // zinc-800
+                                        notification: '#ef4444',
+                                    }}
+                                    mode="dark"
                                     onAddBubble={handleAddBubble}
                                     onMenuPress={handleMenuPress}
                                     onSharePress={handleSharePress}

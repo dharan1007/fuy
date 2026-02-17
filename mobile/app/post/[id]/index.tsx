@@ -80,12 +80,10 @@ export default function PostScreen() {
                 } as any);
 
                 // Increment view count
-                const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://fuy.fun';
-                fetch(`${API_URL}/api/posts/view`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ postId: id })
-                }).catch(err => console.error('Failed to increment view:', err));
+                // Increment view count (Simple client-side increment)
+                supabase.from('Post').update({ viewCount: (postData.viewCount || 0) + 1 }).eq('id', id).then(({ error }) => {
+                    if (error) console.error('Failed to increment view:', error);
+                });
 
                 return;
             }

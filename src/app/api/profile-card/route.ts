@@ -78,6 +78,22 @@ export async function GET(req: Request) {
 
         if (!card) return NextResponse.json({ error: "Card not found" }, { status: 404 });
 
+        // Block check: if viewing another user's card, check for blocks
+        if (currentUserId && card.userId !== currentUserId) {
+            const blockExists = await prisma.blockedUser.findFirst({
+                where: {
+                    OR: [
+                        { blockerId: currentUserId, blockedId: card.userId },
+                        { blockerId: card.userId, blockedId: currentUserId },
+                    ]
+                }
+            });
+
+            if (blockExists) {
+                return NextResponse.json({ error: "This profile is unavailable" }, { status: 403 });
+            }
+        }
+
         const content = typeof card.content === 'string' ? JSON.parse(card.content) : card.content;
 
         // Check for tagged channel

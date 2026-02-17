@@ -1,4 +1,4 @@
-'use client';
+
 
 import React from 'react';
 import { Volume2, VolumeX, Volume1 } from 'lucide-react';

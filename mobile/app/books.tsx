@@ -3,7 +3,8 @@ import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, Sty
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ChevronLeft, BookOpen } from 'lucide-react-native';
-import { api } from '../lib/api-client';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../context/AuthContext';
 
 interface Book {
     id: string;
@@ -31,19 +32,41 @@ export default function BooksScreen() {
     const [books, setBooks] = useState<Book[]>([]);
     const [loading, setLoading] = useState(true);
 
+    const { session } = useAuth();
+
     useEffect(() => {
-        fetchBooks();
-    }, []);
+        if (session?.user) {
+            fetchBooks();
+        }
+    }, [session]);
 
     const fetchBooks = async () => {
+        if (!session?.user) return;
         try {
-            const { data, error } = await api.get<Purchase[]>('/api/user/purchases');
+            const { data, error } = await supabase
+                .from('Order')
+                .select(`
+                    id,
+                    items:OrderItem(
+                        id,
+                        product:Product(
+                            id,
+                            name,
+                            images,
+                            type,
+                            description
+                        )
+                    )
+                `)
+                .eq('userId', session.user.id)
+                .order('createdAt', { ascending: false });
+
             if (data && !error) {
                 // Filter for eBooks
-                const myBooks = data.flatMap(order =>
+                const myBooks = data.flatMap((order: any) =>
                     order.items
-                        .filter(item => item.product?.type === 'EBOOK')
-                        .map(item => item.product)
+                        .filter((item: any) => item.product?.type === 'EBOOK')
+                        .map((item: any) => item.product)
                 );
                 setBooks(myBooks);
             }

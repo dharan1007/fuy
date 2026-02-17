@@ -153,14 +153,6 @@ export default function DraggableSidebar() {
                 >
                     <Timer color={colors.text} size={16} />
                 </TouchableOpacity>
-
-                {/* WREX Body Icon */}
-                <TouchableOpacity
-                    onPress={() => !isDragging && router.push('/grounding')}
-                    style={[styles.circleButton, { backgroundColor: colors.card, borderColor: colors.border, marginTop: 8 }]}
-                >
-                    <WrexIcon color={colors.text} size={16} />
-                </TouchableOpacity>
             </View>
         </Animated.View>
     );

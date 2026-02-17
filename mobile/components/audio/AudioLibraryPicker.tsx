@@ -12,9 +12,10 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
-import AudioWaveform from './AudioWaveform';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../context/AuthContext';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org';
+// const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org';
 
 interface AudioAsset {
     id: string;
@@ -60,36 +61,59 @@ export default function AudioLibraryPicker({
     const [playingId, setPlayingId] = useState<string | null>(null);
     const soundRef = useRef<Audio.Sound | null>(null);
 
+    const { session } = useAuth();
+
     const fetchAudio = useCallback(async () => {
         setLoading(true);
         try {
-            let endpoint = `${API_URL}/api/audio`;
-            const params = new URLSearchParams();
+            let query = supabase
+                .from('AudioAsset')
+                .select(`
+                    id,
+                    title,
+                    attributionText,
+                    duration,
+                    audioUrl,
+                    waveformData,
+                    coverImageUrl,
+                    usageCount,
+                    genre,
+                    originalCreator:User!originalCreatorId (
+                        id,
+                        name,
+                        profile:Profile (displayName, avatarUrl)
+                    )
+                `);
 
             if (activeTab === 'trending') {
-                endpoint = `${API_URL}/api/audio/trending`;
+                query = query.order('usageCount', { ascending: false });
             } else if (activeTab === 'recent') {
-                params.set('sortBy', 'recent');
+                query = query.order('createdAt', { ascending: false });
             } else if (activeTab === 'my-audio') {
-                params.set('creatorId', 'me');
+                if (session?.user?.id) {
+                    query = query.eq('originalCreatorId', session.user.id);
+                }
             }
 
             if (searchQuery) {
-                endpoint = `${API_URL}/api/audio/search`;
-                params.set('q', searchQuery);
+                query = query.ilike('title', `%${searchQuery}%`);
             }
 
-            const url = params.toString() ? `${endpoint}?${params}` : endpoint;
-            const res = await fetch(url);
-            const data = await res.json();
+            if (activeTab !== 'my-audio') {
+                // explicit limit for browsing
+                query = query.limit(50);
+            }
 
-            let assets = data.audioAssets || data.trending || data.results || [];
+            const { data, error } = await query;
+            if (error) throw error;
+
+            let assets = (data as any[]) || [];
 
             if (maxDuration) {
-                assets = assets.filter((a: AudioAsset) => a.duration <= maxDuration);
+                assets = assets.filter((a: any) => a.duration <= maxDuration);
             }
 
-            assets = assets.filter((a: AudioAsset) => !excludeIds.includes(a.id));
+            assets = assets.filter((a: any) => !excludeIds.includes(a.id));
 
             setAudioAssets(assets);
         } catch (error) {
@@ -98,7 +122,7 @@ export default function AudioLibraryPicker({
         } finally {
             setLoading(false);
         }
-    }, [activeTab, searchQuery, maxDuration, excludeIds]);
+    }, [activeTab, searchQuery, maxDuration, excludeIds, session]);
 
     useEffect(() => {
         if (visible) {
@@ -200,15 +224,22 @@ export default function AudioLibraryPicker({
                 </View>
             </View>
 
-            {item.waveformData && (
+            {item.waveformData && item.waveformData.length > 0 && (
                 <View style={styles.miniWaveform}>
-                    <AudioWaveform
-                        waveformData={item.waveformData}
-                        duration={item.duration}
-                        height={24}
-                        barWidth={2}
-                        barGap={1}
-                    />
+                    {/* Simple waveform visualization */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', height: 24, gap: 1 }}>
+                        {item.waveformData.slice(0, 15).map((value, idx) => (
+                            <View
+                                key={idx}
+                                style={{
+                                    width: 2,
+                                    height: Math.max(4, Math.min(24, value * 24)),
+                                    backgroundColor: 'rgba(255,255,255,0.4)',
+                                    borderRadius: 1,
+                                }}
+                            />
+                        ))}
+                    </View>
                 </View>
             )}
 

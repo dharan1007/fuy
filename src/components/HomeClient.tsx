@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useSession, signOut } from '@/hooks/use-session';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Palette, Rocket, ShoppingBag, LayoutDashboard, Menu, Globe } from 'lucide-react';
+import { Palette, Rocket, LayoutDashboard, Menu, Globe } from 'lucide-react';
 import SearchModal from '@/components/SearchModal';
 
 import UserListModal from '@/components/UserListModal';
@@ -354,10 +354,7 @@ export default function HomeClient({ isAdmin = false }: { isAdmin?: boolean }) {
                             <Rocket className="w-5 h-5" />
                         </Link>
 
-                        {/* Shop */}
-                        <Link href="/shop" className="text-sm font-semibold text-white hover:text-white/80 transition-colors">
-                            <ShoppingBag className="w-5 h-5" />
-                        </Link>
+                        {/* Shop - hidden until next update */}
 
                         {/* Dashboard */}
                         {/* Dashboard */}
@@ -392,9 +389,7 @@ export default function HomeClient({ isAdmin = false }: { isAdmin?: boolean }) {
                                 <Link href="/hopin" className="flex items-center gap-2 px-4 py-2 text-sm text-white hover:bg-white/10 rounded transition-colors">
                                     <Rocket className="w-4 h-4" /> Hopin
                                 </Link>
-                                <Link href="/shop" className="flex items-center gap-2 px-4 py-2 text-sm text-white hover:bg-white/10 rounded transition-colors">
-                                    <ShoppingBag className="w-4 h-4" /> Shop
-                                </Link>
+                                {/* Shop - hidden until next update */}
                                 <Link href="/dashboard" className="flex items-center gap-2 px-4 py-2 text-sm text-white hover:bg-white/10 rounded transition-colors">
                                     <LayoutDashboard className="w-4 h-4" /> Dashboard
                                 </Link>
@@ -491,7 +486,7 @@ export default function HomeClient({ isAdmin = false }: { isAdmin?: boolean }) {
                             <ul className="space-y-2">
                                 <li><Link href="/journal" className="text-sm text-gray-300 hover:text-white transition-colors">Journal</Link></li>
                                 <li><Link href="/hopin" className="text-sm text-gray-300 hover:text-white transition-colors">Hopin</Link></li>
-                                <li><Link href="/shop" className="text-sm text-gray-300 hover:text-white transition-colors">Shop</Link></li>
+                                {/* Shop - hidden until next update */}
                                 <li><Link href="/dashboard" className="text-sm text-gray-300 hover:text-white transition-colors">Dashboard</Link></li>
                             </ul>
                         </div>

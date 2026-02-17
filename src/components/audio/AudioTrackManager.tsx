@@ -1,4 +1,4 @@
-'use client';
+
 
 import React, { useState, useCallback } from 'react';
 import { Music, Plus, Trash2, GripVertical, Volume2 } from 'lucide-react';
@@ -193,8 +193,8 @@ export default function AudioTrackManager({
                                         setEditingTrack(editingTrack === track.id ? null : track.id)
                                     }
                                     className={`p-2 rounded-lg transition-colors ${editingTrack === track.id
-                                            ? 'bg-white text-black'
-                                            : 'bg-white/10 text-white/70 hover:bg-white/20'
+                                        ? 'bg-white text-black'
+                                        : 'bg-white/10 text-white/70 hover:bg-white/20'
                                         }`}
                                 >
                                     <Volume2 size={14} />

@@ -4,7 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ChevronLeft, Package, ExternalLink, AlertCircle, Star } from 'lucide-react-native';
 import { useTheme } from '../context/ThemeContext';
-import { api } from '../lib/api-client';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../context/AuthContext';
 
 interface OrderItem {
     id: string;
@@ -36,15 +37,48 @@ export default function OrdersScreen() {
     const [reviewRating, setReviewRating] = useState(5);
     const [reviewText, setReviewText] = useState('');
 
+    const { session } = useAuth();
+
     useEffect(() => {
-        fetchOrders();
-    }, []);
+        if (session?.user) {
+            fetchOrders();
+        }
+    }, [session]);
 
     const fetchOrders = async () => {
+        if (!session?.user) return;
         try {
-            const { data, error } = await api.get<Order[]>('/api/user/purchases');
+            const { data, error } = await supabase
+                .from('Order')
+                .select(`
+                    id,
+                    totalAmount,
+                    status,
+                    createdAt,
+                    items:OrderItem(
+                        id,
+                        product:Product(
+                            id,
+                            name,
+                            images,
+                            type,
+                            price
+                        )
+                    )
+                `)
+                .eq('userId', session.user.id)
+                .order('createdAt', { ascending: false });
+
             if (data && !error) {
-                setOrders(data);
+                // Supabase might return relations as arrays even for 1:1 if not strictly inferred
+                const formattedOrders = data.map((order: any) => ({
+                    ...order,
+                    items: order.items.map((item: any) => ({
+                        ...item,
+                        product: Array.isArray(item.product) ? item.product[0] : item.product
+                    }))
+                }));
+                setOrders(formattedOrders);
             }
         } catch (e) {
             console.error('Failed to fetch orders:', e);
@@ -54,17 +88,25 @@ export default function OrdersScreen() {
     };
 
     const submitReport = async () => {
-        if (!reportModal || !reportReason.trim()) return;
+        if (!reportModal || !reportReason.trim() || !session?.user) return;
         try {
-            await api.post('/api/report', {
-                type: 'ORDER',
-                targetId: reportModal.id,
-                reason: reportReason
-            });
+            const { error } = await supabase
+                .from('Report')
+                .insert({
+                    reporterId: session.user.id,
+                    type: 'ORDER',
+                    targetId: reportModal.id,
+                    reason: reportReason,
+                    status: 'PENDING'
+                });
+
+            if (error) throw error;
+
             Alert.alert('Success', 'Report submitted successfully');
             setReportModal(null);
             setReportReason('');
         } catch (e) {
+            console.error(e);
             Alert.alert('Error', 'Failed to submit report');
         }
     };

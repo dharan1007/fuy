@@ -10,6 +10,14 @@ export async function POST(request: NextRequest) {
     try {
         const { email, password, name } = await request.json();
 
+        // VALIDATION
+        if (!email || !email.includes('@')) {
+            return NextResponse.json({ error: 'Invalid email address' }, { status: 400 });
+        }
+        if (!password || password.length < 6) {
+            return NextResponse.json({ error: 'Password must be at least 6 characters' }, { status: 400 });
+        }
+
         // 1. Check if user already exists in Supabase
         const { data: existingUser } = await supabaseAdmin.auth.admin.listUsers();
         if (existingUser.users.find(u => u.email?.toLowerCase() === email.toLowerCase())) {

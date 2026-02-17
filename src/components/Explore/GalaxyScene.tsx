@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import React, { useMemo, useCallback } from 'react';
+import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Stars } from '@react-three/drei';
 import { useSession } from '@/hooks/use-session';
 import { GlobeContent } from './GlobeContent';
@@ -22,32 +22,7 @@ interface GalaxySceneProps {
     autoRotate: boolean;
 }
 
-const SceneEvents = () => {
-    const { gl } = useThree();
-    useEffect(() => {
-        const canvas = gl.domElement;
-        const handleContextLost = (event: any) => {
-            event.preventDefault();
-            console.warn('WebGL context lost on GalaxyScene. Attempting to restore...');
-        };
-        const handleContextRestored = () => {
-            console.log('WebGL context restored on GalaxyScene.');
-        };
-
-        canvas.addEventListener('webglcontextlost', handleContextLost);
-        canvas.addEventListener('webglcontextrestored', handleContextRestored);
-
-        return () => {
-            canvas.removeEventListener('webglcontextlost', handleContextLost);
-            canvas.removeEventListener('webglcontextrestored', handleContextRestored);
-            // Explicitly dispose the renderer to prevent stale blob references
-            gl.dispose();
-        };
-    }, [gl]);
-    return null;
-};
-
-export default function GalaxyScene({
+export default React.memo(function GalaxyScene({
     posts,
     chans,
     lils,
@@ -65,8 +40,8 @@ export default function GalaxyScene({
 
     const { data: session } = useSession();
 
-    // Determine which dataset to show based on activeGlobe
-    const getActiveData = () => {
+    // Memoize data lookup
+    const activeData = useMemo(() => {
         switch (activeGlobe) {
             case 'Chans': return chans;
             case 'Lils': return lils;
@@ -78,11 +53,22 @@ export default function GalaxyScene({
             case 'Simple Texts': return texts;
             default: return posts;
         }
-    };
-
-    const activeData = getActiveData();
+    }, [activeGlobe, posts, chans, lils, fills, auds, chaptes, xrays, puds, texts]);
 
     const is2DOverlay = activeGlobe === 'Puds' || activeGlobe === 'Chans';
+
+    // Memoize handlers
+    const handlePostClick = useCallback((post: any) => {
+        onPostClick(post);
+    }, [onPostClick]);
+
+    // Memoize canvas config
+    const glConfig = useMemo(() => ({
+        powerPreference: 'low-power' as const,
+        antialias: false,
+        preserveDrawingBuffer: false,
+        failIfMajorPerformanceCaveat: true
+    }), []);
 
     return (
         <div className="w-full h-screen absolute inset-0 z-0 bg-black">
@@ -90,23 +76,30 @@ export default function GalaxyScene({
             {!is2DOverlay && (
                 <Canvas
                     camera={{ position: [0, 0, 15], fov: 60 }}
-                    gl={{
-                        powerPreference: 'low-power',
-                        antialias: false,
-                        preserveDrawingBuffer: false
-                    }}
+                    gl={glConfig}
                     frameloop="demand"
+                    dpr={[1, 1.5]} // Limit pixel ratio for performance
+                    performance={{ min: 0.5 }}
                 >
-                    <SceneEvents />
-                    <fog attach="fog" args={['#000', 20, 50]} />
-                    <ambientLight intensity={0.5} />
-                    <pointLight position={[10, 10, 10]} intensity={1} />
-                    <Stars radius={200} depth={50} count={300} factor={4} saturation={0} fade speed={0.5} />
+                    <fog attach="fog" args={['#000', 25, 60]} />
+                    <ambientLight intensity={0.4} />
+                    <pointLight position={[10, 10, 10]} intensity={0.8} />
+
+                    {/* Reduced star count for performance */}
+                    <Stars
+                        radius={200}
+                        depth={50}
+                        count={150}
+                        factor={3}
+                        saturation={0}
+                        fade
+                        speed={0.3}
+                    />
 
                     <GlobeContent
                         position={[0, 0, 0]}
                         posts={activeData}
-                        onPostClick={onPostClick}
+                        onPostClick={handlePostClick}
                         showLines={showLines}
                         label={activeGlobe === 'Posts' ? '' : activeGlobe}
                         scale={1.5}
@@ -116,13 +109,15 @@ export default function GalaxyScene({
                     />
 
                     <OrbitControls
-                        enablePan={true}
+                        enablePan={false}
                         enableZoom={true}
-                        minDistance={5}
-                        maxDistance={40}
+                        minDistance={8}
+                        maxDistance={30}
                         autoRotate={autoRotate}
-                        autoRotateSpeed={0.5}
-                        zoomSpeed={0.8}
+                        autoRotateSpeed={0.3}
+                        zoomSpeed={0.6}
+                        enableDamping={true}
+                        dampingFactor={0.05}
                     />
                 </Canvas>
             )}
@@ -134,8 +129,8 @@ export default function GalaxyScene({
 
             {/* Chans Overlay - Carousel */}
             {activeGlobe === 'Chans' && (
-                <ChanCarousel chans={chans} onPostClick={onPostClick} />
+                <ChanCarousel chans={chans} onPostClick={handlePostClick} />
             )}
         </div>
     );
-}
+});

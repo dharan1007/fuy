@@ -3,7 +3,8 @@ import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, StyleSheet
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ChevronLeft, CreditCard, CheckCircle, XCircle, Clock, DollarSign } from 'lucide-react-native';
-import { api } from '../lib/api-client';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../context/AuthContext';
 
 interface Transaction {
     id: string;
@@ -18,15 +19,34 @@ export default function TransactionsScreen() {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState(true);
 
+    const { session } = useAuth();
+
     useEffect(() => {
-        fetchTransactions();
-    }, []);
+        if (session?.user) {
+            fetchTransactions();
+        }
+    }, [session]);
 
     const fetchTransactions = async () => {
+        if (!session?.user) return;
         try {
-            const { data, error } = await api.get<{ transactions: Transaction[] }>('/api/payment/history');
+            // Assuming table name is 'Transaction' or 'Payment'
+            const { data, error } = await supabase
+                .from('Transaction')
+                .select('*')
+                .eq('userId', session.user.id)
+                .order('createdAt', { ascending: false });
+
             if (data && !error) {
-                setTransactions(data.transactions || []);
+                setTransactions(data);
+            } else if (error && error.code === '42P01') {
+                // Fallback if table is named Payment
+                const { data: payData } = await supabase
+                    .from('Payment')
+                    .select('*')
+                    .eq('userId', session.user.id)
+                    .order('createdAt', { ascending: false });
+                if (payData) setTransactions(payData as any);
             }
         } catch (e) {
             console.error('Failed to fetch transactions:', e);

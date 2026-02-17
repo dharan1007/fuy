@@ -10,8 +10,13 @@ import { supabase } from '../../lib/supabase';
 import SuccessOverlay from '../SuccessOverlay';
 import { analyzeMultipleImages, NudityAnalysisResult } from '../../lib/nudity-detection';
 import NudityWarningModal from '../NudityWarningModal';
+import PostPreview from '../PostPreview';
+import { Eye, EyeOff } from 'lucide-react-native';
+import MediaFilterSelector from '../MediaFilterSelector';
+import UserTagSelector from '../UserTagSelector';
+import { PostService, PostVisibility } from '../../services/PostService';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org';
+
 const { width } = Dimensions.get('window');
 
 interface ChapterFormProps {
@@ -40,6 +45,28 @@ export default function ChapterForm({ onBack }: ChapterFormProps) {
     const [nudityResult, setNudityResult] = useState<NudityAnalysisResult | null>(null);
     const [showNudityWarning, setShowNudityWarning] = useState(false);
     const [pendingSubmit, setPendingSubmit] = useState(false);
+
+    // Preview state
+    const [showPreview, setShowPreview] = useState(true);
+    const [userName, setUserName] = useState('');
+    const [userAvatar, setUserAvatar] = useState<string | undefined>(undefined);
+
+    // Fetch user info for preview
+    React.useEffect(() => {
+        const fetchUser = async () => {
+            if (!session?.user?.email) return;
+            const { data } = await supabase
+                .from('User')
+                .select('name, avatar')
+                .eq('email', session.user.email)
+                .single();
+            if (data) {
+                setUserName(data.name || 'You');
+                setUserAvatar(data.avatar || undefined);
+            }
+        };
+        fetchUser();
+    }, [session]);
 
     const pickMedia = async () => {
         const result = await ImagePicker.launchImageLibraryAsync({
@@ -116,44 +143,25 @@ export default function ChapterForm({ onBack }: ChapterFormProps) {
 
             setUploadProgress(90);
 
-            const headers: Record<string, string> = {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Referer': 'https://www.fuymedia.org/',
-                'Origin': 'https://www.fuymedia.org',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Sec-Fetch-Dest': 'empty',
-                'Sec-Fetch-Mode': 'cors',
-                'Sec-Fetch-Site': 'same-origin',
-                'X-Requested-With': 'XMLHttpRequest'
-            };
+            setUploadProgress(90);
 
-            if (session?.access_token) {
-                headers['Authorization'] = `Bearer ${session.access_token}`;
-            }
-
-            const response = await fetch(`${API_URL}/api/posts/create`, {
-                method: 'POST',
-                headers,
-                body: JSON.stringify({
-                    userId: userData.id,
-                    postType: 'CHAPTER',
-                    content: description || title,
-                    visibility,
-                    chapterData: { title, description },
-                    mediaUrls: uploadedMedia.map(m => m.url),
-                    mediaTypes: uploadedMedia.map(m => m.type),
-                    slashes: slashes.filter(s => s.trim()),
-                }),
+            await PostService.createPost({
+                userId: userData.id,
+                postType: 'CHAPTER',
+                content: description || title,
+                visibility: visibility as PostVisibility,
+                media: uploadedMedia.map(m => ({ uri: m.url, type: m.type })),
+                chapterData: { title, description },
+                slashes: slashes.filter(s => s.trim()),
             });
 
             setUploadProgress(100);
 
-            if (!response.ok) {
-                const errData = await response.json();
-                throw new Error(errData.error || 'Failed to create chapter');
-            }
+            setShowSuccess(true);
+            setPendingSubmit(false);
+            setNudityResult(null);
+
+            setUploadProgress(100);
 
             // Alert.alert('Done', 'Posted successfully', [{ text: 'OK', onPress: onBack }]);
             setShowSuccess(true);
@@ -201,6 +209,26 @@ export default function ChapterForm({ onBack }: ChapterFormProps) {
                     <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>Multi-media collection</Text>
                 </View>
                 <BookOpen size={24} color="rgba(255,255,255,0.3)" />
+            </View>
+
+            {/* Post Preview Component */}
+            <View style={{ marginBottom: 20 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontWeight: '600', fontSize: 11, letterSpacing: 1 }}>PREVIEW</Text>
+                    <TouchableOpacity onPress={() => setShowPreview(!showPreview)} style={{ padding: 4 }}>
+                        {showPreview ? <Eye size={16} color="rgba(255,255,255,0.6)" /> : <EyeOff size={16} color="rgba(255,255,255,0.4)" />}
+                    </TouchableOpacity>
+                </View>
+
+                {showPreview && (
+                    <PostPreview
+                        userName={userName}
+                        userAvatar={userAvatar}
+                        content={title + (description ? '\n' + description : '')}
+                        media={media}
+                        visibility={visibility}
+                    />
+                )}
             </View>
 
             {/* Title */}

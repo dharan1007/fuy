@@ -154,7 +154,7 @@ export default function AppHeader({ title, showBackButton = false, showSettingsA
               </Link>
             )}
 
-            {/* Shop button */}
+            {/* Shop button - hidden until next update
             {!hideShopAndCart && pathname !== "/shop" && (
               <Link
                 href="/shop"
@@ -166,6 +166,7 @@ export default function AppHeader({ title, showBackButton = false, showSettingsA
                 </svg>
               </Link>
             )}
+            */}
 
             {/* Dashboard button */}
             {!hideNavigation && session && pathname !== "/dashboard" && (

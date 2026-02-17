@@ -1,4 +1,4 @@
-'use client';
+
 
 import React, { useRef, useState, useCallback, useEffect } from 'react';
 import AudioWaveform from './AudioWaveform';

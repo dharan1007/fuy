@@ -1,112 +1,156 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import dynamic from 'next/dynamic';
 import { SearchOverlay } from '@/components/Explore/SearchOverlay';
-
-const GalaxyScene = dynamic(() => import('@/components/Explore/GalaxyScene'), { ssr: false });
 import { PostDetailModal } from '@/components/Explore/PostDetailModal';
-import SlashesTab from '@/components/Explore/SlashesTab';
-import FeedPostItem from '@/components/FeedPostItem';
-import { DUMMY_PUDS, DUMMY_CHANS } from './dummyData';
+
+// Lazy load heavy components
+const GalaxyScene = dynamic(() => import('@/components/Explore/GalaxyScene'), {
+  ssr: false,
+  loading: () => <div className="w-full h-full bg-black" />
+});
+const SlashesTab = dynamic(() => import('@/components/Explore/SlashesTab'), {
+  ssr: false,
+  loading: () => <LoadingSpinner />
+});
+const FeedPostItem = dynamic(() => import('@/components/FeedPostItem'), { ssr: false });
 
 interface Post {
   id: string;
-  userId: string;
-  content: string;
-  feature: string;
-  visibility: string;
-  connectionScore: number;
-  createdAt: string;
-  user?: {
-    name: string;
-    profile?: {
-      displayName: string;
-      avatarUrl: string;
-    };
-  };
-  media?: {
-    id: string;
-    url: string;
-    type: string;
-  }[];
-  likes?: { id: string }[];
-  comments?: { id: string; content?: string }[];
+  userId?: string;
+  content?: string;
+  postType?: string;
+  user?: any;
+  media?: any[];
+  chanData?: any;
 }
+
+const TABS = ['Posts', 'Slashes', 'Chans', 'Auds', 'Chaptes', 'sixts', 'Puds'];
+
+// Memoized Tab Button
+const TabButton = React.memo(function TabButton({
+  tab,
+  isActive,
+  onClick
+}: {
+  tab: string;
+  isActive: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-4 py-2 rounded-full backdrop-blur-md border transition-all duration-200 text-sm font-bold uppercase tracking-wider whitespace-nowrap ${isActive
+          ? 'bg-white text-black border-white shadow-[0_0_15px_rgba(255,255,255,0.5)] scale-105'
+          : 'bg-black/50 border-white/20 text-white/60 hover:bg-white/10 hover:text-white'
+        }`}
+    >
+      {tab}
+    </button>
+  );
+});
 
 export default function ExplorePage() {
   const router = useRouter();
-  const [posts, setPosts] = useState<Post[]>([]);
   const [activeGlobe, setActiveGlobe] = useState('Posts');
-
-  // New Categories Data
-  const [chans, setChans] = useState<Post[]>([]);
-  const [lils, setLils] = useState<Post[]>([]);
-  const [fills, setFills] = useState<Post[]>([]);
-  const [auds, setAuds] = useState<Post[]>([]);
-  const [chaptes, setChaptes] = useState<Post[]>([]);
-  const [xrays, setXrays] = useState<Post[]>([]);
-  const [puds, setPuds] = useState<Post[]>([]);
-  const [texts, setTexts] = useState<Post[]>([]);
-
   const [loading, setLoading] = useState(true);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [showLines, setShowLines] = useState(true);
   const [isAutoRotate, setIsAutoRotate] = useState(true);
 
+  // Consolidated state for all data
+  const [data, setData] = useState<{
+    posts: Post[];
+    chans: Post[];
+    lils: Post[];
+    fills: Post[];
+    auds: Post[];
+    chaptes: Post[];
+    xrays: Post[];
+    puds: Post[];
+    texts: Post[];
+  }>({
+    posts: [],
+    chans: [],
+    lils: [],
+    fills: [],
+    auds: [],
+    chaptes: [],
+    xrays: [],
+    puds: [],
+    texts: []
+  });
+
+  // Fetch data once on mount
   useEffect(() => {
-    const fetchPosts = async () => {
+    let mounted = true;
+
+    const fetchData = async () => {
       try {
-        setLoading(true);
-
         const res = await fetch('/api/explore/summary');
-        if (res.ok) {
-          const data = await res.json();
-
-          // Include ALL post types in the main posts globe
-          // Only exclude pure CHAN types as they have their own tab
-          const filteredMain = (data.main || []).filter((post: any) =>
-            post.feature !== 'CHAN' && post.postType !== 'CHAN'
-          );
-
-          // Also pull in specific types to ensure they are in the main globe
-          const allPosts = [
-            ...filteredMain,
-            ...(data.lills || []),
-            ...(data.fills || []),
-            ...(data.chapters || []),
-            ...(data.xrays || []),
-            ...(data.texts || []),
-            ...(data.auds || [])
-          ];
-
-          // De-duplicate by ID
-          const uniquePosts = Array.from(
-            new Map(allPosts.map((p: any) => [p.id, p])).values()
-          );
-
-          setPosts(uniquePosts as Post[]);
-          setChans(data.chans && data.chans.length > 0 ? [...data.chans, ...DUMMY_CHANS] : DUMMY_CHANS as unknown as Post[]);
-          setLils(data.lills || []);
-          setFills(data.fills || []);
-          setAuds(data.auds || []);
-          setChaptes(data.chapters || []);
-          setXrays(data.xrays || []);
-          setPuds(data.puds && data.puds.length > 0 ? [...data.puds, ...DUMMY_PUDS] : DUMMY_PUDS as unknown as Post[]);
-          setTexts(data.texts || []);
+        if (res.ok && mounted) {
+          const result = await res.json();
+          setData({
+            posts: result.main || [],
+            chans: result.chans || [],
+            lils: result.lills || [],
+            fills: result.fills || [],
+            auds: result.auds || [],
+            chaptes: result.chapters || [],
+            xrays: result.xrays || [],
+            puds: result.puds || [],
+            texts: result.texts || []
+          });
         }
       } catch (err) {
         console.error('Error fetching explore content:', err);
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     };
 
-    fetchPosts();
+    fetchData();
+    return () => { mounted = false; };
   }, []);
+
+  // Memoized handlers
+  const handlePostClick = useCallback((post: Post | any) => {
+    if (activeGlobe === 'Posts') {
+      router.push(`/explore/similar/${post.id}`);
+    } else if (activeGlobe === 'Chans' || post.postType === 'CHAN' || post.chanData) {
+      const chanId = post.chanData?.id || post.id;
+      router.push(`/chan/${chanId}`);
+    } else {
+      setSelectedPost(post);
+    }
+  }, [activeGlobe, router]);
+
+  const handleTabChange = useCallback((tab: string) => {
+    setActiveGlobe(tab);
+    setSelectedPost(null);
+  }, []);
+
+  const handleToggle = useCallback(() => {
+    setShowLines(prev => !prev);
+    setIsAutoRotate(prev => !prev);
+  }, []);
+
+  const handleBack = useCallback(() => router.back(), [router]);
+  const handleCloseModal = useCallback(() => setSelectedPost(null), []);
+
+  // Memoized grid posts for text tabs
+  const gridPosts = useMemo(() => {
+    if (activeGlobe === 'Chaptes') return data.chaptes;
+    if (activeGlobe === 'sixts') return data.texts;
+    return [];
+  }, [activeGlobe, data.chaptes, data.texts]);
+
+  // Should show 3D scene
+  const show3D = !['Slashes', 'Chaptes', 'sixts'].includes(activeGlobe);
+  const showControls = !['Chans', 'Puds', 'Slashes', 'Chaptes', 'sixts'].includes(activeGlobe);
 
   if (loading) {
     return (
@@ -116,29 +160,13 @@ export default function ExplorePage() {
     );
   }
 
-  const handlePostClick = (post: Post | any) => {
-    if (activeGlobe === 'Posts') {
-      router.push(`/explore/similar/${post.id}`);
-    } else if (activeGlobe === 'Chans' || post.postType === 'CHAN' || post.feature === 'CHAN') {
-      const chanId = post.chanData?.id || post.id;
-      router.push(`/chan/${chanId}`);
-    } else {
-      setSelectedPost(post);
-    }
-  };
-
-  const handleToggle = () => {
-    setShowLines(!showLines);
-    setIsAutoRotate(!isAutoRotate);
-  };
-
   return (
     <div className="h-screen w-full bg-black relative overflow-hidden">
       {/* Back Button */}
       <div className="absolute top-8 left-8 z-20">
         <button
-          onClick={() => router.back()}
-          className="p-3 rounded-full backdrop-blur-md border border-white/20 bg-white/10 text-white/60 hover:bg-white/20 transition-all duration-300 hover:scale-105 hover:text-white"
+          onClick={handleBack}
+          className="p-3 rounded-full backdrop-blur-md border border-white/20 bg-white/10 text-white/60 hover:bg-white/20 transition-all duration-200 hover:text-white"
           title="Go Back"
         >
           <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -150,61 +178,59 @@ export default function ExplorePage() {
       {/* Search Overlay */}
       {activeGlobe !== 'Slashes' && <SearchOverlay activeGlobe={activeGlobe} />}
 
-      {/* Globe Selector Tabs */}
+      {/* Tab Selector */}
       <div className="absolute top-24 left-1/2 transform -translate-x-1/2 z-20 flex gap-2 overflow-x-auto max-w-full px-4 pb-2 no-scrollbar">
-        {['Posts', 'Slashes', 'Chans', 'Auds', 'Chaptes', 'sixts', 'Puds'].map((tab) => (
-          <button
+        {TABS.map((tab) => (
+          <TabButton
             key={tab}
-            onClick={() => { setActiveGlobe(tab); setSelectedPost(null); }}
-            className={`px-4 py-2 rounded-full backdrop-blur-md border transition-all duration-300 text-sm font-bold uppercase tracking-wider whitespace-nowrap ${activeGlobe === tab
-              ? 'bg-white text-black border-white shadow-[0_0_15px_rgba(255,255,255,0.5)] scale-105'
-              : 'bg-black/50 border-white/20 text-white/60 hover:bg-white/10 hover:text-white'
-              }`}
-          >
-            {tab}
-          </button>
+            tab={tab}
+            isActive={activeGlobe === tab}
+            onClick={() => handleTabChange(tab)}
+          />
         ))}
       </div>
 
-      {/* Galaxy Scene, Slashes Tab, or Grid View */}
-      {activeGlobe === 'Slashes' ? (
-        <SlashesTab />
-      ) : ['Chaptes', 'sixts'].includes(activeGlobe) ? (
-        <div className="pt-40 px-4 pb-8 overflow-y-auto h-full">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-6xl mx-auto">
-            {(activeGlobe === 'Chaptes' ? chaptes : texts).map((post: any) => (
-              <FeedPostItem key={post.id} post={post} />
-            ))}
+      {/* Content */}
+      <Suspense fallback={<LoadingSpinner />}>
+        {activeGlobe === 'Slashes' ? (
+          <SlashesTab />
+        ) : ['Chaptes', 'sixts'].includes(activeGlobe) ? (
+          <div className="pt-40 px-4 pb-8 overflow-y-auto h-full">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-6xl mx-auto">
+              {gridPosts.map((post: any) => (
+                <FeedPostItem key={post.id} post={post} />
+              ))}
+            </div>
           </div>
-        </div>
-      ) : (
-        <GalaxyScene
-          activeGlobe={activeGlobe}
-          posts={posts}
-          chans={chans}
-          lils={lils}
-          fills={fills}
-          auds={auds}
-          chaptes={chaptes}
-          xrays={xrays}
-          puds={puds}
-          texts={texts}
-          onPostClick={handlePostClick}
-          showLines={showLines}
-          autoRotate={isAutoRotate}
-        />
-      )}
+        ) : (
+          <GalaxyScene
+            activeGlobe={activeGlobe}
+            posts={data.posts}
+            chans={data.chans}
+            lils={data.lils}
+            fills={data.fills}
+            auds={data.auds}
+            chaptes={data.chaptes}
+            xrays={data.xrays}
+            puds={data.puds}
+            texts={data.texts}
+            onPostClick={handlePostClick}
+            showLines={showLines}
+            autoRotate={isAutoRotate}
+          />
+        )}
+      </Suspense>
 
-      {/* Controls - Hide for Chans, Fills, Puds, Slashes, and Grid Tabs */}
-      {!['Chans', 'Puds', 'Slashes', 'Chaptes', 'sixts'].includes(activeGlobe) && (
-        <div className="absolute bottom-8 right-8 z-10 flex flex-col gap-4">
+      {/* Controls */}
+      {showControls && (
+        <div className="absolute bottom-8 right-8 z-10">
           <button
             onClick={handleToggle}
-            className={`p-3 rounded-full backdrop-blur-md border transition-all duration-300 ${!isAutoRotate
-              ? 'bg-red-500/20 border-red-500/50 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.3)]'
-              : showLines
-                ? 'bg-blue-500/20 border-blue-500/50 text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.3)]'
-                : 'bg-white/10 border-white/20 text-white/60 hover:bg-white/20'
+            className={`p-3 rounded-full backdrop-blur-md border transition-all duration-200 ${!isAutoRotate
+                ? 'bg-red-500/20 border-red-500/50 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.3)]'
+                : showLines
+                  ? 'bg-blue-500/20 border-blue-500/50 text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.3)]'
+                  : 'bg-white/10 border-white/20 text-white/60 hover:bg-white/20'
               }`}
             title={!isAutoRotate ? "Play Rotation" : "Pause & Hide Lines"}
           >
@@ -225,10 +251,9 @@ export default function ExplorePage() {
       {selectedPost && (
         <PostDetailModal
           post={selectedPost}
-          onClose={() => setSelectedPost(null)}
+          onClose={handleCloseModal}
         />
       )}
     </div>
   );
 }
-

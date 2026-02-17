@@ -1,4 +1,4 @@
-'use client';
+
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Search, Music, TrendingUp, Clock, Play, Pause, Plus, X, Loader2 } from 'lucide-react';
@@ -206,8 +206,8 @@ export default function AudioLibraryPicker({
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id as TabType)}
                             className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm transition-colors ${activeTab === tab.id
-                                    ? 'bg-white text-black font-medium'
-                                    : 'text-white/70 hover:bg-white/10'
+                                ? 'bg-white text-black font-medium'
+                                : 'text-white/70 hover:bg-white/10'
                                 }`}
                         >
                             <tab.icon size={14} />

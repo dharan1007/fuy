@@ -76,10 +76,7 @@ interface MessageTag {
     id: string;
     messageId: string;
     tagType: string;
-    taggedContent?: string;
-    note?: string;
     createdAt: string;
-    triggeredCount?: number;
     message: {
         id: string;
         content: string;
@@ -186,7 +183,7 @@ const SwipableCard = ({
                                 {type === 'tag' ? item.tagType : type === 'trigger' ? 'TRIGGER' : 'FACT'}
                             </Text>
                         </View>
-                        {item.triggeredCount > 0 && (
+                        {item.triggeredCount > 0 && type !== 'tag' && (
                             <View style={styles.countBadge}>
                                 <Bell size={10} color={COLORS.textSecondary} />
                                 <Text style={styles.countText}>{item.triggeredCount}x</Text>
@@ -194,7 +191,7 @@ const SwipableCard = ({
                         )}
                     </View>
                     <Text style={styles.cardMainText} numberOfLines={2}>
-                        {type === 'fact' ? item.warningText : item.taggedContent || item.selectedText || item.message?.content}
+                        {type === 'fact' ? item.warningText : item.selectedText || item.message?.content}
                     </Text>
                     {type === 'fact' && (
                         <Text style={styles.keywordText}>Keyword: "{item.keyword}"</Text>
@@ -455,7 +452,7 @@ export default function BondingScreen() {
             let query = supabase
                 .from('MessageTag')
                 .select(`
-                    id, messageId, tagType, taggedContent, note, createdAt, triggeredCount,
+                    id, messageId, tagType, createdAt,
                     message:Message(id, content, createdAt, sender:User!senderId(name, profile:Profile(displayName, avatarUrl)))
                 `)
                 .eq('userId', dbUserId)

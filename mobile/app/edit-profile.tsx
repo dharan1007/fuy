@@ -9,7 +9,6 @@ import * as ImagePicker from 'expo-image-picker';
 import { uploadFileToR2 } from '../lib/upload-helper';
 import { Video as ExpoVideo, ResizeMode } from 'expo-av';
 import { useToast } from '../context/ToastContext';
-import { getApiUrl } from '../lib/api';
 
 // Types matching web ProfileFormData
 interface ProfileFormData {
@@ -340,7 +339,7 @@ export default function EditProfileScreen() {
                 setUploadingAvatar(true);
                 try {
                     const { data: { session } } = await supabase.auth.getSession();
-                    const url = await uploadFileToR2(result.assets[0].uri, 'IMAGE', session?.access_token);
+                    const url = await uploadFileToR2(result.assets[0].uri, 'IMAGE');
                     setData(prev => ({ ...prev, avatarUrl: url }));
                 } catch (uploadError: any) {
                     const errMsg = uploadError?.message || '';
@@ -525,87 +524,29 @@ export default function EditProfileScreen() {
 
             // Fix for missing public User record (Foreign Key Error)
             if (upsertError && upsertError.code === '23503') {
-                console.log('[EditProfile] User record missing in public DB. Syncing...');
+                // Try to manually insert User if trigger failed
                 try {
-                    const API_URL = getApiUrl();
-                    const { data: { session } } = await supabase.auth.getSession();
-                    const syncRes = await fetch(`${API_URL}/api/user/sync`, {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${session?.access_token}`
-                        }
-                    });
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if (user) {
+                        const { error: insertError } = await supabase.from('User').insert({
+                            id: user.id,
+                            email: user.email,
+                            name: data.displayName || 'User'
+                        });
 
-                    if (syncRes.ok) {
-                        console.log('[EditProfile] Sync successful. Retrying save...');
-                        const retry = await supabase
-                            .from('Profile')
-                            .upsert(profileDataWithUserId, { onConflict: 'userId' });
-                        upsertError = retry.error;
-                    } else {
-                        console.error('[EditProfile] Sync failed:', await syncRes.text());
+                        if (!insertError) {
+                            const retry = await supabase.from('Profile').upsert(profileDataWithUserId, { onConflict: 'userId' });
+                            upsertError = retry.error;
+                        }
                     }
-                } catch (syncErr) {
-                    console.error('[EditProfile] Sync error:', syncErr);
+                } catch (e) {
+                    console.error('Manual user insert failed', e);
                 }
             }
 
             if (upsertError) {
                 console.error('[EditProfile] Upsert error:', upsertError);
-                // If RLS blocks update, try via API as fallback with retries
-                if (upsertError.code === '42501') {
-                    console.log('[EditProfile] RLS blocked, trying API fallback with retries...');
-                    const { data: { session } } = await supabase.auth.getSession();
-                    const API_URL = getApiUrl();
-
-                    // Retry with exponential backoff - longer waits for rate limits
-                    const maxRetries = 5;
-                    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-                        console.log(`[EditProfile] API attempt ${attempt}/${maxRetries}...`);
-
-                        try {
-                            const res = await fetch(`${API_URL}/api/profile`, {
-                                method: 'PUT',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'Authorization': `Bearer ${session?.access_token}`
-                                },
-                                body: JSON.stringify(profileData),
-                            });
-
-                            console.log('[EditProfile] API response status:', res.status);
-
-                            if (res.ok) {
-                                console.log('[EditProfile] API save successful');
-                                return; // Success - exit the retry loop
-                            } else if (res.status === 429) {
-                                // Rate limited - wait longer before retrying
-                                const waitTime = Math.min(30000, Math.pow(2, attempt) * 3000); // 6s, 12s, 24s, 30s, 30s
-                                console.log(`[EditProfile] Rate limited, waiting ${waitTime / 1000}s...`);
-                                if (attempt < maxRetries) {
-                                    await new Promise(resolve => setTimeout(resolve, waitTime));
-                                    continue;
-                                }
-                                throw new Error('Rate limited. Please wait 30 seconds and try again.');
-                            } else {
-                                const errData = await res.json().catch(() => ({}));
-                                throw new Error(errData.error || `Server error: ${res.status}`);
-                            }
-                        } catch (fetchErr: any) {
-                            if (fetchErr.message?.includes('Rate limited') || fetchErr.message?.includes('Server error')) {
-                                throw fetchErr;
-                            }
-                            console.error('[EditProfile] Fetch error:', fetchErr);
-                            if (attempt < maxRetries) {
-                                await new Promise(resolve => setTimeout(resolve, 5000));
-                                continue;
-                            }
-                            throw new Error('Network error. Check your connection.');
-                        }
-                    }
-                } else {
-                    throw new Error(upsertError.message);
-                }
+                throw new Error(upsertError.message);
             }
 
             console.log('[EditProfile] Profile saved successfully');

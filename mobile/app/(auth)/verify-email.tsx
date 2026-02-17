@@ -6,7 +6,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Key, ArrowLeft, ArrowRight, CheckCircle, Lock, Eye, EyeOff } from 'lucide-react-native';
 import { useToast } from '../../context/ToastContext';
-import { getApiUrl } from '../../lib/api';
 import { supabase } from '../../lib/supabase';
 
 export default function VerifyEmailScreen() {
@@ -26,58 +25,60 @@ export default function VerifyEmailScreen() {
             return;
         }
 
-        if (!password) {
-            showToast('Please enter your password to continue', 'error');
-            return;
-        }
-
         setLoading(true);
         try {
-            const API_URL = getApiUrl();
+            // 1. Verify OTP via Custom API
+            const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org';
+
             const response = await fetch(`${API_URL}/api/auth/verify`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                },
                 body: JSON.stringify({
-                    email: email,
-                    code: code,
+                    email,
+                    code,
                     type: 'SIGNUP',
-                    password: password // Send password to complete registration
+                    password: password // Pass password for user creation if needed by API
                 }),
             });
 
-            // Check if response is JSON before parsing
-            const contentType = response.headers.get('content-type');
-            if (!contentType || !contentType.includes('application/json')) {
-                const text = await response.text();
-                console.error('Non-JSON response from verify API:', text.substring(0, 300));
-                throw new Error('Server unavailable. Please try again later.');
-            }
+            const responseText = await response.text();
+            let data;
 
-            const data = await response.json();
+            try {
+                data = JSON.parse(responseText);
+            } catch (jsonError) {
+                console.error('API Response was not JSON:', responseText.slice(0, 500));
+                throw new Error(`Server Error: ${response.status} ${response.statusText}. Please check your network or try again.`);
+            }
 
             if (!response.ok) {
                 throw new Error(data.error || 'Verification failed');
             }
 
-            // Auto-login after successful verification
-            showToast('Email verified! Logging you in...', 'success');
-
-            const { error: loginError } = await supabase.auth.signInWithPassword({
-                email: email,
-                password: password,
-            });
-
-            if (loginError) {
-                console.error('Auto-login failed:', loginError);
-                showToast('Verified! Please login with your credentials.', 'info');
+            // 2. Sign in the user (since they are now created in Supabase)
+            if (password) {
+                const { error: loginError } = await supabase.auth.signInWithPassword({
+                    email: email,
+                    password: password,
+                });
+                if (loginError) throw loginError;
+            } else {
+                showToast('Email verified! Please login.', 'success');
                 router.replace('/(auth)/login');
                 return;
             }
 
+            // Auto-login after successful verification
+            showToast('Email verified! Logging you in...', 'success');
+
             // Successfully logged in - go to profile setup
-            router.replace('/profile-setup');
+            // Note: AuthContext should handle redirection, but we force it here just in case
+            // router.replace('/profile-setup'); 
 
         } catch (error: any) {
+            console.error('Verify error:', error);
             showToast(error.message, 'error');
         } finally {
             setLoading(false);

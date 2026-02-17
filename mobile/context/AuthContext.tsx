@@ -24,17 +24,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
         const loadSession = async () => {
             try {
-                const { data: { session }, error } = await supabase.auth.getSession();
+                const { data, error } = await supabase.auth.getSession();
 
                 if (error) {
-                    console.error('Error fetching session:', error);
+                    // Check for refresh token error
+                    if (error.message && (
+                        error.message.includes('Invalid Refresh Token') ||
+                        error.message.includes('Refresh Token Not Found')
+                    )) {
+                        console.log('Auth: Refresh token invalid, signing out locally.');
+                        setSession(null);
+                        // Optional: Clear storage if needed, but setSession(null) should trigger app redirect
+                    } else {
+                        console.error('Error fetching session:', error);
+                    }
+                } else if (mounted) {
+                    setSession(data.session);
                 }
-
-                if (mounted) {
-                    setSession(session);
-                }
-            } catch (e) {
+            } catch (e: any) {
                 console.error('Auth load error:', e);
+                if (e?.message?.includes('Invalid Refresh Token') || e?.message?.includes('Refresh Token Not Found')) {
+                    setSession(null);
+                }
             } finally {
                 if (mounted) setLoading(false);
             }

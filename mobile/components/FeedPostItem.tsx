@@ -1,57 +1,24 @@
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Image, TouchableWithoutFeedback, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, Image, TouchableWithoutFeedback, Modal, ActivityIndicator } from 'react-native';
 import { Video, ResizeMode } from 'expo-av';
 import { BlurView } from 'expo-blur';
-import { MoreHorizontal, Plus, MessageCircle, Send, Play, Volume2, VolumeX, User, Slash, Maximize2 } from 'lucide-react-native';
-import { getApiUrl } from '../lib/api';
+import { MoreHorizontal, Plus, MessageCircle, Send, Play, Volume2, VolumeX, User, Slash, Maximize2, ChevronLeft, ChevronRight, Users } from 'lucide-react-native';
 import SlashesModal from './SlashesModal';
 import XrayScratch from './XrayScratch';
 import { VerifiedBadge } from './VerifiedBadge';
+import TaggedUsersModal from './TaggedUsersModal';
 import { MediaUploadService } from '../services/MediaUploadService';
 import { useAuth } from '../context/AuthContext';
 import * as ImagePicker from 'expo-image-picker';
 import Svg, { Path, Defs, ClipPath, G, Rect } from 'react-native-svg';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring, withSequence } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring, withSequence, runOnJS } from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { Heart, Sparkles } from 'lucide-react-native';
+import { PoopIcon, MagicCapIcon } from './ReactionIcons';
 
-const PoopIcon = ({ color }: { color: string }) => (
-    <Svg width="20" height="20" viewBox="0 0 24 24" fill={color}>
-        <Path
-            fillRule="evenodd"
-            d="M12 2C10 2 8 4 8 6C8 7 8.5 8 9 9C6.5 9.5 5 11 5 13C5 14.5 6 15.5 7 16C5 17 4 19 5 20.5C5.5 21.5 6.5 22 8 22H16C17.5 22 18.5 21.5 19 20.5C20 19 19 17 17 16C18 15.5 19 14.5 19 13C19 11 17.5 9.5 15 9C15.5 8 16 7 16 6C16 4 14 2 12 2ZM9.5 14C10.3284 14 11 13.3284 11 12.5C11 11.6716 10.3284 11 9.5 11C8.67157 11 8 11.6716 8 12.5C8 13.3284 8.67157 14 9.5 14ZM14.5 14C15.3284 14 16 13.3284 16 12.5C16 11.6716 15.3284 11 14.5 11C13.6716 11 13 11.6716 13 12.5C13 13.3284 13.6716 14 14.5 14ZM12 18C14.5 18 15.5 16.5 15.5 16.5H8.5C8.5 16.5 9.5 18 12 18Z"
-        />
-    </Svg>
-);
-
-const MagicCapIcon = ({ color }: { color: string }) => (
-    <Svg width="20" height="20" viewBox="0 0 24 24">
-        <Defs>
-            <ClipPath id="cap-crown">
-                <Path d="M12 4C15.5 4 18.5 6 19 9L19.5 14H4.5L5 9C5.5 6 8.5 4 12 4Z" />
-            </ClipPath>
-        </Defs>
-        {/* Crown Base - Green */}
-        <Path d="M12 4C15.5 4 18.5 6 19 9L19.5 14H4.5L5 9C5.5 6 8.5 4 12 4Z" fill="#15803d" />
-
-        {/* Red Stripes */}
-        <G clipPath="url(#cap-crown)">
-            <Rect x="11" y="0" width="2" height="20" fill="#dc2626" />
-            <Rect x="7" y="0" width="2" height="20" fill="#dc2626" rotation="-15" origin="7, 10" />
-            <Rect x="15" y="0" width="2" height="20" fill="#dc2626" rotation="15" origin="15, 10" />
-        </G>
-
-        {/* Brim - Green */}
-        <Path d="M21 14H3C2 14 2 16 4 17L6 18H18L20 17C22 16 22 14 21 14Z" fill="#15803d" opacity="0.9" />
-
-        {/* Button - Red */}
-        <Path d="M12 4V3" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-);
-
-const API_URL = getApiUrl();
 
 interface FeedPostItemProps {
     item: any;
@@ -89,6 +56,11 @@ const FeedPostItem = React.memo(({
     const [isMuted, setIsMuted] = useState(false);
     const [slashesModalVisible, setSlashesModalVisible] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
+    const [taggedUsersModalVisible, setTaggedUsersModalVisible] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+
+    // Carousel State
+    const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
 
     const router = useRouter();
 
@@ -96,6 +68,25 @@ const FeedPostItem = React.memo(({
     useEffect(() => {
         if (!isActive) setIsPaused(false);
     }, [isActive]);
+
+    // Reset carousel when item changes
+    useEffect(() => {
+        setCurrentMediaIndex(0);
+    }, [item.id]);
+
+    const handleNextMedia = (e?: any) => {
+        if (e && e.stopPropagation) e.stopPropagation();
+        if (item.postMedia && currentMediaIndex < item.postMedia.length - 1) {
+            setCurrentMediaIndex(prev => prev + 1);
+        }
+    };
+
+    const handlePrevMedia = (e?: any) => {
+        if (e && e.stopPropagation) e.stopPropagation();
+        if (currentMediaIndex > 0) {
+            setCurrentMediaIndex(prev => prev - 1);
+        }
+    };
 
     const handlePress = () => {
         if (!isActive) {
@@ -204,63 +195,91 @@ const FeedPostItem = React.memo(({
                             }
                         }
 
-                        const media = item.postMedia[0];
-                        if (media.type === 'VIDEO') {
-                            return (
-                                <TouchableWithoutFeedback onPress={handlePress}>
-                                    <View style={{ width: '100%', height: '100%' }}>
-                                        <Video
-                                            source={{ uri: media.url }}
-                                            style={{ width: '100%', height: '100%' }}
-                                            resizeMode={ResizeMode.COVER}
-                                            shouldPlay={isActive && !isPaused && isScreenFocused}
-                                            isLooping
-                                            isMuted={isMuted}
-                                            useNativeControls={false} // Custom controls
-                                        />
-                                        {/* Play Overlay */}
-                                        {isActive && isPaused && (
-                                            <View className="absolute inset-0 items-center justify-center bg-black/20">
-                                                <View className="bg-black/40 rounded-full p-3 backdrop-blur-sm">
-                                                    <Play size={24} color="white" fill="white" />
-                                                </View>
-                                            </View>
-                                        )}
+                        // Standard Carousel Logic
+                        const media = item.postMedia[currentMediaIndex];
+                        if (!media) return null;
 
-                                        {/* Controls Overlay */}
-                                        <View className="absolute bottom-3 right-3 flex-row gap-2">
-                                            <TouchableOpacity
-                                                onPress={() => setIsMuted(!isMuted)}
-                                                className="w-8 h-8 rounded-full bg-black/50 items-center justify-center backdrop-blur-md"
-                                            >
-                                                {isMuted ? <VolumeX size={14} color="white" /> : <Volume2 size={14} color="white" />}
-                                            </TouchableOpacity>
+                        const panGesture = Gesture.Pan()
+                            .activeOffsetX([-20, 20])
+                            .onEnd((e) => {
+                                if (e.translationX < -50) {
+                                    runOnJS(handleNextMedia)();
+                                } else if (e.translationX > 50) {
+                                    runOnJS(handlePrevMedia)();
+                                }
+                            });
 
-                                            {item.postType === 'FILL' && (
-                                                <TouchableOpacity
-                                                    onPress={() => setIsFullscreen(true)}
-                                                    className="w-8 h-8 rounded-full bg-black/50 items-center justify-center backdrop-blur-md"
-                                                >
-                                                    <Maximize2 size={14} color="white" />
-                                                </TouchableOpacity>
-                                            )}
-                                        </View>
-                                    </View>
-                                </TouchableWithoutFeedback>
-                            );
-                        }
                         return (
-                            <Image
-                                source={{ uri: media.url }}
-                                className="w-full h-full"
-                                resizeMode="cover"
-                            />
+                            <GestureDetector gesture={panGesture}>
+                                <View style={{ width: '100%', height: '100%' }}>
+                                    {isActive ? (
+                                        <TouchableWithoutFeedback onPress={handlePress}>
+                                            <View style={{ width: '100%', height: '100%' }}>
+                                                <Video
+                                                    source={{ uri: media.url }}
+                                                    style={{ width: '100%', height: '100%' }}
+                                                    resizeMode={ResizeMode.CONTAIN}
+                                                    shouldPlay={isActive && !isPaused && isScreenFocused}
+                                                    isLooping
+                                                    isMuted={isMuted}
+                                                    useNativeControls={false}
+                                                    onLoadStart={() => setIsLoading(true)}
+                                                    onLoad={() => setIsLoading(false)}
+                                                />
+                                                {/* Loading Indicator */}
+                                                {isLoading && (
+                                                    <View className="absolute inset-0 items-center justify-center bg-black/10">
+                                                        <ActivityIndicator size="large" color="white" />
+                                                    </View>
+                                                )}
+                                                {/* Play Overlay */}
+                                                {isActive && isPaused && !isLoading && (
+                                                    <View className="absolute inset-0 items-center justify-center bg-black/20 pointer-events-none">
+                                                        <View className="bg-black/40 rounded-full p-3 backdrop-blur-sm">
+                                                            <Play size={24} color="white" fill="white" />
+                                                        </View>
+                                                    </View>
+                                                )}
+
+                                                {/* Volume Control */}
+                                                <TouchableOpacity
+                                                    onPress={(e) => {
+                                                        e.stopPropagation();
+                                                        setIsMuted(!isMuted);
+                                                    }}
+                                                    className="absolute bottom-3 right-3 p-2 bg-black/40 rounded-full backdrop-blur-sm"
+                                                    style={{ zIndex: 10 }}
+                                                >
+                                                    {isMuted ? (
+                                                        <VolumeX size={16} color="white" />
+                                                    ) : (
+                                                        <Volume2 size={16} color="white" />
+                                                    )}
+                                                </TouchableOpacity>
+                                            </View>
+                                        </TouchableWithoutFeedback>
+                                    ) : (
+                                        // TEMPORARY DEBUG: Simple View to rule out complex rendering crash
+                                        <View style={{ width: '100%', height: '100%', backgroundColor: '#222', alignItems: 'center', justifyContent: 'center' }}>
+                                            <Text style={{ color: '#555' }}>DEBUG: Inactive</Text>
+                                        </View>
+                                    )}
+                                    {/* 
+                                     * OPTIMIZATION NOTE: 
+                                     * Ideally we render an <Image> as thumbnail. 
+                                     * Since we lack thumb URLs, we are forced to use <Video> component even for inactive items to show the first frame.
+                                     * To prevent crashes, we MUST rely on FlatList `windowSize` and `maxToRenderPerBatch` in the parent.
+                                     * AND ensure we don't have OTHER video instances (like bubbles) running.
+                                     */}
+                                </View>
+                            </GestureDetector>
                         );
                     })()}
                 </View>
-            )}
+            )
+            }
 
-            {/* Content Text (If no media, style as card, otherwise plain text) */}
+            {/* Content Text */}
             {!hasMedia && (
                 <View className="p-4 rounded-2xl border border-white/10 mb-3 bg-white/5">
                     <Text className="text-base font-medium leading-6" style={{ color: colors.text }}>
@@ -269,7 +288,7 @@ const FeedPostItem = React.memo(({
                 </View>
             )}
 
-            {/* Caption (If media exists) */}
+            {/* Caption */}
             {hasMedia && item.content && (
                 <Text className="text-sm font-medium leading-5 mb-3 px-1" style={{ color: colors.text }} numberOfLines={3}>
                     {item.content}
@@ -281,7 +300,7 @@ const FeedPostItem = React.memo(({
                 </Text>
             )}
 
-            {/* Product Pill (Tag) */}
+            {/* Product Pill */}
             {item.taggedProduct && (
                 <TouchableOpacity
                     onPress={() => router.push(`/shop/product/${item.taggedProduct.id}`)}
@@ -359,8 +378,15 @@ const FeedPostItem = React.memo(({
                     </TouchableOpacity>
                 </View>
 
-                {/* Right: Interactions (Comments, Share, Slash) */}
+                {/* Right: Interactions (Comments, Share, Slash, Tags) */}
                 <View className="flex-row items-center gap-4">
+                    {/* Tagged Users Icon */}
+                    {item.taggedUsers && item.taggedUsers.length > 0 && (
+                        <TouchableOpacity onPress={() => setTaggedUsersModalVisible(true)} className="opacity-80">
+                            <Users size={18} color={colors.text} />
+                        </TouchableOpacity>
+                    )}
+
                     <TouchableOpacity onPress={() => onAddBubble(item.id)} className="opacity-80">
                         <Plus size={20} color={colors.text} />
                     </TouchableOpacity>
@@ -376,17 +402,18 @@ const FeedPostItem = React.memo(({
                 </View>
             </View>
 
-            {/* Reaction Bubbles Row (Below actions) - If any */}
+            {/* Reaction Bubbles - OPTIMIZED: Remove Video components to prevent OOM */}
             {(item.topBubbles && item.topBubbles.length > 0) && (
                 <View className="flex-row items-center mt-3 px-1">
                     <View className="flex-row -space-x-2">
                         {item.topBubbles.map((bubble: any, i: number) => (
                             <View key={i} className="w-6 h-6 rounded-full border border-black overflow-hidden bg-zinc-800">
-                                {bubble.mediaType === 'VIDEO' ? (
-                                    <Video source={{ uri: bubble.mediaUrl }} style={{ width: '100%', height: '100%' }} resizeMode={ResizeMode.COVER} isMuted shouldPlay={false} />
-                                ) : (
-                                    <Image source={{ uri: bubble.mediaUrl }} className="w-full h-full" />
-                                )}
+                                {/* Use Image even for videos (might need thumb, but prevents crash) */}
+                                <Image
+                                    source={{ uri: bubble.mediaUrl }}
+                                    className="w-full h-full"
+                                    style={{ backgroundColor: '#333' }}
+                                />
                             </View>
                         ))}
                     </View>
@@ -428,6 +455,16 @@ const FeedPostItem = React.memo(({
                 visible={slashesModalVisible}
                 onClose={() => setSlashesModalVisible(false)}
                 slashes={item.slashes || []}
+            />
+
+            <TaggedUsersModal
+                visible={taggedUsersModalVisible}
+                users={item.taggedUsers || []}
+                onClose={() => setTaggedUsersModalVisible(false)}
+                onUserPress={(userId) => {
+                    setTaggedUsersModalVisible(false);
+                    router.push(`/profile/${userId}`);
+                }}
             />
         </View>
     );

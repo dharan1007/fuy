@@ -17,6 +17,20 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Invalid user" }, { status: 400 });
         }
 
+        // Check if either user has blocked the other
+        const blockExists = await prisma.blockedUser.findFirst({
+            where: {
+                OR: [
+                    { blockerId: session.user.id, blockedId: targetUserId },
+                    { blockerId: targetUserId, blockedId: session.user.id },
+                ]
+            }
+        });
+
+        if (blockExists) {
+            return NextResponse.json({ error: "Cannot follow this user" }, { status: 403 });
+        }
+
         // Check if subscription already exists
         const existing = await prisma.subscription.findUnique({
             where: {

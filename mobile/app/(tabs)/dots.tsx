@@ -3,7 +3,8 @@ import { View, Text, Dimensions, TouchableOpacity, Image, StyleSheet, FlatList, 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
-import { Heart, MessageCircle, Share2, MoreVertical, Play, Pause, Circle as DotIcon, X, Search, ChevronLeft, Send, Bookmark, Check, Plus, LayoutGrid as Grid, List, Maximize, Minimize, Menu, Volume2, VolumeX } from 'lucide-react-native';
+import { Share2, MoreVertical, Play, Pause, Circle as DotIcon, X, Search, ChevronLeft, Send, Bookmark, Check, Plus, LayoutGrid as Grid, List, Maximize, Minimize, Menu, Volume2, VolumeX, Heart, MessageCircle } from 'lucide-react-native';
+import { PoopIcon, MagicCapIcon } from '../../components/ReactionIcons';
 import { useTheme } from '../../context/ThemeContext';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
@@ -17,6 +18,9 @@ import { useNavVisibility } from '../../context/NavContext';
 import { getSafetyFilters, applySafetyFilters } from '../../services/SafetyService';
 import XrayScratch from '../../components/XrayScratch';
 import FillsTab from '../../components/FillsTab';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { runOnJS } from 'react-native-reanimated';
+import { FeedCacheService } from '../../services/FeedCacheService';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -25,7 +29,7 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const CATEGORIES = [
     { id: 'lills', label: 'Lills' },
-    { id: 'fills', label: 'Fills' },
+    // { id: 'fills', label: 'Fills' }, // V2 - hidden for now
     { id: 'bloom', label: 'Bloom' },
     { id: 'auds', label: 'Auds' },
 ];
@@ -120,18 +124,17 @@ const DotItem = ({ item, isActive, autoScroll, onVideoEnd, onToggleAutoScroll, o
         setIsSubscribed(true); // Optimistic UI update
 
         try {
-            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org'}/api/users/follow`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session.access_token}`
-                },
-                body: JSON.stringify({ targetUserId: item.userId })
-            });
+            const { error } = await supabase
+                .from('Subscription')
+                .insert({
+                    subscriberId: session.user.id,
+                    subscribedToId: item.userId
+                });
 
-            if (!response.ok) {
-                console.error('Follow error:', await response.json());
-                setIsSubscribed(false); // Revert on failure
+            if (error) {
+                if (error.code !== '23505') { // Ignore unique constraint violation
+                    throw error;
+                }
             }
         } catch (e) {
             console.error('Follow error:', e);
@@ -282,9 +285,18 @@ const DotItem = ({ item, isActive, autoScroll, onVideoEnd, onToggleAutoScroll, o
                         {/* W Button */}
                         <TouchableOpacity
                             onPress={() => handleReaction('W')}
-                            style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: userReaction === 'W' ? 'rgba(239, 68, 68, 0.4)' : 'rgba(0,0,0,0.4)', borderWidth: 1, borderColor: userReaction === 'W' ? '#ef4444' : 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center' }}
+                            style={{
+                                width: 32, height: 32, borderRadius: 16,
+                                backgroundColor: userReaction === 'W' ? 'rgba(239, 68, 68, 0.4)' : 'rgba(0,0,0,0.4)',
+                                borderWidth: 1, borderColor: userReaction === 'W' ? '#ef4444' : 'rgba(255,255,255,0.15)',
+                                justifyContent: 'center', alignItems: 'center'
+                            }}
                         >
-                            <Text style={{ color: userReaction === 'W' ? '#fff' : 'rgba(255,255,255,0.9)', fontWeight: '900', fontSize: 13 }}>W</Text>
+                            <Heart
+                                size={16}
+                                color={userReaction === 'W' ? '#ef4444' : 'white'}
+                                fill={userReaction === 'W' ? '#ef4444' : 'transparent'}
+                            />
                             <Text style={{ color: 'white', fontWeight: '700', fontSize: 8, position: 'absolute', bottom: -10 }}>{formatNumber(reactionCounts.W)}</Text>
                         </TouchableOpacity>
                         <View style={{ height: 6 }} />
@@ -292,9 +304,18 @@ const DotItem = ({ item, isActive, autoScroll, onVideoEnd, onToggleAutoScroll, o
                         {/* L Button */}
                         <TouchableOpacity
                             onPress={() => handleReaction('L')}
-                            style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: userReaction === 'L' ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0,0,0,0.4)', borderWidth: 1, borderColor: userReaction === 'L' ? '#ffffff' : 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center' }}
+                            style={{
+                                width: 32, height: 32, borderRadius: 16,
+                                backgroundColor: userReaction === 'L' ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0,0,0,0.4)',
+                                borderWidth: 1, borderColor: userReaction === 'L' ? '#ffffff' : 'rgba(255,255,255,0.15)',
+                                justifyContent: 'center', alignItems: 'center'
+                            }}
                         >
-                            <Text style={{ color: userReaction === 'L' ? '#fff' : 'rgba(255,255,255,0.9)', fontWeight: '900', fontSize: 13 }}>L</Text>
+                            {userReaction === 'L' ? (
+                                <PoopIcon color="#f97316" />
+                            ) : (
+                                <Text style={{ color: 'white', fontWeight: '900', fontSize: 13 }}>L</Text>
+                            )}
                             <Text style={{ color: 'white', fontWeight: '700', fontSize: 8, position: 'absolute', bottom: -10 }}>{formatNumber(reactionCounts.L)}</Text>
                         </TouchableOpacity>
                         <View style={{ height: 6 }} />
@@ -302,9 +323,18 @@ const DotItem = ({ item, isActive, autoScroll, onVideoEnd, onToggleAutoScroll, o
                         {/* CAP Button */}
                         <TouchableOpacity
                             onPress={() => handleReaction('CAP')}
-                            style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: userReaction === 'CAP' ? 'rgba(59, 130, 246, 0.4)' : 'rgba(0,0,0,0.4)', borderWidth: 1, borderColor: userReaction === 'CAP' ? '#3b82f6' : 'rgba(255,255,255,0.15)', justifyContent: 'center', alignItems: 'center' }}
+                            style={{
+                                width: 32, height: 32, borderRadius: 16,
+                                backgroundColor: userReaction === 'CAP' ? 'rgba(59, 130, 246, 0.4)' : 'rgba(0,0,0,0.4)',
+                                borderWidth: 1, borderColor: userReaction === 'CAP' ? '#3b82f6' : 'rgba(255,255,255,0.15)',
+                                justifyContent: 'center', alignItems: 'center'
+                            }}
                         >
-                            <Text style={{ color: userReaction === 'CAP' ? '#fff' : 'rgba(255,255,255,0.9)', fontWeight: '900', fontSize: 9 }}>CAP</Text>
+                            {userReaction === 'CAP' ? (
+                                <MagicCapIcon color="#14532d" />
+                            ) : (
+                                <Text style={{ color: 'white', fontWeight: '900', fontSize: 9 }}>CAP</Text>
+                            )}
                             <Text style={{ color: 'white', fontWeight: '700', fontSize: 8, position: 'absolute', bottom: -10 }}>{formatNumber(reactionCounts.CAP)}</Text>
                         </TouchableOpacity>
                         <View style={{ height: 6 }} />
@@ -632,6 +662,26 @@ const FillsPlayer = ({ dots, activeIndex, setActiveIndex, isScreenFocused, onBac
         );
     }
 
+    const handleTap = () => {
+        setShowControls(!showControls);
+    };
+
+    const tapGesture = Gesture.Tap().onEnd(() => {
+        runOnJS(handleTap)();
+    });
+
+    const panGesture = Gesture.Pan()
+        .activeOffsetX([-20, 20])
+        .onEnd((e) => {
+            if (e.translationX < -50) {
+                runOnJS(goToNext)();
+            } else if (e.translationX > 50) {
+                runOnJS(goToPrev)();
+            }
+        });
+
+    const composedGesture = Gesture.Simultaneous(tapGesture, panGesture);
+
     return (
         <View style={{ flex: 1, backgroundColor: '#000' }}>
             {/* Header */}
@@ -652,7 +702,7 @@ const FillsPlayer = ({ dots, activeIndex, setActiveIndex, isScreenFocused, onBac
                 {/* Video Section */}
                 <View style={{ flex: isSidebarOpen ? 2.5 : 1 }}>
                     {/* Video Player with Swipe */}
-                    <TouchableWithoutFeedback onPress={() => setShowControls(!showControls)}>
+                    <GestureDetector gesture={composedGesture}>
                         <View style={{ width: '100%', aspectRatio: 16 / 9, backgroundColor: '#111' }}>
                             {currentItem.mediaType === 'video' && currentItem.mediaUrl ? (
                                 <Video
@@ -703,7 +753,7 @@ const FillsPlayer = ({ dots, activeIndex, setActiveIndex, isScreenFocused, onBac
                                 {isMuted ? <VolumeX size={16} color="#fff" /> : <Volume2 size={16} color="#fff" />}
                             </TouchableOpacity>
                         </View>
-                    </TouchableWithoutFeedback>
+                    </GestureDetector>
 
                     {/* Video Controls Bar */}
                     {currentItem.mediaType === 'video' && (
@@ -744,20 +794,36 @@ const FillsPlayer = ({ dots, activeIndex, setActiveIndex, isScreenFocused, onBac
 
                         {/* Reaction Buttons */}
                         <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-                            {[
-                                { type: 'W', label: 'W', emoji: 'w' },
-                                { type: 'L', label: 'L', emoji: 'l' },
-                                { type: 'CAP', label: 'Cap', emoji: 'cap' }
-                            ].map(r => (
-                                <TouchableOpacity
-                                    key={r.type}
-                                    onPress={() => handleReaction(r.type)}
-                                    style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: userReaction === r.type ? '#333' : 'transparent', borderWidth: 1, borderColor: '#444' }}
-                                >
-                                    <Text style={{ color: userReaction === r.type ? '#fff' : colors.secondary, fontSize: 12, fontWeight: '600' }}>{r.label}</Text>
-                                    <Text style={{ color: colors.secondary, fontSize: 11, marginLeft: 4 }}>{formatNumber(reactionCounts[r.type as keyof typeof reactionCounts] || 0)}</Text>
-                                </TouchableOpacity>
-                            ))}
+                            {/* W Button */}
+                            <TouchableOpacity
+                                onPress={() => handleReaction('W')}
+                                style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: userReaction === 'W' ? '#333' : 'transparent', borderWidth: 1, borderColor: '#444' }}
+                            >
+                                <Heart
+                                    size={16}
+                                    color={userReaction === 'W' ? '#ef4444' : 'gray'}
+                                    fill={userReaction === 'W' ? '#ef4444' : 'transparent'}
+                                />
+                                <Text style={{ color: colors.secondary, fontSize: 11, marginLeft: 6 }}>{formatNumber(reactionCounts['W'] || 0)}</Text>
+                            </TouchableOpacity>
+
+                            {/* L Button */}
+                            <TouchableOpacity
+                                onPress={() => handleReaction('L')}
+                                style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: userReaction === 'L' ? '#333' : 'transparent', borderWidth: 1, borderColor: '#444' }}
+                            >
+                                {userReaction === 'L' ? <PoopIcon color="#f97316" /> : <Text style={{ color: colors.secondary, fontSize: 12, fontWeight: '900' }}>L</Text>}
+                                <Text style={{ color: colors.secondary, fontSize: 11, marginLeft: 6 }}>{formatNumber(reactionCounts['L'] || 0)}</Text>
+                            </TouchableOpacity>
+
+                            {/* CAP Button */}
+                            <TouchableOpacity
+                                onPress={() => handleReaction('CAP')}
+                                style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: userReaction === 'CAP' ? '#333' : 'transparent', borderWidth: 1, borderColor: '#444' }}
+                            >
+                                {userReaction === 'CAP' ? <MagicCapIcon color="#14532d" /> : <Text style={{ color: colors.secondary, fontSize: 10, fontWeight: '900' }}>CAP</Text>}
+                                <Text style={{ color: colors.secondary, fontSize: 11, marginLeft: 6 }}>{formatNumber(reactionCounts['CAP'] || 0)}</Text>
+                            </TouchableOpacity>
                         </View>
 
                         {/* Reaction Bubbles */}
@@ -1097,8 +1163,24 @@ export default function DotsScreen() {
         pupds: 'PULLUPDOWN',
     };
 
-    const fetchDots = async (category: string) => {
-        setLoading(true);
+    const fetchDots = async (category: string, skipCache = false) => {
+        // 1. Try loading cached data first (instant display)
+        const cacheKey = category === 'lills' || category === 'bloom' ? 'lills' : 'fills';
+        if (!skipCache) {
+            const cached = cacheKey === 'lills'
+                ? await FeedCacheService.getDotsLills<any[]>()
+                : await FeedCacheService.getDotsFills<any[]>();
+            if (cached && cached.length > 0) {
+                console.log(`[Dots] Using cached ${cacheKey} data`);
+                setDots(cached as any);
+                setLoading(false);
+                // Continue to fetch fresh in background
+            } else {
+                setLoading(true);
+            }
+        } else {
+            setLoading(true);
+        }
         try {
             const postType = categoryToPostType[category];
             if (!postType) {
@@ -1108,7 +1190,7 @@ export default function DotsScreen() {
                 return;
             }
 
-            // Simplified query - just get posts with media
+            // Simplified query - reduced from 20 to 10 for bandwidth savings
             let query = supabase
                 .from('Post')
                 .select(`
@@ -1123,7 +1205,7 @@ export default function DotsScreen() {
                 .eq('postType', postType)
                 .eq('visibility', 'PUBLIC')
                 .order('createdAt', { ascending: false })
-                .limit(20);
+                .limit(10);
 
             if (session?.user?.id) {
                 const filters = await getSafetyFilters(session.user.id);
@@ -1174,6 +1256,12 @@ export default function DotsScreen() {
                 };
             });
 
+            // Cache the results
+            if (cacheKey === 'lills') {
+                await FeedCacheService.setDotsLills(formattedDots);
+            } else {
+                await FeedCacheService.setDotsFills(formattedDots);
+            }
             setDots(formattedDots);
         } catch (error) {
             console.error('[Dots] Error fetching dots:', error);

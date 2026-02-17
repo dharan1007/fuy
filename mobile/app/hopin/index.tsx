@@ -75,7 +75,7 @@ export default function HopinExploreScreen() {
     const router = useRouter();
     const { colors, mode } = useTheme();
 
-    const [activeTab, setActiveTab] = useState<'explore' | 'map' | 'dashboard'>('map');
+    const [activeTab, setActiveTab] = useState<'explore' | 'map' | 'dashboard'>('explore');
     const [dashboardTab, setDashboardTab] = useState<'hosting' | 'joined' | 'tickets'>('hosting');
     const [searchQuery, setSearchQuery] = useState('');
     const [allPlans, setAllPlans] = useState<Plan[]>([]);

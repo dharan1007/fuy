@@ -3,7 +3,8 @@ import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, Sty
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ChevronLeft, ShoppingBag } from 'lucide-react-native';
-import { api } from '../lib/api-client';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../context/AuthContext';
 
 interface Purchase {
     id: string;
@@ -25,15 +26,46 @@ export default function PurchasesScreen() {
     const [purchases, setPurchases] = useState<Purchase[]>([]);
     const [loading, setLoading] = useState(true);
 
+    const { session } = useAuth();
+
     useEffect(() => {
-        fetchPurchases();
-    }, []);
+        if (session?.user) {
+            fetchPurchases();
+        }
+    }, [session]);
 
     const fetchPurchases = async () => {
+        if (!session?.user) return;
         try {
-            const { data, error } = await api.get<Purchase[]>('/api/user/purchases');
+            const { data, error } = await supabase
+                .from('Order')
+                .select(`
+                    id,
+                    totalAmount,
+                    createdAt,
+                    items:OrderItem(
+                        id,
+                        product:Product(
+                            id,
+                            name,
+                            images,
+                            type
+                        )
+                    )
+                `)
+                .eq('userId', session.user.id)
+                .order('createdAt', { ascending: false });
+
             if (data && !error) {
-                setPurchases(data);
+                // Fix relation shape
+                const formattedPurchases = data.map((order: any) => ({
+                    ...order,
+                    items: order.items.map((item: any) => ({
+                        ...item,
+                        product: Array.isArray(item.product) ? item.product[0] : item.product
+                    }))
+                }));
+                setPurchases(formattedPurchases);
             }
         } catch (e) {
             console.error('Failed to fetch purchases:', e);

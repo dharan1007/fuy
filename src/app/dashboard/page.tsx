@@ -93,10 +93,10 @@ export default function DashboardPage() {
                     "
             >
               <BondingMeteor />
-              <StoreMeteor />
+              {/* <StoreMeteor /> */}
               <GroundingMeteor />
               <PomodoroMeteor />
-              <OrdersMeteor />
+              {/* <OrdersMeteor /> */}
               <CanvasMeteor />
               <HopinMeteor />
               <ChannelMeteor />

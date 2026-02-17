@@ -10,8 +10,13 @@ import { supabase } from '../../lib/supabase';
 import SuccessOverlay from '../SuccessOverlay';
 import { analyzeMultipleImages, NudityAnalysisResult } from '../../lib/nudity-detection';
 import NudityWarningModal from '../NudityWarningModal';
+import PostPreview from '../PostPreview';
+import { Eye, EyeOff } from 'lucide-react-native';
+import MediaFilterSelector from '../MediaFilterSelector';
+import UserTagSelector from '../UserTagSelector';
+import { PostService, PostVisibility } from '../../services/PostService';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org';
+
 const EPISODE_MAX_DURATION = 600; // 10 minutes for episodes
 
 interface ChanFormProps {
@@ -39,6 +44,28 @@ export default function ChanForm({ onBack }: ChanFormProps) {
     const [nudityResult, setNudityResult] = useState<NudityAnalysisResult | null>(null);
     const [showNudityWarning, setShowNudityWarning] = useState(false);
     const [pendingSubmit, setPendingSubmit] = useState(false);
+
+    // Preview state
+    const [showPreview, setShowPreview] = useState(true);
+    const [userName, setUserName] = useState('');
+    const [userAvatar, setUserAvatar] = useState<string | undefined>(undefined);
+
+    // Fetch user info for preview
+    React.useEffect(() => {
+        const fetchUser = async () => {
+            if (!session?.user?.email) return;
+            const { data } = await supabase
+                .from('User')
+                .select('name, avatar')
+                .eq('email', session.user.email)
+                .single();
+            if (data) {
+                setUserName(data.name || 'You');
+                setUserAvatar(data.avatar || undefined);
+            }
+        };
+        fetchUser();
+    }, [session]);
 
     const pickVideo = async () => {
         const result = await ImagePicker.launchImageLibraryAsync({
@@ -133,54 +160,33 @@ export default function ChanForm({ onBack }: ChanFormProps) {
 
             setUploadProgress(85);
 
-            const headers: Record<string, string> = {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Referer': 'https://www.fuymedia.org/',
-                'Origin': 'https://www.fuymedia.org',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Sec-Fetch-Dest': 'empty',
-                'Sec-Fetch-Mode': 'cors',
-                'Sec-Fetch-Site': 'same-origin',
-                'X-Requested-With': 'XMLHttpRequest'
-            };
+            let mediaItems = [];
+            // For Chan, the video is main content. Cover is just thumbnail/preview.
+            // But existing logic pushed both to mediaUrls.
+            // "mediaUrls: coverUrl ? [uploadResult.url, coverUrl] : [uploadResult.url]"
+            // I will match this behavior.
+            mediaItems.push({ uri: uploadResult.url, type: 'VIDEO', duration: video.duration ? Math.floor(video.duration / 1000) : 0 });
+            if (coverUrl) mediaItems.push({ uri: coverUrl, type: 'IMAGE', duration: 0 });
 
-            if (session?.access_token) {
-                headers['Authorization'] = `Bearer ${session.access_token}`;
-            }
-
-            const response = await fetch(`${API_URL}/api/posts/create`, {
-                method: 'POST',
-                headers,
-                body: JSON.stringify({
-                    userId: userData.id,
-                    postType: 'CHAN',
-                    content: episodeDescription || `${channelName} - ${episodeTitle || 'New Episode'}`,
-                    visibility,
-                    chanData: {
-                        channelName,
-                        description: channelDescription,
-                        coverImageUrl: coverUrl,
-                        isLive,
-                        videoUrl: uploadResult.url,
-                        episodeTitle: episodeTitle || 'Episode 1',
-                        duration: video.duration ? Math.floor(video.duration / 1000) : 0,
-                        thumbnail: coverUrl,
-                    },
-                    mediaUrls: coverUrl ? [uploadResult.url, coverUrl] : [uploadResult.url],
-                    mediaTypes: coverUrl ? ['VIDEO', 'IMAGE'] : ['VIDEO'],
-                    mediaVariants: coverUrl ? ['standard', 'thumbnail'] : ['standard'],
-                    slashes: slashes.filter(s => s.trim()),
-                }),
+            await PostService.createPost({
+                userId: userData.id,
+                postType: 'CHAN',
+                content: episodeDescription || `${channelName} - ${episodeTitle || 'New Episode'}`,
+                visibility: visibility as PostVisibility,
+                media: mediaItems,
+                chanData: {
+                    channelName,
+                    description: channelDescription,
+                    coverImageUrl: coverUrl,
+                    isLive,
+                    videoUrl: uploadResult.url,
+                    episodeTitle: episodeTitle || 'Episode 1',
+                    duration: video.duration ? Math.floor(video.duration / 1000) : 0,
+                },
+                slashes: slashes.filter(s => s.trim()),
             });
 
             setUploadProgress(100);
-
-            if (!response.ok) {
-                const errData = await response.json();
-                throw new Error(errData.error || 'Failed to create Chan');
-            }
 
             // Alert.alert('Success', 'Episode posted!', [{ text: 'OK', onPress: onBack }]);
             setShowSuccess(true);
@@ -224,6 +230,29 @@ export default function ChanForm({ onBack }: ChanFormProps) {
                     <Text style={{ color: colors.text, fontSize: 22, fontWeight: 'bold' }}>New Episode</Text>
                     <Text style={{ color: colors.secondary, fontSize: 12 }}>Channel content</Text>
                 </View>
+            </View>
+
+            {/* Post Preview Component */}
+            <View style={{ marginBottom: 24 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <Text style={{ color: colors.secondary, fontWeight: '600', fontSize: 11, letterSpacing: 1 }}>PREVIEW</Text>
+                    <TouchableOpacity onPress={() => setShowPreview(!showPreview)} style={{ padding: 4 }}>
+                        {showPreview ? <Eye size={16} color={colors.secondary} /> : <EyeOff size={16} color={colors.secondary} />}
+                    </TouchableOpacity>
+                </View>
+
+                {showPreview && (
+                    <PostPreview
+                        userName={userName}
+                        userAvatar={userAvatar}
+                        content={`${channelName ? channelName + '\n' : ''}${episodeTitle ? episodeTitle + '\n' : ''}${episodeDescription}`}
+                        media={[
+                            ...(video ? [{ uri: video.uri, type: 'video' as const }] : []),
+                            ...(coverImage ? [{ uri: coverImage, type: 'image' as const }] : [])
+                        ]}
+                        visibility={visibility}
+                    />
+                )}
             </View>
 
             {/* Channel Name */}

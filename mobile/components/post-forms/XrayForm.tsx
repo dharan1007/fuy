@@ -8,8 +8,13 @@ import { MediaUploadService } from '../../services/MediaUploadService';
 import { supabase } from '../../lib/supabase';
 import { analyzeMultipleImages, NudityAnalysisResult } from '../../lib/nudity-detection';
 import NudityWarningModal from '../NudityWarningModal';
+import PostPreview from '../PostPreview';
+import { Eye, EyeOff } from 'lucide-react-native';
+import MediaFilterSelector from '../MediaFilterSelector';
+import UserTagSelector from '../UserTagSelector';
+import { PostService, PostVisibility } from '../../services/PostService';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org';
+
 const { width } = Dimensions.get('window');
 
 interface XrayFormProps {
@@ -32,6 +37,28 @@ export default function XrayForm({ onBack }: XrayFormProps) {
     const [nudityResult, setNudityResult] = useState<NudityAnalysisResult | null>(null);
     const [showNudityWarning, setShowNudityWarning] = useState(false);
     const [pendingSubmit, setPendingSubmit] = useState(false);
+
+    // Preview state
+    const [showPreview, setShowPreview] = useState(true);
+    const [userName, setUserName] = useState('');
+    const [userAvatar, setUserAvatar] = useState<string | undefined>(undefined);
+
+    // Fetch user info for preview
+    React.useEffect(() => {
+        const fetchUser = async () => {
+            if (!session?.user?.email) return;
+            const { data } = await supabase
+                .from('User')
+                .select('name, avatar')
+                .eq('email', session.user.email)
+                .single();
+            if (data) {
+                setUserName(data.name || 'You');
+                setUserAvatar(data.avatar || undefined);
+            }
+        };
+        fetchUser();
+    }, [session]);
 
     const pickImage = async (type: 'top' | 'bottom') => {
         const result = await ImagePicker.launchImageLibraryAsync({
@@ -85,29 +112,41 @@ export default function XrayForm({ onBack }: XrayFormProps) {
             ]);
             setUploadProgress(80);
 
-            const response = await fetch(`${API_URL}/api/posts/create`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userId: userData.id,
-                    postType: 'XRAY',
-                    content: description || 'Scratch to Reveal',
-                    visibility,
-                    mediaUrls: [topResult.url, bottomResult.url],
-                    mediaTypes: ['IMAGE', 'IMAGE'],
-                    mediaVariants: ['xray-bottom', 'xray-top'], // Swapped to match Feed.tsx logic: Bottom=Cover, Top=Content
-                    xrayData: {
-                        topLayerUrl: topResult.url,
-                        topLayerType: 'IMAGE',
-                        bottomLayerUrl: bottomResult.url,
-                        bottomLayerType: 'IMAGE',
-                    },
-                    slashes: slashes.filter(s => s.trim()),
-                }),
+            // media order: [top, bottom] or [bottom, top]?
+            // Original code sent mediaUrls: [topResult.url, bottomResult.url]
+            // But mediaVariants: ['xray-bottom', 'xray-top'] ? Wait.
+            // Original: "mediaVariants: ['xray-bottom', 'xray-top'], // Swapped to match Feed.tsx logic: Bottom=Cover, Top=Content"
+            // This is confusing. 
+            // In Xray, Top is visible (Cover), Bottom is hidden (Content).
+            // Feed logic likely treats first media as cover?
+            // If Feed treats variants specificially, PostService doesn't handle variants yet. 
+            // PostService only puts them in Media table.
+            // But XrayData has references: topLayerUrl, bottomLayerUrl.
+            // So order in Media table might not matter as much if client uses XrayData.
+
+            // However, `attachMedia` in PostService just inserts them.
+            // I will insert both.
+
+            await PostService.createPost({
+                userId: userData.id,
+                postType: 'XRAY',
+                content: description || 'Scratch to Reveal',
+                visibility: visibility as PostVisibility,
+                media: [
+                    { uri: topResult.url, type: 'IMAGE' },
+                    { uri: bottomResult.url, type: 'IMAGE' }
+                ],
+                xrayData: {
+                    topLayerUrl: topResult.url,
+                    topLayerType: 'IMAGE',
+                    bottomLayerUrl: bottomResult.url,
+                    bottomLayerType: 'IMAGE',
+                },
+                slashes: slashes.filter(s => s.trim()),
             });
 
             setUploadProgress(100);
-            if (!response.ok) throw new Error((await response.json()).error || 'Failed');
+
             setPendingSubmit(false);
             setNudityResult(null);
             Alert.alert('Done', 'Posted successfully', [{ text: 'OK', onPress: onBack }]);
@@ -162,6 +201,29 @@ export default function XrayForm({ onBack }: XrayFormProps) {
                     <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>Scratch to reveal hidden content</Text>
                 </View>
                 <Search size={24} color="rgba(255,255,255,0.3)" />
+            </View>
+
+            {/* Post Preview Component */}
+            <View style={{ marginBottom: 20 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontWeight: '600', fontSize: 11, letterSpacing: 1 }}>PREVIEW</Text>
+                    <TouchableOpacity onPress={() => setShowPreview(!showPreview)} style={{ padding: 4 }}>
+                        {showPreview ? <Eye size={16} color="rgba(255,255,255,0.6)" /> : <EyeOff size={16} color="rgba(255,255,255,0.4)" />}
+                    </TouchableOpacity>
+                </View>
+
+                {showPreview && (
+                    <PostPreview
+                        userName={userName}
+                        userAvatar={userAvatar}
+                        content={description}
+                        media={[
+                            ...(topLayer ? [{ uri: topLayer, type: 'image' as const }] : []),
+                            ...(bottomLayer ? [{ uri: bottomLayer, type: 'image' as const }] : [])
+                        ]}
+                        visibility={visibility}
+                    />
+                )}
             </View>
 
             {/* Layers */}

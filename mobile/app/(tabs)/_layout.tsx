@@ -47,7 +47,7 @@ function TabLayoutContent() {
                 <Tabs.Screen name="create" options={{ title: 'Create' }} />
                 <Tabs.Screen name="chat" options={{ title: 'Chat' }} />
                 <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
-                <Tabs.Screen name="shop" options={{ title: 'Shop' }} />
+                <Tabs.Screen name="grounding" options={{ title: 'Wrex' }} />
             </Tabs>
 
             {!hideNav && (

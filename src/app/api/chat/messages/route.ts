@@ -163,6 +163,24 @@ export async function POST(req: Request) {
       );
     }
 
+    // Check if either user has blocked the other
+    const otherUserId = conversation.participantA === userId ? conversation.participantB : conversation.participantA;
+    const blockExists = await prisma.blockedUser.findFirst({
+      where: {
+        OR: [
+          { blockerId: userId, blockedId: otherUserId },
+          { blockerId: otherUserId, blockedId: userId },
+        ]
+      }
+    });
+
+    if (blockExists) {
+      return NextResponse.json(
+        { error: "Cannot send messages to this user" },
+        { status: 403 }
+      );
+    }
+
     // Create message
     const message = await prisma.message.create({
       data: {

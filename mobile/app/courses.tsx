@@ -3,7 +3,8 @@ import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, Sty
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ChevronLeft, GraduationCap, Play } from 'lucide-react-native';
-import { api } from '../lib/api-client';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../context/AuthContext';
 
 interface Course {
     id: string;
@@ -31,19 +32,41 @@ export default function CoursesScreen() {
     const [courses, setCourses] = useState<Course[]>([]);
     const [loading, setLoading] = useState(true);
 
+    const { session } = useAuth();
+
     useEffect(() => {
-        fetchCourses();
-    }, []);
+        if (session?.user) {
+            fetchCourses();
+        }
+    }, [session]);
 
     const fetchCourses = async () => {
+        if (!session?.user) return;
         try {
-            const { data, error } = await api.get<Purchase[]>('/api/user/purchases');
+            const { data, error } = await supabase
+                .from('Order')
+                .select(`
+                    id,
+                    items:OrderItem(
+                        id,
+                        product:Product(
+                            id,
+                            name,
+                            images,
+                            type,
+                            description
+                        )
+                    )
+                `)
+                .eq('userId', session.user.id)
+                .order('createdAt', { ascending: false });
+
             if (data && !error) {
                 // Filter for courses
-                const myCourses = data.flatMap(order =>
+                const myCourses = data.flatMap((order: any) =>
                     order.items
-                        .filter(item => item.product?.type === 'COURSE')
-                        .map(item => item.product)
+                        .filter((item: any) => item.product?.type === 'COURSE')
+                        .map((item: any) => item.product)
                 );
                 setCourses(myCourses);
             }

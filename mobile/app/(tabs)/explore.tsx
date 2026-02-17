@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TouchableWithoutFeedback, Image, TextInput, Dimensions, FlatList, Alert, RefreshControl, StyleSheet, Animated } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TouchableWithoutFeedback, Image, TextInput, Dimensions, FlatList, Alert, RefreshControl, StyleSheet, Animated, ActivityIndicator } from 'react-native';
 import { Video, ResizeMode } from 'expo-av';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Search, X, UserPlus, Check, Clock, Grid, User, Compass, Bell, Zap, Star, Circle, Play, Pause } from 'lucide-react-native';
+import { Search, X, UserPlus, Check, Clock, Grid, User, Compass, Bell, Zap, Star, Circle, Play, Pause, Plus } from 'lucide-react-native';
 import SlashesModal from '../../components/SlashesModal';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -21,10 +21,12 @@ const PADDING = 16;
 
 interface Post {
     id: string;
-    media: { url: string; type: string; variant?: string }[] | null;
+    media: { url: string; type: string; variant?: string; thumbnailUrl?: string }[] | null;
     content: string;
     postType?: string;
-    postMedia?: { media: { url: string; type: string; variant?: string } }[];
+    postMedia?: { media: { url: string; type: string; variant?: string; thumbnailUrl?: string } }[];
+    lillData?: { thumbnailUrl?: string }[] | { thumbnailUrl?: string };
+    fillData?: { thumbnailUrl?: string }[] | { thumbnailUrl?: string };
     chanData?: { id?: string; channelName?: string; description?: string; coverImageUrl?: string };
     user?: { name?: string; profile?: { avatarUrl?: string; displayName?: string } };
     topBubbles?: { mediaUrl: string; mediaType: string }[];
@@ -43,161 +45,18 @@ interface SearchResult {
 
 // Tighter, scattered card layout for 2D scrolling
 // Tighter, scattered card layout for 2D scrolling
-const CARD_CONFIGS = [
-    { width: 140, height: 200, top: 10, left: 10, rotate: -2, radius: 16 },
-    { width: 120, height: 120, top: 20, left: 160, rotate: 3, radius: 14 },
-    { width: 160, height: 220, top: 160, left: 20, rotate: -1, radius: 18 },
-    { width: 110, height: 110, top: 150, left: 200, rotate: 4, radius: 12 },
-    { width: 130, height: 180, top: 10, left: 300, rotate: -3, radius: 16 },
-    { width: 150, height: 190, top: 200, left: 320, rotate: 2, radius: 18 },
-    { width: 100, height: 100, top: 20, left: 450, rotate: -2, radius: 12 },
-    { width: 140, height: 210, top: 140, left: 480, rotate: 3, radius: 16 },
-    { width: 120, height: 160, top: 30, left: 600, rotate: -1, radius: 14 },
-    { width: 170, height: 230, top: 200, left: 630, rotate: 1, radius: 20 },
-    // More cards vertically
-    { width: 140, height: 200, top: 400, left: 40, rotate: 2, radius: 16 },
-    { width: 130, height: 160, top: 450, left: 220, rotate: -2, radius: 14 },
-    { width: 160, height: 220, top: 410, left: 400, rotate: 1, radius: 18 },
-    { width: 120, height: 140, top: 550, left: 600, rotate: -3, radius: 12 },
-    { width: 150, height: 210, top: 650, left: 60, rotate: 2, radius: 20 },
-    { width: 130, height: 170, top: 620, left: 300, rotate: -1, radius: 16 },
-    { width: 180, height: 240, top: 750, left: 500, rotate: 0, radius: 22 },
-    // Even more cards to ensure scrolling feel
-    { width: 120, height: 150, top: 900, left: 20, rotate: 3, radius: 14 },
-    { width: 160, height: 210, top: 950, left: 180, rotate: -2, radius: 18 },
-    { width: 140, height: 180, top: 880, left: 380, rotate: 1, radius: 16 },
-    { width: 110, height: 110, top: 1000, left: 550, rotate: -1, radius: 12 },
-    { width: 150, height: 200, top: 1100, left: 400, rotate: 2, radius: 18 },
-    { width: 130, height: 160, top: 1150, left: 700, rotate: -2, radius: 14 },
-];
+// Interface for dynamic card layout
+interface CardConfig {
+    width: number;
+    height: number;
+    top: number;
+    left: number;
+    rotate: number;
+    radius: number;
+    zIndex?: number;
+}
 
-// Fun background elements to fill gaps - DENSE & EVERYWHERE
-const DECORATION_CONFIGS = [
-    // Top area
-    { top: 50, left: 290, type: 'star', size: 24, rotate: 15 },
-    { top: 180, left: 440, type: 'circle', size: 18, rotate: 0 },
-    { top: 320, left: 150, type: 'zap', size: 32, rotate: -10 },
-    { top: 80, left: 740, type: 'star', size: 28, rotate: 45 },
 
-    // Middle area
-    { top: 350, left: 500, type: 'circle', size: 20, rotate: 0 },
-    { top: 500, left: 360, type: 'zap', size: 36, rotate: 20 },
-    { top: 600, left: 180, type: 'star', size: 22, rotate: -15 },
-    { top: 700, left: 460, type: 'circle', size: 16, rotate: 0 },
-    { top: 550, left: 750, type: 'zap', size: 30, rotate: 5 },
-
-    // New dense filler
-    { top: 120, left: 80, type: 'circle', size: 14, rotate: 0 },
-    { top: 400, left: 50, type: 'star', size: 18, rotate: 10 },
-    { top: 250, left: 600, type: 'zap', size: 22, rotate: -5 },
-    { top: 850, left: 100, type: 'circle', size: 24, rotate: 0 },
-    { top: 920, left: 600, type: 'star', size: 30, rotate: 20 },
-    { top: 1050, left: 300, type: 'zap', size: 28, rotate: 15 },
-    { top: 1200, left: 500, type: 'circle', size: 20, rotate: 0 },
-    { top: 1300, left: 200, type: 'star', size: 25, rotate: -10 },
-    { top: 1100, left: 50, type: 'zap', size: 20, rotate: 5 },
-];
-
-const AnimatedDecoration = ({ config, index, customEmoji, isPaused }: { config: typeof DECORATION_CONFIGS[0]; index: number; customEmoji?: string | null; isPaused: boolean }) => {
-    const { colors } = useTheme();
-    // Wandering animation
-    const translateX = useRef(new Animated.Value(0)).current;
-    const translateY = useRef(new Animated.Value(0)).current;
-    const opacity = useRef(new Animated.Value(0)).current; // For fade in
-
-    // Safety check for config
-    if (!config) return null;
-
-    useEffect(() => {
-        // Fade in
-        Animated.timing(opacity, {
-            toValue: customEmoji ? 0.6 : 0.3,
-            duration: 1000,
-            useNativeDriver: true
-        }).start();
-
-        if (isPaused) {
-            translateX.stopAnimation();
-            translateY.stopAnimation();
-            return;
-        }
-
-        // SLOWER Random durations (Increased by ~3x)
-        const durationX = 30000 + (index % 7) * 5000;
-        const durationY = 35000 + (index % 5) * 5000;
-        const range = 150 + (index % 4) * 50;
-
-        // Loop X movement
-        Animated.loop(
-            Animated.sequence([
-                Animated.timing(translateX, {
-                    toValue: range,
-                    duration: durationX / 2,
-                    useNativeDriver: true,
-                }),
-                Animated.timing(translateX, {
-                    toValue: -range,
-                    duration: durationX,
-                    useNativeDriver: true,
-                }),
-                Animated.timing(translateX, {
-                    toValue: 0,
-                    duration: durationX / 2,
-                    useNativeDriver: true,
-                }),
-            ])
-        ).start();
-
-        // Loop Y movement (different timing)
-        Animated.loop(
-            Animated.sequence([
-                Animated.timing(translateY, {
-                    toValue: range / 1.5,
-                    duration: durationY / 2,
-                    useNativeDriver: true,
-                }),
-                Animated.timing(translateY, {
-                    toValue: -range / 1.5,
-                    duration: durationY,
-                    useNativeDriver: true,
-                }),
-                Animated.timing(translateY, {
-                    toValue: 0,
-                    duration: durationY / 2,
-                    useNativeDriver: true,
-                }),
-            ])
-        ).start();
-    }, [isPaused, customEmoji]); // Removed index to prevent re-run on scroll
-
-    return (
-        <Animated.View
-            style={{
-                position: 'absolute',
-                top: config.top,
-                left: config.left,
-                transform: [
-                    { translateX },
-                    { translateY },
-                    { rotate: `${config.rotate}deg` }
-                ],
-                opacity: opacity
-            }}
-        >
-            {customEmoji === 'FUY_LOGO' ? (
-                <Image source={require('../../assets/icon.png')} style={{ width: config.size, height: config.size, resizeMode: 'contain' }} />
-            ) : customEmoji ? (
-                <Text style={{ fontSize: config.size }}>{customEmoji}</Text>
-            ) : (
-                <>
-                    {config.type === 'star' && <Star size={config.size} color="white" fill="white" />}
-                    {config.type === 'circle' && <Circle size={config.size} color="white" fill="white" />}
-                    {config.type === 'zap' && <Zap size={config.size} color="white" fill="white" />}
-                </>
-            )}
-        </Animated.View>
-    );
-};
 
 // ... existing code ...
 
@@ -208,56 +67,70 @@ const AnimatedDecoration = ({ config, index, customEmoji, isPaused }: { config: 
 const CONTENT_WIDTH = 900;
 const PATTERN_HEIGHT = 1400; // Height of one cycle of CARD_CONFIGS
 
-// Floating Post Card
-// Floating Post Card
-const FloatingCard = ({ post, config, index, onPress, onToggleScroll, isActive }: { post: Post; config: typeof CARD_CONFIGS[0]; index: number; onPress: () => void; onToggleScroll: (enabled: boolean) => void; isActive: boolean }) => {
-    // Determine media:
-    // If XRAY: media[0] is Cover (Image usually), media[1] is Content.
-    // If VIDEO: media[0] is Video. Cover might be missing.
-    // Card always navigates on tap, videos autoplay muted when active
-
+const FloatingCard = ({ post, config, index, onPress, onToggleScroll, isActive, shouldPlay, onAssetLoaded, shouldRenderVideo, chunkReady }: { post: Post; config: CardConfig; index: number; onPress: () => void; onToggleScroll: (enabled: boolean) => void; isActive: boolean; shouldPlay: boolean; onAssetLoaded?: () => void; shouldRenderVideo: boolean; chunkReady: boolean }) => {
+    const hasReportedRef = useRef(false);
     const [slashesModalVisible, setSlashesModalVisible] = React.useState(false);
+    const [isLoaded, setIsLoaded] = useState(false);
     const { colors } = useTheme();
 
+    useEffect(() => {
+        if (isLoaded) {
+            const timer = setTimeout(() => {
+                // setIsPlaying(false); // Removed as per instructions
+            }, 2000);
+            return () => clearTimeout(timer);
+        }
+    }, [isLoaded]);
+
+    // Priority: thumbnailUrl > IMAGE type > image extension > video URL (last resort)
+    const getImageUrl = (): string | null => {
+        if (!post.media || post.media.length === 0) {
+            return null;
+        }
+
+        // Check for thumbnailUrl first (from Lill/Fill tables)
+        const withThumb = post.media.find(m => m.thumbnailUrl);
+        if (withThumb?.thumbnailUrl) {
+            return withThumb.thumbnailUrl;
+        }
+
+        // Check for IMAGE type
+        const imageType = post.media.find(m => m.type?.toUpperCase() === 'IMAGE');
+        if (imageType?.url) {
+            return imageType.url;
+        }
+
+        // Check for image extension
+        const imageExt = post.media.find(m => m.url?.match(/\.(jpeg|jpg|png|webp|gif)$/i));
+        if (imageExt?.url) {
+            return imageExt.url;
+        }
+
+        // Last resort: use any available URL (including video)
+        const anyUrl = post.media[0]?.url;
+        if (anyUrl) {
+            return anyUrl;
+        }
+
+        return null;
+    };
+
+    // For XRAY posts, get both layers
     let coverUrl: string | null = null;
-    let videoUrl: string | null = null;
     let contentUrl: string | null = null;
     let coverType: string = 'IMAGE';
     let contentType: string = 'IMAGE';
 
     if (post.postType === 'XRAY' && post.media && post.media.length >= 2) {
-        // Intelligent Media Assignment - SWAPPED
-        let cover = post.media.find(m => m.variant === 'xray-bottom' || (m as any).variant === 'xray-bottom');
-        let content = post.media.find(m => m.variant === 'xray-top' || (m as any).variant === 'xray-top');
-
-        if (!cover || !content) {
-            cover = post.media[0];
-            content = post.media[1];
-        }
-
-        if (cover && content) {
-            coverUrl = cover.url;
-            contentUrl = content.url;
-            coverType = cover.type || 'IMAGE';
-            contentType = content.type || 'IMAGE';
-        }
-    } else if (post.media && post.media.length > 0) {
-        const item = post.media[0];
-        if (item.type?.toUpperCase() === 'VIDEO') {
-            videoUrl = item.url;
-            // Try to find an image in other media? Or assume no cover.
-            const img = post.media.find(m => m.type?.toUpperCase() === 'IMAGE');
-            if (img) coverUrl = img.url;
-        } else {
-            coverUrl = item.url;
-        }
+        const cover = post.media.find(m => m.variant === 'xray-bottom') || post.media[0];
+        const content = post.media.find(m => m.variant === 'xray-top') || post.media[1];
+        coverUrl = cover?.thumbnailUrl || cover?.url || null;
+        contentUrl = content?.thumbnailUrl || content?.url || null;
+        coverType = cover?.type || 'IMAGE';
+        contentType = content?.type || 'IMAGE';
     }
 
-    // Fallback: If no media, return null
-    if (!coverUrl && !videoUrl) return null;
-
-    const userAvatar = post.user?.profile?.avatarUrl;
-    const userName = post.user?.profile?.displayName || post.user?.name || 'User';
+    const imageUrl = getImageUrl();
 
     return (
         <View
@@ -268,6 +141,7 @@ const FloatingCard = ({ post, config, index, onPress, onToggleScroll, isActive }
                 width: config.width,
                 height: config.height,
                 transform: [{ rotate: `${config.rotate}deg` }],
+                opacity: chunkReady ? 1 : 0,
             }}
         >
             <View
@@ -284,61 +158,108 @@ const FloatingCard = ({ post, config, index, onPress, onToggleScroll, isActive }
                     elevation: 5,
                 }}
             >
-                {/* Media Layer - Tap to Navigate */}
+                {/* Media Layer */}
                 <TouchableWithoutFeedback onPress={onPress}>
-                    <View style={{ flex: 1 }}>
-                        {(() => {
-                            // CASE 1: Active Card -> Play Video if available
-                            if (isActive && videoUrl && videoUrl.length > 5) {
-                                return (
+                    <View style={{ flex: 1, backgroundColor: '#1a1a1a' }}>
+                        {imageUrl ? (
+                            imageUrl.match(/\.(mp4|mov|webm)$/i) ? (
+                                (shouldPlay || shouldRenderVideo) ? (
                                     <Video
-                                        source={{ uri: videoUrl }}
-                                        style={{ width: '100%', height: '100%' }}
+                                        source={{ uri: imageUrl }}
+                                        style={{ width: '100%', height: '100%', backgroundColor: '#1a1a1a' }}
                                         resizeMode={ResizeMode.COVER}
-                                        shouldPlay={true}
-                                        isLooping
+                                        shouldPlay={shouldPlay}
                                         isMuted={true}
+                                        isLooping={true}
                                         useNativeControls={false}
-                                        onError={(e) => console.log("Video Error Explore:", e)}
+                                        onReadyForDisplay={() => {
+                                            setIsLoaded(true);
+                                            if (!hasReportedRef.current) {
+                                                hasReportedRef.current = true;
+                                                onAssetLoaded?.();
+                                            }
+                                        }}
+                                        onError={() => {
+                                            setIsLoaded(true);
+                                            if (!hasReportedRef.current) {
+                                                hasReportedRef.current = true;
+                                                onAssetLoaded?.();
+                                            }
+                                        }}
                                     />
-                                );
-                            }
-
-                            // CASE 2: Inactive separate Cover Image
-                            if (coverUrl) {
-                                return (
-                                    <Image
-                                        source={{ uri: coverUrl }}
-                                        style={{ width: '100%', height: '100%' }}
-                                        resizeMode="cover"
-                                    />
-                                );
-                            }
-
-                            // CASE 3: Inactive & No Cover -> Render Video Paused (for thumbnail)
-                            if (videoUrl) {
-                                return (
-                                    <Video
-                                        source={{ uri: videoUrl }}
-                                        style={{ width: '100%', height: '100%' }}
-                                        resizeMode={ResizeMode.COVER}
-                                        shouldPlay={false}
-                                        isMuted={true}
-                                        useNativeControls={false}
-                                    />
-                                );
-                            }
-
-                            // CASE 4: Truly no media -> Placeholder
-                            return (
-                                <View style={{ width: '100%', height: '100%', backgroundColor: '#2a2a2a', alignItems: 'center', justifyContent: 'center' }}>
-                                    <Play size={32} color="rgba(255,255,255,0.3)" />
-                                </View>
-                            );
-
-                            // CASE 4: No Media (handled by validation, but safe fallback)
-                            return <View className="bg-zinc-800 w-full h-full" />;
-                        })()}
+                                ) : (
+                                    // Video beyond decoder limit: show thumbnail or loader
+                                    (post.media && post.media[0]?.thumbnailUrl) ? (
+                                        <Image
+                                            source={{ uri: post.media[0].thumbnailUrl }}
+                                            style={{ width: '100%', height: '100%' }}
+                                            resizeMode="cover"
+                                            onLoad={() => {
+                                                setIsLoaded(true);
+                                                if (!hasReportedRef.current) {
+                                                    hasReportedRef.current = true;
+                                                    onAssetLoaded?.();
+                                                }
+                                            }}
+                                            onError={() => {
+                                                if (!hasReportedRef.current) {
+                                                    hasReportedRef.current = true;
+                                                    onAssetLoaded?.();
+                                                }
+                                            }}
+                                        />
+                                    ) : (
+                                        <View
+                                            style={{ flex: 1, backgroundColor: '#1a1a1a', justifyContent: 'center', alignItems: 'center' }}
+                                            onLayout={() => {
+                                                setIsLoaded(true);
+                                                if (!hasReportedRef.current) {
+                                                    hasReportedRef.current = true;
+                                                    onAssetLoaded?.();
+                                                }
+                                            }}
+                                        >
+                                            <ActivityIndicator size="small" color="rgba(255,255,255,0.5)" />
+                                        </View>
+                                    )
+                                )
+                            ) : (
+                                <Image
+                                    source={{ uri: imageUrl }}
+                                    style={{ width: '100%', height: '100%' }}
+                                    resizeMode="cover"
+                                    onLoad={() => {
+                                        setIsLoaded(true);
+                                        if (!hasReportedRef.current) {
+                                            hasReportedRef.current = true;
+                                            onAssetLoaded?.();
+                                        }
+                                    }}
+                                    onError={() => {
+                                        if (!hasReportedRef.current) {
+                                            hasReportedRef.current = true;
+                                            onAssetLoaded?.();
+                                        }
+                                    }}
+                                />
+                            )
+                        ) : (
+                            <View style={{ flex: 1, backgroundColor: '#1a1a1a', justifyContent: 'center', alignItems: 'center' }}
+                                onLayout={() => {
+                                    if (!hasReportedRef.current) {
+                                        hasReportedRef.current = true;
+                                        onAssetLoaded?.();
+                                    }
+                                }}
+                            >
+                                <ActivityIndicator size="small" color="rgba(255,255,255,0.5)" />
+                            </View>
+                        )}
+                        {!isLoaded && (
+                            <View style={{ position: 'absolute', inset: 0, backgroundColor: '#1a1a1a', justifyContent: 'center', alignItems: 'center' }}>
+                                <ActivityIndicator size="small" color="rgba(255,255,255,0.5)" />
+                            </View>
+                        )}
                     </View>
                 </TouchableWithoutFeedback>
 
@@ -366,7 +287,6 @@ const FloatingCard = ({ post, config, index, onPress, onToggleScroll, isActive }
                             activeOpacity={0.9}
                             onPress={onPress}
                         >
-                            {/* Gradient overlay - Removed Text as per request, kept interactive area */}
                             <View
                                 style={{
                                     height: config.height * 0.5,
@@ -377,7 +297,6 @@ const FloatingCard = ({ post, config, index, onPress, onToggleScroll, isActive }
                         </TouchableOpacity>
                     </View>
                 )}
-
 
                 {/* Reaction Bubbles (Mini) */}
                 {post.topBubbles && post.topBubbles.length > 0 && (
@@ -399,18 +318,11 @@ const FloatingCard = ({ post, config, index, onPress, onToggleScroll, isActive }
                                         justifyContent: 'center'
                                     }}
                                 >
-                                    {bubble.mediaType === 'VIDEO' ? (
-                                        <Video
-                                            source={{ uri: bubble.mediaUrl }}
-                                            style={{ width: '100%', height: '100%' }}
-                                            resizeMode={ResizeMode.COVER}
-                                            shouldPlay={isActive}
-                                            isLooping
-                                            isMuted={true}
-                                        />
-                                    ) : (
-                                        <Image source={{ uri: bubble.mediaUrl }} style={{ width: '100%', height: '100%' }} />
-                                    )}
+                                    <Image
+                                        source={{ uri: bubble.mediaUrl }}
+                                        style={{ width: '100%', height: '100%' }}
+                                        resizeMode="cover"
+                                    />
                                 </View>
                             ))}
                         </View>
@@ -430,7 +342,12 @@ const FloatingCard = ({ post, config, index, onPress, onToggleScroll, isActive }
 
 // Optimized with React.memo to prevent crashes
 const MemoizedFloatingCard = React.memo(FloatingCard, (prev, next) => {
-    return prev.isActive === next.isActive && prev.post.id === next.post.id && prev.index === next.index;
+    return prev.isActive === next.isActive &&
+        prev.post.id === next.post.id &&
+        prev.index === next.index &&
+        prev.shouldPlay === next.shouldPlay &&
+        prev.shouldRenderVideo === next.shouldRenderVideo &&
+        prev.chunkReady === next.chunkReady;
 });
 
 export default function ExploreScreen() {
@@ -449,243 +366,345 @@ export default function ExploreScreen() {
     const [currentTab, setCurrentTab] = useState('Posts'); // Default to Posts
     const [scrollX, setScrollX] = useState(0);
     const [scrollY, setScrollY] = useState(0);
-    const [activeCardIndex, setActiveCardIndex] = useState<number | null>(null);
+
     const [isScreenFocused, setIsScreenFocused] = useState(true);
     const [scrollEnabled, setScrollEnabled] = useState(true);
-
-    // 360 Infinite Scroll State
     const [chunkRegistry, setChunkRegistry] = useState<Record<string, Post[]>>({});
     const [loadedChunks, setLoadedChunks] = useState<Set<string>>(new Set());
-    const fetchingRefs = useRef<Set<string>>(new Set()); // Instant Ref for in-flight requests
-    const CHUNK_SIZE = 1000;
-    const globalPageRef = useRef(0);
+    const fetchingRefs = useRef<Set<string>>(new Set());
+    // const CHUNK_SIZE = 1000; // Removed in favor of dynamic Width/Height
+    const globalOffsetRef = useRef(0);
+    const [playingPostId, setPlayingPostId] = useState<string | null>(null);
+
+    // Sequential Player Logic
+    // Sequential Player Logic
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setPlayingPostId(prev => {
+                const allPosts: Post[] = [];
+                // Only consider VISIBLE chunks for playback to ensure immediate responsiveness
+                const currentVisible = visibleChunkKeysRef.current;
+
+                currentVisible.forEach(key => {
+                    const chunk = chunkRegistry[key];
+                    if (chunk) allPosts.push(...chunk);
+                });
+
+                if (allPosts.length === 0) return null;
+
+                // Sort by vertical position (top) to ensure "one by one" down the feed
+                // We cast to any to access _layout
+                allPosts.sort((a: any, b: any) => (a._layout?.top || 0) - (b._layout?.top || 0));
+
+                const videoPosts = allPosts.filter(p =>
+                    p.postMedia?.some(m => m.media?.type === 'VIDEO' || m.media?.url?.match(/\.(mp4|mov|webm)$/i)) ||
+                    p.media?.some(m => m.type === 'VIDEO' || m.url?.match(/\.(mp4|mov|webm)$/i))
+                );
+
+                if (videoPosts.length === 0) return null;
+
+                const currentIndex = videoPosts.findIndex(p => p.id === prev);
+                // If current playing is not found (off screen), start from first visible
+                if (currentIndex === -1) return videoPosts[0].id;
+
+                const nextIndex = (currentIndex + 1) % videoPosts.length;
+                return videoPosts[nextIndex].id;
+            });
+        }, 3000); // 3 seconds per post
+
+        return () => clearInterval(interval);
+    }, [chunkRegistry]); // Depend on registry updates
+
+    const [visibleChunkKeys, setVisibleChunkKeys] = useState<Set<string>>(new Set());
+    const visibleChunkKeysRef = useRef<Set<string>>(new Set());
+
+    const [scrollBounds, setScrollBounds] = useState<{ minX: number; maxX: number; minY: number; maxY: number } | null>(null);
+    const [loadingKeys, setLoadingKeys] = useState<Set<string>>(new Set());
+    const [allowedVideoIds, setAllowedVideoIds] = useState<Set<string>>(new Set());
+    const [chunkLoadStatus, setChunkLoadStatus] = useState<Record<string, { total: number, loaded: number }>>({});
+    const readyChunksRef = useRef<Set<string>>(new Set());
+
+    // Calculate Bounds based on loaded chunks (data fetched from network)
+    // No more waiting for individual assets to render
+    useEffect(() => {
+        let minChunkX = Infinity, maxChunkX = -Infinity;
+        let minChunkY = Infinity, maxChunkY = -Infinity;
+
+        if (loadedChunks.size === 0) {
+            minChunkX = 0; maxChunkX = 0;
+            minChunkY = 0; maxChunkY = 0;
+        } else {
+            loadedChunks.forEach(key => {
+                const [cx, cy] = key.split(',').map(Number);
+                if (cx < minChunkX) minChunkX = cx;
+                if (cx > maxChunkX) maxChunkX = cx;
+                if (cy < minChunkY) minChunkY = cy;
+                if (cy > maxChunkY) maxChunkY = cy;
+            });
+        }
+
+        const CHUNK_WIDTH = width + 60;
+        const CHUNK_HEIGHT = 1600;
+
+        const newBounds = {
+            maxX: -(minChunkX * CHUNK_WIDTH),
+            minX: -((maxChunkX + 1) * CHUNK_WIDTH - width),
+            maxY: -(minChunkY * CHUNK_HEIGHT),
+            minY: -((maxChunkY + 1) * CHUNK_HEIGHT - height)
+        };
+
+        setScrollBounds(newBounds);
+    }, [loadedChunks]);
 
     const handleRegionChange = useCallback((region: { x: number, y: number, width: number, height: number }) => {
-        // Calculate visible chunks
-        const startX = Math.floor(region.x / CHUNK_SIZE);
-        const endX = Math.floor((region.x + region.width) / CHUNK_SIZE);
-        const startY = Math.floor(region.y / CHUNK_SIZE);
-        const endY = Math.floor((region.y + region.height) / CHUNK_SIZE);
+        const CHUNK_WIDTH = width + 60; // Add 60px gap between horizontal batches
+        const CHUNK_HEIGHT = 1600; // Match layout logic
 
-        // Add Buffer (Prefetching) - Load 1 chunk in every direction
-        const BUFFER = 1;
+        const startChunkX = Math.floor(region.x / CHUNK_WIDTH);
+        const endChunkX = Math.floor((region.x + region.width) / CHUNK_WIDTH);
+        const startChunkY = Math.floor(region.y / CHUNK_HEIGHT);
+        const endChunkY = Math.floor((region.y + region.height) / CHUNK_HEIGHT);
 
-        for (let x = startX - BUFFER; x <= endX + BUFFER; x++) {
-            for (let y = startY - BUFFER; y <= endY + BUFFER; y++) {
+        const newVisibleKeys = new Set<string>();
+
+        // Render Logic: We MUST render neighbors to allow them to load assets (Image/Video)
+        // even if they are off-screen.
+        // Expand range by 1 in all directions
+
+        const renderStartX = startChunkX - 1;
+        const renderEndX = endChunkX + 1;
+        const renderStartY = startChunkY - 1;
+        const renderEndY = endChunkY + 1;
+
+        for (let x = renderStartX; x <= renderEndX; x++) {
+            for (let y = renderStartY; y <= renderEndY; y++) {
+                newVisibleKeys.add(`${x},${y}`);
+            }
+        }
+        setVisibleChunkKeys(newVisibleKeys);
+        visibleChunkKeysRef.current = newVisibleKeys;
+
+        setScrollX(region.x);
+        setScrollY(region.y);
+
+        // Calculate Video Priority (Limit Hardware Decoders to max 6)
+        const centerX = region.x + region.width / 2;
+        const centerY = region.y + region.height / 2;
+        const candidatePosts: { id: string, dist: number }[] = [];
+
+        newVisibleKeys.forEach(key => {
+            const chunk = chunkRegistry[key];
+            if (!chunk) return;
+            chunk.forEach(p => {
+                const isVideo = p.media?.some(m => m.type === 'VIDEO' || m.url?.match(/\.(mp4|mov|webm)$/i));
+                if (isVideo && (p as any)._layout) {
+                    const layout = (p as any)._layout;
+                    const dx = (layout.left + layout.width / 2) - centerX;
+                    const dy = (layout.top + layout.height / 2) - centerY;
+                    candidatePosts.push({ id: p.id, dist: dx * dx + dy * dy });
+                }
+            });
+        });
+        candidatePosts.sort((a, b) => a.dist - b.dist);
+        setAllowedVideoIds(new Set(candidatePosts.slice(0, 6).map(p => p.id)));
+
+        // Prefetch adjacent chunks
+        for (let x = startChunkX - 1; x <= endChunkX + 1; x++) {
+            for (let y = startChunkY - 1; y <= endChunkY + 1; y++) {
                 const key = `${x},${y}`;
-                // Check Ref immediately to avoid async state delay
                 if (!loadedChunks.has(key) && !fetchingRefs.current.has(key)) {
                     fetchChunk(x, y);
                 }
             }
         }
-    }, [loadedChunks]);
+    }, [loadedChunks, chunkRegistry]);
 
     const fetchChunk = async (chunkX: number, chunkY: number) => {
-        // Generate bg elements for this chunk regardless of posts
-        generateDecorationsForChunk(chunkX, chunkY);
-
         const key = `${chunkX},${chunkY}`;
+        // If already fetching, ignore
+        if (fetchingRefs.current.has(key)) return;
 
-        // Double check
-        if (loadedChunks.has(key) || fetchingRefs.current.has(key)) return;
+        // If already loaded, ignore
+        if (loadedChunks.has(key)) return;
 
-        // Mark as fetching
         fetchingRefs.current.add(key);
+        // Force update to show loading state (by checking fetchingRefs in render)
+        // Actually, we use a local state updater or just rely on the component re-rendering via other means
+        // But for spinners, we might need to know what's fetching.
+        // Let's add a state for loadingKeys to control spinners
+        setLoadingKeys(prev => new Set(prev).add(key));
+
+        const batchSize = 15;
+        const totalCycleSize = 3000; // Increased to 3000 to cover user's 2000+ posts
+
+        // Generate a pseudo-random but deterministic offset based on coordinates
+        // This ensures infinite scrolling even with limited data by looping
+        const seed = Math.abs(chunkX * 73 + chunkY * 19);
+        const currentOffset = (seed * batchSize) % totalCycleSize;
 
         try {
-            const page = globalPageRef.current;
-            globalPageRef.current += 1; // Increment for next chunk
-
-            // Default fetch logic similar to fetchPosts but for chunks
             const { data, error } = await supabase
                 .from('Post')
                 .select(`
                     id, content, postType,
                     user:User(name, profile:Profile(displayName, avatarUrl)),
                     postMedia:PostMedia(media:Media(url, type, variant)),
+                    lillData:Lill(thumbnailUrl),
+                    fillData:Fill(thumbnailUrl),
+                    chanData:Chan(coverImageUrl),
                     topBubbles:ReactionBubble(mediaUrl, mediaType),
                     slashes:Slash(tag)
                 `)
                 .eq('visibility', 'PUBLIC')
-                .in('postType', ['XRAY', 'LILL', 'FILL', 'CHAPTER']) // Same as Posts tab
+                // .in('postType', ['XRAY', 'LILL', 'FILL', 'CHAPTER']) // Allow ALL
                 .order('createdAt', { ascending: false })
-                .range(page * 15, (page + 1) * 15 - 1);
+                .range(currentOffset, currentOffset + batchSize - 1);
 
             if (error) {
                 console.error('[Explore] Supabase error:', error);
+                fetchingRefs.current.delete(key);
+                setLoadingKeys(prev => {
+                    const next = new Set(prev);
+                    next.delete(key);
+                    return next;
+                });
                 return;
             }
 
             if (data && data.length > 0) {
-                const transformed: Post[] = data.map((p: any) => ({
-                    id: p.id,
-                    content: p.content || '',
-                    postType: p.postType,
-                    media: (p.postMedia || []).map((pm: any) => pm.media).filter(Boolean),
-                    chanData: null,
-                    postMedia: p.postMedia,
-                    user: Array.isArray(p.user) ? p.user[0] : p.user,
-                    topBubbles: p.topBubbles || [],
-                    slashes: p.slashes || []
-                })).filter(post => post.media && post.media.length > 0);
+                const transformed: Post[] = data.map((p: any) => {
+                    const lill = Array.isArray(p.lillData) ? p.lillData[0] : p.lillData;
+                    const fill = Array.isArray(p.fillData) ? p.fillData[0] : p.fillData;
+                    const chan = Array.isArray(p.chanData) ? p.chanData[0] : p.chanData;
+                    let thumbnailUrl = lill?.thumbnailUrl || fill?.thumbnailUrl || chan?.coverImageUrl || null;
+                    const media = (p.postMedia || []).map((pm: any) => {
+                        const m = pm.media;
+                        if (m && !m.type) {
+                            if (m.url?.match(/\.(mp4|mov|webm)$/i)) m.type = 'VIDEO';
+                            else m.type = 'IMAGE';
+                        }
+                        return m;
+                    }).filter(Boolean);
 
-                // Better approach: Calculate layouts first
-                const placedRects: { x: number, y: number, width: number, height: number }[] = [];
+                    // Fallback - Instant Cover
+                    if (!thumbnailUrl && media.length > 0) {
+                        if (media[0].type === 'VIDEO' || media[0].url?.match(/\.(mp4|mov|webm)$/i)) {
+                            thumbnailUrl = media[0].url;
+                        }
+                    }
+                    if (thumbnailUrl && media.length > 0) media[0].thumbnailUrl = thumbnailUrl;
+
+                    return {
+                        id: p.id,
+                        content: p.content || '',
+                        postType: p.postType,
+                        media,
+                        lillData: p.lillData,
+                        fillData: p.fillData,
+                        chanData: p.chanData || null,
+                        postMedia: p.postMedia,
+                        user: Array.isArray(p.user) ? p.user[0] : p.user,
+                        topBubbles: p.topBubbles || [],
+                        slashes: p.slashes || []
+                    };
+                }).filter(post => post.media && post.media.length > 0);
+
+                // Shuffle
+                for (let i = transformed.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [transformed[i], transformed[j]] = [transformed[j], transformed[i]];
+                }
+
+                // SCATTERED LAYOUT
+                const SCREEN_WIDTH = width;
+                const COLS = 3;
+                const slotWidth = SCREEN_WIDTH / COLS;
+                const slotHeight = 320; // Increased height to prevent vertical overlap (was 280)
+
                 const layoutedPosts = transformed.map((post, index) => {
-                    let attempts = 0;
-                    let validConfig = null;
-                    const width = 140 + Math.random() * 40;
-                    const height = 200 + Math.random() * 50;
-                    const padding = 40; // Increased padding
+                    const col = index % COLS;
+                    const row = Math.floor(index / COLS);
 
-                    // 1. Try Random Placement
-                    while (attempts < 200) {
-                        const innerX = Math.random() * (CHUNK_SIZE - width - padding); // Keep well inside
-                        const innerY = Math.random() * (CHUNK_SIZE - height - padding);
+                    // Scattered Dimensions
+                    const wBase = slotWidth;
+                    const hBase = 220; // Base height
 
-                        const candidate = {
-                            x: innerX,
-                            y: innerY,
-                            width,
-                            height
-                        };
+                    const width = slotWidth - 40; // Reduce width significantly to create a large gutter (20px per side)
+                    const height = hBase + ((Math.random() - 0.5) * 40); // Variance +/- 20. Max 240. Min 200. Gap 80-120px.
 
-                        // Check collision with already placed in this chunk
-                        const hasCollision = placedRects.some(r => {
-                            return (
-                                candidate.x < r.x + r.width + padding &&
-                                candidate.x + candidate.width + padding > r.x &&
-                                candidate.y < r.y + r.height + padding &&
-                                candidate.y + candidate.height + padding > r.y
-                            );
-                        });
+                    // Scattered Position & Tilt
+                    let jitterX = (Math.random() - 0.5) * 10; // reduced range +/- 5
 
-                        if (!hasCollision) {
-                            validConfig = {
-                                top: chunkY * CHUNK_SIZE + innerY,
-                                left: chunkX * CHUNK_SIZE + innerX,
-                                width,
-                                height,
-                                rotate: (Math.random() - 0.5) * 10,
-                                radius: 16
-                            };
-                            placedRects.push(candidate);
-                            break;
-                        }
-                        attempts++;
-                    }
+                    // Strictly force inward movement for edge columns to prevent overlap
+                    if (col === 0) jitterX = Math.abs(jitterX) + 6; // Force inward (right)
+                    if (col === COLS - 1) jitterX = -(Math.abs(jitterX) + 6); // Force inward (left)
 
-                    // 2. Fallback: Grid Placement (if random fails)
-                    if (!validConfig) {
-                        const cols = 4;
-                        const rows = 4;
-                        const slotWidth = CHUNK_SIZE / cols;
-                        const slotHeight = CHUNK_SIZE / rows;
+                    const jitterY = (Math.random() - 0.5) * 20;
+                    const rotate = (Math.random() - 0.5) * 4; // Reduce rotation
 
-                        for (let r = 0; r < rows; r++) {
-                            for (let c = 0; c < cols; c++) {
-                                const slotX = c * slotWidth + 20;
-                                const slotY = r * slotHeight + 20;
+                    const CHUNK_WIDTH = SCREEN_WIDTH + 60; // Add 60px gap between batches
+                    const CHUNK_HEIGHT = 1600; // Increased to match content height (5 rows * 320 = 1600)
 
-                                const candidate = { x: slotX, y: slotY, width, height };
-
-                                const hasCollision = placedRects.some(rect => {
-                                    return (
-                                        candidate.x < rect.x + rect.width + 10 &&
-                                        candidate.x + candidate.width + 10 > rect.x &&
-                                        candidate.y < rect.y + rect.height + 10 &&
-                                        candidate.y + candidate.height + 10 > rect.y
-                                    );
-                                });
-
-                                if (!hasCollision) {
-                                    validConfig = {
-                                        top: chunkY * CHUNK_SIZE + slotY,
-                                        left: chunkX * CHUNK_SIZE + slotX,
-                                        width,
-                                        height,
-                                        rotate: 0,
-                                        radius: 16
-                                    };
-                                    placedRects.push(candidate);
-                                    break;
-                                }
-                            }
-                            if (validConfig) break;
-                        }
-                    }
-
-                    if (!validConfig) return null;
+                    const actualChunkOffsetY = chunkY * CHUNK_HEIGHT;
+                    const actualChunkOffsetX = chunkX * CHUNK_WIDTH;
 
                     return {
                         ...post,
-                        _layout: validConfig
+                        _layout: {
+                            top: actualChunkOffsetY + (row * slotHeight) + jitterY,
+                            left: actualChunkOffsetX + (col * slotWidth) + jitterX + 14, // +14 to center the card (28px gap / 2)
+                            width,
+                            height,
+                            rotate,
+                            radius: 8,
+                            zIndex: Math.floor(Math.random() * 100)
+                        }
                     } as Post & { _layout: any };
-                }).filter(Boolean) as (Post & { _layout: any })[];
+                });
 
-                setChunkRegistry(prev => ({
+                setChunkRegistry(prev => ({ ...prev, [key]: layoutedPosts }));
+
+                // Track total assets to load for chunk visibility
+                setChunkLoadStatus(prev => ({
                     ...prev,
-                    [key]: layoutedPosts
+                    [key]: { total: layoutedPosts.length, loaded: 0 }
                 }));
-                // Mark loaded in state
+
+                // IMPORTANT: Update loadedChunks AFTER registry to prevent accessing undefined data
                 setLoadedChunks(prev => new Set(prev).add(key));
             }
         } catch (e) {
             console.error('[Explore] Chunk fetch error:', e);
         } finally {
-            // Remove from fetching lock regardless of success, to allow retry if logic permits
-            // But since we setLoadedChunks on success, we check that. 
-            // If failed, we remove so we can retry.
             fetchingRefs.current.delete(key);
-        }
-    };
+            // Don't remove from loadingKeys here if valid? 
+            // Actually loadingKeys tracks NETWORK fetch.
+            // The spinner for ASSETS is handled by the fact that it's in registry but not in readyChunks.
 
-    // Emoji/Background State
-    const [activeEmojis, setActiveEmojis] = useState<string[]>(['FUY_LOGO']); // Default to Logo
-    const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
-    const [customEmojiText, setCustomEmojiText] = useState(''); // Text Input State
-    const [decorationsRegistry, setDecorationsRegistry] = useState<Record<string, { id: string, x: number, y: number, size: number, rotate: number, variantIndex: number }[]>>({});
-
-    const EMOJI_OPTIONS = ['FUY_LOGO', '✨', '🔥', '💧', '🍀', '🚀', '👾', '💎', '🌙', '🦋', '❤️', '☁️', '🌸', '⚡', '🎵', '👻'];
-
-    const toggleEmoji = (emoji: string) => {
-        setActiveEmojis(prev => {
-            if (prev.includes(emoji)) {
-                return prev.filter(e => e !== emoji);
-            }
-            if (prev.length >= 5) {
-                Alert.alert("Limit Reached", "You can only select up to 5 emojis.");
-                return prev;
-            }
-            return [...prev, emoji];
-        });
-    };
-
-
-
-    // Generate Decoration for Chunk
-    const generateDecorationsForChunk = (chunkX: number, chunkY: number) => {
-        const key = `${chunkX},${chunkY}`;
-        if (decorationsRegistry[key]) return;
-
-        const newDecorations = [];
-        // Dense: 5-8 decorations per chunk
-        const count = 5 + Math.floor(Math.random() * 4);
-
-        for (let i = 0; i < count; i++) {
-            newDecorations.push({
-                id: Math.random().toString(36).substr(2, 9),
-                x: chunkX * CHUNK_SIZE + Math.random() * CHUNK_SIZE,
-                y: chunkY * CHUNK_SIZE + Math.random() * CHUNK_SIZE,
-                size: 16 + Math.random() * 24,
-                rotate: Math.random() * 360,
-                variantIndex: Math.floor(Math.random() * 50) // Random index to map to selected emojis later
+            setLoadingKeys(prev => {
+                const next = new Set(prev);
+                next.delete(key);
+                return next;
             });
         }
-
-        setDecorationsRegistry(prev => ({ ...prev, [key]: newDecorations }));
     };
+
+
+    const handleAssetCallback = useCallback((key: string) => {
+        setChunkLoadStatus(prev => {
+            const current = prev[key];
+            if (!current) return prev;
+            const newLoaded = Math.min(current.loaded + 1, current.total);
+            if (newLoaded === current.loaded) return prev;
+            if (newLoaded >= current.total) {
+                readyChunksRef.current.add(key);
+            }
+            return {
+                ...prev,
+                [key]: { ...current, loaded: newLoaded }
+            };
+        });
+    }, []);
 
     // Global Pause when leaving tab (Crash Fix)
     useFocusEffect(
@@ -763,6 +782,8 @@ export default function ExploreScreen() {
             postType,
             user:User(name, profile:Profile(displayName, avatarUrl)),
             chan_data:Chan(*),
+            lillData:Lill(thumbnailUrl),
+            fillData:Fill(thumbnailUrl),
             postMedia:PostMedia (
                 media:Media (url, type)
             ),
@@ -819,17 +840,36 @@ export default function ExploreScreen() {
             }
 
             // Transform to Post interface
-            const transformedPosts: Post[] = (data || []).map((p: any) => ({
-                id: p.id,
-                content: p.content || '',
-                postType: p.postType,
-                media: (p.postMedia || []).map((pm: any) => pm.media).filter(Boolean),
-                chanData: Array.isArray(p.chan_data) ? p.chan_data[0] : p.chan_data,
-                postMedia: p.postMedia,
-                user: Array.isArray(p.user) ? p.user[0] : p.user, // Safely unwrap user
-                topBubbles: p.topBubbles || [],
-                slashes: p.slashes || []
-            })).filter(post => {
+            const transformedPosts: Post[] = (data || []).map((p: any) => {
+                // Get thumbnailUrl from the correct post type table
+                // Note: chan_data is used here instead of chanData due to query usage
+                const chanCover = Array.isArray(p.chan_data) ? p.chan_data[0]?.coverImageUrl : p.chan_data?.coverImageUrl;
+
+                const thumbnailUrl = p.lillData?.thumbnailUrl
+                    || p.fillData?.thumbnailUrl
+                    || chanCover
+                    || null;
+
+                // Map media
+                const media = (p.postMedia || []).map((pm: any) => pm.media).filter(Boolean);
+
+                // Attach thumbnail if found
+                if (thumbnailUrl && media.length > 0) {
+                    media[0].thumbnailUrl = thumbnailUrl;
+                }
+
+                return {
+                    id: p.id,
+                    content: p.content || '',
+                    postType: p.postType,
+                    media,
+                    chanData: Array.isArray(p.chan_data) ? p.chan_data[0] : p.chan_data,
+                    postMedia: p.postMedia,
+                    user: Array.isArray(p.user) ? p.user[0] : p.user, // Safely unwrap user
+                    topBubbles: p.topBubbles || [],
+                    slashes: p.slashes || []
+                };
+            }).filter(post => {
                 // Filter out broken posts to avoid empty spaces
                 if (post.postType === 'XRAY') {
                     // XRAY needs at least 2 layers (cover + content)
@@ -870,6 +910,45 @@ export default function ExploreScreen() {
     const loadMore = () => {
         if (!hasMore || loading) return;
         fetchPosts(currentTab, true);
+    };
+
+    // Show spinners for network-loading AND asset-loading chunks
+    const renderLoaders = () => {
+        const CHUNK_WIDTH = width + 60;
+        const CHUNK_HEIGHT = 1600;
+
+        // Combine network-loading keys AND asset-loading keys
+        const allPendingKeys = new Set(loadingKeys);
+        Object.keys(chunkRegistry).forEach(key => {
+            const status = chunkLoadStatus[key];
+            if (!status || status.loaded < status.total) {
+                allPendingKeys.add(key);
+            }
+        });
+
+        return Array.from(allPendingKeys).map(key => {
+            const [cx, cy] = key.split(',').map(Number);
+            const chunkCenterX = (cx * CHUNK_WIDTH) + (CHUNK_WIDTH / 2);
+            const chunkCenterY = (cy * CHUNK_HEIGHT) + (CHUNK_HEIGHT / 2);
+
+            return (
+                <View
+                    key={key}
+                    style={{
+                        position: 'absolute',
+                        left: chunkCenterX - 20,
+                        top: chunkCenterY - 20,
+                        width: 40,
+                        height: 40,
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        zIndex: 9999
+                    }}
+                >
+                    <ActivityIndicator size="small" color="rgba(255,255,255,0.6)" />
+                </View>
+            );
+        });
     };
 
 
@@ -969,31 +1048,17 @@ export default function ExploreScreen() {
         setSearchResults(prev => prev.map(u => u.id === item.id ? { ...u, friendshipStatus: 'PENDING' } : u));
 
         try {
-            // Get auth token for API call
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session?.access_token) {
-                Alert.alert("Error", "Not authenticated");
-                setSearchResults(prev => prev.map(u => u.id === item.id ? { ...u, friendshipStatus: 'NONE' } : u));
-                return;
-            }
-
-            // Use API endpoint instead of direct Supabase access
-            const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org'}/api/users/follow`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session.access_token}`
-                },
-                body: JSON.stringify({ targetUserId: item.id })
+            // Direct Supabase Insert
+            const { error } = await supabase.from('Subscription').insert({
+                subscriberId: currentUserId,
+                subscribedToId: item.id
             });
 
-            const result = await response.json();
-
-            if (!response.ok) {
-                console.error('Follow error:', result);
-                setSearchResults(prev => prev.map(u => u.id === item.id ? { ...u, friendshipStatus: 'NONE' } : u));
-                Alert.alert("Error", result.error || "Could not follow user");
-                return;
+            if (error) {
+                // If unique violation, user effectively followed.
+                if (error.code !== '23505') {
+                    throw error;
+                }
             }
 
             // Success - update UI to show following
@@ -1005,45 +1070,7 @@ export default function ExploreScreen() {
         }
     };
 
-    // Calculate total content height for scrolling
-    const contentHeight = Math.max(...CARD_CONFIGS.map(c => c.top + c.height)) + 150;
 
-    // Detect closest card
-    useEffect(() => {
-        // Debounce slightly to prevent rapid switching during fast scrolls
-        const timer = setTimeout(() => {
-            let minDesc = Infinity;
-            let closestIndex = -1;
-
-            const viewportCx = scrollX + width / 2;
-            const viewportCy = scrollY + height / 2;
-
-            CARD_CONFIGS.forEach((config, idx) => {
-                const cardCx = config.left + config.width / 2;
-                const cardCy = config.top + config.height / 2;
-
-                // Euclidean distance
-                const dist = Math.hypot(cardCx - viewportCx, cardCy - viewportCy);
-                if (dist < minDesc) {
-                    minDesc = dist;
-                    closestIndex = idx;
-                }
-            });
-
-            // "Confusion" fix: Only switch if the new card is significantly closer or the current one is far away
-            // Actually, for a single active item, shortest distance is robust enough.
-            // The issue might be multiple videos loading.
-            // We optimize by strictly setting ONE active index.
-
-            if (minDesc < 250) { // Tighter activation radius
-                setActiveCardIndex(closestIndex);
-            } else {
-                setActiveCardIndex(null);
-            }
-        }, 50); // 50ms trailing debounce
-
-        return () => clearTimeout(timer);
-    }, [scrollX, scrollY]);
 
     return (
         <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -1052,29 +1079,7 @@ export default function ExploreScreen() {
                 <View style={[styles.header, { zIndex: 101 }]}>
                     <Text style={styles.title}>Explore</Text>
                     <View style={{ flexDirection: 'row', gap: 16 }}>
-                        {/* Decoration Picker Toggle */}
-                        {currentTab === 'Posts' && (
-                            <TouchableOpacity
-                                onPress={() => setIsEmojiPickerOpen(prev => !prev)}
-                                style={{
-                                    width: 40, height: 40, borderRadius: 20,
-                                    backgroundColor: activeEmojis.length > 0 ? 'black' : 'rgba(0,0,0,0.5)',
-                                    alignItems: 'center', justifyContent: 'center',
-                                    borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
-                                    overflow: 'hidden'
-                                }}
-                            >
-                                {activeEmojis.length > 0 ? (
-                                    activeEmojis[0] === 'FUY_LOGO' ? (
-                                        <Image source={require('../../assets/icon.png')} style={{ width: 24, height: 24, borderRadius: 12 }} />
-                                    ) : (
-                                        <Text style={{ fontSize: 20 }}>{activeEmojis[0]}</Text>
-                                    )
-                                ) : (
-                                    <View style={{ width: 24, height: 24, alignItems: 'center', justifyContent: 'center' }}><Zap size={16} color="white" /></View>
-                                )}
-                            </TouchableOpacity>
-                        )}
+
 
                         <TouchableOpacity onPress={() => setIsSearching(true)} style={styles.iconButton}>
                             <Search color="white" size={24} />
@@ -1085,7 +1090,7 @@ export default function ExploreScreen() {
                 {/* Tabs - Restored to original position below header */}
                 <View style={{ paddingBottom: 10 }}>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: PADDING, gap: 8 }}>
-                        {['Posts', 'Slashes', 'Chans', 'Auds', 'Chapters'].map(tab => (
+                        {['Posts', 'Slashes', /* 'Chans', // V2 - hidden for now */ 'Auds', 'Chapters'].map(tab => (
                             <TouchableOpacity
                                 key={tab}
                                 onPress={() => {
@@ -1093,7 +1098,7 @@ export default function ExploreScreen() {
                                     setPosts([]);
                                     setChunkRegistry({});
                                     setLoadedChunks(new Set());
-                                    globalPageRef.current = 0;
+                                    globalOffsetRef.current = 0;
                                     setPage(0);
                                 }}
                                 style={{
@@ -1213,216 +1218,59 @@ export default function ExploreScreen() {
                     // ------------------------------------------------------------------
                     // ------------------ 360 INFINITE CANVAS UI ------------------------
                     // ------------------------------------------------------------------
-                    <InfiniteCanvas onRegionChange={handleRegionChange}>
-                        {/* Render Background Decorations */}
-                        {Object.values(decorationsRegistry).flat().map((dec) => {
-                            // Pick emoji based on variantIndex and activeEmojis
-                            // Pick emoji based on variantIndex and activeEmojis - GUARD against empty array
-                            if (!activeEmojis || activeEmojis.length === 0) return null;
-                            const emoji = activeEmojis[dec.variantIndex % activeEmojis.length];
+                    <InfiniteCanvas
+                        onRegionChange={handleRegionChange}
+                        bounds={scrollBounds}
+                        initialX={0}
+                    >
+                        {/* Render ALL loaded chunks - hidden until all assets load, then visible */}
+                        {(() => {
+                            const seen = new Set<string>();
+                            const items: React.ReactNode[] = [];
 
-                            return (
-                                <AnimatedDecoration
-                                    key={dec.id}
-                                    config={{ top: dec.y, left: dec.x, type: 'custom', size: dec.size, rotate: dec.rotate } as any}
-                                    index={dec.variantIndex}
-                                    customEmoji={emoji}
-                                    isPaused={false}
-                                />
-                            );
-                        })}
+                            Object.keys(chunkRegistry).forEach(chunkKey => {
+                                const posts = chunkRegistry[chunkKey];
+                                if (!posts) return;
 
-                        {Object.values(chunkRegistry).flat().map((post) => {
-                            // Use the layout stored on the post object
-                            const config = (post as any)._layout;
-                            if (!config) return null;
+                                const status = chunkLoadStatus[chunkKey];
+                                const isChunkReady = status ? status.loaded >= status.total : false;
 
-                            return (
-                                <MemoizedFloatingCard
-                                    key={post.id}
-                                    post={post}
-                                    config={config}
-                                    index={0}
-                                    onPress={() => router.push(`/post/${post.id}/similar` as any)}
-                                    onToggleScroll={() => { }}
-                                    isActive={false}
-                                />
-                            );
-                        })}
+                                posts.forEach(post => {
+                                    if (seen.has(post.id)) return;
+                                    seen.add(post.id);
 
-                        {/* Add some random background elements based on chunks too? For now, simple fixed ones might be lost in infinite space. */}
+                                    const config = (post as any)._layout;
+                                    if (!config) return;
+
+                                    items.push(
+                                        <MemoizedFloatingCard
+                                            key={post.id}
+                                            post={post}
+                                            config={config}
+                                            index={0}
+                                            onPress={() => router.push(`/post/${post.id}` as any)}
+                                            onToggleScroll={(enabled) => setScrollEnabled(enabled)}
+                                            isActive={isScreenFocused}
+                                            shouldPlay={post.id === playingPostId}
+                                            shouldRenderVideo={allowedVideoIds.has(post.id)}
+                                            onAssetLoaded={() => handleAssetCallback(chunkKey)}
+                                            chunkReady={isChunkReady}
+                                        />
+                                    );
+                                });
+                            });
+
+                            return items;
+                        })()}
+
+                        {/* Render Loaders for chunks being fetched */}
+                        {renderLoaders()}
                     </InfiniteCanvas>
                 )}
-
-                {/* Aesthetic Emoji Picker Overlay - Rendered LAST for Z-Index */}
-                {isEmojiPickerOpen && (
-                    <TouchableWithoutFeedback onPress={() => setIsEmojiPickerOpen(false)}>
-                        <View style={[StyleSheet.absoluteFill, { zIndex: 9999 }]}>
-                            <BlurView intensity={30} tint="dark" style={[StyleSheet.absoluteFill]} />
-                            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                                <TouchableWithoutFeedback>
-                                    <View style={{
-                                        width: '85%',
-                                        backgroundColor: 'rgba(20,20,20,0.95)',
-                                        borderRadius: 32,
-                                        padding: 24,
-                                        borderWidth: 1,
-                                        borderColor: 'rgba(255,255,255,0.1)',
-                                        shadowColor: '#000',
-                                        shadowOffset: { width: 0, height: 10 },
-                                        shadowOpacity: 0.5,
-                                        shadowRadius: 20,
-                                        elevation: 10
-                                    }}>
-                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                                            <View>
-                                                <Text style={{ color: 'white', fontSize: 20, fontWeight: '700' }}>Atmosphere</Text>
-                                                <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, marginTop: 4 }}>Select up to 5 vibes or type your own</Text>
-                                            </View>
-                                            <TouchableOpacity
-                                                onPress={() => setIsEmojiPickerOpen(false)}
-                                                style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 20, padding: 8 }}
-                                            >
-                                                <X size={20} color="white" />
-                                            </TouchableOpacity>
-                                        </View>
-
-                                        {/* Current Pattern Display & Reset */}
-                                        <View style={{ marginBottom: 20 }}>
-                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                                                <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1 }}>Current Vibe</Text>
-                                                {activeEmojis.length > 0 && (
-                                                    <TouchableOpacity onPress={() => setActiveEmojis(['FUY_LOGO'])}>
-                                                        <Text style={{ color: '#FF4B4B', fontSize: 13, fontWeight: '600' }}>Reset Default</Text>
-                                                    </TouchableOpacity>
-                                                )}
-                                            </View>
-                                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, minHeight: 40, alignItems: 'center' }}>
-                                                {activeEmojis.length === 0 ? (
-                                                    <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 14, fontStyle: 'italic' }}>No vibes selected...</Text>
-                                                ) : (
-                                                    activeEmojis.map((emoji, idx) => (
-                                                        <TouchableOpacity
-                                                            key={`${emoji}-${idx}`}
-                                                            onPress={() => toggleEmoji(emoji)}
-                                                            style={{
-                                                                flexDirection: 'row', alignItems: 'center',
-                                                                backgroundColor: 'rgba(255,255,255,0.1)',
-                                                                paddingVertical: 6, paddingHorizontal: 12,
-                                                                borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)'
-                                                            }}
-                                                        >
-                                                            {emoji === 'FUY_LOGO' ? (
-                                                                <Image source={require('../../assets/icon.png')} style={{ width: 16, height: 16, marginRight: 6 }} />
-                                                            ) : (
-                                                                <Text style={{ fontSize: 16, marginRight: 6 }}>{emoji}</Text>
-                                                            )}
-                                                            <X size={12} color="rgba(255,255,255,0.5)" />
-                                                        </TouchableOpacity>
-                                                    ))
-                                                )}
-                                                {activeEmojis.length > 0 && (
-                                                    <TouchableOpacity onPress={() => setActiveEmojis([])} style={{ marginLeft: 4 }}>
-                                                        <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>Clear All</Text>
-                                                    </TouchableOpacity>
-                                                )}
-                                            </View>
-                                        </View>
-
-                                        {/* Custom Input */}
-                                        <View style={{ flexDirection: 'row', marginBottom: 20 }}>
-                                            <TextInput
-                                                placeholder="Type custom emoji..."
-                                                placeholderTextColor="rgba(255,255,255,0.5)"
-                                                value={customEmojiText}
-                                                onChangeText={setCustomEmojiText}
-                                                maxLength={4}
-                                                style={{
-                                                    flex: 1,
-                                                    backgroundColor: 'rgba(255,255,255,0.1)',
-                                                    borderRadius: 12,
-                                                    paddingHorizontal: 16,
-                                                    color: 'white',
-                                                    height: 44,
-                                                    fontSize: 16
-                                                }}
-                                            />
-                                            <TouchableOpacity
-                                                onPress={() => {
-                                                    if (customEmojiText.trim()) {
-                                                        toggleEmoji(customEmojiText.trim());
-                                                        setCustomEmojiText('');
-                                                    }
-                                                }}
-                                                style={{
-                                                    marginLeft: 10,
-                                                    width: 44,
-                                                    height: 44,
-                                                    backgroundColor: 'white',
-                                                    borderRadius: 12,
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center'
-                                                }}
-                                            >
-                                                <Check color="black" size={20} />
-                                            </TouchableOpacity>
-                                        </View>
-
-                                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center' }}>
-                                            {EMOJI_OPTIONS.map(emoji => {
-                                                const isActive = activeEmojis.includes(emoji);
-                                                return (
-                                                    <TouchableOpacity
-                                                        key={emoji}
-                                                        onPress={() => toggleEmoji(emoji)}
-                                                        activeOpacity={0.7}
-                                                        style={{
-                                                            width: 50, height: 50, borderRadius: 25,
-                                                            backgroundColor: isActive ? 'white' : 'rgba(255,255,255,0.05)',
-                                                            alignItems: 'center', justifyContent: 'center',
-                                                            borderWidth: 1,
-                                                            borderColor: isActive ? 'white' : 'rgba(255,255,255,0.1)',
-                                                            transform: [{ scale: isActive ? 1.1 : 1 }]
-                                                        }}
-                                                    >
-                                                        {emoji === 'FUY_LOGO' ? (
-                                                            <Image source={require('../../assets/icon.png')} style={{ width: 30, height: 30 }} resizeMode="contain" />
-                                                        ) : (
-                                                            <Text style={{ fontSize: 24 }}>{emoji}</Text>
-                                                        )}
-                                                    </TouchableOpacity>
-                                                )
-                                            })}
-                                        </View>
-
-                                        <View style={{ marginTop: 24, alignItems: 'center' }}>
-                                            <LinearGradient
-                                                colors={activeEmojis.length > 0 ? ['#00C6FF', '#0072FF'] : ['#333', '#333']}
-                                                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                                                style={{ borderRadius: 24, width: '100%' }}
-                                            >
-                                                <TouchableOpacity
-                                                    onPress={() => setIsEmojiPickerOpen(false)}
-                                                    style={{ paddingVertical: 14, alignItems: 'center' }}
-                                                >
-                                                    <Text style={{ color: activeEmojis.length > 0 ? 'white' : 'rgba(255,255,255,0.3)', fontWeight: 'bold', fontSize: 16 }}>
-                                                        Set Vibe ({activeEmojis.length}/5)
-                                                    </Text>
-                                                </TouchableOpacity>
-                                            </LinearGradient>
-                                        </View>
-                                    </View>
-                                </TouchableWithoutFeedback>
-                            </View>
-                        </View>
-                    </TouchableWithoutFeedback>
-                )}
-
-                {/* Bottom Navigation Bar removed - handled by _layout.tsx */}
             </SafeAreaView>
-        </View >
+        </View>
     );
-}
+};
 
 const styles = StyleSheet.create({
     header: {
@@ -1495,11 +1343,12 @@ const styles = StyleSheet.create({
         paddingVertical: 8,
         backgroundColor: 'white',
         borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     followText: {
         fontSize: 12,
         fontWeight: '700',
         color: 'black',
     },
-    // Bottom nav styles removed
 });
