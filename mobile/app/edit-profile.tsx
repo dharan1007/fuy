@@ -339,8 +339,8 @@ export default function EditProfileScreen() {
                 setUploadingAvatar(true);
                 try {
                     const { data: { session } } = await supabase.auth.getSession();
-                    const url = await uploadFileToR2(result.assets[0].uri, 'IMAGE');
-                    setData(prev => ({ ...prev, avatarUrl: url }));
+                    const uploadRes = await uploadFileToR2(result.assets[0].uri, 'IMAGE');
+                    setData(prev => ({ ...prev, avatarUrl: uploadRes.url }));
                 } catch (uploadError: any) {
                     const errMsg = uploadError?.message || '';
                     if (!errMsg.includes('deprecated') && !errMsg.includes('getInfoAsync')) {
@@ -368,9 +368,9 @@ export default function EditProfileScreen() {
                 try {
                     const asset = result.assets[0];
                     const isVideo = asset.type === 'video';
-                    const { data: { session } } = await supabase.auth.getSession();
-                    const url = await uploadFileToR2(asset.uri, isVideo ? 'VIDEO' : 'IMAGE', session?.access_token);
-                    setData(prev => ({ ...prev, coverUrl: url, coverType: isVideo ? 'VIDEO' : 'IMAGE' }));
+                    // uploadFileToR2 handles auth internally, so we don't need to pass token
+                    const uploadRes = await uploadFileToR2(asset.uri, isVideo ? 'VIDEO' : 'IMAGE');
+                    setData(prev => ({ ...prev, coverUrl: uploadRes.url, coverType: isVideo ? 'VIDEO' : 'IMAGE' }));
                 } catch (uploadError: any) {
                     const errMsg = uploadError?.message || '';
                     if (!errMsg.includes('deprecated') && !errMsg.includes('getInfoAsync')) {
@@ -402,9 +402,10 @@ export default function EditProfileScreen() {
                 try {
                     const asset = result.assets[0];
                     const isVideo = asset.type === 'video';
-                    const { data: { session } } = await supabase.auth.getSession();
                     console.log('[EditProfile] Uploading stalkMe media at index:', index);
-                    const url = await uploadFileToR2(asset.uri, isVideo ? 'VIDEO' : 'IMAGE', session?.access_token);
+                    // uploadFileToR2 handles auth internally
+                    const uploadRes = await uploadFileToR2(asset.uri, isVideo ? 'VIDEO' : 'IMAGE');
+                    const url = uploadRes.url;
                     console.log('[EditProfile] StalkMe upload successful, URL:', url);
 
                     const newStalkMe = [...data.stalkMe];
@@ -525,22 +526,30 @@ export default function EditProfileScreen() {
             // Fix for missing public User record (Foreign Key Error)
             if (upsertError && upsertError.code === '23503') {
                 // Try to manually insert User if trigger failed
+                // Try to sync user via backend API (bypassing RLS)
                 try {
-                    const { data: { user } } = await supabase.auth.getUser();
-                    if (user) {
-                        const { error: insertError } = await supabase.from('User').insert({
-                            id: user.id,
-                            email: user.email,
-                            name: data.displayName || 'User'
+                    const { data: { session } } = await supabase.auth.getSession();
+                    if (session?.access_token) {
+                        const apiUrl = process.env.EXPO_PUBLIC_SERVER_URL || 'https://www.fuymedia.org';
+                        console.log('[EditProfile] Calling user sync API...');
+                        const syncRes = await fetch(`${apiUrl}/api/user/sync`, {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${session.access_token}`
+                            }
                         });
 
-                        if (!insertError) {
+                        if (syncRes.ok) {
+                            console.log('[EditProfile] User synced successfully, retrying profile upsert...');
                             const retry = await supabase.from('Profile').upsert(profileDataWithUserId, { onConflict: 'userId' });
                             upsertError = retry.error;
+                        } else {
+                            const errText = await syncRes.text();
+                            console.error('[EditProfile] User sync failed:', errText);
                         }
                     }
                 } catch (e) {
-                    console.error('Manual user insert failed', e);
+                    console.error('[EditProfile] Manual user sync error', e);
                 }
             }
 

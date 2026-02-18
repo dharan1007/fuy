@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Mail, Lock, User, ArrowRight, ArrowLeft, CheckSquare, Square, Eye, EyeOff } from 'lucide-react-native';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../context/ToastContext';
-import { VerificationService } from '../../services/VerificationService';
+
 
 export default function SignupScreen() {
     const router = useRouter();
@@ -43,33 +43,43 @@ export default function SignupScreen() {
             return;
         }
 
-        setLoading(true);
         try {
-            // 1. Check if user already exists (Optional, Supabase signUp handles this too but late)
-            // For now, we rely on duplicate key error at the end.
+            // Call Backend API to handle Signup Flow (Generate OTP, Store in DB, Send Email)
+            const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://www.fuymedia.org';
 
-            // 2. Generate OTP Locally
-            const code = Math.floor(100000 + Math.random() * 900000).toString();
+            console.log('Calling signup API:', `${API_URL}/api/auth/signup`);
+            const response = await fetch(`${API_URL}/api/auth/signup`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    email: email.trim(),
+                    password,
+                    name
+                }),
+            });
 
-            // 3. Send Email via Client Service
-            console.log('Sending code to:', email);
-            await VerificationService.sendVerificationEmail(email.trim(), code, name);
+            const data = await response.json();
 
-            // 4. Navigate to Verify
+            if (!response.ok) {
+                throw new Error(data.error || 'Signup failed');
+            }
+
+            // Navigate to Verify
             showToast('Verification code sent to your email.', 'success');
             router.push({
                 pathname: '/(auth)/verify-email',
                 params: {
                     email: email.toLowerCase().trim(),
                     password: password,
-                    name: name,
-                    expectedCode: code // Passing code internally to next screen for verification
+                    name: name
                 }
             });
 
         } catch (error: any) {
             console.error('Signup error:', error);
-            showToast(error.message || 'Signup failed. Check your internet or API Key.', 'error');
+            showToast(error.message || 'Signup failed. Please try again.', 'error');
         } finally {
             setLoading(false);
         }

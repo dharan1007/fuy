@@ -23,10 +23,10 @@ const r2 = new S3Client({
     forcePathStyle: true,
 });
 
-// Rate limit: 50 uploads per hour
+// Rate limit: 500 uploads per hour
 const limiter = userRateLimit({
     windowMs: 60 * 60 * 1000,
-    maxRequests: 50,
+    maxRequests: 500,
     getUser: (req) => req.headers.get('x-user-id')
 });
 

@@ -57,27 +57,41 @@ export async function uploadMedia(
             throw new Error('Not authenticated. Please log in to upload files.');
         }
 
-        // 2. Get presigned URL from API
+        // 2. Get presigned URL from API (with retry for rate limits)
         const apiUrl = getApiUrl();
         console.log(`[upload-helper] Requesting R2 presigned URL from ${apiUrl}/api/upload/presigned`);
 
-        const presignedResponse = await fetch(`${apiUrl}/api/upload/presigned`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-                filename,
-                contentType,
-                type,
-            }),
-        });
+        let presignedResponse: Response | null = null;
+        const maxRetries = 3;
+        for (let attempt = 0; attempt <= maxRetries; attempt++) {
+            presignedResponse = await fetch(`${apiUrl}/api/upload/presigned`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    filename,
+                    contentType,
+                    type,
+                }),
+            });
 
-        if (!presignedResponse.ok) {
-            const errorBody = await presignedResponse.text();
-            console.error('[upload-helper] Presigned URL request failed:', presignedResponse.status, errorBody);
-            throw new Error(`Failed to get upload URL: ${presignedResponse.status}`);
+            if (presignedResponse.status === 429 && attempt < maxRetries) {
+                // Rate limited -- wait and retry with exponential backoff
+                const retryAfter = presignedResponse.headers.get('Retry-After');
+                const waitMs = retryAfter ? parseInt(retryAfter, 10) * 1000 : Math.pow(2, attempt) * 1000;
+                console.warn(`[upload-helper] Rate limited (429). Retrying in ${waitMs}ms (attempt ${attempt + 1}/${maxRetries})...`);
+                await new Promise(resolve => setTimeout(resolve, waitMs));
+                continue;
+            }
+            break;
+        }
+
+        if (!presignedResponse || !presignedResponse.ok) {
+            const errorBody = presignedResponse ? await presignedResponse.text() : 'No response';
+            console.error('[upload-helper] Presigned URL request failed:', presignedResponse?.status, errorBody);
+            throw new Error(`Failed to get upload URL: ${presignedResponse?.status || 'unknown'}`);
         }
 
         const { signedUrl, publicUrl, key } = await presignedResponse.json();

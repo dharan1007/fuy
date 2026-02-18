@@ -17,7 +17,7 @@ import { useEncryption } from '../../context/EncryptionContext';
 import { encryptMessage, decryptMessage } from '../../lib/encryption';
 
 import { MediaUploadService } from '../../services/MediaUploadService';
-import { uploadToR2 } from '../../lib/upload';
+
 import * as ImagePicker from 'expo-image-picker';
 import { Video as AVVideo, ResizeMode } from 'expo-av';
 import { Paperclip } from 'lucide-react-native';

@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, TouchableWithoutFeedback, Image, TextInput, Dimensions, FlatList, Alert, RefreshControl, StyleSheet, Animated, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TouchableWithoutFeedback, TextInput, Dimensions, FlatList, Alert, RefreshControl, StyleSheet, Animated, ActivityIndicator } from 'react-native';
+import { Image } from 'expo-image';
 import { Video, ResizeMode } from 'expo-av';
+import * as VideoThumbnails from 'expo-video-thumbnails';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Search, X, UserPlus, Check, Clock, Grid, User, Compass, Bell, Zap, Star, Circle, Play, Pause, Plus } from 'lucide-react-native';
@@ -67,22 +69,29 @@ interface CardConfig {
 const CONTENT_WIDTH = 900;
 const PATTERN_HEIGHT = 1400; // Height of one cycle of CARD_CONFIGS
 
-const FloatingCard = ({ post, config, index, onPress, onToggleScroll, isActive, shouldPlay, onAssetLoaded, shouldRenderVideo, chunkReady }: { post: Post; config: CardConfig; index: number; onPress: () => void; onToggleScroll: (enabled: boolean) => void; isActive: boolean; shouldPlay: boolean; onAssetLoaded?: () => void; shouldRenderVideo: boolean; chunkReady: boolean }) => {
-    const hasReportedRef = useRef(false);
+// Module-level cache for post count to avoid redundant Supabase queries
+let cachedPostCount: number | null = null;
+
+const FloatingCard = ({ post, config, index, onPress, onToggleScroll, isActive, shouldPlay, shouldRenderVideo }: { post: Post; config: CardConfig; index: number; onPress: () => void; onToggleScroll: (enabled: boolean) => void; isActive: boolean; shouldPlay: boolean; shouldRenderVideo: boolean }) => {
     const [slashesModalVisible, setSlashesModalVisible] = React.useState(false);
     const [isLoaded, setIsLoaded] = useState(false);
+    const [generatedThumb, setGeneratedThumb] = useState<string | null>(null);
     const { colors } = useTheme();
 
+    // Generate thumbnail for video posts that lack a thumbnailUrl
     useEffect(() => {
-        if (isLoaded) {
-            const timer = setTimeout(() => {
-                // setIsPlaying(false); // Removed as per instructions
-            }, 2000);
-            return () => clearTimeout(timer);
+        if (post.media && post.media.length > 0) {
+            const firstMedia = post.media[0];
+            const isVideo = firstMedia.type === 'VIDEO' || firstMedia.url?.match(/\.(mp4|mov|webm)$/i);
+            if (isVideo && !firstMedia.thumbnailUrl && firstMedia.url) {
+                VideoThumbnails.getThumbnailAsync(firstMedia.url, { time: 0 })
+                    .then(result => setGeneratedThumb(result.uri))
+                    .catch(() => { }); // Fail silently, will use video fallback
+            }
         }
-    }, [isLoaded]);
+    }, [post.id]);
 
-    // Priority: thumbnailUrl > IMAGE type > image extension > video URL (last resort)
+    // Priority: thumbnailUrl > generated thumbnail > IMAGE type > image extension > video URL (last resort)
     const getImageUrl = (): string | null => {
         if (!post.media || post.media.length === 0) {
             return null;
@@ -92,6 +101,11 @@ const FloatingCard = ({ post, config, index, onPress, onToggleScroll, isActive, 
         const withThumb = post.media.find(m => m.thumbnailUrl);
         if (withThumb?.thumbnailUrl) {
             return withThumb.thumbnailUrl;
+        }
+
+        // Check for generated thumbnail (from expo-video-thumbnails)
+        if (generatedThumb) {
+            return generatedThumb;
         }
 
         // Check for IMAGE type
@@ -141,7 +155,6 @@ const FloatingCard = ({ post, config, index, onPress, onToggleScroll, isActive, 
                 width: config.width,
                 height: config.height,
                 transform: [{ rotate: `${config.rotate}deg` }],
-                opacity: chunkReady ? 1 : 0,
             }}
         >
             <View
@@ -172,52 +185,26 @@ const FloatingCard = ({ post, config, index, onPress, onToggleScroll, isActive, 
                                         isMuted={true}
                                         isLooping={true}
                                         useNativeControls={false}
-                                        onReadyForDisplay={() => {
-                                            setIsLoaded(true);
-                                            if (!hasReportedRef.current) {
-                                                hasReportedRef.current = true;
-                                                onAssetLoaded?.();
-                                            }
-                                        }}
-                                        onError={() => {
-                                            setIsLoaded(true);
-                                            if (!hasReportedRef.current) {
-                                                hasReportedRef.current = true;
-                                                onAssetLoaded?.();
-                                            }
-                                        }}
+                                        onReadyForDisplay={() => setIsLoaded(true)}
+                                        onError={() => setIsLoaded(true)}
                                     />
                                 ) : (
-                                    // Video beyond decoder limit: show thumbnail or loader
-                                    (post.media && post.media[0]?.thumbnailUrl) ? (
+                                    // Video not actively playing: show thumbnail image instead of Video decoder
+                                    (post.media && post.media[0]?.thumbnailUrl) || generatedThumb ? (
                                         <Image
-                                            source={{ uri: post.media[0].thumbnailUrl }}
+                                            source={{ uri: post.media?.[0]?.thumbnailUrl || generatedThumb || '' }}
                                             style={{ width: '100%', height: '100%' }}
-                                            resizeMode="cover"
-                                            onLoad={() => {
-                                                setIsLoaded(true);
-                                                if (!hasReportedRef.current) {
-                                                    hasReportedRef.current = true;
-                                                    onAssetLoaded?.();
-                                                }
-                                            }}
-                                            onError={() => {
-                                                if (!hasReportedRef.current) {
-                                                    hasReportedRef.current = true;
-                                                    onAssetLoaded?.();
-                                                }
-                                            }}
+                                            contentFit="cover"
+                                            cachePolicy="memory-disk"
+                                            recyclingKey={`thumb-${post.id}`}
+                                            transition={200}
+                                            onLoad={() => setIsLoaded(true)}
+                                            onError={() => setIsLoaded(true)}
                                         />
                                     ) : (
                                         <View
                                             style={{ flex: 1, backgroundColor: '#1a1a1a', justifyContent: 'center', alignItems: 'center' }}
-                                            onLayout={() => {
-                                                setIsLoaded(true);
-                                                if (!hasReportedRef.current) {
-                                                    hasReportedRef.current = true;
-                                                    onAssetLoaded?.();
-                                                }
-                                            }}
+                                            onLayout={() => setIsLoaded(true)}
                                         >
                                             <ActivityIndicator size="small" color="rgba(255,255,255,0.5)" />
                                         </View>
@@ -227,31 +214,16 @@ const FloatingCard = ({ post, config, index, onPress, onToggleScroll, isActive, 
                                 <Image
                                     source={{ uri: imageUrl }}
                                     style={{ width: '100%', height: '100%' }}
-                                    resizeMode="cover"
-                                    onLoad={() => {
-                                        setIsLoaded(true);
-                                        if (!hasReportedRef.current) {
-                                            hasReportedRef.current = true;
-                                            onAssetLoaded?.();
-                                        }
-                                    }}
-                                    onError={() => {
-                                        if (!hasReportedRef.current) {
-                                            hasReportedRef.current = true;
-                                            onAssetLoaded?.();
-                                        }
-                                    }}
+                                    contentFit="cover"
+                                    cachePolicy="memory-disk"
+                                    recyclingKey={post.id}
+                                    transition={200}
+                                    onLoad={() => setIsLoaded(true)}
+                                    onError={() => setIsLoaded(true)}
                                 />
                             )
                         ) : (
-                            <View style={{ flex: 1, backgroundColor: '#1a1a1a', justifyContent: 'center', alignItems: 'center' }}
-                                onLayout={() => {
-                                    if (!hasReportedRef.current) {
-                                        hasReportedRef.current = true;
-                                        onAssetLoaded?.();
-                                    }
-                                }}
-                            >
+                            <View style={{ flex: 1, backgroundColor: '#1a1a1a', justifyContent: 'center', alignItems: 'center' }}>
                                 <ActivityIndicator size="small" color="rgba(255,255,255,0.5)" />
                             </View>
                         )}
@@ -321,7 +293,8 @@ const FloatingCard = ({ post, config, index, onPress, onToggleScroll, isActive, 
                                     <Image
                                         source={{ uri: bubble.mediaUrl }}
                                         style={{ width: '100%', height: '100%' }}
-                                        resizeMode="cover"
+                                        contentFit="cover"
+                                        cachePolicy="memory-disk"
                                     />
                                 </View>
                             ))}
@@ -346,8 +319,7 @@ const MemoizedFloatingCard = React.memo(FloatingCard, (prev, next) => {
         prev.post.id === next.post.id &&
         prev.index === next.index &&
         prev.shouldPlay === next.shouldPlay &&
-        prev.shouldRenderVideo === next.shouldRenderVideo &&
-        prev.chunkReady === next.chunkReady;
+        prev.shouldRenderVideo === next.shouldRenderVideo;
 });
 
 export default function ExploreScreen() {
@@ -421,8 +393,6 @@ export default function ExploreScreen() {
     const [scrollBounds, setScrollBounds] = useState<{ minX: number; maxX: number; minY: number; maxY: number } | null>(null);
     const [loadingKeys, setLoadingKeys] = useState<Set<string>>(new Set());
     const [allowedVideoIds, setAllowedVideoIds] = useState<Set<string>>(new Set());
-    const [chunkLoadStatus, setChunkLoadStatus] = useState<Record<string, { total: number, loaded: number }>>({});
-    const readyChunksRef = useRef<Set<string>>(new Set());
 
     // Calculate Bounds based on loaded chunks (data fetched from network)
     // No more waiting for individual assets to render
@@ -540,9 +510,24 @@ export default function ExploreScreen() {
         // Generate a pseudo-random but deterministic offset based on coordinates
         // This ensures infinite scrolling even with limited data by looping
         const seed = Math.abs(chunkX * 73 + chunkY * 19);
-        const currentOffset = (seed * batchSize) % totalCycleSize;
 
         try {
+            // Use cached post count to avoid redundant Supabase queries
+            let totalPosts = cachedPostCount || 100;
+            if (!cachedPostCount) {
+                const { count } = await supabase
+                    .from('Post')
+                    .select('*', { count: 'estimated', head: true })
+                    .eq('visibility', 'PUBLIC');
+                if (count) {
+                    totalPosts = count;
+                    cachedPostCount = count;
+                }
+            }
+
+            // Ensure offset wraps around actual data size
+            const validOffset = (seed * batchSize) % (totalPosts || 1);
+
             const { data, error } = await supabase
                 .from('Post')
                 .select(`
@@ -558,7 +543,7 @@ export default function ExploreScreen() {
                 .eq('visibility', 'PUBLIC')
                 // .in('postType', ['XRAY', 'LILL', 'FILL', 'CHAPTER']) // Allow ALL
                 .order('createdAt', { ascending: false })
-                .range(currentOffset, currentOffset + batchSize - 1);
+                .range(validOffset, validOffset + batchSize - 1);
 
             if (error) {
                 console.error('[Explore] Supabase error:', error);
@@ -664,14 +649,16 @@ export default function ExploreScreen() {
 
                 setChunkRegistry(prev => ({ ...prev, [key]: layoutedPosts }));
 
-                // Track total assets to load for chunk visibility
-                setChunkLoadStatus(prev => ({
-                    ...prev,
-                    [key]: { total: layoutedPosts.length, loaded: 0 }
-                }));
-
                 // IMPORTANT: Update loadedChunks AFTER registry to prevent accessing undefined data
                 setLoadedChunks(prev => new Set(prev).add(key));
+
+                // Prefetch images for instant rendering when cards mount
+                layoutedPosts.forEach(p => {
+                    const url = (p as any).media?.[0]?.thumbnailUrl || (p as any).media?.[0]?.url;
+                    if (url && !url.match(/\.(mp4|mov|webm)$/i)) {
+                        Image.prefetch(url);
+                    }
+                });
             }
         } catch (e) {
             console.error('[Explore] Chunk fetch error:', e);
@@ -690,21 +677,7 @@ export default function ExploreScreen() {
     };
 
 
-    const handleAssetCallback = useCallback((key: string) => {
-        setChunkLoadStatus(prev => {
-            const current = prev[key];
-            if (!current) return prev;
-            const newLoaded = Math.min(current.loaded + 1, current.total);
-            if (newLoaded === current.loaded) return prev;
-            if (newLoaded >= current.total) {
-                readyChunksRef.current.add(key);
-            }
-            return {
-                ...prev,
-                [key]: { ...current, loaded: newLoaded }
-            };
-        });
-    }, []);
+
 
     // Global Pause when leaving tab (Crash Fix)
     useFocusEffect(
@@ -912,44 +885,7 @@ export default function ExploreScreen() {
         fetchPosts(currentTab, true);
     };
 
-    // Show spinners for network-loading AND asset-loading chunks
-    const renderLoaders = () => {
-        const CHUNK_WIDTH = width + 60;
-        const CHUNK_HEIGHT = 1600;
 
-        // Combine network-loading keys AND asset-loading keys
-        const allPendingKeys = new Set(loadingKeys);
-        Object.keys(chunkRegistry).forEach(key => {
-            const status = chunkLoadStatus[key];
-            if (!status || status.loaded < status.total) {
-                allPendingKeys.add(key);
-            }
-        });
-
-        return Array.from(allPendingKeys).map(key => {
-            const [cx, cy] = key.split(',').map(Number);
-            const chunkCenterX = (cx * CHUNK_WIDTH) + (CHUNK_WIDTH / 2);
-            const chunkCenterY = (cy * CHUNK_HEIGHT) + (CHUNK_HEIGHT / 2);
-
-            return (
-                <View
-                    key={key}
-                    style={{
-                        position: 'absolute',
-                        left: chunkCenterX - 20,
-                        top: chunkCenterY - 20,
-                        width: 40,
-                        height: 40,
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        zIndex: 9999
-                    }}
-                >
-                    <ActivityIndicator size="small" color="rgba(255,255,255,0.6)" />
-                </View>
-            );
-        });
-    };
 
 
 
@@ -1100,6 +1036,7 @@ export default function ExploreScreen() {
                                     setLoadedChunks(new Set());
                                     globalOffsetRef.current = 0;
                                     setPage(0);
+                                    cachedPostCount = null; // Reset count cache on tab switch
                                 }}
                                 style={{
                                     paddingHorizontal: 16,
@@ -1160,6 +1097,7 @@ export default function ExploreScreen() {
                                             <Image
                                                 source={{ uri: item.avatar }}
                                                 style={styles.searchAvatar}
+                                                cachePolicy="memory-disk"
                                             />
                                         ) : (
                                             <View style={[styles.searchAvatar, { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary + '20' }]}>
@@ -1232,9 +1170,6 @@ export default function ExploreScreen() {
                                 const posts = chunkRegistry[chunkKey];
                                 if (!posts) return;
 
-                                const status = chunkLoadStatus[chunkKey];
-                                const isChunkReady = status ? status.loaded >= status.total : false;
-
                                 posts.forEach(post => {
                                     if (seen.has(post.id)) return;
                                     seen.add(post.id);
@@ -1253,8 +1188,6 @@ export default function ExploreScreen() {
                                             isActive={isScreenFocused}
                                             shouldPlay={post.id === playingPostId}
                                             shouldRenderVideo={allowedVideoIds.has(post.id)}
-                                            onAssetLoaded={() => handleAssetCallback(chunkKey)}
-                                            chunkReady={isChunkReady}
                                         />
                                     );
                                 });
@@ -1262,9 +1195,6 @@ export default function ExploreScreen() {
 
                             return items;
                         })()}
-
-                        {/* Render Loaders for chunks being fetched */}
-                        {renderLoaders()}
                     </InfiniteCanvas>
                 )}
             </SafeAreaView>
