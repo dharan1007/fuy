@@ -543,10 +543,13 @@ export default function FeedScreen() {
                     {/* Notification Red Dot logic needs AuthContext access or separate hook */}
                 </TouchableOpacity>
 
-                {/* Hopin Icon (Globe) */}
+
+                {/* Hopin Icon (Globe) - Hidden for V2 */}
+                {/* 
                 <TouchableOpacity onPress={() => router.push('/hopin')} className="p-2 rounded-full" style={{ backgroundColor: colors.card }}>
                     <Globe color={colors.text} size={24} />
-                </TouchableOpacity>
+                </TouchableOpacity> 
+                */}
 
                 {/* Profile Icon - User Avatar */}
                 <TouchableOpacity onPress={() => router.push('/(tabs)/profile')} className="rounded-full overflow-hidden border border-white/20">

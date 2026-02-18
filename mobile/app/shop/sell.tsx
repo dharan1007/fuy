@@ -13,7 +13,7 @@ const PRODUCT_TYPES = [
     { id: 'COURSE', label: 'Course', icon: GraduationCap },
     { id: 'EBOOK', label: 'E-Book', icon: BookOpen },
     { id: 'TEMPLATE', label: 'Template', icon: LayoutTemplate },
-    { id: 'HOPIN_PLAN', label: 'Hopin Plan', icon: Globe },
+    // { id: 'HOPIN_PLAN', label: 'Hopin Plan', icon: Globe }, // Hidden for V2
     { id: 'DIGITAL_ASSET', label: 'Asset', icon: FileText },
 ];
 
@@ -47,8 +47,8 @@ export default function SellScreen() {
                 const { data: { session } } = await supabase.auth.getSession();
                 const uploadedUrls: string[] = [];
                 for (const asset of result.assets) {
-                    const url = await uploadFileToR2(asset.uri, 'IMAGE', session?.access_token);
-                    if (url) uploadedUrls.push(url);
+                    const result = await uploadFileToR2(asset.uri, 'IMAGE');
+                    if (result && result.url) uploadedUrls.push(result.url);
                 }
                 setImages([...images, ...uploadedUrls]);
             } catch (error) {

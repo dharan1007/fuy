@@ -63,9 +63,9 @@ interface DashboardData {
     bodyMetrics: { weight?: number; height?: number; bmi?: number; };
     recentHealthIssues: string[];
 
-    // Hopin
-    invitesReceived: number;
-    eventsAttended: number;
+    // Hopin (Hidden for V2)
+    // invitesReceived: number;
+    // eventsAttended: number;
 
     // Posts
     topWPost: TopPost | null;
@@ -181,7 +181,8 @@ export default function DashboardScreen() {
                 .eq('userId', user.id)
                 .limit(5);
 
-            // Hopin - Invites and attended events
+            // Hopin - Invites and attended events (Hidden for V2)
+            /*
             const [
                 { count: invitesReceived },
                 { count: eventsAttended }
@@ -189,6 +190,7 @@ export default function DashboardScreen() {
                 supabase.from('PlanMember').select('*', { count: 'exact', head: true }).eq('userId', user.id).eq('status', 'PENDING'),
                 supabase.from('PlanMember').select('*', { count: 'exact', head: true }).eq('userId', user.id).in('status', ['ACCEPTED', 'VERIFIED'])
             ]);
+            */
 
             // Posts with reactions
             const { data: posts } = await supabase
@@ -288,8 +290,8 @@ export default function DashboardScreen() {
                         Math.round((biometrics.weight / ((biometrics.height / 100) ** 2)) * 10) / 10 : undefined
                 },
                 recentHealthIssues: healthIssues?.map(h => h.name) || [],
-                invitesReceived: invitesReceived || 0,
-                eventsAttended: eventsAttended || 0,
+                // invitesReceived: invitesReceived || 0,
+                // eventsAttended: eventsAttended || 0,
                 topWPost: makeTopPost(sortedByW[0]),
                 topLPost: makeTopPost(sortedByL[0]),
                 mostCappedPost: makeTopPost(sortedByCap[0]),
@@ -472,12 +474,14 @@ export default function DashboardScreen() {
                                 )}
                             </View>
 
-                            {/* Hopin */}
+                            {/* Hopin (Hidden for V2) */}
+                            {/* 
                             <SectionTitle>EVENTS</SectionTitle>
                             <View style={styles.statsRow}>
                                 <StatCard icon={Calendar} label="INVITES" value={data.invitesReceived} sub="pending" />
                                 <StatCard icon={Award} label="ATTENDED" value={data.eventsAttended} sub="events" />
-                            </View>
+                            </View> 
+                            */}
 
                             {/* Posts */}
                             <SectionTitle>POSTS</SectionTitle>

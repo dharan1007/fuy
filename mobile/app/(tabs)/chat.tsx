@@ -598,6 +598,11 @@ export default function ChatScreen() {
     // Ref to hold channel for broadcast sending
     const chatChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
+    // Typing Indicator State
+    const [isPartnerTyping, setIsPartnerTyping] = useState(false);
+    const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const lastTypingSentRef = useRef<number>(0);
+
     // Load accepted state on mount/change
     useEffect(() => {
         if (activeConversationIdRef.current) {
@@ -620,10 +625,25 @@ export default function ChatScreen() {
 
         const channel = supabase.channel(`chat:${activeConversationIdRef.current}`)
             // FAST PATH: Listen for broadcast messages (instant delivery)
+            .on('broadcast', { event: 'typing' }, (payload) => {
+                if (payload.payload.senderId !== dbUserId) {
+                    setIsPartnerTyping(true);
+                    // Clear previous timeout
+                    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+                    // Set new timeout to clear typing status
+                    typingTimeoutRef.current = setTimeout(() => {
+                        setIsPartnerTyping(false);
+                    }, 3000);
+                }
+            })
             .on('broadcast', { event: 'new_message' }, (payload) => {
                 const newMsg = payload.payload;
                 // Skip if it's our own message (already added via optimistic update)
                 if (newMsg.senderId === dbUserId) return;
+
+                // Stop typing indicator when message received
+                setIsPartnerTyping(false);
+                if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
 
                 let text = newMsg.content;
                 // Decrypt if needed
@@ -2065,6 +2085,19 @@ export default function ChatScreen() {
     const handleInputChange = (text: string) => {
         setInputText(text);
 
+        // Broadcast Typing Event (Throttled)
+        const now = Date.now();
+        if (text.length > 0 && now - lastTypingSentRef.current > 2000) {
+            lastTypingSentRef.current = now;
+            if (chatChannelRef.current) {
+                chatChannelRef.current.send({
+                    type: 'broadcast',
+                    event: 'typing',
+                    payload: { senderId: dbUserId }
+                });
+            }
+        }
+
         // Detect "/" slash command
         if (text.startsWith('/')) {
             const query = text.slice(1).toLowerCase();
@@ -2360,7 +2393,7 @@ export default function ChatScreen() {
                                         </View>
 
                                         {user.lastMessageAt && (
-                                            <Text className="text-[10px] font-medium opacity-60" style={{ color: colors.secondary }}>
+                                            <Text className="text-[10px] font-medium opacity-60 mr-8" style={{ color: colors.secondary }}>
                                                 {new Date(user.lastMessageAt).getTime() > new Date().setHours(0, 0, 0, 0) ?
                                                     new Date(user.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) :
                                                     new Date(user.lastMessageAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
@@ -2476,7 +2509,9 @@ export default function ChatScreen() {
                                 <View className="flex-row items-center gap-2">
                                     <Text className="text-base font-bold" numberOfLines={1} style={{ color: colors.text }}>{selectedUser.name}</Text>
                                 </View>
-                                <Text className="text-xs" style={{ color: colors.secondary }}>{isDbot ? 'AI Companion' : selectedUser.status}</Text>
+                                <Text className="text-xs" style={{ color: isPartnerTyping ? colors.primary : colors.secondary, fontWeight: isPartnerTyping ? 'bold' : 'normal' }}>
+                                    {isPartnerTyping ? 'Typing...' : (isDbot ? 'AI Companion' : selectedUser.status)}
+                                </Text>
                             </View>
                         </View>
                         <View className="flex-row items-center gap-2">
