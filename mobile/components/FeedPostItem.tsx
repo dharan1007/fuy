@@ -117,6 +117,7 @@ const FeedPostItem = React.memo(({
     let aspectRatio = 1 / 1.1; // Default
     if (item.postType === 'LILL') aspectRatio = 9 / 16;
     if (item.postType === 'FILL') aspectRatio = 16 / 9;
+    if (!aspectRatio) aspectRatio = 1; // Fallback
     if (!hasMedia) aspectRatio = undefined as any;
 
     return (
@@ -212,58 +213,56 @@ const FeedPostItem = React.memo(({
                         return (
                             <GestureDetector gesture={panGesture}>
                                 <View style={{ width: '100%', height: '100%' }}>
-                                    {isActive ? (
-                                        <TouchableWithoutFeedback onPress={handlePress}>
-                                            <View style={{ width: '100%', height: '100%' }}>
-                                                <Video
-                                                    source={{ uri: media.url }}
-                                                    style={{ width: '100%', height: '100%' }}
-                                                    resizeMode={ResizeMode.CONTAIN}
-                                                    shouldPlay={isActive && !isPaused && isScreenFocused}
-                                                    isLooping
-                                                    isMuted={isMuted}
-                                                    useNativeControls={false}
-                                                    onLoadStart={() => setIsLoading(true)}
-                                                    onLoad={() => setIsLoading(false)}
-                                                />
-                                                {/* Loading Indicator */}
-                                                {isLoading && (
-                                                    <View className="absolute inset-0 items-center justify-center bg-black/10">
-                                                        <ActivityIndicator size="large" color="white" />
+                                    {/* 
+                                     * OPTIMIZATION: Always render the video component so it shows the first frame.
+                                     * The 'shouldPlay' prop handles playing/pausing.
+                                     */}
+                                    <TouchableWithoutFeedback onPress={handlePress}>
+                                        <View style={{ width: '100%', height: '100%', backgroundColor: '#111' }}>
+                                            <Video
+                                                source={{ uri: media.url }}
+                                                style={{ width: '100%', height: '100%' }}
+                                                resizeMode={ResizeMode.COVER}
+                                                shouldPlay={isActive && !isPaused && isScreenFocused}
+                                                isLooping
+                                                isMuted={isMuted}
+                                                useNativeControls={false}
+                                                onLoadStart={() => setIsLoading(true)}
+                                                onLoad={() => setIsLoading(false)}
+                                                onError={(e) => console.log('Video Error:', e)}
+                                            />
+                                            {/* Loading Indicator */}
+                                            {isLoading && (
+                                                <View className="absolute inset-0 items-center justify-center bg-black/10">
+                                                    <ActivityIndicator size="large" color="white" />
+                                                </View>
+                                            )}
+                                            {/* Play Overlay */}
+                                            {isActive && isPaused && !isLoading && (
+                                                <View className="absolute inset-0 items-center justify-center bg-black/20 pointer-events-none">
+                                                    <View className="bg-black/40 rounded-full p-3 backdrop-blur-sm">
+                                                        <Play size={24} color="white" fill="white" />
                                                     </View>
-                                                )}
-                                                {/* Play Overlay */}
-                                                {isActive && isPaused && !isLoading && (
-                                                    <View className="absolute inset-0 items-center justify-center bg-black/20 pointer-events-none">
-                                                        <View className="bg-black/40 rounded-full p-3 backdrop-blur-sm">
-                                                            <Play size={24} color="white" fill="white" />
-                                                        </View>
-                                                    </View>
-                                                )}
+                                                </View>
+                                            )}
 
-                                                {/* Volume Control */}
-                                                <TouchableOpacity
-                                                    onPress={(e) => {
-                                                        e.stopPropagation();
-                                                        setIsMuted(!isMuted);
-                                                    }}
-                                                    className="absolute bottom-3 right-3 p-2 bg-black/40 rounded-full backdrop-blur-sm"
-                                                    style={{ zIndex: 10 }}
-                                                >
-                                                    {isMuted ? (
-                                                        <VolumeX size={16} color="white" />
-                                                    ) : (
-                                                        <Volume2 size={16} color="white" />
-                                                    )}
-                                                </TouchableOpacity>
-                                            </View>
-                                        </TouchableWithoutFeedback>
-                                    ) : (
-                                        // TEMPORARY DEBUG: Simple View to rule out complex rendering crash
-                                        <View style={{ width: '100%', height: '100%', backgroundColor: '#222', alignItems: 'center', justifyContent: 'center' }}>
-                                            <Text style={{ color: '#555' }}>DEBUG: Inactive</Text>
+                                            {/* Volume Control */}
+                                            <TouchableOpacity
+                                                onPress={(e) => {
+                                                    e.stopPropagation();
+                                                    setIsMuted(!isMuted);
+                                                }}
+                                                className="absolute bottom-3 right-3 p-2 bg-black/40 rounded-full backdrop-blur-sm"
+                                                style={{ zIndex: 10 }}
+                                            >
+                                                {isMuted ? (
+                                                    <VolumeX size={16} color="white" />
+                                                ) : (
+                                                    <Volume2 size={16} color="white" />
+                                                )}
+                                            </TouchableOpacity>
                                         </View>
-                                    )}
+                                    </TouchableWithoutFeedback>
                                     {/* 
                                      * OPTIMIZATION NOTE: 
                                      * Ideally we render an <Image> as thumbnail. 

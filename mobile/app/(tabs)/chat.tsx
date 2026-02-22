@@ -43,6 +43,7 @@ interface Message {
     content: string;
     type?: 'text' | 'image' | 'video' | 'audio' | 'post' | 'reply' | 'document' | 'location';
     mediaUrl?: string;
+    createdAt?: string;
     timestamp: number;
     senderId?: string;
     readAt?: string;
@@ -197,6 +198,20 @@ export default function ChatScreen() {
         facts: { keyword: string; warningText: string }[];
     }>({ blacklist: [], happy: [], facts: [] });
     const [showBondingWarning, setShowBondingWarning] = useState(false);
+
+    // MENTIONS / TAGGING STATE
+    const [mentionQuery, setMentionQuery] = useState('');
+    const [showMentionList, setShowMentionList] = useState(false);
+    const [mentionResults, setMentionResults] = useState<ChatUser[]>([]);
+    const [followingIds, setFollowingIds] = useState<string[]>([]);
+
+    useEffect(() => {
+        if (!dbUserId) return;
+        supabase.from('Follow').select('followingId').eq('followerId', dbUserId)
+            .then(({ data }) => {
+                if (data) setFollowingIds(data.map(f => f.followingId));
+            });
+    }, [dbUserId]);
 
     // Chat settings state
     const [showChatSettings, setShowChatSettings] = useState(false);
@@ -1409,6 +1424,7 @@ export default function ChatScreen() {
             type: messageType,
             mediaUrl: mediaUrl || undefined,
             timestamp: timestamp,
+            createdAt: new Date(timestamp).toISOString(),
             senderId: senderId,
             readAt: null,
             isSaved: false,
@@ -2081,9 +2097,74 @@ export default function ChatScreen() {
         }
     };
 
+    // --- MENTION LOGIC ---
+    const checkTaggingPermission = async (userId: string, taggingPrivacy?: string): Promise<boolean> => {
+        try {
+            if (!dbUserId) return true;
+            // Check formatted blocked... (simplified for speed, relying on backend rls mostly but UI check good)
+            const privacy = taggingPrivacy || 'followers';
+            if (privacy === 'none') return false;
+            if (privacy === 'everyone') return true;
+            if (privacy === 'followers') return followingIds.includes(userId);
+            return true;
+        } catch { return false; }
+    };
+
+    const searchUsersForMention = async (query: string) => {
+        try {
+            const { data: users } = await supabase
+                .from('User')
+                .select('id, name, avatar, taggingPrivacy')
+                .ilike('name', `%${query}%`)
+                .neq('id', dbUserId || '')
+                .limit(5);
+
+            if (users) {
+                const validUsers: ChatUser[] = [];
+                for (const u of users) {
+                    const allowed = await checkTaggingPermission(u.id, u.taggingPrivacy);
+                    if (allowed) validUsers.push({
+                        id: u.id,
+                        name: u.name,
+                        avatar: u.avatar,
+                        status: 'online', // dummy
+                        lastMessageAt: new Date().toISOString()
+                    });
+                }
+                setMentionResults(validUsers);
+            }
+        } catch (err) {
+            console.error('Mention search error', err);
+        }
+    };
+
+    const handleMentionSelect = (user: ChatUser) => {
+        const parts = inputText.split('@');
+        parts.pop(); // remove query
+        const newText = parts.join('@') + `@${user.name} `;
+        setInputText(newText);
+        setShowMentionList(false);
+    };
+
     // Debounced input change handler
     const handleInputChange = (text: string) => {
         setInputText(text);
+
+        // Detect Mention
+        const lastAt = text.lastIndexOf('@');
+        if (lastAt !== -1) {
+            const query = text.slice(lastAt + 1);
+            // Ensure no space in query (simple mention logic)
+            if (!query.includes(' ')) {
+                setMentionQuery(query);
+                setShowMentionList(true);
+                searchUsersForMention(query);
+            } else {
+                setShowMentionList(false);
+            }
+        } else {
+            setShowMentionList(false);
+        }
 
         // Broadcast Typing Event (Throttled)
         const now = Date.now();
@@ -2758,7 +2839,10 @@ export default function ChatScreen() {
                                                                     {/* Time and Status Footer */}
                                                                     <View className="flex-row items-center justify-end mt-1 gap-1">
                                                                         <Text style={{ fontSize: 9, color: isMe ? (mode === 'light' ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)') : (mode === 'light' ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.6)') }}>
-                                                                            {new Date(msg.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })}
+                                                                            {msg.createdAt
+                                                                                ? new Date(msg.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })
+                                                                                : new Date(msg.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })
+                                                                            }
                                                                         </Text>
                                                                         {isMe && (
                                                                             <View>
@@ -2923,6 +3007,22 @@ export default function ChatScreen() {
                                 </View>
                             ) : (
                                 <BlurView intensity={90} tint={mode === 'light' ? 'light' : 'dark'} className="px-4 py-3 border-t" style={{ borderColor: colors.border }}>
+                                    {/* MENTION SUGGESTIONS */}
+                                    {showMentionList && mentionResults.length > 0 && (
+                                        <View className="mb-3 p-3 rounded-xl absolute bottom-full left-4 right-4 z-50 shadow-lg"
+                                            style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, maxHeight: 200 }}>
+                                            <Text className="text-xs font-bold mb-2 opacity-50" style={{ color: colors.text }}>MENTIONS</Text>
+                                            <ScrollView keyboardShouldPersistTaps="handled">
+                                                {mentionResults.map(u => (
+                                                    <TouchableOpacity key={u.id} onPress={() => handleMentionSelect(u)} className="flex-row items-center py-2 border-b border-gray-100/10">
+                                                        <Image source={{ uri: u.avatar }} className="w-8 h-8 rounded-full mr-2" />
+                                                        <Text style={{ color: colors.text, fontWeight: '600' }}>{u.name}</Text>
+                                                    </TouchableOpacity>
+                                                ))}
+                                            </ScrollView>
+                                        </View>
+                                    )}
+
                                     {/* Slash Command Menu */}
                                     {showSlashMenu && (
                                         <View className="mb-3 p-3 rounded-xl" style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}>

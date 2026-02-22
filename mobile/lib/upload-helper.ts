@@ -59,7 +59,7 @@ export async function uploadMedia(
 
         // 2. Get presigned URL from API (with retry for rate limits)
         const apiUrl = getApiUrl();
-        console.log(`[upload-helper] Requesting R2 presigned URL from ${apiUrl}/api/upload/presigned`);
+        if (__DEV__) console.log(`[upload-helper] Requesting R2 presigned URL from ${apiUrl}/api/upload/presigned`);
 
         let presignedResponse: Response | null = null;
         const maxRetries = 3;
@@ -95,7 +95,7 @@ export async function uploadMedia(
         }
 
         const { signedUrl, publicUrl, key } = await presignedResponse.json();
-        console.log('[upload-helper] Got R2 presigned URL, uploading to:', key);
+        if (__DEV__) console.log('[upload-helper] Got R2 presigned URL, uploading to:', key);
 
         // 3. Upload directly to R2 using the presigned URL
         const uploadResult = await FileSystem.uploadAsync(signedUrl, processedUri, {
@@ -111,7 +111,7 @@ export async function uploadMedia(
             throw new Error(`R2 upload failed with status ${uploadResult.status}`);
         }
 
-        console.log('[upload-helper] R2 upload success:', publicUrl);
+        if (__DEV__) console.log('[upload-helper] R2 upload success:', publicUrl);
         return { url: publicUrl, path: key };
 
     } catch (error: any) {

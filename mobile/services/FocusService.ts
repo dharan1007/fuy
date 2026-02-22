@@ -188,12 +188,12 @@ class FocusServiceClass {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
-            await supabase.from('Stat').insert({
-                id: `stat_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+            await supabase.from('Metric').insert({
+                id: `metric_${Date.now()}_${Math.random().toString(36).substring(7)}`,
                 userId: user.id,
                 type,
                 category: 'FOCUS',
-                value,
+                value: value,
                 createdAt: new Date().toISOString(),
             });
         } catch (e) {

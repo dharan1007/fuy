@@ -1,7 +1,4 @@
-import { supabase, supabaseAdmin } from '../lib/supabase';
-
-// Use admin client for writes (bypasses RLS), fallback to regular client
-const getWriteClient = () => supabaseAdmin || supabase;
+import { supabase } from '../lib/supabase';
 
 // Types
 export interface Plan {
@@ -250,7 +247,7 @@ export const HopinService = {
     async createPlan(data: CreatePlanData): Promise<{ success: boolean; plan?: Plan; error?: string }> {
         try {
             const userId = await getCurrentUserId();
-            const writeClient = getWriteClient();
+            const writeClient = supabase;
 
             const { data: plan, error } = await writeClient
                 .from('Plan')
@@ -298,7 +295,7 @@ export const HopinService = {
     async updatePlan(planId: string, data: Partial<CreatePlanData>): Promise<{ success: boolean; error?: string }> {
         try {
             const userId = await getCurrentUserId();
-            const writeClient = getWriteClient();
+            const writeClient = supabase;
 
             // Verify ownership
             const { data: plan } = await supabase
@@ -332,7 +329,7 @@ export const HopinService = {
     async deletePlan(planId: string): Promise<{ success: boolean; error?: string }> {
         try {
             const userId = await getCurrentUserId();
-            const writeClient = getWriteClient();
+            const writeClient = supabase;
 
             // Verify ownership
             const { data: plan } = await supabase
@@ -363,7 +360,7 @@ export const HopinService = {
     async requestToJoin(planId: string): Promise<{ success: boolean; error?: string }> {
         try {
             const userId = await getCurrentUserId();
-            const writeClient = getWriteClient();
+            const writeClient = supabase;
 
             // Check if already a member
             const { data: existing } = await supabase
@@ -395,7 +392,7 @@ export const HopinService = {
     async manageRequest(memberId: string, action: 'ACCEPT' | 'REJECT'): Promise<{ success: boolean; code?: string; error?: string }> {
         try {
             const userId = await getCurrentUserId();
-            const writeClient = getWriteClient();
+            const writeClient = supabase;
 
             // Get member and plan
             const { data: member } = await supabase
@@ -434,7 +431,7 @@ export const HopinService = {
     async verifyAttendee(planId: string, code: string): Promise<{ success: boolean; user?: any; alreadyVerified?: boolean; error?: string }> {
         try {
             const userId = await getCurrentUserId();
-            const writeClient = getWriteClient();
+            const writeClient = supabase;
 
             // Verify ownership
             const { data: plan } = await supabase
@@ -481,7 +478,7 @@ export const HopinService = {
     async inviteUsers(planId: string, userIds: string[]): Promise<{ success: boolean; invitedCount?: number; error?: string }> {
         try {
             const userId = await getCurrentUserId();
-            const writeClient = getWriteClient();
+            const writeClient = supabase;
 
             // Verify ownership
             const { data: plan } = await supabase
@@ -527,7 +524,7 @@ export const HopinService = {
     async respondToInvite(planId: string, accept: boolean): Promise<{ success: boolean; code?: string; error?: string }> {
         try {
             const userId = await getCurrentUserId();
-            const writeClient = getWriteClient();
+            const writeClient = supabase;
 
             if (!accept) {
                 // Rejecting invite
@@ -566,7 +563,7 @@ export const HopinService = {
     async cancelRequest(planId: string): Promise<{ success: boolean; error?: string }> {
         try {
             const userId = await getCurrentUserId();
-            const writeClient = getWriteClient();
+            const writeClient = supabase;
 
             const { error } = await writeClient
                 .from('PlanMember')

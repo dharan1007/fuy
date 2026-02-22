@@ -617,9 +617,20 @@ const FillsPlayer = ({ dots, activeIndex, setActiveIndex, isScreenFocused, onBac
                 {
                     text: "Block User",
                     style: "destructive",
-                    onPress: () => {
-                        Alert.alert("User Blocked", "You will no longer see content from this user.");
-                        // TODO: Implement actual block logic
+                    onPress: async () => {
+                        try {
+                            // Optimistic hide
+                            if (currentItem) {
+                                removeFromUpNext(currentItem.id);
+                                // Also add to a session-level blocked list if needed, but SafetyService handles it on refresh
+                                // Ideally we should trigger a refetch or update exclusion list
+                            }
+
+                            await import('../../services/SafetyService').then(m => m.blockUser(session?.user?.id, userId));
+                            Alert.alert("User Blocked", "You will no longer see content from this user.");
+                        } catch (e) {
+                            Alert.alert("Error", "Could not block user");
+                        }
                     }
                 }
             ]
@@ -1254,7 +1265,7 @@ export default function DotsScreen() {
                     topBubbles: [],
                     postMedia: media
                 };
-            });
+            }); // Removed filter to allow non-media posts to show temporarily
 
             // Cache the results
             if (cacheKey === 'lills') {

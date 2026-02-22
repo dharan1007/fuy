@@ -58,3 +58,18 @@ export const applySafetyFilters = (query: any, filters: SafetyFilters) => {
 
     return query;
 };
+
+export const blockUser = async (blockerId: string, blockedId: string): Promise<boolean> => {
+    try {
+        const { error } = await supabase.from('BlockedUser').insert({
+            blockerId,
+            blockedId
+        });
+
+        if (error) throw error;
+        return true;
+    } catch (e) {
+        console.error('[SafetyService] Error blocking user:', e);
+        return false;
+    }
+};

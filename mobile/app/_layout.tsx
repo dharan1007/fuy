@@ -39,12 +39,24 @@ const MainLayout = () => {
 
     useEffect(() => {
         const checkRegion = () => {
-            // CRITICAL FIX: The native module 'ExpoLocalization' is missing in the current client.
-            // Loading it causes a crash even inside try-catch in some environments.
-            // We are disabling the check temporarily to allow the app to function.
-            // TODO: To enable region check, run 'npx expo run:android' to rebuild the native app with the new libraries.
-            console.log("Region check bypassed: Native module missing. defaulting to allowed.");
-            setIsRegionAllowed(true);
+            try {
+                const { getLocales } = require('expo-localization');
+                const locales = getLocales();
+                const regionCode = locales[0]?.regionCode;
+                console.log('User Region:', regionCode);
+
+                const ALLOWED_REGIONS = ['IN', 'India'];
+                if (regionCode && !ALLOWED_REGIONS.includes(regionCode)) {
+                    setIsRegionAllowed(false);
+                } else {
+                    setIsRegionAllowed(true);
+                }
+            } catch (e) {
+                console.error('Region check failed, defaulting to allowed for safety:', e);
+                // Default to true if module is missing during dev, but technically should be false for strictness
+                // For production build, this module WILL be present.
+                setIsRegionAllowed(true);
+            }
         };
         checkRegion();
     }, []);

@@ -1,22 +1,17 @@
 import * as SecureStore from 'expo-secure-store';
-import CryptoJS from 'crypto-js';
-
-const ENCRYPTION_KEY = 'FUY_MOBILE_ENCRYPTION_KEY_2024'; // In production, use env variable
 
 /**
  * Secure storage wrapper using Expo SecureStore
- * Provides encrypted storage for sensitive data
+ * SecureStore uses OS-level encryption (Keychain on iOS, EncryptedSharedPreferences on Android)
  */
 
 export const SecureStorage = {
     /**
-     * Save encrypted data
+     * Save data securely
      */
     async save(key: string, value: string): Promise<boolean> {
         try {
-            // Encrypt the value before storing
-            const encrypted = CryptoJS.AES.encrypt(value, ENCRYPTION_KEY).toString();
-            await SecureStore.setItemAsync(key, encrypted);
+            await SecureStore.setItemAsync(key, value);
             return true;
         } catch (error) {
             console.error('SecureStorage.save error:', error);
@@ -25,16 +20,11 @@ export const SecureStorage = {
     },
 
     /**
-     * Retrieve and decrypt data
+     * Retrieve data
      */
     async get(key: string): Promise<string | null> {
         try {
-            const encrypted = await SecureStore.getItemAsync(key);
-            if (!encrypted) return null;
-
-            // Decrypt the value
-            const decrypted = CryptoJS.AES.decrypt(encrypted, ENCRYPTION_KEY);
-            return decrypted.toString(CryptoJS.enc.Utf8);
+            return await SecureStore.getItemAsync(key);
         } catch (error) {
             console.error('SecureStorage.get error:', error);
             return null;

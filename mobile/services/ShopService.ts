@@ -1,4 +1,4 @@
-import { supabase, supabaseAdmin } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 
 // Types
 export interface Brand {
@@ -48,11 +48,6 @@ async function getCurrentUserId(): Promise<string> {
     const { data: { user }, error } = await supabase.auth.getUser();
     if (error || !user) throw new Error('Not authenticated');
     return user.id;
-}
-
-// Use admin client for writes, regular client for reads
-function getWriteClient() {
-    return supabaseAdmin || supabase;
 }
 
 export const ShopService = {
@@ -109,7 +104,7 @@ export const ShopService = {
     async createBrand(brand: { name: string; description?: string; logoUrl?: string }): Promise<Brand | null> {
         try {
             const userId = await getCurrentUserId();
-            const writeClient = getWriteClient();
+            const writeClient = supabase;
             const slug = brand.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
             const { data, error } = await writeClient
@@ -246,7 +241,7 @@ export const ShopService = {
     }): Promise<Product | null> {
         try {
             const userId = await getCurrentUserId();
-            const writeClient = getWriteClient();
+            const writeClient = supabase;
 
             const { data, error } = await writeClient
                 .from('Product')
@@ -279,7 +274,7 @@ export const ShopService = {
     async updateProduct(id: string, updates: Partial<Product>): Promise<Product | null> {
         try {
             const userId = await getCurrentUserId();
-            const writeClient = getWriteClient();
+            const writeClient = supabase;
 
             const { data, error } = await writeClient
                 .from('Product')
@@ -304,7 +299,7 @@ export const ShopService = {
     async deleteProduct(id: string): Promise<boolean> {
         try {
             const userId = await getCurrentUserId();
-            const writeClient = getWriteClient();
+            const writeClient = supabase;
 
             const { error } = await writeClient
                 .from('Product')
@@ -379,7 +374,7 @@ export const ShopService = {
     async saveInterests(interests: string[]): Promise<boolean> {
         try {
             const userId = await getCurrentUserId();
-            const writeClient = getWriteClient();
+            const writeClient = supabase;
 
             const { error } = await writeClient
                 .from('Profile')

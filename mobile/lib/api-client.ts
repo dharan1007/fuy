@@ -3,7 +3,7 @@ import CryptoJS from 'crypto-js';
 import NetInfo from '@react-native-community/netinfo';
 import { getApiUrl } from './api';
 
-const API_SECRET = process.env.EXPO_PUBLIC_API_SECRET || 'default-secret';
+const API_SECRET = process.env.EXPO_PUBLIC_API_SECRET || '';
 
 /**
  * Generate request signature for API security
@@ -82,8 +82,7 @@ export class ApiClient {
 
             // Make request
             const API_URL = getApiUrl();
-            console.log('Fetching:', `${API_URL}${endpoint}`);
-            console.log('Headers:', JSON.stringify(headers));
+
 
             const response = await fetch(`${API_URL}${endpoint}`, {
                 ...options,

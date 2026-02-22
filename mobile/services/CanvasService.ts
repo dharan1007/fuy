@@ -1,4 +1,4 @@
-import { supabase, supabaseAdmin } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 
 export interface Block {
     id: string;
@@ -68,17 +68,11 @@ function generateCuid(): string {
     return `c${timestamp}${randomPart}${randomPart2}`.substring(0, 25);
 }
 
-// Get the write client (admin if available, otherwise regular)
-function getWriteClient() {
-    return supabaseAdmin || supabase;
-}
-
 export const CanvasService = {
     // READ: Direct from Supabase (faster, no rate limits)
     async fetchEntries(limit = 50): Promise<JournalEntry[]> {
         try {
             const userId = await getCurrentUserId();
-            console.log('[CanvasService] Fetching entries from Supabase for user:', userId);
 
             const { data, error } = await supabase
                 .from('JournalEntry')
@@ -92,7 +86,6 @@ export const CanvasService = {
                 throw error;
             }
 
-            console.log('[CanvasService] Entries count:', data?.length || 0);
 
             // Parse JSON fields
             const entries = (data || []).map(e => ({
@@ -112,7 +105,7 @@ export const CanvasService = {
     async fetchPublicTemplates(): Promise<JournalEntry[]> {
         try {
             const userId = await getCurrentUserId();
-            console.log('[CanvasService] Fetching public templates');
+
 
             // Get list of users this user follows
             const { data: following } = await supabase
@@ -162,12 +155,11 @@ export const CanvasService = {
         }
     },
 
-    // WRITE: Using admin client (bypasses RLS)
+    // WRITE: Using authenticated client with RLS
     async saveEntry(entry: Partial<JournalEntry>): Promise<JournalEntry | null> {
         try {
             const userId = await getCurrentUserId();
-            const writeClient = getWriteClient();
-            console.log('[CanvasService] Saving entry via Supabase (admin:', !!supabaseAdmin, ')');
+            const writeClient = supabase;
 
             const entryData = {
                 userId,
@@ -181,7 +173,7 @@ export const CanvasService = {
             let result;
             if (entry.id) {
                 // Update existing
-                const { data, error } = await writeClient
+                const { data, error } = await supabase
                     .from('JournalEntry')
                     .update({ ...entryData, updatedAt: new Date().toISOString() })
                     .eq('id', entry.id)
@@ -196,7 +188,7 @@ export const CanvasService = {
             } else {
                 // Create new - need to generate ID since Supabase doesn't auto-generate like Prisma
                 const newId = generateCuid();
-                const { data, error } = await writeClient
+                const { data, error } = await supabase
                     .from('JournalEntry')
                     .insert({ id: newId, ...entryData, updatedAt: new Date().toISOString() })
                     .select()
@@ -209,7 +201,7 @@ export const CanvasService = {
                 result = data;
             }
 
-            console.log('[CanvasService] Entry saved:', result?.id);
+
             return result ? {
                 ...result,
                 blocks: result.blocks ? JSON.parse(result.blocks) : [],
@@ -224,10 +216,9 @@ export const CanvasService = {
     async deleteEntry(id: string): Promise<boolean> {
         try {
             const userId = await getCurrentUserId();
-            const writeClient = getWriteClient();
-            console.log('[CanvasService] Deleting entry:', id);
 
-            const { error } = await writeClient
+
+            const { error } = await supabase
                 .from('JournalEntry')
                 .delete()
                 .eq('id', id)
@@ -250,7 +241,7 @@ export const TodoService = {
     async fetchTodos(): Promise<Todo[]> {
         try {
             const userId = await getCurrentUserId();
-            console.log('[TodoService] Fetching todos from Supabase for user:', userId);
+
 
             const { data, error } = await supabase
                 .from('Todo')
@@ -263,7 +254,7 @@ export const TodoService = {
                 throw error;
             }
 
-            console.log('[TodoService] Todos count:', data?.length || 0);
+
             return data || [];
         } catch (error) {
             console.error('[TodoService] fetchTodos error:', error);
@@ -271,14 +262,12 @@ export const TodoService = {
         }
     },
 
-    // WRITE: Using admin client (bypasses RLS)
+    // WRITE: Using authenticated client with RLS
     async createTodo(title: string, priority: 'HIGH' | 'MEDIUM' | 'LOW' = 'MEDIUM'): Promise<Todo | null> {
         try {
             const userId = await getCurrentUserId();
-            const writeClient = getWriteClient();
-            console.log('[TodoService] Creating todo via Supabase (admin:', !!supabaseAdmin, ')');
 
-            const { data, error } = await writeClient
+            const { data, error } = await supabase
                 .from('Todo')
                 .insert({
                     id: generateCuid(),
@@ -295,7 +284,7 @@ export const TodoService = {
                 console.error('[TodoService] Insert error:', error);
                 throw error;
             }
-            console.log('[TodoService] Todo created:', data?.id);
+
             return data;
         } catch (error) {
             console.error('[TodoService] createTodo error:', error);
@@ -306,10 +295,9 @@ export const TodoService = {
     async updateTodo(id: string, updates: { status?: string; title?: string }): Promise<Todo | null> {
         try {
             const userId = await getCurrentUserId();
-            const writeClient = getWriteClient();
-            console.log('[TodoService] Updating todo via Supabase (admin:', !!supabaseAdmin, ') id:', id);
 
-            const { data, error } = await writeClient
+
+            const { data, error } = await supabase
                 .from('Todo')
                 .update({ ...updates, updatedAt: new Date().toISOString() })
                 .eq('id', id)
@@ -321,7 +309,7 @@ export const TodoService = {
                 console.error('[TodoService] Update error:', error);
                 throw error;
             }
-            console.log('[TodoService] Todo updated:', data?.id);
+
             return data;
         } catch (error) {
             console.error('[TodoService] updateTodo error:', error);
@@ -332,10 +320,9 @@ export const TodoService = {
     async deleteTodo(id: string): Promise<boolean> {
         try {
             const userId = await getCurrentUserId();
-            const writeClient = getWriteClient();
-            console.log('[TodoService] Deleting todo via Supabase (admin:', !!supabaseAdmin, ')');
 
-            const { error } = await writeClient
+
+            const { error } = await supabase
                 .from('Todo')
                 .delete()
                 .eq('id', id)

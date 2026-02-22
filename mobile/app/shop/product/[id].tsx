@@ -198,7 +198,7 @@ export default function ProductScreen() {
             {/* Bottom Actions */}
             <SafeAreaView edges={['bottom']} style={{ backgroundColor: colors.background, borderTopWidth: 1, borderTopColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }}>
                 <View style={{ flexDirection: 'row', padding: 16, gap: 10 }}>
-                    {/* Only show Cart button if NOT external */}
+                    {/* Cart feature temporarily disabled for internal products
                     {!product.externalUrl && (
                         <TouchableOpacity
                             onPress={handleAddToCart}
@@ -213,13 +213,24 @@ export default function ProductScreen() {
                             )}
                         </TouchableOpacity>
                     )}
+                    */}
 
                     <TouchableOpacity
-                        onPress={() => product.externalUrl ? handleExternalLink(product.externalUrl) : router.push('/cart')}
-                        style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 10, backgroundColor: colors.text, gap: 6 }}
+                        onPress={() => {
+                            if (product.externalUrl) {
+                                handleExternalLink(product.externalUrl);
+                            } else {
+                                // router.push('/cart'); // Cart not implemented
+                                Alert.alert('Coming Soon', 'Direct purchase will be available in the next update.');
+                            }
+                        }}
+                        style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 10, backgroundColor: product.externalUrl ? colors.text : '#333', gap: 6 }}
+                        disabled={!product.externalUrl}
                     >
                         {product.externalUrl ? <ExternalLink size={18} color={colors.background} /> : null}
-                        <Text style={{ fontSize: 14, fontWeight: '700', color: colors.background }}>{product.externalUrl ? 'Buy From' : 'Buy Now'}</Text>
+                        <Text style={{ fontSize: 14, fontWeight: '700', color: product.externalUrl ? colors.background : '#888' }}>
+                            {product.externalUrl ? 'Buy From' : 'Coming Soon'}
+                        </Text>
                     </TouchableOpacity>
                 </View>
             </SafeAreaView>

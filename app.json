@@ -1,3 +1,15 @@
 {
-  "expo": {}
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "6f54ef63-9915-4718-9e3f-e6dfa9c0c372"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.dharantej.fuy",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    }
+  }
 }

@@ -1,33 +1,83 @@
-import React, { createContext, useContext, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { AppState, Platform } from 'react-native';
 import notifee, { AndroidImportance, EventType } from '@notifee/react-native';
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
+import Constants from 'expo-constants';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import { useRouter, useSegments } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import { decryptMessage } from '../lib/encryption';
 
+Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+    }),
+});
+
 interface NotificationContextType {
-    // expose methods if needed, currently automatic
+    expoPushToken: string | undefined;
 }
 
-const NotificationContext = createContext<NotificationContextType>({});
+const NotificationContext = createContext<NotificationContextType>({ expoPushToken: undefined });
 
 export const NotificationProvider = ({ children }: { children: React.ReactNode }) => {
     const { session } = useAuth();
     const router = useRouter();
     const segments = useSegments();
     const userId = session?.user?.id;
+    const [expoPushToken, setExpoPushToken] = useState<string | undefined>(undefined);
+    const notificationListener = useRef<Notifications.Subscription>();
+    const responseListener = useRef<Notifications.Subscription>();
 
-    // Request permissions on mount
+    // Register for Push Notifications
     useEffect(() => {
-        const requestPermissions = async () => {
-            await notifee.requestPermission();
-        };
-        requestPermissions();
-    }, []);
+        if (!userId) return;
 
-    // Create channel
+        registerForPushNotificationsAsync().then(token => {
+            setExpoPushToken(token);
+            if (token) {
+                savePushToken(userId, token);
+            }
+        });
+
+        notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
+            // Handle foreground notification if needed, or let system handle it
+            console.log('Foreground notification received:', notification);
+        });
+
+        responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+            const data = response.notification.request.content.data;
+            if (data?.conversationId) {
+                // Navigate to chat
+                console.log('Notification tapped, navigating to:', data.conversationId);
+                // logic to navigate would go here, e.g. router.push(`/chat/${data.conversationId}`)
+            }
+        });
+
+        return () => {
+            if (notificationListener.current) Notifications.removeNotificationSubscription(notificationListener.current);
+            if (responseListener.current) Notifications.removeNotificationSubscription(responseListener.current);
+        };
+    }, [userId]);
+
+    const savePushToken = async (uid: string, token: string) => {
+        try {
+            const { error } = await supabase
+                .from('UserPushToken')
+                .upsert({ userId: uid, token: token, updatedAt: new Date().toISOString() }, { onConflict: 'token' });
+
+            if (error) console.error('Error saving push token:', error);
+            else console.log('Push token saved for user:', uid);
+        } catch (e) {
+            console.error('Exception saving push token:', e);
+        }
+    };
+
+    // Keep Notifee for local channel management if needed, but Expo handles display too
     useEffect(() => {
         const createChannel = async () => {
             if (Platform.OS === 'android') {
@@ -35,135 +85,63 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
                     id: 'messages',
                     name: 'Messages',
                     importance: AndroidImportance.HIGH,
-                    sound: 'default' // Add sound explicitly
+                    sound: 'default'
                 });
             }
         };
         createChannel();
     }, []);
 
-    // Foreground/Background Listener
-    useEffect(() => {
-        if (!userId) return;
-
-        console.log('NotificationProvider: Listening for new messages for user', userId);
-
-        const channel = supabase.channel('global:messages')
-            .on(
-                'postgres_changes',
-                {
-                    event: 'INSERT',
-                    schema: 'public',
-                    table: 'Message',
-                    // Note: RLS should filter this to only messages the user can see.
-                    // If RLS is weak, we might get everything. 
-                    // To be safe, we check senderId !== userId locally.
-                },
-                async (payload) => {
-                    const newMessage = payload.new;
-                    console.log('NotificationProvider: Received message', newMessage.id);
-
-                    // 1. Ignore own messages
-                    if (newMessage.senderId === userId) return;
-
-                    // 2. Check if we are currently looking at this conversation
-                    // segments usually looks like ["(tabs)", "chat"] or ["post", "[id]"]
-                    // Note: We'd need to know the active conversation ID to suppress properly.
-                    // For now, let's just show it. If user is in app, it shows as a heads-up or existing UI handles it.
-                    // Ideally check router state.
-
-                    // Fetch sender name and public key for decryption
-                    let title = 'New Message';
-                    let senderPublicKey: string | null = null;
-                    try {
-                        const { data: sender } = await supabase
-                            .from('User')
-                            .select('name, profile:Profile(displayName, publicKey)')
-                            .eq('id', newMessage.senderId)
-                            .single();
-
-                        if (sender) {
-                            const profile = Array.isArray(sender.profile) ? sender.profile[0] : sender.profile;
-                            title = profile?.displayName || sender.name || 'Anonymous';
-                            senderPublicKey = profile?.publicKey || null;
-                        }
-                    } catch (e) {
-                        console.error('Error fetching sender details', e);
-                    }
-
-                    // 3. Prepare Body (Decrypt if needed)
-                    let body = newMessage.content;
-                    const isEncrypted = body && body.startsWith('{') && body.includes('"c":') && body.includes('"n":');
-
-                    if (isEncrypted) {
-                        // Attempt decryption
-                        let decrypted = null;
-                        try {
-                            const myPrivateKey = await SecureStore.getItemAsync('unlocked_private_key');
-                            if (myPrivateKey && senderPublicKey) {
-                                const parsed = JSON.parse(body);
-                                decrypted = decryptMessage(
-                                    { ciphertext: parsed.c, nonce: parsed.n },
-                                    myPrivateKey,
-                                    senderPublicKey
-                                );
-                            }
-                        } catch (e) {
-                            // Decryption failed or keys missing
-                        }
-
-                        // If decrypted, show it; otherwise show placeholder
-                        body = decrypted || 'Encrypted Message';
-                    } else if (!body && newMessage.mediaUrl) {
-                        body = 'Sent a media file';
-                    } else if (!body) {
-                        body = 'Sent a message';
-                    }
-
-                    // 4. Display Notification
-                    await notifee.displayNotification({
-                        title: title,
-                        body: body,
-                        data: { conversationId: newMessage.conversationId },
-                        android: {
-                            channelId: 'messages',
-                            pressAction: {
-                                id: 'default',
-                            },
-                            // Add person icon if possible, but keeping simple for now
-                        },
-                    });
-                }
-            )
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-        };
-    }, [userId]);
-
-    // Handle Notification Press (Foreground/Background)
-    useEffect(() => {
-        return notifee.onForegroundEvent(({ type, detail }) => {
-            if (type === EventType.PRESS && detail.notification) {
-                const navTo = detail.notification.data?.conversationId;
-                // Navigate to chat if we have ID
-                // Note: Actual navigation logic depends on structure.
-                // Assuming we just want to open the likely Chat tab or specific room.
-                // We'll leave it as default behavior (open app) for now unless we have a specific route.
-                console.log('Notification pressed:', detail.notification);
-            }
-        });
-    }, []);
-
-    // Background event handler should be registered in index.js usually, 
-    // but for simple cases Notifee handles basic launch.
+    // Existing Realtime Listener (Optional: can run in parallel for foreground updates)
+    // If using Expo Push, the server will send the push. 
+    // We can keep this for "In-App" updates if needed, but for "Closed App" support, 
+    // we strictly rely on the server (Edge Function) sending the push to Expo.
 
     return (
-        <NotificationContext.Provider value={{}}>
+        <NotificationContext.Provider value={{ expoPushToken }}>
             {children}
         </NotificationContext.Provider>
     );
 };
 
 export const useNotifications = () => useContext(NotificationContext);
+
+async function registerForPushNotificationsAsync() {
+    let token;
+
+    if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync('default', {
+            name: 'default',
+            importance: Notifications.AndroidImportance.MAX,
+            vibrationPattern: [0, 250, 250, 250],
+            lightColor: '#FF231F7C',
+        });
+    }
+
+    if (Device.isDevice) {
+        const { status: existingStatus } = await Notifications.getPermissionsAsync();
+        let finalStatus = existingStatus;
+        if (existingStatus !== 'granted') {
+            const { status } = await Notifications.requestPermissionsAsync();
+            finalStatus = status;
+        }
+        if (finalStatus !== 'granted') {
+            console.log('Failed to get push token for push notification!');
+            return;
+        }
+
+        // Project ID from app.json
+        const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+
+        try {
+            token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+            console.log('Expo Push Token:', token);
+        } catch (e) {
+            console.error('Error fetching push token:', e);
+        }
+    } else {
+        console.log('Must use physical device for Push Notifications');
+    }
+
+    return token;
+}

@@ -337,8 +337,8 @@ export class PostService {
         const opt1Id = Crypto.randomUUID();
         const opt2Id = Crypto.randomUUID();
         const options = [
-            { id: opt1Id, pullId: pull.id, text: data.optionA, isUp: true, createdAt: now },
-            { id: opt2Id, pullId: pull.id, text: data.optionB, isUp: false, createdAt: now }
+            { id: opt1Id, pullUpDownId: pull.id, text: data.optionA, isUp: true, createdAt: now },
+            { id: opt2Id, pullUpDownId: pull.id, text: data.optionB, isUp: false, createdAt: now }
         ];
 
         const { error: optError } = await supabase.from('PullUpDownOption').insert(options);
