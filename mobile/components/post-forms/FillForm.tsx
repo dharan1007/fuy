@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Dimensions } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as VideoThumbnails from 'expo-video-thumbnails';
-import { Video, ResizeMode } from 'expo-av';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { X, ArrowLeft, Globe, Users, Lock, Film, Play, Slash, Plus, Music, Eye, EyeOff, Image as ImageIcon } from 'lucide-react-native';
@@ -15,6 +14,8 @@ import PostPreview from '../PostPreview';
 import MediaFilterSelector from '../MediaFilterSelector';
 import UserTagSelector from '../UserTagSelector';
 import { PostService, PostVisibility } from '../../services/PostService';
+import FeedVideoPlayer from '../FeedVideoPlayer';
+import { Image, StyleSheet } from 'react-native';
 
 interface AudioTrack {
     id: string;
@@ -286,15 +287,14 @@ export default function FillForm({ onBack }: FillFormProps) {
                 {video ? (
                     <View>
                         <View style={{ width: '100%', aspectRatio: 16 / 9, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
-                            <Video
-                                source={{ uri: video.uri }}
-                                style={{ width: '100%', height: '100%' }}
-                                resizeMode={ResizeMode.COVER}
-                                shouldPlay={false}
-                                usePoster={true}
-                                posterSource={customThumbnail ? { uri: customThumbnail } : undefined}
-                                posterStyle={{ resizeMode: 'cover' }}
+                            <FeedVideoPlayer
+                                url={video.uri}
+                                isActive={false}
+                                contentFit="cover"
                             />
+                            {customThumbnail && (
+                                <Image source={{ uri: customThumbnail }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                            )}
                             <TouchableOpacity
                                 onPress={() => setVideo(null)}
                                 style={{ position: 'absolute', top: 8, right: 8, backgroundColor: '#000', borderRadius: 14, padding: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' }}

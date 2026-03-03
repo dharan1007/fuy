@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, Modal, Image, TouchableOpacity, TouchableWithoutFeedback, Dimensions, StatusBar, ActivityIndicator } from 'react-native';
-import { Video, ResizeMode } from 'expo-av';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { X, User, Play, Pause } from 'lucide-react-native';
 import { useAuth } from '../context/AuthContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,11 +16,31 @@ interface ClockViewerProps {
 }
 
 export default function ClockViewer({ visible, clock, onClose }: ClockViewerProps) {
-    const videoRef = useRef<Video>(null);
     const [progress, setProgress] = useState(0);
     const [loading, setLoading] = useState(true);
     const [isPaused, setIsPaused] = useState(false);
     const insets = useSafeAreaInsets();
+
+    const media = clock?.media?.[0];
+    const mediaUrl = clock?.clockData?.mediaUrl || media?.url;
+    const mediaType = clock?.clockData?.mediaType || media?.type;
+    const user = clock?.user;
+
+    const player = useVideoPlayer(mediaType === 'VIDEO' ? mediaUrl : null, player => {
+        player.loop = false;
+        player.muted = false;
+    });
+
+    useEffect(() => {
+        if (visible && mediaType === 'VIDEO' && player) {
+            if (!isPaused) {
+                player.play();
+                setLoading(false);
+            } else {
+                player.pause();
+            }
+        }
+    }, [visible, isPaused, mediaUrl, mediaType, player]);
 
     useEffect(() => {
         if (visible) {
@@ -30,10 +50,7 @@ export default function ClockViewer({ visible, clock, onClose }: ClockViewerProp
         }
     }, [visible, clock]);
 
-    const media = clock?.media?.[0];
-    const mediaUrl = clock?.clockData?.mediaUrl || media?.url;
-    const mediaType = clock?.clockData?.mediaType || media?.type;
-    const user = clock?.user;
+
 
     // Auto-advance for images (only when not paused)
     useEffect(() => {
@@ -47,8 +64,26 @@ export default function ClockViewer({ visible, clock, onClose }: ClockViewerProp
                 });
             }, 100);
             return () => clearInterval(timer);
+        } else {
+            // Video progress tracker
+            const timer = setInterval(() => {
+                if (player) {
+                    const duration = player.duration || 1;
+                    const position = player.currentTime || 0;
+                    if (duration > 0) {
+                        setLoading(false);
+                        const newProgress = (position / duration) * 100;
+                        setProgress(newProgress);
+                        // expo-video might not emit didJustFinish natively, we can check if it reached end
+                        if (position >= duration - 0.1 && duration > 0.5) {
+                            setProgress(100);
+                        }
+                    }
+                }
+            }, 100);
+            return () => clearInterval(timer);
         }
-    }, [visible, mediaUrl, mediaType, isPaused]);
+    }, [visible, mediaUrl, mediaType, isPaused, player]);
 
     // Close when progress full
     useEffect(() => {
@@ -57,25 +92,8 @@ export default function ClockViewer({ visible, clock, onClose }: ClockViewerProp
         }
     }, [progress, onClose]);
 
-    const handleVideoProgress = (status: any) => {
-        if (status.isPlaying) {
-            setLoading(false);
-            setProgress((status.positionMillis / status.durationMillis) * 100);
-        }
-        if (status.didJustFinish) {
-            setProgress(100);
-        }
-    };
-
     const togglePause = () => {
         setIsPaused(!isPaused);
-        if (mediaType === 'VIDEO' && videoRef.current) {
-            if (isPaused) {
-                videoRef.current.playAsync();
-            } else {
-                videoRef.current.pauseAsync();
-            }
-        }
     };
 
     if (!clock) return null;
@@ -134,16 +152,12 @@ export default function ClockViewer({ visible, clock, onClose }: ClockViewerProp
                                 </View>
                             )}
 
-                            {mediaType === 'VIDEO' ? (
-                                <Video
-                                    ref={videoRef}
-                                    source={{ uri: mediaUrl }}
+                            {mediaType === 'VIDEO' && player ? (
+                                <VideoView
+                                    player={player}
                                     style={{ width: '100%', height: '100%' }}
-                                    resizeMode={ResizeMode.COVER}
-                                    shouldPlay={visible && !isPaused}
-                                    isLooping={false}
-                                    onPlaybackStatusUpdate={handleVideoProgress}
-                                    onLoad={() => setLoading(false)}
+                                    contentFit="cover"
+                                    nativeControls={false}
                                 />
                             ) : (
                                 <Image

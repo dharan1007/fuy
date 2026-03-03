@@ -34,8 +34,7 @@ export default function CreateBrandScreen() {
         if (!result.canceled && result.assets[0]) {
             setUploading(true);
             try {
-                const { data: { session } } = await supabase.auth.getSession();
-                const url = await uploadFileToR2(result.assets[0].uri, 'IMAGE', session?.access_token);
+                const { url } = await uploadFileToR2(result.assets[0].uri, 'IMAGE');
                 if (url) setLogoUrl(url);
             } catch (error) {
                 Alert.alert('Error', 'Failed to upload logo');

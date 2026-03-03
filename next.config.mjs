@@ -14,6 +14,16 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
 
+  // Add reverse proxy for Supabase to bypass ISP blocks in India
+  async rewrites() {
+    return [
+      {
+        source: '/api/supabase/:path*',
+        destination: 'https://yaxmyqzfywgicddurzlx.supabase.co/:path*',
+      },
+    ];
+  },
+
   // Add permissions policy headers for microphone access
 
   // Add permissions policy headers for microphone access

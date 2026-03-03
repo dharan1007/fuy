@@ -1,7 +1,10 @@
 // src/lib/supabase-client.ts
 import { createBrowserClient } from "@supabase/ssr";
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const isBrowser = typeof window !== 'undefined';
+const url = isBrowser
+  ? `${window.location.origin}/api/supabase`
+  : process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 if (!url || !anonKey) {

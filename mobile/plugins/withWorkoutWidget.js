@@ -22,13 +22,13 @@ const withWorkoutWidget = (config) => {
                 $: {
                     'android:name': '.widget.WorkoutWidgetProvider',
                     'android:exported': 'true',
-                    'android:label': 'FUY Workout Widget',
+                    'android:label': 'Transiq Workout Widget',
                 },
                 'intent-filter': [
                     {
                         action: [
                             { $: { 'android:name': 'android.appwidget.action.APPWIDGET_UPDATE' } },
-                            { $: { 'android:name': 'com.fuy.app.WORKOUT_UPDATE' } },
+                            { $: { 'android:name': 'com.transiq.app.WORKOUT_UPDATE' } },
                         ],
                     },
                 ],
@@ -52,7 +52,7 @@ const withWorkoutWidget = (config) => {
         async (config) => {
             const projectRoot = config.modRequest.projectRoot;
             const androidResPath = path.join(projectRoot, 'android', 'app', 'src', 'main', 'res');
-            const androidJavaPath = path.join(projectRoot, 'android', 'app', 'src', 'main', 'java', 'com', 'fuy', 'app', 'widget');
+            const androidJavaPath = path.join(projectRoot, 'android', 'app', 'src', 'main', 'java', 'com', 'transiq', 'app', 'widget');
 
             // Create directories
             const xmlDir = path.join(androidResPath, 'xml');
@@ -202,7 +202,7 @@ const withWorkoutWidget = (config) => {
             fs.writeFileSync(path.join(drawableDir, 'widget_background.xml'), widgetBackgroundXml);
 
             // Kotlin Widget Provider
-            const widgetProviderKt = `package com.fuy.app.widget
+            const widgetProviderKt = `package com.transiq.app.widget
 
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
@@ -211,13 +211,13 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.widget.RemoteViews
-import com.fuy.app.R
-import com.fuy.app.MainActivity
+import com.transiq.app.R
+import com.transiq.app.MainActivity
 
 class WorkoutWidgetProvider : AppWidgetProvider() {
     
     companion object {
-        const val ACTION_WORKOUT_UPDATE = "com.fuy.app.WORKOUT_UPDATE"
+        const val ACTION_WORKOUT_UPDATE = "com.transiq.app.WORKOUT_UPDATE"
         const val EXTRA_WORKOUT_NAME = "workout_name"
         const val EXTRA_CURRENT_EXERCISE = "current_exercise"
         const val EXTRA_PROGRESS = "progress"
@@ -321,7 +321,7 @@ class WorkoutWidgetProvider : AppWidgetProvider() {
             } else {
                 const stringsXml = `<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">FUY</string>
+    <string name="app_name">Transiq</string>
     <string name="widget_description">Track your workout progress</string>
 </resources>`;
                 fs.writeFileSync(stringsPath, stringsXml);

@@ -5,6 +5,11 @@ import bcrypt from "bcryptjs";
 
 export async function POST(req: Request) {
   try {
+    // SECURITY: Block in production
+    if (process.env.NODE_ENV === 'production') {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
+
     // Demo users to seed
     const demoUsers = [
       {

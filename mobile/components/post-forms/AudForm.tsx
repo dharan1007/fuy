@@ -127,7 +127,7 @@ export default function AudForm({ onBack }: AudFormProps) {
             if (!userData?.id) throw new Error('User not found');
 
             setUploadProgress(30);
-            const audioResult = await MediaUploadService.uploadAudio(audioUri, audioName || `audio_${Date.now()}.mp3`);
+            const audioResult = await MediaUploadService.uploadAudio(audioUri);
 
             let coverUrl = null;
             if (coverImage) {

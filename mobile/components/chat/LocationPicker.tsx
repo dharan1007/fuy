@@ -88,7 +88,7 @@ export default function LocationPicker({ onSend, onClose }: LocationPickerProps)
             {loading ? (
                 <View style={styles.center}>
                     <ActivityIndicator size="large" color="#3B82F6" />
-                    <Text style={{ color: colors.textSecondary, marginTop: 10 }}>Locating...</Text>
+                    <Text style={{ color: colors.secondary, marginTop: 10 }}>Locating...</Text>
                 </View>
             ) : errorMsg ? (
                 <View style={styles.center}>

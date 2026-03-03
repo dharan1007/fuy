@@ -39,7 +39,11 @@ export async function POST(req: NextRequest) {
     shasum.update(body);
     const digest = shasum.digest("hex");
 
-    if (digest !== webhookSignature) {
+    // SECURITY: Use timing-safe comparison to prevent side-channel attacks
+    const digestBuffer = new Uint8Array(Buffer.from(digest, 'utf8'));
+    const signatureBuffer = new Uint8Array(Buffer.from(webhookSignature, 'utf8'));
+    if (digestBuffer.length !== signatureBuffer.length ||
+      !crypto.timingSafeEqual(digestBuffer, signatureBuffer)) {
       console.error("Webhook signature verification failed");
       return NextResponse.json(
         { error: "Signature verification failed" },

@@ -11,7 +11,7 @@ import {
     ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Audio } from 'expo-av';
+import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 
@@ -59,7 +59,8 @@ export default function AudioLibraryPicker({
     const [audioAssets, setAudioAssets] = useState<AudioAsset[]>([]);
     const [loading, setLoading] = useState(false);
     const [playingId, setPlayingId] = useState<string | null>(null);
-    const soundRef = useRef<Audio.Sound | null>(null);
+    const player = useAudioPlayer(null);
+    const status = useAudioPlayerStatus(player);
 
     const { session } = useAuth();
 
@@ -131,35 +132,27 @@ export default function AudioLibraryPicker({
     }, [visible, activeTab, fetchAudio]);
 
     useEffect(() => {
-        if (!visible && soundRef.current) {
-            soundRef.current.unloadAsync();
-            soundRef.current = null;
+        if (status.didJustFinish) {
             setPlayingId(null);
         }
-    }, [visible]);
+    }, [status.didJustFinish]);
+
+    useEffect(() => {
+        if (!visible) {
+            player.pause();
+            setPlayingId(null);
+        }
+    }, [visible, player]);
 
     const togglePlay = async (audio: AudioAsset) => {
         try {
             if (playingId === audio.id) {
-                if (soundRef.current) {
-                    await soundRef.current.stopAsync();
-                    await soundRef.current.unloadAsync();
-                    soundRef.current = null;
-                }
+                player.pause();
                 setPlayingId(null);
             } else {
-                if (soundRef.current) {
-                    await soundRef.current.unloadAsync();
-                }
-                const { sound } = await Audio.Sound.createAsync({ uri: audio.audioUrl });
-                soundRef.current = sound;
-                await sound.playAsync();
+                player.replace({ uri: audio.audioUrl });
+                player.play();
                 setPlayingId(audio.id);
-                sound.setOnPlaybackStatusUpdate((status) => {
-                    if (status.isLoaded && status.didJustFinish) {
-                        setPlayingId(null);
-                    }
-                });
             }
         } catch (error) {
             console.error('Error playing audio:', error);
@@ -182,9 +175,7 @@ export default function AudioLibraryPicker({
         <Pressable
             style={styles.audioItem}
             onPress={() => {
-                if (soundRef.current) {
-                    soundRef.current.unloadAsync();
-                }
+                player.pause();
                 setPlayingId(null);
                 onSelect(item);
                 onClose();

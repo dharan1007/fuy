@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, Dimensions, TouchableOpacity, Image, StyleSheet, FlatList, ViewToken, ActivityIndicator, ScrollView, Animated, PanResponder, Share as RNShare, Modal, Switch, TouchableWithoutFeedback, TextInput, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
+import FeedVideoPlayer from '../../components/FeedVideoPlayer';
 import { Share2, MoreVertical, Play, Pause, Circle as DotIcon, X, Search, ChevronLeft, Send, Bookmark, Check, Plus, LayoutGrid as Grid, List, Maximize, Minimize, Menu, Volume2, VolumeX, Heart, MessageCircle } from 'lucide-react-native';
 import { PoopIcon, MagicCapIcon } from '../../components/ReactionIcons';
 import { useTheme } from '../../context/ThemeContext';
@@ -21,6 +21,7 @@ import FillsTab from '../../components/FillsTab';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 import { FeedCacheService } from '../../services/FeedCacheService';
+import { ExploreService } from '../../services/ExploreService';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -83,10 +84,10 @@ interface DotItemProps {
 }
 
 // Helper to get resize mode for Feed
-const getFeedResizeMode = (item: DotData): ResizeMode => {
-    if (item.category === 'fills') return ResizeMode.CONTAIN; // 16:9
-    if (item.mediaType === 'image') return ResizeMode.CONTAIN; // 4:3 usually
-    return ResizeMode.COVER; // Lills (9:16)
+const getFeedResizeMode = (item: DotData): 'contain' | 'cover' => {
+    if (item.category === 'fills') return 'contain'; // 16:9
+    if (item.mediaType === 'image') return 'contain'; // 4:3 usually
+    return 'cover'; // Lills (9:16)
 };
 
 const getImageResizeMode = (item: DotData): 'contain' | 'cover' => {
@@ -107,9 +108,7 @@ const DotItem = ({ item, isActive, autoScroll, onVideoEnd, onToggleAutoScroll, o
     // Safety check
     if (!item) return null;
 
-    // Video Refs
-    const videoRef = useRef<Video>(null);
-    const [status, setStatus] = useState<AVPlaybackStatus | null>(null);
+    // Video Refs (Removed for FeedVideoPlayer usage)
 
     // Sync state if item changes
     useEffect(() => {
@@ -176,7 +175,7 @@ const DotItem = ({ item, isActive, autoScroll, onVideoEnd, onToggleAutoScroll, o
     };
 
     // Resize Mode Logic
-    const resizeMode = item.category === 'fills' ? ResizeMode.CONTAIN : ResizeMode.COVER;
+    const resizeMode = item.category === 'fills' ? 'contain' : 'cover';
 
     const handleTogglePlay = () => {
         setIsPlaying(!isPlaying);
@@ -210,26 +209,21 @@ const DotItem = ({ item, isActive, autoScroll, onVideoEnd, onToggleAutoScroll, o
                 <TouchableWithoutFeedback onPress={handleTogglePlay}>
                     <View style={[StyleSheet.absoluteFill, { backgroundColor: 'black' }]}>
                         {item.mediaType === 'video' && item.mediaUrl ? (
-                            <Video
-                                ref={videoRef}
-                                source={{ uri: item.mediaUrl }}
-                                style={StyleSheet.absoluteFill}
-                                resizeMode={resizeMode}
-                                shouldPlay={isActive && isScreenFocused && isPlaying}
-                                isLooping={!autoScroll}
+                            <FeedVideoPlayer
+                                url={item.mediaUrl}
+                                isActive={isActive}
+                                isPaused={!isPlaying}
                                 isMuted={isMuted}
-                                onPlaybackStatusUpdate={(s) => {
-                                    setStatus(s);
-                                    if (s.isLoaded && s.didJustFinish && autoScroll) {
-                                        onVideoEnd();
-                                    }
-                                }}
+                                isScreenFocused={isScreenFocused}
+                                contentFit={resizeMode}
+                                isLooping={!autoScroll}
+                                onPlayToEnd={() => { if (autoScroll) onVideoEnd(); }}
                             />
                         ) : (
                             <Image
                                 source={{ uri: item.mediaUrl }}
                                 style={StyleSheet.absoluteFill}
-                                resizeMode={resizeMode === ResizeMode.CONTAIN ? 'contain' : 'cover'}
+                                resizeMode={resizeMode}
                             />
                         )}
 
@@ -264,11 +258,10 @@ const DotItem = ({ item, isActive, autoScroll, onVideoEnd, onToggleAutoScroll, o
                             {(item.topBubbles || []).slice(0, 3).map((bubble, i) => (
                                 <View key={i} style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 1, borderColor: '#121212', marginTop: -8, zIndex: 3 - i, overflow: 'hidden', backgroundColor: '#333', alignItems: 'center', justifyContent: 'center' }}>
                                     {bubble.mediaType === 'VIDEO' ? (
-                                        <Video
-                                            source={{ uri: bubble.mediaUrl }}
-                                            style={{ width: '100%', height: '100%' }}
-                                            resizeMode={ResizeMode.COVER}
-                                            shouldPlay={isActive && isScreenFocused}
+                                        <FeedVideoPlayer
+                                            url={bubble.mediaUrl}
+                                            isActive={isActive && isScreenFocused}
+                                            contentFit="cover"
                                             isLooping
                                             isMuted={true}
                                         />
@@ -406,10 +399,8 @@ interface FillsPlayerProps {
 const FillsPlayer = ({ dots, activeIndex, setActiveIndex, isScreenFocused, onBack }: FillsPlayerProps) => {
     const { colors, mode } = useTheme();
     const { session } = useAuth();
-    const videoRef = useRef<Video>(null);
     const flatListRef = useRef<FlatList>(null);
     const [isPlaying, setIsPlaying] = useState(true);
-    const [status, setStatus] = useState<AVPlaybackStatus | null>(null);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [isMuted, setIsMuted] = useState(false);
     const [showControls, setShowControls] = useState(true);
@@ -528,35 +519,7 @@ const FillsPlayer = ({ dots, activeIndex, setActiveIndex, isScreenFocused, onBac
     }, [showControls, isPlaying]);
 
     const togglePlay = async () => {
-        if (videoRef.current) {
-            if (isPlaying) {
-                await videoRef.current.pauseAsync();
-            } else {
-                await videoRef.current.playAsync();
-            }
-            setIsPlaying(!isPlaying);
-        }
-    };
-
-    const handleSeek = async (value: number) => {
-        if (videoRef.current && status?.isLoaded && status.durationMillis) {
-            await videoRef.current.setPositionAsync(value * status.durationMillis);
-        }
-    };
-
-    const toggleFullscreen = async () => {
-        if (videoRef.current) {
-            try {
-                if (!isFullscreen) {
-                    await videoRef.current.presentFullscreenPlayer();
-                } else {
-                    await videoRef.current.dismissFullscreenPlayer();
-                }
-                setIsFullscreen(!isFullscreen);
-            } catch (e) {
-                console.log('Fullscreen error:', e);
-            }
-        }
+        setIsPlaying(!isPlaying);
     };
 
     const handleReaction = async (type: string) => {
@@ -656,10 +619,6 @@ const FillsPlayer = ({ dots, activeIndex, setActiveIndex, isScreenFocused, onBac
         return `${minutes}:${seconds.toString().padStart(2, '0')}`;
     };
 
-    const progress = status?.isLoaded && status.durationMillis
-        ? (status.positionMillis || 0) / status.durationMillis
-        : 0;
-
 
     // Safety check for crash prevention
     if (!currentItem) {
@@ -716,18 +675,13 @@ const FillsPlayer = ({ dots, activeIndex, setActiveIndex, isScreenFocused, onBac
                     <GestureDetector gesture={composedGesture}>
                         <View style={{ width: '100%', aspectRatio: 16 / 9, backgroundColor: '#111' }}>
                             {currentItem.mediaType === 'video' && currentItem.mediaUrl ? (
-                                <Video
-                                    ref={videoRef}
-                                    source={{ uri: currentItem.mediaUrl }}
-                                    style={{ width: '100%', height: '100%' }}
-                                    resizeMode={ResizeMode.CONTAIN}
-                                    shouldPlay={isScreenFocused && isPlaying}
-                                    isLooping
+                                <FeedVideoPlayer
+                                    url={currentItem.mediaUrl}
+                                    isActive={isScreenFocused && isPlaying}
                                     isMuted={isMuted}
-                                    onPlaybackStatusUpdate={setStatus}
-                                    onFullscreenUpdate={({ fullscreenUpdate }) => {
-                                        if (fullscreenUpdate === 3) setIsFullscreen(false);
-                                    }}
+                                    contentFit="contain"
+                                    isLooping
+                                    nativeControls={true}
                                 />
                             ) : currentItem.mediaUrl ? (
                                 <Image source={{ uri: currentItem.mediaUrl }} style={{ width: '100%', height: '100%' }} resizeMode="contain" />
@@ -766,255 +720,238 @@ const FillsPlayer = ({ dots, activeIndex, setActiveIndex, isScreenFocused, onBac
                         </View>
                     </GestureDetector>
 
-                    {/* Video Controls Bar */}
-                    {currentItem.mediaType === 'video' && (
-                        <View style={{ backgroundColor: '#111', paddingHorizontal: 12, paddingVertical: 6 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                <Text style={{ color: '#888', fontSize: 11, width: 40 }}>{status?.isLoaded ? formatTime(status.positionMillis || 0) : '0:00'}</Text>
-                                <TouchableOpacity style={{ flex: 1, height: 16, justifyContent: 'center', marginHorizontal: 6 }} onPress={(e) => { const { locationX } = e.nativeEvent; handleSeek(locationX / (SCREEN_WIDTH * 0.6)); }}>
-                                    <View style={{ height: 3, backgroundColor: '#333', borderRadius: 2 }}>
-                                        <View style={{ width: `${progress * 100}%`, height: '100%', backgroundColor: '#fff', borderRadius: 2 }} />
+                    {/* Fills Details Section */}
+                    {isSidebarOpen && (
+                        <ScrollView style={{ flex: 1, backgroundColor: mode === 'light' ? '#fff' : '#0a0a0a' }} contentContainerStyle={{ padding: 12 }}>
+                            {/* Title & User */}
+                            <Text style={{ color: colors.text, fontSize: 14, fontWeight: 'bold', marginBottom: 6 }}>{currentItem.description || 'Untitled Fill'}</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                                {currentItem.avatar ? (
+                                    <Image source={{ uri: currentItem.avatar }} style={{ width: 28, height: 28, borderRadius: 14 }} />
+                                ) : (
+                                    <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#333', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 12 }}>{currentItem.username?.charAt(0)?.toUpperCase() || '?'}</Text>
                                     </View>
+                                )}
+                                <Text style={{ color: colors.text, fontWeight: '600', marginLeft: 8, fontSize: 13 }}>@{currentItem.username}</Text>
+                            </View>
+
+                            {/* Reaction Buttons */}
+                            <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+                                {/* W Button */}
+                                <TouchableOpacity
+                                    onPress={() => handleReaction('W')}
+                                    style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: userReaction === 'W' ? '#333' : 'transparent', borderWidth: 1, borderColor: '#444' }}
+                                >
+                                    <Heart
+                                        size={16}
+                                        color={userReaction === 'W' ? '#ef4444' : 'gray'}
+                                        fill={userReaction === 'W' ? '#ef4444' : 'transparent'}
+                                    />
+                                    <Text style={{ color: colors.secondary, fontSize: 11, marginLeft: 6 }}>{formatNumber(reactionCounts['W'] || 0)}</Text>
                                 </TouchableOpacity>
-                                <Text style={{ color: '#888', fontSize: 11, width: 40 }}>{status?.isLoaded && status.durationMillis ? formatTime(status.durationMillis) : '0:00'}</Text>
-                                <TouchableOpacity onPress={toggleFullscreen} style={{ marginLeft: 8, padding: 4 }}>
-                                    {isFullscreen ? (
-                                        <Minimize size={16} color="#fff" />
-                                    ) : (
-                                        <Maximize size={16} color="#fff" />
-                                    )}
+
+                                {/* L Button */}
+                                <TouchableOpacity
+                                    onPress={() => handleReaction('L')}
+                                    style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: userReaction === 'L' ? '#333' : 'transparent', borderWidth: 1, borderColor: '#444' }}
+                                >
+                                    {userReaction === 'L' ? <PoopIcon color="#f97316" /> : <Text style={{ color: colors.secondary, fontSize: 12, fontWeight: '900' }}>L</Text>}
+                                    <Text style={{ color: colors.secondary, fontSize: 11, marginLeft: 6 }}>{formatNumber(reactionCounts['L'] || 0)}</Text>
+                                </TouchableOpacity>
+
+                                {/* CAP Button */}
+                                <TouchableOpacity
+                                    onPress={() => handleReaction('CAP')}
+                                    style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: userReaction === 'CAP' ? '#333' : 'transparent', borderWidth: 1, borderColor: '#444' }}
+                                >
+                                    {userReaction === 'CAP' ? <MagicCapIcon color="#14532d" /> : <Text style={{ color: colors.secondary, fontSize: 10, fontWeight: '900' }}>CAP</Text>}
+                                    <Text style={{ color: colors.secondary, fontSize: 11, marginLeft: 6 }}>{formatNumber(reactionCounts['CAP'] || 0)}</Text>
                                 </TouchableOpacity>
                             </View>
-                        </View>
-                    )}
 
-                    {/* Video Info + Reactions + Comments */}
-                    <ScrollView style={{ flex: 1, backgroundColor: mode === 'light' ? '#fff' : '#0a0a0a' }} contentContainerStyle={{ padding: 12 }}>
-                        {/* Title & User */}
-                        <Text style={{ color: colors.text, fontSize: 14, fontWeight: 'bold', marginBottom: 6 }}>{currentItem.description || 'Untitled Fill'}</Text>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-                            {currentItem.avatar ? (
-                                <Image source={{ uri: currentItem.avatar }} style={{ width: 28, height: 28, borderRadius: 14 }} />
-                            ) : (
-                                <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#333', alignItems: 'center', justifyContent: 'center' }}>
-                                    <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 12 }}>{currentItem.username?.charAt(0)?.toUpperCase() || '?'}</Text>
+                            {/* Reaction Bubbles */}
+                            {reactionBubbles.length > 0 && (
+                                <View style={{ marginBottom: 16 }}>
+                                    <Text style={{ color: colors.secondary, fontSize: 11, marginBottom: 8, fontWeight: '600' }}>Reactions</Text>
+                                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                                        {reactionBubbles.map((bubble) => (
+                                            <TouchableOpacity key={bubble.id} style={{ width: 40, height: 40, borderRadius: 20, overflow: 'hidden', borderWidth: 1.5, borderColor: colors.primary }}>
+                                                {bubble.mediaType === 'VIDEO' ? (
+                                                    <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+                                                        <Play size={12} color="#fff" fill="#fff" />
+                                                    </View>
+                                                ) : (
+                                                    <Image source={{ uri: bubble.mediaUrl }} style={{ width: '100%', height: '100%' }} />
+                                                )}
+                                            </TouchableOpacity>
+                                        ))}
+                                    </ScrollView>
                                 </View>
                             )}
-                            <Text style={{ color: colors.text, fontWeight: '600', marginLeft: 8, fontSize: 13 }}>@{currentItem.username}</Text>
-                        </View>
 
-                        {/* Reaction Buttons */}
-                        <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
-                            {/* W Button */}
-                            <TouchableOpacity
-                                onPress={() => handleReaction('W')}
-                                style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: userReaction === 'W' ? '#333' : 'transparent', borderWidth: 1, borderColor: '#444' }}
-                            >
-                                <Heart
-                                    size={16}
-                                    color={userReaction === 'W' ? '#ef4444' : 'gray'}
-                                    fill={userReaction === 'W' ? '#ef4444' : 'transparent'}
-                                />
-                                <Text style={{ color: colors.secondary, fontSize: 11, marginLeft: 6 }}>{formatNumber(reactionCounts['W'] || 0)}</Text>
-                            </TouchableOpacity>
+                            {/* Comments Section */}
+                            <View style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 12 }}>
+                                <Text style={{ color: colors.text, fontWeight: 'bold', fontSize: 13, marginBottom: 8 }}>Comments ({comments.length})</Text>
 
-                            {/* L Button */}
-                            <TouchableOpacity
-                                onPress={() => handleReaction('L')}
-                                style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: userReaction === 'L' ? '#333' : 'transparent', borderWidth: 1, borderColor: '#444' }}
-                            >
-                                {userReaction === 'L' ? <PoopIcon color="#f97316" /> : <Text style={{ color: colors.secondary, fontSize: 12, fontWeight: '900' }}>L</Text>}
-                                <Text style={{ color: colors.secondary, fontSize: 11, marginLeft: 6 }}>{formatNumber(reactionCounts['L'] || 0)}</Text>
-                            </TouchableOpacity>
+                                {/* Comment Input */}
+                                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+                                    <TextInput
+                                        placeholder="Add a comment..."
+                                        placeholderTextColor={colors.secondary}
+                                        value={newComment}
+                                        onChangeText={setNewComment}
+                                        onSubmitEditing={postComment}
+                                        style={{
+                                            flex: 1,
+                                            backgroundColor: mode === 'light' ? '#f0f0f0' : '#1a1a1a',
+                                            borderRadius: 20,
+                                            paddingHorizontal: 12,
+                                            paddingVertical: 8,
+                                            color: colors.text,
+                                            fontSize: 12,
+                                            marginRight: 8
+                                        }}
+                                    />
+                                    <TouchableOpacity onPress={postComment} disabled={!newComment.trim()}>
+                                        <Send size={20} color={newComment.trim() ? colors.primary : colors.secondary} />
+                                    </TouchableOpacity>
+                                </View>
 
-                            {/* CAP Button */}
-                            <TouchableOpacity
-                                onPress={() => handleReaction('CAP')}
-                                style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: userReaction === 'CAP' ? '#333' : 'transparent', borderWidth: 1, borderColor: '#444' }}
-                            >
-                                {userReaction === 'CAP' ? <MagicCapIcon color="#14532d" /> : <Text style={{ color: colors.secondary, fontSize: 10, fontWeight: '900' }}>CAP</Text>}
-                                <Text style={{ color: colors.secondary, fontSize: 11, marginLeft: 6 }}>{formatNumber(reactionCounts['CAP'] || 0)}</Text>
-                            </TouchableOpacity>
-                        </View>
-
-                        {/* Reaction Bubbles */}
-                        {reactionBubbles.length > 0 && (
-                            <View style={{ marginBottom: 16 }}>
-                                <Text style={{ color: colors.secondary, fontSize: 11, marginBottom: 8, fontWeight: '600' }}>Reactions</Text>
-                                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-                                    {reactionBubbles.map((bubble) => (
-                                        <TouchableOpacity key={bubble.id} style={{ width: 40, height: 40, borderRadius: 20, overflow: 'hidden', borderWidth: 1.5, borderColor: colors.primary }}>
-                                            {bubble.mediaType === 'VIDEO' ? (
-                                                <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
-                                                    <Play size={12} color="#fff" fill="#fff" />
-                                                </View>
-                                            ) : (
-                                                <Image source={{ uri: bubble.mediaUrl }} style={{ width: '100%', height: '100%' }} />
-                                            )}
-                                        </TouchableOpacity>
-                                    ))}
-                                </ScrollView>
-                            </View>
-                        )}
-
-                        {/* Comments Section */}
-                        <View style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 12 }}>
-                            <Text style={{ color: colors.text, fontWeight: 'bold', fontSize: 13, marginBottom: 8 }}>Comments ({comments.length})</Text>
-
-                            {/* Comment Input */}
-                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-                                <TextInput
-                                    placeholder="Add a comment..."
-                                    placeholderTextColor={colors.secondary}
-                                    value={newComment}
-                                    onChangeText={setNewComment}
-                                    onSubmitEditing={postComment}
-                                    style={{
-                                        flex: 1,
-                                        backgroundColor: mode === 'light' ? '#f0f0f0' : '#1a1a1a',
-                                        borderRadius: 20,
-                                        paddingHorizontal: 12,
-                                        paddingVertical: 8,
-                                        color: colors.text,
-                                        fontSize: 12,
-                                        marginRight: 8
-                                    }}
-                                />
-                                <TouchableOpacity onPress={postComment} disabled={!newComment.trim()}>
-                                    <Send size={20} color={newComment.trim() ? colors.primary : colors.secondary} />
-                                </TouchableOpacity>
-                            </View>
-
-                            {/* Comments List */}
-                            <View style={{ gap: 12 }}>
-                                {loadingComments ? (
-                                    <View style={{ padding: 12, alignItems: 'center' }}>
-                                        <Text style={{ color: colors.secondary, fontSize: 12 }}>Loading comments...</Text>
-                                    </View>
-                                ) : comments.length === 0 ? (
-                                    <View style={{ padding: 12, backgroundColor: mode === 'light' ? '#f0f0f0' : '#1a1a1a', borderRadius: 8 }}>
-                                        <Text style={{ color: colors.secondary, fontSize: 12, textAlign: 'center' }}>No comments yet. Be the first!</Text>
-                                    </View>
-                                ) : (
-                                    comments.map((comment) => (
-                                        <View key={comment.id} style={{ flexDirection: 'row', marginBottom: 12 }}>
-                                            {comment.user?.profile?.avatarUrl ? (
-                                                <Image source={{ uri: comment.user.profile.avatarUrl }} style={{ width: 24, height: 24, borderRadius: 12 }} />
-                                            ) : (
-                                                <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#333', alignItems: 'center', justifyContent: 'center' }}>
-                                                    <Text style={{ color: '#fff', fontSize: 10, fontWeight: 'bold' }}>{(comment.user?.name || 'U').charAt(0).toUpperCase()}</Text>
-                                                </View>
-                                            )}
-                                            <View style={{ marginLeft: 8, flex: 1 }}>
-                                                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                                                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
-                                                        <Text style={{ color: colors.text, fontWeight: '600', fontSize: 12 }}>{comment.user?.name || 'User'}</Text>
-                                                        <Text style={{ color: colors.secondary, fontSize: 10, marginLeft: 6 }}>{new Date(comment.createdAt).toLocaleDateString()}</Text>
-                                                    </View>
-                                                    <TouchableOpacity onPress={() => handleReportAction(comment.id, comment.userId)} style={{ padding: 4 }}>
-                                                        <MoreVertical size={14} color={colors.secondary} />
-                                                    </TouchableOpacity>
-                                                </View>
-                                                <Text style={{ color: colors.text, fontSize: 12 }}>{comment.content}</Text>
-                                            </View>
+                                {/* Comments List */}
+                                <View style={{ gap: 12 }}>
+                                    {loadingComments ? (
+                                        <View style={{ padding: 12, alignItems: 'center' }}>
+                                            <Text style={{ color: colors.secondary, fontSize: 12 }}>Loading comments...</Text>
                                         </View>
-                                    ))
-                                )}
-                            </View>
-
-                            {/* Suggested Fills (Below Comments) */}
-                            <View style={{ marginTop: 24, marginBottom: 40 }}>
-                                <Text style={{ color: colors.text, fontWeight: 'bold', fontSize: 14, marginBottom: 12 }}>More Fills</Text>
-                                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
-                                    {suggestedItems.map((item) => (
-                                        <TouchableOpacity key={item.id} onPress={() => setActiveIndex(dots.findIndex(d => d.id === item.id))} style={{ width: 140 }}>
-                                            <View style={{ aspectRatio: 16 / 9, backgroundColor: '#222', borderRadius: 8, overflow: 'hidden', marginBottom: 6 }}>
-                                                {item.mediaType === 'image' && item.mediaUrl ? (
-                                                    <Image source={{ uri: item.mediaUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                                    ) : comments.length === 0 ? (
+                                        <View style={{ padding: 12, backgroundColor: mode === 'light' ? '#f0f0f0' : '#1a1a1a', borderRadius: 8 }}>
+                                            <Text style={{ color: colors.secondary, fontSize: 12, textAlign: 'center' }}>No comments yet. Be the first!</Text>
+                                        </View>
+                                    ) : (
+                                        comments.map((comment) => (
+                                            <View key={comment.id} style={{ flexDirection: 'row', marginBottom: 12 }}>
+                                                {comment.user?.profile?.avatarUrl ? (
+                                                    <Image source={{ uri: comment.user.profile.avatarUrl }} style={{ width: 24, height: 24, borderRadius: 12 }} />
                                                 ) : (
-                                                    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1a1a1a' }}>
-                                                        <Play size={24} color="#888" fill="#888" />
+                                                    <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#333', alignItems: 'center', justifyContent: 'center' }}>
+                                                        <Text style={{ color: '#fff', fontSize: 10, fontWeight: 'bold' }}>{(comment.user?.name || 'U').charAt(0).toUpperCase()}</Text>
                                                     </View>
                                                 )}
+                                                <View style={{ marginLeft: 8, flex: 1 }}>
+                                                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
+                                                            <Text style={{ color: colors.text, fontWeight: '600', fontSize: 12 }}>{comment.user?.name || 'User'}</Text>
+                                                            <Text style={{ color: colors.secondary, fontSize: 10, marginLeft: 6 }}>{new Date(comment.createdAt).toLocaleDateString()}</Text>
+                                                        </View>
+                                                        <TouchableOpacity onPress={() => handleReportAction(comment.id, comment.userId)} style={{ padding: 4 }}>
+                                                            <MoreVertical size={14} color={colors.secondary} />
+                                                        </TouchableOpacity>
+                                                    </View>
+                                                    <Text style={{ color: colors.text, fontSize: 12 }}>{comment.content}</Text>
+                                                </View>
                                             </View>
-                                            <Text style={{ color: colors.text, fontSize: 11, fontWeight: '600' }} numberOfLines={2}>{item.description || 'Untitled'}</Text>
-                                            <Text style={{ color: colors.secondary, fontSize: 10, marginTop: 2 }}>@{item.username}</Text>
-                                        </TouchableOpacity>
-                                    ))}
-                                </ScrollView>
+                                        ))
+                                    )}
+                                </View>
+
+                                {/* Suggested Fills (Below Comments) */}
+                                <View style={{ marginTop: 24, marginBottom: 40 }}>
+                                    <Text style={{ color: colors.text, fontWeight: 'bold', fontSize: 14, marginBottom: 12 }}>More Fills</Text>
+                                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
+                                        {suggestedItems.map((item) => (
+                                            <TouchableOpacity key={item.id} onPress={() => setActiveIndex(dots.findIndex(d => d.id === item.id))} style={{ width: 140 }}>
+                                                <View style={{ aspectRatio: 16 / 9, backgroundColor: '#222', borderRadius: 8, overflow: 'hidden', marginBottom: 6 }}>
+                                                    {item.mediaType === 'image' && item.mediaUrl ? (
+                                                        <Image source={{ uri: item.mediaUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                                                    ) : (
+                                                        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1a1a1a' }}>
+                                                            <Play size={24} color="#888" fill="#888" />
+                                                        </View>
+                                                    )}
+                                                </View>
+                                                <Text style={{ color: colors.text, fontSize: 11, fontWeight: '600' }} numberOfLines={2}>{item.description || 'Untitled'}</Text>
+                                                <Text style={{ color: colors.secondary, fontSize: 10, marginTop: 2 }}>@{item.username}</Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </ScrollView>
+                                </View>
                             </View>
-                        </View>
-                    </ScrollView>
+                        </ScrollView>
+                    )}
+
                 </View>
 
                 {/* Suggestions Sidebar */}
-                {isSidebarOpen && (
-                    <View style={{ flex: 1, backgroundColor: mode === 'light' ? '#f5f5f5' : '#0a0a0a', borderLeftWidth: 1, borderLeftColor: colors.border }}>
-                        {/* Search Bar */}
-                        <View style={{ paddingHorizontal: 8, paddingVertical: 8 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: mode === 'light' ? '#e0e0e0' : '#1a1a1a', borderRadius: 8, paddingHorizontal: 8, height: 32 }}>
-                                <Search size={14} color={colors.secondary} />
-                                <TextInput
-                                    placeholder="Search..."
-                                    placeholderTextColor={colors.secondary}
-                                    value={searchQuery}
-                                    onChangeText={setSearchQuery}
-                                    style={{ flex: 1, marginLeft: 6, color: colors.text, fontSize: 12, padding: 0 }}
-                                />
+                {
+                    isSidebarOpen && (
+                        <View style={{ flex: 1, backgroundColor: mode === 'light' ? '#f5f5f5' : '#0a0a0a', borderLeftWidth: 1, borderLeftColor: colors.border }}>
+                            {/* Search Bar */}
+                            <View style={{ paddingHorizontal: 8, paddingVertical: 8 }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: mode === 'light' ? '#e0e0e0' : '#1a1a1a', borderRadius: 8, paddingHorizontal: 8, height: 32 }}>
+                                    <Search size={14} color={colors.secondary} />
+                                    <TextInput
+                                        placeholder="Search..."
+                                        placeholderTextColor={colors.secondary}
+                                        value={searchQuery}
+                                        onChangeText={setSearchQuery}
+                                        style={{ flex: 1, marginLeft: 6, color: colors.text, fontSize: 12, padding: 0 }}
+                                    />
+                                </View>
                             </View>
-                        </View>
 
-                        {/* Featured */}
-                        {featuredItem && (
-                            <View style={{ paddingHorizontal: 8, marginBottom: 8 }}>
-                                <Text style={{ color: colors.text, fontWeight: 'bold', fontSize: 11, marginBottom: 6 }}>Featured</Text>
-                                <TouchableOpacity onPress={() => setActiveIndex(dots.findIndex(d => d.id === featuredItem.id))}>
-                                    <View style={{ aspectRatio: 16 / 9, backgroundColor: '#222', borderRadius: 6, overflow: 'hidden' }}>
-                                        {featuredItem.mediaType === 'image' && featuredItem.mediaUrl ? (
-                                            <Image source={{ uri: featuredItem.mediaUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-                                        ) : (
-                                            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1a1a1a' }}>
-                                                <Play size={24} color="#888" fill="#888" />
-                                                <Text style={{ color: '#666', fontSize: 9, marginTop: 4 }}>Video</Text>
-                                            </View>
-                                        )}
-                                    </View>
-                                </TouchableOpacity>
-                            </View>
-                        )}
-
-                        <Text style={{ color: colors.text, fontWeight: 'bold', paddingHorizontal: 8, fontSize: 11, marginBottom: 4 }}>Up Next</Text>
-                        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 8 }}>
-                            {suggestedItems.map((item) => {
-                                const realIndex = dots.findIndex(d => d.id === item.id);
-                                return (
-                                    <View key={item.id} style={{ marginBottom: 8 }}>
-                                        <TouchableOpacity onPress={() => setActiveIndex(realIndex)}>
-                                            <View style={{ aspectRatio: 16 / 9, backgroundColor: '#1a1a1a', borderRadius: 6, overflow: 'hidden', marginBottom: 4 }}>
-                                                {item.mediaType === 'image' && item.mediaUrl ? (
-                                                    <Image source={{ uri: item.mediaUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-                                                ) : (
-                                                    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                                                        <Play size={18} color="#888" fill="#888" />
-                                                    </View>
-                                                )}
-                                            </View>
-                                            <Text style={{ color: colors.text, fontSize: 10, fontWeight: '600' }} numberOfLines={1}>{item.description || 'Untitled'}</Text>
-                                        </TouchableOpacity>
-                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <Text style={{ color: colors.secondary, fontSize: 9 }}>@{item.username}</Text>
-                                            <TouchableOpacity onPress={() => removeFromUpNext(item.id)} style={{ padding: 4 }} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                                                <X size={12} color={colors.secondary} />
-                                            </TouchableOpacity>
+                            {/* Featured */}
+                            {featuredItem && (
+                                <View style={{ paddingHorizontal: 8, marginBottom: 8 }}>
+                                    <Text style={{ color: colors.text, fontWeight: 'bold', fontSize: 11, marginBottom: 6 }}>Featured</Text>
+                                    <TouchableOpacity onPress={() => setActiveIndex(dots.findIndex(d => d.id === featuredItem.id))}>
+                                        <View style={{ aspectRatio: 16 / 9, backgroundColor: '#222', borderRadius: 6, overflow: 'hidden' }}>
+                                            {featuredItem.mediaType === 'image' && featuredItem.mediaUrl ? (
+                                                <Image source={{ uri: featuredItem.mediaUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                                            ) : (
+                                                <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1a1a1a' }}>
+                                                    <Play size={24} color="#888" fill="#888" />
+                                                    <Text style={{ color: '#666', fontSize: 9, marginTop: 4 }}>Video</Text>
+                                                </View>
+                                            )}
                                         </View>
-                                    </View>
-                                );
-                            })}
-                        </ScrollView>
-                    </View>
-                )}
-            </View>
-        </View>
+                                    </TouchableOpacity>
+                                </View>
+                            )}
+
+                            <Text style={{ color: colors.text, fontWeight: 'bold', paddingHorizontal: 8, fontSize: 11, marginBottom: 4 }}>Up Next</Text>
+                            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 8 }}>
+                                {suggestedItems.map((item) => {
+                                    const realIndex = dots.findIndex(d => d.id === item.id);
+                                    return (
+                                        <View key={item.id} style={{ marginBottom: 8 }}>
+                                            <TouchableOpacity onPress={() => setActiveIndex(realIndex)}>
+                                                <View style={{ aspectRatio: 16 / 9, backgroundColor: '#1a1a1a', borderRadius: 6, overflow: 'hidden', marginBottom: 4 }}>
+                                                    {item.mediaType === 'image' && item.mediaUrl ? (
+                                                        <Image source={{ uri: item.mediaUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                                                    ) : (
+                                                        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                                                            <Play size={18} color="#888" fill="#888" />
+                                                        </View>
+                                                    )}
+                                                </View>
+                                                <Text style={{ color: colors.text, fontSize: 10, fontWeight: '600' }} numberOfLines={1}>{item.description || 'Untitled'}</Text>
+                                            </TouchableOpacity>
+                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <Text style={{ color: colors.secondary, fontSize: 9 }}>@{item.username}</Text>
+                                                <TouchableOpacity onPress={() => removeFromUpNext(item.id)} style={{ padding: 4 }} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                                                    <X size={12} color={colors.secondary} />
+                                                </TouchableOpacity>
+                                            </View>
+                                        </View>
+                                    );
+                                })}
+                            </ScrollView>
+                        </View>
+                    )
+                }
+            </View >
+        </View >
     );
 };
 // ============= END FILLS PLAYER =============
@@ -1194,48 +1131,20 @@ export default function DotsScreen() {
         }
         try {
             const postType = categoryToPostType[category];
-            if (!postType) {
+            if (!postType && category !== 'bloom') {
                 console.log('[Dots] No postType for category:', category);
                 setDots([]);
                 setLoading(false);
                 return;
             }
 
-            // Simplified query - reduced from 20 to 10 for bandwidth savings
-            let query = supabase
-                .from('Post')
-                .select(`
-                    id, 
-                    content, 
-                    postType, 
-                    createdAt, 
-                    userId, 
-                    user:User(id, name, profile:Profile(avatarUrl, displayName)), 
-                    postMedia:PostMedia(media:Media(url, type, variant))
-                `)
-                .eq('postType', postType)
-                .eq('visibility', 'PUBLIC')
-                .order('createdAt', { ascending: false })
-                .limit(10);
+            // USE ALGORITHMIC ENDPOINT
+            const apiPosts = await ExploreService.getDotsFeed(category as any, 10);
 
-            if (session?.user?.id) {
-                const filters = await getSafetyFilters(session.user.id);
-                query = applySafetyFilters(query, filters);
-            }
+            console.log(`[Dots] Fetched ${apiPosts?.length || 0} algorithmic posts for ${category}`);
 
-            const { data, error } = await query;
-
-            if (error) {
-                console.error('[Dots] Query error:', error);
-                setDots([]);
-                setLoading(false);
-                return;
-            }
-
-            console.log(`[Dots] Fetched ${data?.length || 0} posts for ${category}`);
-
-            const formattedDots = (data || []).map((post: any) => {
-                const media = (post.postMedia || []).map((pm: any) => pm.media).filter(Boolean);
+            const formattedDots = (apiPosts || []).map((apiPost: any) => {
+                const media = apiPost.media || [];
                 let mediaUrl = '';
                 let mediaType: 'video' | 'image' | 'audio' = 'image';
 
@@ -1246,26 +1155,26 @@ export default function DotsScreen() {
                 }
 
                 return {
-                    id: post.id,
-                    postId: post.id,
-                    userId: post.userId || '',
-                    username: post.user?.profile?.displayName || post.user?.name || 'User',
-                    avatar: post.user?.profile?.avatarUrl || '',
-                    description: post.content || '',
+                    id: apiPost.id,
+                    postId: apiPost.id,
+                    userId: apiPost.user?.id || '',
+                    username: apiPost.user?.profile?.displayName || apiPost.user?.name || 'User',
+                    avatar: apiPost.user?.profile?.avatarUrl || '',
+                    description: apiPost.content || '',
                     likes: 0,
                     comments: 0,
                     mediaUrl,
                     mediaType,
-                    category: post.postType?.toLowerCase() || 'mix',
+                    category: apiPost.postType?.toLowerCase() || 'mix',
                     isSubscribed: false,
                     followersCount: 0,
-                    createdAt: post.createdAt,
+                    createdAt: apiPost.createdAt,
                     reactionCounts: { W: 0, L: 0, CAP: 0 },
                     userReaction: null,
                     topBubbles: [],
                     postMedia: media
                 };
-            }); // Removed filter to allow non-media posts to show temporarily
+            });
 
             // Cache the results
             if (cacheKey === 'lills') {
@@ -1491,13 +1400,12 @@ export default function DotsScreen() {
 
                     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
                         {currentFill.mediaType === 'video' && currentFill.mediaUrl ? (
-                            <Video
-                                source={{ uri: currentFill.mediaUrl }}
-                                style={{ width: SCREEN_WIDTH, height: SCREEN_WIDTH * (9 / 16) }}
-                                resizeMode={ResizeMode.CONTAIN}
-                                shouldPlay={isScreenFocused}
+                            <FeedVideoPlayer
+                                url={currentFill.mediaUrl}
+                                isActive={isScreenFocused}
                                 isLooping
-                                useNativeControls
+                                nativeControls={true}
+                                contentFit="contain"
                             />
                         ) : (
                             <Image source={{ uri: currentFill.mediaUrl }} style={{ width: SCREEN_WIDTH, height: SCREEN_WIDTH * (9 / 16) }} resizeMode="contain" />

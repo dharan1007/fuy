@@ -335,9 +335,9 @@ export default function HomeClient({ isAdmin = false }: { isAdmin?: boolean }) {
                     <div className="bg-transparent backdrop-blur-md border border-white/40 rounded-lg sm:rounded-xl px-4 sm:px-6 py-2.5 sm:py-3 shadow-sm pointer-events-auto hover:bg-white/10 transition-all">
                         <Link href="/" className="flex items-center gap-2">
                             <span className="text-lg sm:text-2xl font-bold">
-                                <span className="text-white">f</span>
-                                <span className="text-red-500">u</span>
-                                <span className="text-white">y</span>
+                                <span className="text-white">trans</span>
+                                <span className="text-red-500">i</span>
+                                <span className="text-white">q</span>
                             </span>
                         </Link>
                     </div>
@@ -477,7 +477,7 @@ export default function HomeClient({ isAdmin = false }: { isAdmin?: boolean }) {
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
                         {/* Brand */}
                         <div>
-                            <h3 className="font-bold text-lg mb-4 text-white">FUY Media</h3>
+                            <h3 className="font-bold text-lg mb-4 text-white">Transiq</h3>
                             <p className="text-sm text-gray-300">Real-time messaging platform connecting people authentically.</p>
                         </div>
                         {/* Quick Links */}
@@ -516,7 +516,7 @@ export default function HomeClient({ isAdmin = false }: { isAdmin?: boolean }) {
                     {/* Divider */}
                     <div className="border-t border-white/10 mt-8 pt-8">
                         <div className="flex flex-col md:flex-row justify-between items-center text-xs text-gray-400">
-                            <p>&copy; 2025 FUY Media. All rights reserved.</p>
+                            <p>&copy; 2025 Transiq. All rights reserved.</p>
                             <p>Email: <a href="mailto:fuymedia@gmail.com" className="hover:text-white transition-colors">fuymedia@gmail.com</a></p>
                         </div>
                     </div>

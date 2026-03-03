@@ -64,7 +64,7 @@ export default function ProductScreen() {
 
     const handleExternalLink = (url: string) => {
         Alert.alert(
-            "Leaving FUY",
+            "Leaving Transiq",
             "You are about to be redirected to an external website. Do you wish to proceed?",
             [
                 { text: "Cancel", style: "cancel" },

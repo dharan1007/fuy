@@ -14,8 +14,8 @@ export async function POST(request: NextRequest) {
         if (!email || !email.includes('@')) {
             return NextResponse.json({ error: 'Invalid email address' }, { status: 400 });
         }
-        if (!password || password.length < 6) {
-            return NextResponse.json({ error: 'Password must be at least 6 characters' }, { status: 400 });
+        if (!password || password.length < 8) {
+            return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
         }
 
         // 1. Check if user already exists in Supabase
@@ -54,13 +54,13 @@ export async function POST(request: NextRequest) {
 
         if (error) {
             console.error("Resend error:", error);
-            return NextResponse.json({ error: error.message }, { status: 400 });
+            return NextResponse.json({ error: 'Failed to send verification email' }, { status: 400 });
         }
 
         return NextResponse.json({ success: true, data });
 
     } catch (error: any) {
         console.error("Signup error:", error);
-        return NextResponse.json({ error: error.message }, { status: 400 });
+        return NextResponse.json({ error: 'Signup failed. Please try again.' }, { status: 400 });
     }
 }

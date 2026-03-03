@@ -9,7 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../../lib/supabase';
-import { Video, ResizeMode } from 'expo-av';
+
 import { BlurView } from 'expo-blur';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
@@ -28,6 +28,7 @@ import { MediaUploadService } from '../../services/MediaUploadService';
 import { getSafetyFilters, applySafetyFilters } from '../../services/SafetyService';
 import { PostService } from '../../services/PostService';
 import { FeedCacheService } from '../../services/FeedCacheService';
+import { ExploreService } from '../../services/ExploreService';
 
 
 
@@ -238,119 +239,45 @@ export default function FeedScreen() {
             const { data: { user }, error: userError } = await supabase.auth.getUser();
             const userId = user?.id;
 
-            console.log('[Feed] User ID:', userId, userError ? `Error: ${userError.message} ` : '');
+            console.log('[Feed] Fetching mathematical home feed for', userId);
 
-            let filters = { excludedUserIds: [], hiddenPostIds: [] };
-            if (userId) {
-                filters = await getSafetyFilters(userId);
+            if (userId && !currentUserId) {
                 setCurrentUserId(userId);
             }
 
+            // NEW: Use the programmatic mathematical distribution engine feed
+            const apiPosts = await ExploreService.getHomeFeed(15);
 
-
-            let query = supabase
-                .from('Post')
-                .select(`
-                    id, 
-                    content, 
-                    postType, 
-                    createdAt, 
-                    userId, 
-                    viewCount, 
-                    shareCount, 
-                    user:User(id, name, isHumanVerified, profile:Profile(avatarUrl, displayName, location)), 
-                    postMedia:PostMedia(media:Media(url, type, variant)), 
-                    lillData:Lill(thumbnailUrl),
-                    fillData:Fill(thumbnailUrl),
-                    chanData:Chan(coverImageUrl),
-                    reactions:Reaction(type, userId), 
-                    reactionBubbles:ReactionBubble(id, mediaUrl, mediaType, user:User(profile:Profile(avatarUrl))), 
-                    slashes:Slash(tag), 
-                    comments:PostComment(id), 
-                    likes:PostLike(id)
-                `)
-                .eq('visibility', 'PUBLIC')
-                .neq('postType', 'CLOCK') // Exclude Clocks from main feed
-                .order('createdAt', { ascending: false })
-                .limit(5); // Reduced from 20 to 5 to prevent OOM
-
-            if (userId) {
-                query = applySafetyFilters(query, filters);
-            }
-
-            const { data, error } = await query;
-
-            console.log('[Feed] Query result:', {
-                postsCount: data?.length || 0,
-                error: error?.message,
-                firstPostId: data?.[0]?.id
-            });
-
-            if (error) {
-                console.error("Error fetching feed:", error);
-                setPosts([]);
-                return;
-            }
-
-            const transformedPosts = (data || []).map((p: any) => {
-                const userObj = Array.isArray(p.user) ? p.user[0] : p.user;
-                const profileObj = userObj && Array.isArray(userObj.profile) ? userObj.profile[0] : userObj?.profile;
-
-                // Extract thumbnail
-                const thumbnailUrl = p.lillData?.thumbnailUrl
-                    || p.fillData?.thumbnailUrl
-                    || p.chanData?.coverImageUrl
-                    || null;
-
-                const reactions = p.reactions || [];
-                const counts = {
-                    W: reactions.filter((r: any) => r.type === 'W').length,
-                    L: reactions.filter((r: any) => r.type === 'L').length,
-                    CAP: reactions.filter((r: any) => r.type === 'CAP').length,
-                };
-
-                const userReaction = currentUserId ? reactions.find((r: any) => r.userId === currentUserId)?.type || null : null;
-
-                // Process media
-                const processedMedia = (p.postMedia || []).map((pm: any) => {
-                    const m = pm.media;
-                    // Attach thumbnail if available and this is the first item or logic dictates
-                    if (m && thumbnailUrl) m.thumbnailUrl = thumbnailUrl;
-                    return m;
-                }).filter(Boolean);
-
-                return {
-                    id: p.id,
-                    content: p.content,
-                    postType: p.postType,
-                    createdAt: p.createdAt,
-                    user: {
-                        ...userObj,
-                        profile: profileObj
-                    },
-                    postMedia: processedMedia,
-                    slashes: p.slashes || [],
-                    reactionCounts: counts,
-                    topBubbles: (p.reactionBubbles || []).slice(0, 3),
-                    commentCount: p.comments?.length || 0,
-                    likeCount: p.likes?.length || 0,
-                    shareCount: p.shareCount || 0,
-                    userReaction
-                };
-            }) as FeedPost[];
+            // Map the API output format seamlessly to the FE schema requirements
+            const transformedPosts = apiPosts.map((apiPost: any) => ({
+                id: apiPost.id,
+                content: apiPost.content,
+                postType: apiPost.postType,
+                createdAt: apiPost.createdAt,
+                user: apiPost.user,
+                postMedia: apiPost.media, // Legacy map
+                slashes: apiPost.slashTags?.map((tag: string) => ({ tag })) || [],
+                reactionCounts: { W: 0, L: 0, CAP: 0 }, // Usually populated from deep API relation, defaulting for UI safety
+                topBubbles: [],
+                commentCount: 0,
+                likeCount: 0,
+                shareCount: 0,
+                userReaction: null
+            })) as FeedPost[];
 
             // Cache the transformed posts
             await FeedCacheService.setHomeFeed(transformedPosts);
             setPosts(transformedPosts);
 
         } catch (error) {
-            console.error("Error fetching feed:", error);
-            setPosts([]);
+            console.error("Error fetching feed algorithmically:", error);
+            // Don't wipe posts if we hit network error but have cache
+            if (posts.length === 0) setPosts([]);
         } finally {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [currentUserId]);
+    }, [currentUserId, posts.length]);
 
     const [activePostId, setActivePostId] = useState<string | null>(null);
     const scrollTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -533,7 +460,7 @@ export default function FeedScreen() {
     const renderHeader = () => (
         <View className="px-6 pt-4 pb-2 flex-row justify-between items-center">
             {/* Left: App Name */}
-            <Text className="text-3xl font-bold" style={{ color: colors.text }}>Fuy</Text>
+            <Text className="text-3xl font-bold" style={{ color: colors.text }}>Transiq</Text>
 
             {/* Right Group: Notification -> Hopin -> Profile (Corner) */}
             <View className="flex-row gap-4 items-center">

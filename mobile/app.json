@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "FUY",
-    "slug": "fuy",
+    "name": "Transiq",
+    "slug": "transiq",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -14,13 +14,13 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.dharantej.fuy",
+      "bundleIdentifier": "com.transiq.app",
       "buildNumber": "4",
       "infoPlist": {
-        "NSCameraUsageDescription": "FUY needs access to your camera to take photos and videos for posts.",
-        "NSMicrophoneUsageDescription": "FUY needs access to your microphone to record audio and video.",
-        "NSPhotoLibraryUsageDescription": "FUY needs access to your photos to share images and videos.",
-        "NSPhotoLibraryAddUsageDescription": "FUY needs permission to save media to your photo library.",
+        "NSCameraUsageDescription": "Transiq needs access to your camera to take photos and videos for posts.",
+        "NSMicrophoneUsageDescription": "Transiq needs access to your microphone to record audio and video.",
+        "NSPhotoLibraryUsageDescription": "Transiq needs access to your photos to share images and videos.",
+        "NSPhotoLibraryAddUsageDescription": "Transiq needs permission to save media to your photo library.",
         "ITSAppUsesNonExemptEncryption": false,
         "UIBackgroundModes": [
           "audio"
@@ -28,7 +28,7 @@
       }
     },
     "android": {
-      "package": "com.dharantej.fuy",
+      "package": "com.transiq.app",
       "versionCode": 1,
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
@@ -72,22 +72,17 @@
           "android": {
             "extraMavenRepos": [
               "../../node_modules/@notifee/react-native/android/libs"
-            ]
+            ],
+            "usesCleartextTraffic": true
           }
         }
       ],
       "expo-secure-store",
       [
-        "expo-av",
-        {
-          "microphonePermission": "FUY needs access to your microphone to record audio."
-        }
-      ],
-      [
         "expo-image-picker",
         {
-          "photosPermission": "FUY needs access to your photos to share images.",
-          "cameraPermission": "FUY needs access to your camera to take photos and videos."
+          "photosPermission": "Transiq needs access to your photos to share images.",
+          "cameraPermission": "Transiq needs access to your camera to take photos and videos."
         }
       ],
       [

@@ -1,5 +1,5 @@
-import React, { useMemo, useCallback } from 'react';
-import { Canvas } from '@react-three/fiber';
+import React, { useMemo, useCallback, useEffect } from 'react';
+import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, Stars } from '@react-three/drei';
 import { useSession } from '@/hooks/use-session';
 import { GlobeContent } from './GlobeContent';
@@ -70,6 +70,32 @@ export default React.memo(function GalaxyScene({
         failIfMajorPerformanceCaveat: true
     }), []);
 
+    // Inner component to handle scene events and cleanup
+    const SceneEvents = () => {
+        const { gl } = useThree();
+        useEffect(() => {
+            if (!gl) return;
+            const canvas = gl.domElement;
+            const handleContextLost = (event: any) => {
+                event.preventDefault();
+                console.warn('WebGL context lost on GalaxyScene.');
+            };
+            const handleContextRestored = () => {
+                console.log('WebGL context restored on GalaxyScene.');
+            };
+
+            canvas.addEventListener('webglcontextlost', handleContextLost);
+            canvas.addEventListener('webglcontextrestored', handleContextRestored);
+
+            return () => {
+                canvas.removeEventListener('webglcontextlost', handleContextLost);
+                canvas.removeEventListener('webglcontextrestored', handleContextRestored);
+                if (gl) gl.dispose();
+            };
+        }, [gl]);
+        return null;
+    };
+
     return (
         <div className="w-full h-screen absolute inset-0 z-0 bg-black">
             {/* Canvas only renders when 3D content is visible */}
@@ -81,6 +107,7 @@ export default React.memo(function GalaxyScene({
                     dpr={[1, 1.5]} // Limit pixel ratio for performance
                     performance={{ min: 0.5 }}
                 >
+                    <SceneEvents />
                     <fog attach="fog" args={['#000', 25, 60]} />
                     <ambientLight intensity={0.4} />
                     <pointLight position={[10, 10, 10]} intensity={0.8} />

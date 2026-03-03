@@ -30,9 +30,9 @@ export interface FocusSettings {
 }
 
 // Storage keys
-const SETTINGS_KEY = 'fuy.focus.settings';
-const SESSIONS_KEY = 'fuy.focus.sessions';
-const TODAY_KEY = 'fuy.focus.today';
+const SETTINGS_KEY = 'transiq.focus.settings';
+const SESSIONS_KEY = 'transiq.focus.sessions';
+const TODAY_KEY = 'transiq.focus.today';
 
 // Default settings
 const DEFAULT_SETTINGS: FocusSettings = {

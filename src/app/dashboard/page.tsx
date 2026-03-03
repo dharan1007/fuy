@@ -99,7 +99,7 @@ export default function DashboardPage() {
               {/* <OrdersMeteor /> */}
               <CanvasMeteor />
               <HopinMeteor />
-              <ChannelMeteor />
+              {/* <ChannelMeteor /> */}
             </div>
 
 

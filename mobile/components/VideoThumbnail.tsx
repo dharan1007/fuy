@@ -1,6 +1,6 @@
-import React, { memo, useState, useCallback } from 'react';
+import React, { memo, useState, useCallback, useEffect } from 'react';
 import { Image, View, StyleSheet, Text } from 'react-native';
-import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Play, Film, Music, Tv } from 'lucide-react-native';
 
@@ -32,6 +32,18 @@ const VideoThumbnail: React.FC<VideoThumbnailProps> = memo(({
     const [hasError, setHasError] = useState(false);
     const [useVideoComponent, setUseVideoComponent] = useState(true);
 
+    const player = useVideoPlayer(videoUrl, player => {
+        player.loop = false;
+        player.muted = true;
+    });
+
+    useEffect(() => {
+        if (!fallbackImageUrl) {
+            const t = setTimeout(() => setIsLoaded(true), 300);
+            return () => clearTimeout(t);
+        }
+    }, [fallbackImageUrl]);
+
     // If we have a pre-stored thumbnail image, use it (most efficient)
     if (fallbackImageUrl) {
         return (
@@ -51,12 +63,6 @@ const VideoThumbnail: React.FC<VideoThumbnailProps> = memo(({
             </View>
         );
     }
-
-    const handleLoad = useCallback((status: AVPlaybackStatus) => {
-        if (status.isLoaded) {
-            setIsLoaded(true);
-        }
-    }, []);
 
     const handleError = useCallback(() => {
         setHasError(true);
@@ -148,16 +154,11 @@ const VideoThumbnail: React.FC<VideoThumbnailProps> = memo(({
             )}
 
             {/* Video component paused at first frame */}
-            <Video
-                source={{ uri: videoUrl }}
+            <VideoView
+                player={player}
                 style={[StyleSheet.absoluteFill, { opacity: isLoaded ? 1 : 0 }]}
-                resizeMode={ResizeMode.COVER}
-                shouldPlay={false}
-                isMuted={true}
-                isLooping={false}
-                onPlaybackStatusUpdate={handleLoad}
-                onError={handleError}
-                useNativeControls={false}
+                contentFit="cover"
+                nativeControls={false}
             />
 
             {/* Play icon overlay */}

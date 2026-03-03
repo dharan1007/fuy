@@ -117,9 +117,16 @@ async function uploadHandler(req: NextRequest) {
             provider: 'r2'
         });
 
-        // Add CORS headers to response
-        response.headers.set('Access-Control-Allow-Origin', '*');
-        response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+        // Add CORS headers to response - restrict to known origins
+        const allowedOrigins = [
+            'https://fuymedia.org',
+            'https://www.fuymedia.org',
+            process.env.NODE_ENV !== 'production' ? 'http://localhost:3000' : '',
+        ].filter(Boolean);
+        const requestOrigin = req.headers.get('origin') || '';
+        const corsOrigin = allowedOrigins.includes(requestOrigin) ? requestOrigin : allowedOrigins[0];
+        response.headers.set('Access-Control-Allow-Origin', corsOrigin);
+        response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
         response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
         return response;
@@ -132,16 +139,23 @@ async function uploadHandler(req: NextRequest) {
     }
 }
 
-export async function OPTIONS() {
+export async function OPTIONS(req: NextRequest) {
+    const allowedOrigins = [
+        'https://fuymedia.org',
+        'https://www.fuymedia.org',
+        process.env.NODE_ENV !== 'production' ? 'http://localhost:3000' : '',
+    ].filter(Boolean);
+    const requestOrigin = req.headers.get('origin') || '';
+    const corsOrigin = allowedOrigins.includes(requestOrigin) ? requestOrigin : allowedOrigins[0];
     return new NextResponse(null, {
         status: 200,
         headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+            'Access-Control-Allow-Origin': corsOrigin,
+            'Access-Control-Allow-Methods': 'POST, OPTIONS',
             'Access-Control-Allow-Headers': 'Content-Type, Authorization',
         },
     });
 }
 
-// Bypass limiter for now to debug
-export const POST = uploadHandler;
+// Rate limit: 500 uploads per hour per user
+export const POST = limiter(uploadHandler);

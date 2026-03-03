@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { ResizeMode, Video as ExpoVideo } from 'expo-av';
+import FeedVideoPlayer from '../../components/FeedVideoPlayer';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -195,6 +195,7 @@ export default function ProfileScreen() {
                     user:User(name, profile:Profile(displayName, avatarUrl))
                 `)
                 .eq('userId', userId)
+                .neq('postType', 'CLOCK')
                 .not('feature', 'in', '("PROGRESS","CHECKIN","FOCUS")')
                 .order('createdAt', { ascending: false });
 
@@ -434,13 +435,13 @@ export default function ProfileScreen() {
         <View className="relative h-72">
             {/* Cover Video or Image */}
             {profile?.coverVideoUrl ? (
-                <ExpoVideo
-                    source={{ uri: profile.coverVideoUrl }}
-                    style={{ width: '100%', height: '100%' }}
-                    resizeMode={ResizeMode.COVER}
-                    shouldPlay
-                    isLooping
-                    isMuted
+                <FeedVideoPlayer
+                    url={profile.coverVideoUrl}
+                    isActive={true}
+                    isMuted={true}
+                    isLooping={true}
+                    contentFit="cover"
+                    nativeControls={false}
                 />
             ) : (
                 <Image

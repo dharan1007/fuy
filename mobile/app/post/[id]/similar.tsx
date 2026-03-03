@@ -3,7 +3,6 @@ import { View, Text, FlatList, TouchableOpacity, Image, ActivityIndicator, Dimen
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Video, ResizeMode } from 'expo-av';
 import { ArrowLeft, Heart, MessageCircle, Share2, Play } from 'lucide-react-native';
 import { useIsFocused } from '@react-navigation/native';
 import { supabase } from '../../../lib/supabase';
@@ -17,6 +16,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { MediaUploadService } from '../../../services/MediaUploadService';
 import { useColorScheme } from 'nativewind';
 import CustomToast from '../../../components/CustomToast';
+import { ExploreService } from '../../../services/ExploreService';
 
 const { width } = Dimensions.get('window');
 
@@ -158,59 +158,12 @@ export default function SimilarPostsScreen() {
                 if (hidden.data) hiddenPostIds.push(...hidden.data.map((h: any) => h.postId));
             }
 
-            let query = supabase
-                .from('Post')
-                .select(`
-                    id,
-                    content,
-                    postType,
-                    createdAt,
-                    user:User (
-                        id,
-                        name,
-                        profile:Profile (displayName, avatarUrl)
-                    ),
-                    postMedia:PostMedia(media:Media(url, type)),
-                    topBubbles:ReactionBubble (
-                        mediaUrl,
-                        mediaType
-                    ),
-                    slashes:Slash(tag),
-                    reactions:Reaction (
-                        type,
-                        userId
-                    ),
-                    comments:PostComment (
-                        id
-                    ),
-                    likes:PostLike (
-                        id
-                    ),
-                    shareCount
-                `)
-                .neq('id', id)
-                .eq('visibility', 'PUBLIC')
-                .order('createdAt', { ascending: false })
-                .limit(50);
-
-            // Apply safety filters
-            if (excludedUserIds.length > 0) {
-                query = query.not('userId', 'in', `(${excludedUserIds.join(',')})`);
-            }
-            if (hiddenPostIds.length > 0) {
-                query = query.not('id', 'in', `(${hiddenPostIds.join(',')})`);
-            }
-
-            const { data, error } = await query;
-            if (error) throw error;
+            // USE ALGORITHMIC ENDPOINT
+            const apiPosts = await ExploreService.getSimilarVibes(id as string, 15);
 
             const processPost = (post: any, isSameType: boolean): SimilarPost => {
-                const reactions = post.reactions || [];
-                const reactionCounts: Record<string, number> = {};
-                reactions.forEach((r: any) => {
-                    reactionCounts[r.type] = (reactionCounts[r.type] || 0) + 1;
-                });
-                const myReaction = reactions.find((r: any) => r.userId === myId);
+                const reactionCounts: Record<string, number> = post.reactionCounts || { W: 0, L: 0, CAP: 0 };
+                const myReaction = post.userReaction;
 
                 return {
                     id: post.id,
@@ -220,28 +173,29 @@ export default function SimilarPostsScreen() {
                         name: post.user?.name || 'User',
                         profile: post.user?.profile || { displayName: 'User', avatarUrl: '' }
                     },
-                    postMedia: (post.postMedia || []).map((pm: any) => pm.media).filter(Boolean),
+                    postMedia: post.media || [], // Map schema
                     postType: post.postType,
-                    matchReason: isSameType ? 'Similar Vibe' : 'Recent',
-                    slashes: post.slashes || [],
+                    matchReason: isSameType ? 'Similar Vibe' : 'Algorithmic Match',
+                    slashes: post.slashTags?.map((tag: string) => ({ tag })) || [],
 
                     overlap: isSameType ? 1 : 0,
                     topBubbles: post.topBubbles || [],
 
                     reactionCounts,
-                    userReaction: myReaction ? myReaction.type : null,
-                    commentCount: post.comments?.length || 0,
+                    userReaction: myReaction,
+                    commentCount: post.commentCount || 0,
                     shareCount: post.shareCount || 0,
                     views: 0
                 };
             };
 
-            let mapped: SimilarPost[] = (data || []).map((post: any) => {
+            let mapped: SimilarPost[] = (apiPosts || []).map((post: any) => {
                 const isSameType = source?.postType === post.postType;
                 return processPost(post, isSameType);
             });
 
-            mapped = mapped.sort((a, b) => (b.overlap || 0) - (a.overlap || 0));
+            // Note: Overlap sorting is now handled explicitly by the backend algorithm score
+            // mapped = mapped.sort((a, b) => (b.overlap || 0) - (a.overlap || 0));
 
             // Prepend Source Post
             if (source) {

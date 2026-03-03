@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Image, Alert, ActivityIndicator, Switch } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { Video, ResizeMode } from 'expo-av';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { ArrowLeft, Globe, Users, Lock, Tv, X, Image as ImageIcon, Slash, Plus } from 'lucide-react-native';
@@ -15,6 +14,7 @@ import { Eye, EyeOff } from 'lucide-react-native';
 import MediaFilterSelector from '../MediaFilterSelector';
 import UserTagSelector from '../UserTagSelector';
 import { PostService, PostVisibility } from '../../services/PostService';
+import FeedVideoPlayer from '../FeedVideoPlayer';
 
 
 const EPISODE_MAX_DURATION = 600; // 10 minutes for episodes
@@ -352,11 +352,10 @@ export default function ChanForm({ onBack }: ChanFormProps) {
                 <Text style={{ color: colors.secondary, marginBottom: 8, fontWeight: '600' }}>Episode Video *</Text>
                 {video ? (
                     <View className="relative" style={{ aspectRatio: 16 / 9, borderRadius: 16, overflow: 'hidden' }}>
-                        <Video
-                            source={{ uri: video.uri }}
-                            style={{ width: '100%', height: '100%' }}
-                            resizeMode={ResizeMode.COVER}
-                            shouldPlay={false}
+                        <FeedVideoPlayer
+                            url={video.uri}
+                            isActive={false}
+                            contentFit="cover"
                         />
                         <TouchableOpacity
                             onPress={() => setVideo(null)}

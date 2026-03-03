@@ -97,7 +97,7 @@ export default function ProfileCardView() {
                 .from('Profile')
                 .select('*')
                 .eq('userId', targetUserId)
-                .single();
+                .maybeSingle();
 
             if (error) {
                 console.error('Profile fetch error:', error);
@@ -109,7 +109,7 @@ export default function ProfileCardView() {
                 .from('User')
                 .select('name')
                 .eq('id', targetUserId)
-                .single();
+                .maybeSingle();
 
             if (user) setUserName(user.name || '');
 
@@ -139,12 +139,12 @@ export default function ProfileCardView() {
             });
 
             if (!profileCode) {
-                const { data: user } = await supabase
+                const { data: userCode } = await supabase
                     .from('User')
                     .select('profileCode')
                     .eq('id', targetUserId)
-                    .single();
-                if (user?.profileCode) setProfileCode(user.profileCode);
+                    .maybeSingle();
+                if (userCode?.profileCode) setProfileCode(userCode.profileCode);
             }
         } catch (e) {
             console.error('Error fetching profile:', e);
@@ -238,7 +238,7 @@ export default function ProfileCardView() {
                                         <Image source={{ uri: profile.avatarUrl }} className="w-full h-full" />
                                     ) : (
                                         <View className="w-full h-full bg-white/10 items-center justify-center">
-                                            <Text className="text-white/30 text-3xl font-black">{profile.displayName?.[0] || '?'}</Text>
+                                            <Text className="text-white/30 text-3xl font-black">{profile.displayName?.[0] || userName?.[0] || '?'}</Text>
                                         </View>
                                     )}
                                 </View>
@@ -337,11 +337,11 @@ export default function ProfileCardView() {
                             <View className="pt-4">
                                 {stalkMeImages.length > 0 ? (
                                     <View className="flex-row flex-wrap gap-2">
-                                        {stalkMeImages.map((url, i) => (
+                                        {stalkMeImages.map((url, i) => url ? (
                                             <TouchableOpacity key={i} className="w-[31%] aspect-square rounded-xl overflow-hidden border border-white/10">
                                                 <Image source={{ uri: url }} className="w-full h-full" />
                                             </TouchableOpacity>
-                                        ))}
+                                        ) : null)}
                                     </View>
                                 ) : (
                                     <GlassBox style={{ alignItems: 'center', paddingVertical: 40 }}>
@@ -355,7 +355,7 @@ export default function ProfileCardView() {
 
                     {/* Brand Footer */}
                     <View className="absolute bottom-4 right-4 bg-black/50 px-2 py-1 rounded">
-                        <Text className="text-white/30 text-[8px] font-black tracking-[0.2em]">FUY</Text>
+                        <Text className="text-white/30 text-[8px] font-black tracking-[0.2em]">TRANSIQ</Text>
                     </View>
                 </View>
             </View>
@@ -466,7 +466,7 @@ export default function ProfileCardView() {
 
                         <View className="flex-1 items-center justify-center p-6">
                             <View className="w-20 h-20 rounded-full border-2 border-white/30 overflow-hidden mb-4">
-                                {profile.avatarUrl && <Image source={{ uri: profile.avatarUrl }} className="w-full h-full" />}
+                                {profile.avatarUrl ? <Image source={{ uri: profile.avatarUrl }} className="w-full h-full" /> : <View className="w-full h-full bg-white/10" />}
                             </View>
                             <GlassBox style={{ width: '100%', alignItems: 'center' }}>
                                 <Text className="text-white text-xl font-black">{profile.displayName}</Text>

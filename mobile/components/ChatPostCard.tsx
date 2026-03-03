@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, Text, Image, TouchableOpacity } from 'react-native';
-import { Video, ResizeMode } from 'expo-av';
 import { useTheme } from '../context/ThemeContext';
 import { User, Play } from 'lucide-react-native';
+import FeedVideoPlayer from './FeedVideoPlayer';
 
 interface PostData {
     postId: string;
@@ -55,14 +55,12 @@ export default function ChatPostCard({ data, isMe, onPress }: ChatPostCardProps)
             <View className="w-full h-[200px] bg-black">
                 {data.mediaType === 'VIDEO' ? (
                     <View className="w-full h-full justify-center items-center">
-                        <Video
-                            source={{ uri: data.mediaUrl || '' }}
-                            style={{ width: '100%', height: '100%' }}
-                            resizeMode={ResizeMode.COVER}
-                            shouldPlay={false}
-                            isMuted={true}
+                        <FeedVideoPlayer
+                            url={data.mediaUrl || ''}
+                            isActive={false}
+                            contentFit="cover"
                         />
-                        <View className="absolute bg-black/40 p-2 rounded-full">
+                        <View className="absolute bg-black/40 p-2 rounded-full pointer-events-none">
                             <Play size={20} color="white" fill="white" />
                         </View>
                     </View>

@@ -102,7 +102,7 @@ export default function SupportScreen() {
 
                     <SupportOption
                         title="Seller Guidelines"
-                        description="Learn about selling on FUY"
+                        description="Learn about selling on Transiq"
                         icon={FileText}
                         onPress={() => Linking.openURL('https://fuymedia.org/seller-guidelines')}
                     />

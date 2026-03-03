@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Image, Alert, ActivityIndicator, Dimensions } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { Video, ResizeMode } from 'expo-av';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { X, ArrowLeft, Globe, Users, Lock, Plus, Type, Image as ImageIcon, Slash, Eye, EyeOff } from 'lucide-react-native';
@@ -16,6 +15,7 @@ import PostPreview from '../PostPreview';
 import MediaFilterSelector from '../MediaFilterSelector';
 import UserTagSelector from '../UserTagSelector';
 import { PostService, PostVisibility } from '../../services/PostService';
+import FeedVideoPlayer from '../FeedVideoPlayer';
 
 
 const MAX_MEDIA = 8;
@@ -249,7 +249,11 @@ export default function SimpleForm({ onBack, initialData }: SimpleFormProps) {
     const renderMediaItem = ({ item, index }: { item: MediaItem; index: number }) => (
         <View style={{ width: (width - 56) / 4, aspectRatio: 1, margin: 2, borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
             {item.type === 'video' ? (
-                <Video source={{ uri: item.uri }} style={{ width: '100%', height: '100%' }} resizeMode={ResizeMode.COVER} shouldPlay={false} />
+                <FeedVideoPlayer
+                    url={item.uri}
+                    isActive={false}
+                    contentFit="cover"
+                />
             ) : (
                 <Image source={{ uri: item.uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
             )}

@@ -10,6 +10,10 @@ import ThemeToggle from '../components/ThemeToggle';
 import PinModal from '../components/PinModal';
 import { useEncryption } from '../context/EncryptionContext';
 
+import { ToastProvider } from '../context/ToastContext';
+import { NotificationProvider } from '../context/NotificationContext';
+import { EncryptionProvider } from '../context/EncryptionContext';
+
 // Fix font scaling issues
 interface TextWithDefaultProps extends Text {
     defaultProps?: { allowFontScaling?: boolean; style?: any };
@@ -40,6 +44,12 @@ const MainLayout = () => {
     useEffect(() => {
         const checkRegion = () => {
             try {
+                if (__DEV__) {
+                    // Skip region lock in development to allow emulators and active dev
+                    setIsRegionAllowed(true);
+                    return;
+                }
+
                 const { getLocales } = require('expo-localization');
                 const locales = getLocales();
                 const regionCode = locales[0]?.regionCode;
@@ -128,10 +138,6 @@ const MainLayout = () => {
         </View>
     );
 };
-
-import { ToastProvider } from '../context/ToastContext';
-import { NotificationProvider } from '../context/NotificationContext';
-import { EncryptionProvider } from '../context/EncryptionContext';
 
 // ... (existing code)
 

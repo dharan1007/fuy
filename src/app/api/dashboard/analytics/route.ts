@@ -35,25 +35,37 @@ export async function GET(req: Request) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        // --- 1. Chat Friends (By Time) ---
-        // Fetch user's conversation logs
-        const chatLogs = await prisma.chatSessionLog.findMany({
-            where: { userId },
-            include: {
-                conversation: {
-                    select: {
-                        participantA: true,
-                        participantB: true
-                    }
-                }
+        // --- 1. Chat Friends (By Message Count) ---
+        // Fetch user's sent messages
+        const mySentMessages = await prisma.message.groupBy({
+            by: ['conversationId'],
+            where: { senderId: userId },
+            _count: { _all: true }
+        });
+
+        const mySentMap = mySentMessages.reduce((acc, curr) => {
+            acc[curr.conversationId] = curr._count._all;
+            return acc;
+        }, {} as Record<string, number>);
+
+        // Fetch user's conversations
+        const chatLogs = await prisma.conversation.findMany({
+            where: {
+                OR: [{ participantA: userId }, { participantB: userId }]
+            },
+            select: {
+                id: true,
+                participantA: true,
+                participantB: true
             }
         });
 
-        // Aggregate duration by "Other User"
+        // Aggregate message counts by "Other User"
         const chatTimeByUser: Record<string, number> = {};
         chatLogs.forEach(log => {
-            const otherUser = log.conversation.participantA === userId ? log.conversation.participantB : log.conversation.participantA;
-            chatTimeByUser[otherUser] = (chatTimeByUser[otherUser] || 0) + (log.durationMinutes || 0);
+            const otherUser = log.participantA === userId ? log.participantB : log.participantA;
+            const msgs = mySentMap[log.id] || 0;
+            chatTimeByUser[otherUser] = (chatTimeByUser[otherUser] || 0) + msgs;
         });
 
         // --- 2. Share Friends (By Count) ---

@@ -110,7 +110,7 @@ export default function SellScreen() {
                     <TouchableOpacity onPress={() => router.back()}>
                         <ArrowLeft size={24} color={colors.text} />
                     </TouchableOpacity>
-                    <Text style={{ fontSize: 18, fontWeight: '700', color: colors.text }}>Sell on FUY</Text>
+                    <Text style={{ fontSize: 18, fontWeight: '700', color: colors.text }}>Sell on Transiq</Text>
                 </View>
 
                 <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>

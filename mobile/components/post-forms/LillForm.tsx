@@ -4,13 +4,14 @@ import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityInd
 import { BlurView } from 'expo-blur';
 import * as ImagePicker from 'expo-image-picker';
 import * as VideoThumbnails from 'expo-video-thumbnails';
-import { Video, ResizeMode } from 'expo-av';
 import { useAuth } from '../../context/AuthContext';
 import { X, ArrowLeft, Globe, Users, Lock, Play, Check, Upload, Hash, Plus, Music, Mic, Disc, Image as ImageIcon } from 'lucide-react-native';
 import { MediaUploadService } from '../../services/MediaUploadService';
 import { supabase } from '../../lib/supabase';
 import SuccessOverlay from '../SuccessOverlay';
 import { PostService, PostVisibility } from '../../services/PostService';
+import FeedVideoPlayer from '../FeedVideoPlayer';
+import { Image } from 'react-native';
 
 const { width: SW } = Dimensions.get('window');
 const PREVIEW_WIDTH = SW * 0.6; // Slightly smaller to ensure fit
@@ -18,7 +19,6 @@ const PREVIEW_HEIGHT = PREVIEW_WIDTH * (16 / 9);
 
 export default function LillForm({ onBack }: { onBack: () => void }) {
     const { session } = useAuth();
-    const videoRef = useRef<Video>(null);
     const [videoUri, setVideoUri] = useState<string | null>(null);
     const [posterUri, setPosterUri] = useState<string | null>(null);
     const [isPlaying, setIsPlaying] = useState(false);
@@ -210,19 +210,15 @@ export default function LillForm({ onBack }: { onBack: () => void }) {
                     >
                         {videoUri ? (
                             <View style={s.videoWrapper}>
-                                <Video
-                                    ref={videoRef}
-                                    source={{ uri: videoUri }}
-                                    style={s.video}
-                                    resizeMode={ResizeMode.COVER}
-                                    shouldPlay={isPlaying}
-                                    isLooping
+                                <FeedVideoPlayer
+                                    url={videoUri}
+                                    isActive={isPlaying}
                                     isMuted={!!audioUri}
-                                    useNativeControls={false}
-                                    usePoster={true}
-                                    posterSource={posterUri ? { uri: posterUri } : undefined}
-                                    posterStyle={{ resizeMode: 'cover' }}
+                                    contentFit="cover"
                                 />
+                                {!isPlaying && posterUri && (
+                                    <Image source={{ uri: posterUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                                )}
 
                                 {/* Filter overlay */}
                                 <View style={[s.filterOverlay, { backgroundColor: currentFilter?.overlay || 'transparent' }]} />

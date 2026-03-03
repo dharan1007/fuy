@@ -30,8 +30,8 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
     const segments = useSegments();
     const userId = session?.user?.id;
     const [expoPushToken, setExpoPushToken] = useState<string | undefined>(undefined);
-    const notificationListener = useRef<Notifications.Subscription>();
-    const responseListener = useRef<Notifications.Subscription>();
+    const notificationListener = useRef<Notifications.Subscription | null>(null);
+    const responseListener = useRef<Notifications.Subscription | null>(null);
 
     // Register for Push Notifications
     useEffect(() => {
@@ -130,14 +130,18 @@ async function registerForPushNotificationsAsync() {
             return;
         }
 
-        // Project ID from app.json
-        const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-
         try {
-            token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
-            console.log('Expo Push Token:', token);
-        } catch (e) {
-            console.error('Error fetching push token:', e);
+            // Project ID from app.json
+            const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+
+            if (projectId) {
+                token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+                console.log('Expo Push Token:', token);
+            } else {
+                console.warn('No Expo Project ID found, skipping push token setup.');
+            }
+        } catch (e: any) {
+            console.warn('Push Notifications (FCM) are not configured for this device build. Error:', e.message);
         }
     } else {
         console.log('Must use physical device for Push Notifications');

@@ -74,8 +74,9 @@ export function encryptData(data: string, key?: string): string {
     throw new Error('ENCRYPTION_KEY environment variable is required for encryption');
   }
 
-  // Ensure key is 32 bytes
-  const keyBuffer = crypto.scryptSync(encryptionKey, 'salt', 32);
+  // SECURITY: Use random salt instead of hardcoded value
+  const salt = crypto.randomBytes(16);
+  const keyBuffer = crypto.scryptSync(encryptionKey, new Uint8Array(salt), 32);
   const iv = crypto.randomBytes(16);
   const cipher = crypto.createCipheriv('aes-256-gcm', new Uint8Array(keyBuffer), new Uint8Array(iv));
 
@@ -84,8 +85,8 @@ export function encryptData(data: string, key?: string): string {
 
   const authTag = cipher.getAuthTag();
 
-  // Return: iv:authTag:encrypted
-  return `${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted}`;
+  // Return: salt:iv:authTag:encrypted
+  return `${salt.toString('hex')}:${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted}`;
 }
 
 /**
@@ -97,9 +98,23 @@ export function decryptData(encryptedData: string, key?: string): string | null 
     if (!encryptionKey) {
       throw new Error('ENCRYPTION_KEY environment variable is required for decryption');
     }
-    const keyBuffer = crypto.scryptSync(encryptionKey, 'salt', 32);
 
-    const [ivHex, authTagHex, encrypted] = encryptedData.split(':');
+    const parts = encryptedData.split(':');
+    let saltHex: string, ivHex: string, authTagHex: string, encrypted: string;
+
+    if (parts.length === 4) {
+      // New format: salt:iv:authTag:encrypted
+      [saltHex, ivHex, authTagHex, encrypted] = parts;
+    } else if (parts.length === 3) {
+      // Legacy format: iv:authTag:encrypted (hardcoded salt)
+      [ivHex, authTagHex, encrypted] = parts;
+      saltHex = Buffer.from('salt').toString('hex');
+    } else {
+      return null;
+    }
+
+    const salt = Buffer.from(saltHex, 'hex');
+    const keyBuffer = crypto.scryptSync(encryptionKey, new Uint8Array(salt), 32);
     const iv = Buffer.from(ivHex, 'hex');
     const authTag = Buffer.from(authTagHex, 'hex');
 
@@ -188,7 +203,10 @@ export function isValidUrl(url: string): boolean {
  * Hash sensitive data
  */
 export function hashData(data: string, salt: string = ''): string {
-  const secret = salt || process.env.HASH_SECRET || 'default-secret';
+  const secret = salt || process.env.HASH_SECRET;
+  if (!secret) {
+    throw new Error('HASH_SECRET environment variable is required');
+  }
   return crypto
     .createHmac('sha256', secret)
     .update(data)
@@ -201,7 +219,7 @@ export function hashData(data: string, salt: string = ''): string {
 export function isTrustedOrigin(origin: string | undefined): boolean {
   if (!origin) return false;
 
-  const trustedOrigins = (process.env.TRUSTED_ORIGINS || 'http://localhost:3000').split(',');
+  const trustedOrigins = (process.env.TRUSTED_ORIGINS || 'https://fuymedia.org,http://localhost:3000').split(',');
   return trustedOrigins.includes(origin);
 }
 

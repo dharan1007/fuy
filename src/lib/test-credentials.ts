@@ -19,8 +19,9 @@ export interface TestUser {
 
 /**
  * Available test users for development and testing
+ * SECURITY: Returns empty in production to prevent credential leaks
  */
-export const TEST_CREDENTIALS: Record<string, TestUser> = {
+export const TEST_CREDENTIALS: Record<string, TestUser> = process.env.NODE_ENV === 'production' ? {} : {
   // Basic test user - full feature access
   USER_BASIC: {
     id: 'test-user-001',

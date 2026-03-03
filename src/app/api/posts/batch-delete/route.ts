@@ -28,6 +28,11 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Post IDs array required' }, { status: 400 });
         }
 
+        // SECURITY: Cap batch size to prevent database DOS
+        if (postIds.length > 50) {
+            return NextResponse.json({ error: 'Maximum 50 posts per batch delete' }, { status: 400 });
+        }
+
         // 2. Verify ownership (Ensure all posts belong to the user)
         // We can do this by deleting only posts that match the ID AND the UserId
 

@@ -7,7 +7,7 @@ import { useTheme } from '../context/ThemeContext';
 import { supabase } from '../lib/supabase';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadFileToR2 } from '../lib/upload-helper';
-import { Video as ExpoVideo, ResizeMode } from 'expo-av';
+import FeedVideoPlayer from '../components/FeedVideoPlayer';
 import { useToast } from '../context/ToastContext';
 
 // Types matching web ProfileFormData
@@ -648,7 +648,7 @@ export default function EditProfileScreen() {
                         <View style={{ marginBottom: 24 }}>
                             <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '700', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>Cover Media</Text>
                             <TouchableOpacity onPress={pickCoverMedia} disabled={uploadingCover} style={{ width: '100%', height: 140, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }}>
-                                {uploadingCover ? <ActivityIndicator color="#fff" size="large" /> : data.coverUrl ? (data.coverType === 'VIDEO' ? <ExpoVideo source={{ uri: data.coverUrl }} style={{ width: '100%', height: '100%' }} shouldPlay={false} isMuted resizeMode={ResizeMode.COVER} /> : <Image source={{ uri: data.coverUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />) : <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>Tap to add cover</Text>}
+                                {uploadingCover ? <ActivityIndicator color="#fff" size="large" /> : data.coverUrl ? (data.coverType === 'VIDEO' ? <FeedVideoPlayer url={data.coverUrl} isActive={true} isPaused={true} isMuted={true} contentFit="cover" /> : <Image source={{ uri: data.coverUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />) : <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>Tap to add cover</Text>}
                             </TouchableOpacity>
                         </View>
 

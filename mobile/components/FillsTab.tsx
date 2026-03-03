@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Image, FlatList, RefreshControl, Dimensions, StyleSheet, ActivityIndicator, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Video, ResizeMode } from 'expo-av';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { useRouter } from 'expo-router';
 import { ChevronLeft, Play, Clock, Eye, TrendingUp, Flame, Sparkles, Filter, X } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -57,7 +57,35 @@ export default function FillsTab({ onBack }: FillsTabProps) {
     const [activeCategory, setActiveCategory] = useState('All');
     const [playerVisible, setPlayerVisible] = useState(false);
     const [selectedIndex, setSelectedIndex] = useState(0);
-    const [resizeMode, setResizeMode] = useState(ResizeMode.CONTAIN);
+    const [resizeMode, setResizeMode] = useState<'contain' | 'cover'>('contain');
+
+    const filteredFills = useMemo(() => {
+        if (activeCategory === 'All') return fills;
+        return fills.filter(f => f.category === activeCategory);
+    }, [fills, activeCategory]);
+
+    const activeVideoUrl = useMemo(() => {
+        if (playerVisible && filteredFills[selectedIndex]?.mediaType === 'video') {
+            return filteredFills[selectedIndex].mediaUrl;
+        }
+        return null;
+    }, [playerVisible, selectedIndex, filteredFills]);
+
+    const player = useVideoPlayer(activeVideoUrl, player => {
+        player.loop = true;
+        if (isFocused && playerVisible) {
+            player.play();
+        }
+    });
+
+    useEffect(() => {
+        if (!player) return;
+        if (isFocused && playerVisible) {
+            player.play();
+        } else {
+            player.pause();
+        }
+    }, [isFocused, playerVisible, player]);
 
     useEffect(() => {
         fetchFills();
@@ -151,11 +179,6 @@ export default function FillsTab({ onBack }: FillsTabProps) {
         if (hours > 0) return hours + 'h ago';
         return 'Just now';
     };
-
-    const filteredFills = useMemo(() => {
-        if (activeCategory === 'All') return fills;
-        return fills.filter(f => f.category === activeCategory);
-    }, [fills, activeCategory]);
 
     const featuredFills = useMemo(() => fills.slice(0, 5), [fills]);
     const trendingFills = useMemo(() => [...fills].sort((a, b) => b.views - a.views).slice(0, 10), [fills]);
@@ -394,13 +417,11 @@ export default function FillsTab({ onBack }: FillsTabProps) {
                         <>
                             <View style={styles.playerMedia}>
                                 {filteredFills[selectedIndex].mediaType === 'video' ? (
-                                    <Video
-                                        source={{ uri: filteredFills[selectedIndex].mediaUrl }}
+                                    <VideoView
+                                        player={player}
                                         style={styles.playerVideo}
-                                        resizeMode={resizeMode}
-                                        shouldPlay={isFocused && playerVisible}
-                                        isLooping
-                                        useNativeControls
+                                        contentFit={resizeMode}
+                                        nativeControls
                                     />
                                 ) : (
                                     <Image
@@ -425,11 +446,11 @@ export default function FillsTab({ onBack }: FillsTabProps) {
                                     {/* Resize Toggle */}
                                     {filteredFills[selectedIndex].mediaType === 'video' && (
                                         <TouchableOpacity
-                                            onPress={() => setResizeMode(prev => prev === ResizeMode.CONTAIN ? ResizeMode.COVER : ResizeMode.CONTAIN)}
+                                            onPress={() => setResizeMode(prev => prev === 'contain' ? 'cover' : 'contain')}
                                             style={{ backgroundColor: 'rgba(0,0,0,0.5)', padding: 8, borderRadius: 20 }}
                                         >
                                             <Text style={{ color: '#fff', fontSize: 10, fontWeight: 'bold' }}>
-                                                {resizeMode === ResizeMode.CONTAIN ? 'FILL' : 'FIT'}
+                                                {resizeMode === 'contain' ? 'FILL' : 'FIT'}
                                             </Text>
                                         </TouchableOpacity>
                                     )}

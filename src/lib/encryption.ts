@@ -40,7 +40,7 @@ export const wrapPrivateKey = (privateKey: string, pin: string): EncryptedPrivat
 
     // Key Derivation
     const keyBytes = new Uint8Array(32);
-    const derived = CryptoJS.PBKDF2(pin, salt, { keySize: 8, iterations: 10000 });
+    const derived = CryptoJS.PBKDF2(pin, salt, { keySize: 8, iterations: 600000 });
 
     const hex = derived.toString(CryptoJS.enc.Hex);
     for (let i = 0; i < 32; i++) {
@@ -61,7 +61,7 @@ export const wrapPrivateKey = (privateKey: string, pin: string): EncryptedPrivat
 export const unwrapPrivateKey = (encrypted: EncryptedPrivateKey, pin: string): string | null => {
     try {
         const keyBytes = new Uint8Array(32);
-        const derived = CryptoJS.PBKDF2(pin, encrypted.salt, { keySize: 8, iterations: 10000 });
+        const derived = CryptoJS.PBKDF2(pin, encrypted.salt, { keySize: 8, iterations: 600000 });
         const hex = derived.toString(CryptoJS.enc.Hex);
         for (let i = 0; i < 32; i++) {
             keyBytes[i] = parseInt(hex.substr(i * 2, 2), 16);

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Image, Alert, ActivityIndicator, Dimensions } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { Video, ResizeMode } from 'expo-av';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { X, ArrowLeft, Globe, Users, Lock, Plus, BookOpen, Slash } from 'lucide-react-native';
@@ -15,6 +14,7 @@ import { Eye, EyeOff } from 'lucide-react-native';
 import MediaFilterSelector from '../MediaFilterSelector';
 import UserTagSelector from '../UserTagSelector';
 import { PostService, PostVisibility } from '../../services/PostService';
+import FeedVideoPlayer from '../FeedVideoPlayer';
 
 
 const { width } = Dimensions.get('window');
@@ -184,7 +184,11 @@ export default function ChapterForm({ onBack }: ChapterFormProps) {
     const renderMediaItem = (item: MediaItem, index: number) => (
         <View key={index} style={{ width: 80, height: 80, marginRight: 8, borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
             {item.type === 'video' ? (
-                <Video source={{ uri: item.uri }} style={{ width: '100%', height: '100%' }} resizeMode={ResizeMode.COVER} shouldPlay={false} />
+                <FeedVideoPlayer
+                    url={item.uri}
+                    isActive={false}
+                    contentFit="cover"
+                />
             ) : (
                 <Image source={{ uri: item.uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
             )}

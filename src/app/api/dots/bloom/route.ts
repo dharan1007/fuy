@@ -24,22 +24,6 @@ export async function GET(request: Request) {
         let excludedUserIds: string[] = [];
         let hiddenPostIds: string[] = [];
 
-        if (userId) {
-            const [blocked, blockedBy, muted, hidden] = await Promise.all([
-                prisma.blockedUser.findMany({ where: { blockerId: userId }, select: { blockedId: true } }),
-                prisma.blockedUser.findMany({ where: { blockedId: userId }, select: { blockerId: true } }),
-                prisma.mutedUser.findMany({ where: { muterId: userId }, select: { mutedUserId: true } }),
-                prisma.hiddenPost.findMany({ where: { userId }, select: { postId: true } })
-            ]);
-
-            excludedUserIds = [
-                ...blocked.map(b => b.blockedId),
-                ...blockedBy.map(b => b.blockerId),
-                ...muted.map(m => m.mutedUserId)
-            ];
-            hiddenPostIds = hidden.map(h => h.postId);
-        }
-
         // 1. Get Filters from Query Params OR Defaults
         const { searchParams } = new URL(request.url);
         const slashesParam = searchParams.get('slashes');

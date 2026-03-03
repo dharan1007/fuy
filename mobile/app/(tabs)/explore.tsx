@@ -9,6 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { getSafetyFilters } from '../../services/SafetyService';
 import { supabase } from '../../lib/supabase';
+import { ExploreService } from '../../services/ExploreService';
 import { useTheme } from '../../context/ThemeContext';
 import ChansTab from '../../components/ChansTab';
 
@@ -78,34 +79,11 @@ const GridTile = React.memo(({ post, size, onPress }: { post: Post; size: 'small
                     <Image
                         source={{ uri: url }}
                         style={{ width: '100%', height: '100%' }}
-                        contentFit="cover"
-                        cachePolicy="memory-disk"
-                        recyclingKey={post.id}
                         transition={200}
                     />
                 ) : (
                     <View style={{ flex: 1, backgroundColor: '#1a1a1a', justifyContent: 'center', alignItems: 'center' }}>
                         <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>No media</Text>
-                    </View>
-                )}
-
-                {/* Video indicator */}
-                {video && (
-                    <View style={{ position: 'absolute', top: 8, right: 8 }}>
-                        <Play color="white" size={16} fill="white" />
-                    </View>
-                )}
-
-                {/* Post type badge */}
-                {post.postType && post.postType !== 'CHAPTER' && (
-                    <View style={{
-                        position: 'absolute', bottom: 6, left: 6,
-                        backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 4,
-                        paddingHorizontal: 6, paddingVertical: 2
-                    }}>
-                        <Text style={{ color: 'white', fontSize: 9, fontWeight: '700', letterSpacing: 0.5 }}>
-                            {post.postType}
-                        </Text>
                     </View>
                 )}
             </View>
@@ -194,12 +172,6 @@ const CategoryRow = React.memo(({ title, posts, onPostPress, colors }: {
                             ) : (
                                 <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
                                     <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11 }}>No media</Text>
-                                </View>
-                            )}
-
-                            {video && (
-                                <View style={{ position: 'absolute', top: 8, right: 8 }}>
-                                    <Play color="white" size={14} fill="white" />
                                 </View>
                             )}
 
@@ -323,36 +295,42 @@ export default function ExploreScreen() {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) setCurrentUserId(user.id);
 
-            let query = supabase
-                .from('Post')
-                .select(postQuery)
-                .eq('visibility', 'PUBLIC')
-                .order('createdAt', { ascending: false })
-                .range(from, to);
+            let data = null;
+            let error = null;
 
-            switch (tab) {
-                case 'Auds':
-                    query = query.eq('postType', 'AUD');
-                    break;
-                case 'Chapters':
-                    query = query.eq('postType', 'CHAPTER');
-                    break;
-                case 'Puds':
-                    query = query.eq('postType', 'PULLUPDOWN');
-                    break;
-                case 'sixts':
-                    query = query.eq('postType', 'SIXT');
-                    break;
-                case 'Posts':
-                default:
-                    query = query.in('postType', ['XRAY', 'LILL', 'FILL', 'CHAPTER']);
-                    break;
+            if (tab === 'Posts') {
+                // **NEW: Use algorithmic feed for general explore**
+                data = await ExploreService.getExploreFeed(PAGE_SIZE);
+            } else {
+                let query = supabase
+                    .from('Post')
+                    .select(postQuery)
+                    .eq('visibility', 'PUBLIC')
+                    .order('createdAt', { ascending: false })
+                    .range(from, to);
+
+                switch (tab) {
+                    case 'Auds':
+                        query = query.eq('postType', 'AUD');
+                        break;
+                    case 'Chapters':
+                        query = query.eq('postType', 'CHAPTER');
+                        break;
+                    case 'Puds':
+                        query = query.eq('postType', 'PULLUPDOWN');
+                        break;
+                    case 'sixts':
+                        query = query.eq('postType', 'SIXT');
+                        break;
+                }
+
+                const response = await query;
+                data = response.data;
+                error = response.error;
             }
 
-            const { data, error } = await query;
-
             if (error) {
-                console.error('Explore fetch error:', error.message);
+                console.error('Explore fetch error:', error);
                 setPosts([]);
                 return;
             }
@@ -360,13 +338,21 @@ export default function ExploreScreen() {
             // DEBUG: Log the first post to see what we are getting
             if (data && data.length > 0) {
                 console.log('[Explore Debug] First Post Raw:', JSON.stringify(data[0], null, 2));
-                const firstTransformed = transformPost(data[0]);
-                console.log('[Explore Debug] First Post Transformed:', JSON.stringify(firstTransformed, null, 2));
             }
 
-            const transformed = (data || [])
-                .map(transformPost);
-            // .filter(post => post.media && post.media.length > 0); // Allow text-only posts to debug media issues
+            const transformed = tab === 'Posts'
+                ? (data || []).map((apiPost: any) => ({
+                    id: apiPost.id,
+                    content: apiPost.content || '',
+                    postType: apiPost.postType,
+                    media: apiPost.media || [],
+                    chanData: null,
+                    postMedia: apiPost.media,
+                    user: apiPost.user,
+                    topBubbles: [],
+                    slashes: apiPost.slashTags?.map((tag: string) => ({ tag })) || []
+                })) as Post[]
+                : (data || []).map(transformPost);
 
             if (isLoadMore) {
                 setPosts(prev => [...prev, ...transformed]);
@@ -557,8 +543,8 @@ export default function ExploreScreen() {
         if (currentTab !== 'Posts' || posts.length === 0) return [];
 
         type GridItem =
-            | { type: 'row3'; posts: Post[] }
-            | { type: 'featured'; large: Post; smalls: Post[] }
+            | { type: 'row6'; posts: Post[] }
+            | { type: 'featured6'; col1: { large: Post, smalls: Post[] }; col2: { large: Post, smalls: Post[] } | null }
             | { type: 'category'; category: 'chapters' | 'auds' }
             | { type: 'spacer' };
 
@@ -571,20 +557,31 @@ export default function ExploreScreen() {
             const groupInCycle = groupCount % 3;
 
             if (groupInCycle < 2) {
-                // Regular 3-column row
-                const row = posts.slice(idx, idx + 3);
+                // Regular 6-column row
+                const row = posts.slice(idx, idx + 6);
                 if (row.length > 0) {
-                    items.push({ type: 'row3', posts: row });
+                    items.push({ type: 'row6', posts: row });
                     idx += row.length;
                 } else break;
             } else {
-                // Featured row: 1 large + 2 small stacked
-                const large = posts[idx];
-                const smalls = posts.slice(idx + 1, idx + 3);
-                if (large) {
-                    // Alternate which side the large tile appears
-                    items.push({ type: 'featured', large, smalls });
-                    idx += 1 + smalls.length;
+                // Featured row: 2 panels (1 large + 2 small) side by side
+                const large1 = posts[idx];
+                const smalls1 = posts.slice(idx + 1, idx + 3);
+
+                let large2 = null;
+                let smalls2: Post[] = [];
+                if (idx + 3 < posts.length) {
+                    large2 = posts[idx + 3];
+                    smalls2 = posts.slice(idx + 4, idx + 6);
+                }
+
+                if (large1) {
+                    items.push({
+                        type: 'featured6',
+                        col1: { large: large1, smalls: smalls1 },
+                        col2: large2 ? { large: large2, smalls: smalls2 } : null
+                    });
+                    idx += 1 + smalls1.length + (large2 ? 1 + smalls2.length : 0);
                 } else break;
             }
 
@@ -742,102 +739,120 @@ export default function ExploreScreen() {
                         </View>
                     </ScrollView>
                 ) : currentTab === 'Posts' ? (
-                    /* ─── Instagram-Style Grid ─── */
-                    <FlatList
-                        data={gridData}
-                        keyExtractor={(_, i) => `grid-${i}`}
+                    <ScrollView
                         showsVerticalScrollIndicator={false}
-                        onEndReached={loadMore}
-                        onEndReachedThreshold={0.5}
-                        refreshControl={
-                            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="white" />
-                        }
-                        ListEmptyComponent={
-                            loading ? (
-                                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 100 }}>
-                                    <ActivityIndicator size="large" color="white" />
-                                </View>
-                            ) : null
-                        }
-                        ListFooterComponent={
-                            loading && posts.length > 0 ? (
-                                <View style={{ paddingVertical: 20 }}>
-                                    <ActivityIndicator size="small" color="white" />
-                                </View>
-                            ) : null
-                        }
-                        renderItem={({ item }) => {
-                            if (item.type === 'row3') {
-                                return (
-                                    <View style={{ flexDirection: 'row' }}>
-                                        {item.posts.map(post => (
-                                            <GridTile
-                                                key={post.id}
-                                                post={post}
-                                                size="small"
-                                                onPress={() => handlePostPress(post.id)}
-                                            />
-                                        ))}
-                                        {/* Fill empty slots if less than 3 */}
-                                        {item.posts.length < 3 && Array.from({ length: 3 - item.posts.length }).map((_, i) => (
-                                            <View key={`empty-${i}`} style={{ width: TILE_SIZE, height: TILE_SIZE }} />
-                                        ))}
-                                    </View>
-                                );
+                        contentContainerStyle={{ paddingBottom: 100 }}
+                        scrollEventThrottle={16}
+                        onScroll={(e) => {
+                            const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent;
+                            const isCloseToBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - 500;
+                            if (isCloseToBottom && !loading && hasMore) {
+                                loadMore();
                             }
-
-                            if (item.type === 'featured') {
-                                return (
-                                    <FeaturedRow item={item} onPostPress={handlePostPress} />
-                                );
-                            }
-
-                            if (item.type === 'category') {
-                                if (item.category === 'chapters') {
-                                    return <CategoryRow title="Chapters" posts={chapterPosts} onPostPress={handlePostPress} colors={colors} />;
-                                }
-                                if (item.category === 'auds') {
-                                    return <CategoryRow title="Auds" posts={audPosts} onPostPress={handlePostPress} colors={colors} />;
-                                }
-                            }
-
-                            return null;
                         }}
-                    />
-                ) : (
-                    /* ─── Other tabs (Auds, Chapters, etc.) ─── Simple Grid */
-                    <FlatList
-                        data={posts}
-                        keyExtractor={item => item.id}
-                        numColumns={3}
-                        showsVerticalScrollIndicator={false}
-                        onEndReached={loadMore}
-                        onEndReachedThreshold={0.5}
                         refreshControl={
                             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="white" />
                         }
-                        ListEmptyComponent={
-                            loading ? (
-                                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 100 }}>
-                                    <ActivityIndicator size="large" color="white" />
-                                </View>
-                            ) : null
+                    >
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ minWidth: SCREEN_WIDTH * 2 }}>
+                            <View style={{ flexDirection: 'column', width: SCREEN_WIDTH * 2 }}>
+                                {loading && posts.length === 0 ? (
+                                    <View style={{ width: '100%', justifyContent: 'center', alignItems: 'center', paddingTop: 100 }}>
+                                        <ActivityIndicator size="large" color="white" />
+                                    </View>
+                                ) : (
+                                    gridData.map((item, idx) => {
+                                        if (item.type === 'row6') {
+                                            return (
+                                                <View key={`grid-${idx}`} style={{ flexDirection: 'row', width: SCREEN_WIDTH * 2 }}>
+                                                    {item.posts.map(post => (
+                                                        <GridTile
+                                                            key={post.id}
+                                                            post={post}
+                                                            size="small"
+                                                            onPress={() => handlePostPress(post.id)}
+                                                        />
+                                                    ))}
+                                                    {item.posts.length < 6 && Array.from({ length: 6 - item.posts.length }).map((_, i) => (
+                                                        <View key={`empty-${i}`} style={{ width: TILE_SIZE, height: TILE_SIZE }} />
+                                                    ))}
+                                                </View>
+                                            );
+                                        }
+
+                                        if (item.type === 'featured6') {
+                                            return (
+                                                <View key={`grid-${idx}`} style={{ flexDirection: 'row', width: SCREEN_WIDTH * 2 }}>
+                                                    <View style={{ width: SCREEN_WIDTH }}>
+                                                        <FeaturedRow item={item.col1} onPostPress={handlePostPress} />
+                                                    </View>
+                                                    {item.col2 ? (
+                                                        <View style={{ width: SCREEN_WIDTH }}>
+                                                            <FeaturedRow item={item.col2} onPostPress={handlePostPress} />
+                                                        </View>
+                                                    ) : (
+                                                        <View style={{ width: SCREEN_WIDTH }} />
+                                                    )}
+                                                </View>
+                                            );
+                                        }
+
+                                        if (item.type === 'category') {
+                                            if (item.category === 'chapters') {
+                                                return <CategoryRow key={`grid-${idx}`} title="Chapters" posts={chapterPosts} onPostPress={handlePostPress} colors={colors} />;
+                                            }
+                                            if (item.category === 'auds') {
+                                                return <CategoryRow key={`grid-${idx}`} title="Auds" posts={audPosts} onPostPress={handlePostPress} colors={colors} />;
+                                            }
+                                        }
+
+                                        return null;
+                                    })
+                                )}
+
+                                {loading && hasMore && posts.length > 0 && (
+                                    <View style={{ width: '100%', alignItems: 'center', padding: 20 }}>
+                                        <ActivityIndicator size="small" color="white" />
+                                    </View>
+                                )}
+                            </View>
+                        </ScrollView>
+                    </ScrollView>
+                ) : (
+                    <ScrollView
+                        showsVerticalScrollIndicator={false}
+                        contentContainerStyle={{ paddingBottom: 100 }}
+                        scrollEventThrottle={16}
+                        onScroll={(e) => {
+                            const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent;
+                            const isCloseToBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - 500;
+                            if (isCloseToBottom && !loading && hasMore) {
+                                loadMore();
+                            }
+                        }}
+                        refreshControl={
+                            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="white" />
                         }
-                        ListFooterComponent={
-                            loading && posts.length > 0 ? (
-                                <View style={{ paddingVertical: 20 }}>
-                                    <ActivityIndicator size="small" color="white" />
-                                </View>
-                            ) : null
-                        }
-                        renderItem={({ item }) => (
-                            <GridTile
-                                post={item}
-                                size="small"
-                                onPress={() => handlePostPress(item.id)}
-                            />
-                        )}
-                    />
+                    >
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ minWidth: SCREEN_WIDTH * 2 }}>
+                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', width: SCREEN_WIDTH * 2 }}>
+                                {loading && posts.length === 0 ? (
+                                    <View style={{ width: '100%', justifyContent: 'center', alignItems: 'center', paddingTop: 100 }}>
+                                        <ActivityIndicator size="large" color="white" />
+                                    </View>
+                                ) : (
+                                    posts.map(item => (
+                                        <GridTile
+                                            key={item.id}
+                                            post={item}
+                                            size="small"
+                                            onPress={() => handlePostPress(item.id)}
+                                        />
+                                    ))
+                                )}
+                            </View>
+                        </ScrollView>
+                    </ScrollView>
                 )}
             </SafeAreaView>
         </View>

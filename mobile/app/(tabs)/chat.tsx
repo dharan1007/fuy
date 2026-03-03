@@ -19,7 +19,7 @@ import { encryptMessage, decryptMessage } from '../../lib/encryption';
 import { MediaUploadService } from '../../services/MediaUploadService';
 
 import * as ImagePicker from 'expo-image-picker';
-import { Video as AVVideo, ResizeMode } from 'expo-av';
+
 import { Paperclip } from 'lucide-react-native';
 import CustomToast, { ToastType } from '../../components/CustomToast';
 import ChatPostCard from '../../components/ChatPostCard';
@@ -1601,6 +1601,7 @@ export default function ChatScreen() {
             const { error } = await supabase
                 .from('MessageTag')
                 .insert({
+                    id: generateId(),
                     messageId: selectedMessage.id,
                     userId: dbUserId,
                     tagType: tagType
@@ -1701,8 +1702,7 @@ export default function ChatScreen() {
                             conversationId: activeConversationIdRef.current,
                             name: newCollectionName.trim(),
                             keyword: newCollectionName.trim().toLowerCase().replace(/\s+/g, '_'),
-                            createdAt: now,
-                            updatedAt: now
+                            createdAt: now
                         })
                         .select()
                         .single();
@@ -1738,8 +1738,7 @@ export default function ChatScreen() {
                     targetUser: triggerTargetUser,
                     conditionType: triggerConditionType,
                     warningMessage: triggerWarningMessage.trim() || null,
-                    createdAt: now,
-                    updatedAt: now
+                    createdAt: now
                 });
 
             if (triggerError) throw triggerError;
@@ -2685,6 +2684,10 @@ export default function ChatScreen() {
                                     )}
 
                                     {messages.map((msg, index) => {
+                                        const msgDate = new Date(msg.createdAt || msg.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+                                        const prevMsgDate = index > 0 ? new Date(messages[index - 1].createdAt || messages[index - 1].timestamp).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : null;
+                                        const showDateSeparator = msgDate !== prevMsgDate;
+
                                         // Check if this is the last message sent by ME
                                         const isMe = msg.role === 'user';
 
@@ -2737,6 +2740,13 @@ export default function ChatScreen() {
 
                                         return (
                                             <View key={msg.id} className="mb-4">
+                                                {showDateSeparator && (
+                                                    <View className="items-center my-4">
+                                                        <View className="px-3 py-1 bg-zinc-800/80 rounded-full border border-zinc-700/50">
+                                                            <Text className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">{msgDate}</Text>
+                                                        </View>
+                                                    </View>
+                                                )}
                                                 <SwipeableMessage
                                                     isMe={isMe}
                                                     onReply={() => setReplyTo({ id: msg.id, content: displayContent, sender: isMe ? 'You' : (nicknames[selectedUser.id] || selectedUser.name) })}

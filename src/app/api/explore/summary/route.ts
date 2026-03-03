@@ -34,13 +34,9 @@ export async function GET() {
         let hiddenPostIds: string[] = [];
 
         if (userId) {
-            const [prefs, profileTags, blocked, blockedBy, muted, hidden] = await Promise.all([
+            const [prefs, profileTags] = await Promise.all([
                 getUserSlashPreferences(userId),
-                extractProfileTags(userId),
-                prisma.blockedUser.findMany({ where: { blockerId: userId }, select: { blockedId: true } }),
-                prisma.blockedUser.findMany({ where: { blockedId: userId }, select: { blockerId: true } }),
-                prisma.mutedUser.findMany({ where: { muterId: userId }, select: { mutedUserId: true } }),
-                prisma.hiddenPost.findMany({ where: { userId }, select: { postId: true } })
+                extractProfileTags(userId)
             ]);
             slashPrefs = prefs;
             userTags = [
@@ -49,13 +45,6 @@ export async function GET() {
                 ...profileTags.genres,
                 ...profileTags.currentlyInto,
             ];
-
-            excludedUserIds = [
-                ...blocked.map(b => b.blockedId),
-                ...blockedBy.map(b => b.blockerId),
-                ...muted.map(m => m.mutedUserId)
-            ];
-            hiddenPostIds = hidden.map(h => h.postId);
         }
 
         // Optimized fetch - lean queries with minimal includes

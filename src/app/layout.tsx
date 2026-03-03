@@ -9,8 +9,8 @@ import { Providers } from "@/components/Providers";
 
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://fuy.app"),
-  title: "FUY - Find Your Joy",
+  metadataBase: new URL("https://transiq.app"),
+  title: "Transiq - Find Your Joy",
   description: "Find your joy, share it. The next generation social platform.",
   icons: {
     icon: "/icon.png",
@@ -18,10 +18,10 @@ export const metadata: Metadata = {
     apple: "/apple-icon.png",
   },
   openGraph: {
-    title: "FUY",
+    title: "Transiq",
     description: "Find your joy, share it.",
-    url: "https://fuy.app",
-    siteName: "FUY",
+    url: "https://transiq.app",
+    siteName: "Transiq",
     images: [
       {
         url: "/opengraph-image.png",
@@ -34,7 +34,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "FUY",
+    title: "Transiq",
     description: "Find your joy, share it.",
     images: ["/opengraph-image.png"],
   },

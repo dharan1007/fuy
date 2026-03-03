@@ -67,7 +67,7 @@ export default function LoginScreen() {
                                 <View className="w-20 h-20 bg-white/10 rounded-3xl items-center justify-center transform rotate-12 mb-6 border border-white/10 backdrop-blur-xl">
                                     <View className="w-12 h-12 bg-white rounded-full" />
                                 </View>
-                                <Text className="text-4xl font-bold text-white mb-2 tracking-tighter">Fuy</Text>
+                                <Text className="text-4xl font-bold text-white mb-2 tracking-tighter">Transiq</Text>
                                 <Text className="text-white/40 text-base">Welcome back to the universe</Text>
                             </View>
 
@@ -135,7 +135,7 @@ export default function LoginScreen() {
                                     className="bg-white rounded-2xl py-4 items-center flex-row justify-center mt-2 active:opacity-90"
                                 >
                                     <Text className="text-black font-bold text-lg mr-2">
-                                        {loading ? 'Entering...' : 'Enter Fuy'}
+                                        {loading ? 'Entering...' : 'Enter Transiq'}
                                     </Text>
                                     {!loading && <ArrowRight color="black" size={20} />}
                                 </TouchableOpacity>

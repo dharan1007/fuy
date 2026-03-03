@@ -1,13 +1,13 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, Image, TouchableWithoutFeedback, Modal, ActivityIndicator } from 'react-native';
-import { Video, ResizeMode } from 'expo-av';
 import { BlurView } from 'expo-blur';
 import { MoreHorizontal, Plus, MessageCircle, Send, Play, Volume2, VolumeX, User, Slash, Maximize2, ChevronLeft, ChevronRight, Users } from 'lucide-react-native';
 import SlashesModal from './SlashesModal';
 import XrayScratch from './XrayScratch';
 import { VerifiedBadge } from './VerifiedBadge';
 import TaggedUsersModal from './TaggedUsersModal';
+import ReactionBubblesModal from './ReactionBubblesModal';
 import { MediaUploadService } from '../services/MediaUploadService';
 import { useAuth } from '../context/AuthContext';
 import * as ImagePicker from 'expo-image-picker';
@@ -18,6 +18,10 @@ import Animated, { useAnimatedStyle, useSharedValue, withSpring, withSequence, r
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { Heart, Sparkles } from 'lucide-react-native';
 import { PoopIcon, MagicCapIcon } from './ReactionIcons';
+import FeedVideoPlayer from './FeedVideoPlayer';
+
+// **NEW** Import the ExploreService for telemetry
+import { ExploreService } from '../services/ExploreService';
 
 
 interface FeedPostItemProps {
@@ -57,16 +61,30 @@ const FeedPostItem = React.memo(({
     const [slashesModalVisible, setSlashesModalVisible] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [taggedUsersModalVisible, setTaggedUsersModalVisible] = useState(false);
-    const [isLoading, setIsLoading] = useState(true);
+    const [bubblesModalVisible, setBubblesModalVisible] = useState(false);
 
     // Carousel State
     const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
 
     const router = useRouter();
 
+    // **NEW** Telemetry Tracking State
+    const actionLogged = useRef<Record<string, boolean>>({});
+
     // Reset pause state when active item changes
     useEffect(() => {
-        if (!isActive) setIsPaused(false);
+        if (!isActive) {
+            setIsPaused(false);
+
+            // If the item became inactive quickly, log a QUICK_SCROLL (if we haven't already logged a FULL_WATCH)
+            if (!actionLogged.current['FULL_WATCH'] && !actionLogged.current['QUICK_SCROLL']) {
+                ExploreService.logRecommendationFeedback(item.id, 'POST', 'QUICK_SCROLL', item.slashes?.map((s: any) => s.tag));
+                actionLogged.current['QUICK_SCROLL'] = true;
+            }
+        } else {
+            // Reset logs when item becomes active again
+            actionLogged.current = {};
+        }
     }, [isActive]);
 
     // Reset carousel when item changes
@@ -121,21 +139,25 @@ const FeedPostItem = React.memo(({
     if (!hasMedia) aspectRatio = undefined as any;
 
     return (
-        <View className="mb-8 mx-4">
+        <View className="mb-8 w-full border-b border-white/5 pb-4">
 
             {/* 1. Header Row (Above Media) */}
-            <View className="flex-row items-center justify-between mb-3 px-1">
+            <View className="flex-row items-center justify-between mb-3 px-4">
                 <View className="flex-row items-center flex-1">
                     {/* Avatar */}
-                    <TouchableOpacity onPress={handleProfilePress}>
+                    <TouchableOpacity onPress={() => {
+                        handleProfilePress();
+                        // **NEW** Telemetry: Profile Visit
+                        ExploreService.logRecommendationFeedback(item.id, 'POST', 'PROFILE_VISIT', item.slashes?.map((s: any) => s.tag));
+                    }}>
                         {avatar ? (
                             <Image
                                 source={{ uri: avatar }}
-                                className="w-9 h-9 rounded-full bg-zinc-800 border border-white/10"
+                                className="w-11 h-11 rounded-full bg-zinc-800 border border-white/10"
                             />
                         ) : (
-                            <View className="w-9 h-9 rounded-full bg-zinc-800 border border-white/10 items-center justify-center">
-                                <User size={16} color={colors.text} />
+                            <View className="w-11 h-11 rounded-full bg-zinc-800 border border-white/10 items-center justify-center">
+                                <User size={20} color={colors.text} />
                             </View>
                         )}
                     </TouchableOpacity>
@@ -143,12 +165,15 @@ const FeedPostItem = React.memo(({
                     {/* Meta */}
                     <View className="ml-3 flex-1">
                         <View className="flex-row items-center">
-                            <TouchableOpacity onPress={handleProfilePress}>
-                                <Text className="font-bold text-sm mr-1" style={{ color: colors.text }}>
+                            <TouchableOpacity onPress={() => {
+                                handleProfilePress();
+                                ExploreService.logRecommendationFeedback(item.id, 'POST', 'PROFILE_VISIT', item.slashes?.map((s: any) => s.tag));
+                            }}>
+                                <Text className="text-sm mr-1 font-medium" style={{ color: colors.text }}>
                                     {name}
                                 </Text>
                             </TouchableOpacity>
-                            <VerifiedBadge size={14} isHumanVerified={item.user?.isHumanVerified} />
+                            <VerifiedBadge size={10} isHumanVerified={item.user?.isHumanVerified} />
                         </View>
                         <Text className="text-[11px] font-medium" style={{ color: colors.secondary }}>
                             {handle}{location ? ` • ${location}` : ''}
@@ -219,26 +244,25 @@ const FeedPostItem = React.memo(({
                                      */}
                                     <TouchableWithoutFeedback onPress={handlePress}>
                                         <View style={{ width: '100%', height: '100%', backgroundColor: '#111' }}>
-                                            <Video
-                                                source={{ uri: media.url }}
-                                                style={{ width: '100%', height: '100%' }}
-                                                resizeMode={ResizeMode.COVER}
-                                                shouldPlay={isActive && !isPaused && isScreenFocused}
-                                                isLooping
-                                                isMuted={isMuted}
-                                                useNativeControls={false}
-                                                onLoadStart={() => setIsLoading(true)}
-                                                onLoad={() => setIsLoading(false)}
-                                                onError={(e) => console.log('Video Error:', e)}
-                                            />
-                                            {/* Loading Indicator */}
-                                            {isLoading && (
-                                                <View className="absolute inset-0 items-center justify-center bg-black/10">
-                                                    <ActivityIndicator size="large" color="white" />
-                                                </View>
-                                            )}
+                                            <View style={{ flex: 1 }}>
+                                                <FeedVideoPlayer
+                                                    url={media.url}
+                                                    isActive={isActive}
+                                                    isPaused={isPaused}
+                                                    isMuted={isMuted}
+                                                    isScreenFocused={isScreenFocused}
+                                                    posterUrl={media.thumbnailUrl || media.url}
+                                                />
+                                                {/* Audio Toggle Overlay */}
+                                                <TouchableOpacity
+                                                    onPress={(e) => { e.stopPropagation(); setIsMuted(!isMuted); }}
+                                                    style={{ position: 'absolute', bottom: 16, right: 16, backgroundColor: 'rgba(0,0,0,0.5)', padding: 8, borderRadius: 20, zIndex: 10 }}
+                                                >
+                                                    {isMuted ? <VolumeX color="white" size={20} /> : <Volume2 color="white" size={20} />}
+                                                </TouchableOpacity>
+                                            </View>
                                             {/* Play Overlay */}
-                                            {isActive && isPaused && !isLoading && (
+                                            {isActive && isPaused && (
                                                 <View className="absolute inset-0 items-center justify-center bg-black/20 pointer-events-none">
                                                     <View className="bg-black/40 rounded-full p-3 backdrop-blur-sm">
                                                         <Play size={24} color="white" fill="white" />
@@ -280,45 +304,51 @@ const FeedPostItem = React.memo(({
 
             {/* Content Text */}
             {!hasMedia && (
-                <View className="p-4 rounded-2xl border border-white/10 mb-3 bg-white/5">
-                    <Text className="text-base font-medium leading-6" style={{ color: colors.text }}>
-                        {item.content}
-                    </Text>
+                <View className="px-4 mb-3">
+                    <View className="p-4 rounded-2xl border border-white/10 bg-white/5">
+                        <Text className="text-base font-medium leading-6" style={{ color: colors.text }}>
+                            {item.content}
+                        </Text>
+                    </View>
                 </View>
             )}
 
             {/* Caption */}
             {hasMedia && item.content && (
-                <Text className="text-sm font-medium leading-5 mb-3 px-1" style={{ color: colors.text }} numberOfLines={3}>
-                    {item.content}
-                    {item.slashes && item.slashes.length > 0 && (
-                        <Text className="text-sm font-bold opacity-50" style={{ color: colors.text }}>
-                            {item.slashes.map((s: any) => ` /${s.tag}`).join('')}
-                        </Text>
-                    )}
-                </Text>
+                <View className="px-4 mb-3">
+                    <Text className="text-sm font-medium leading-5" style={{ color: colors.text }} numberOfLines={3}>
+                        {item.content}
+                        {item.slashes && item.slashes.length > 0 && (
+                            <Text className="text-sm font-bold opacity-50" style={{ color: colors.text }}>
+                                {item.slashes.map((s: any) => ` /${s.tag}`).join('')}
+                            </Text>
+                        )}
+                    </Text>
+                </View>
             )}
 
             {/* Product Pill */}
             {item.taggedProduct && (
-                <TouchableOpacity
-                    onPress={() => router.push(`/shop/product/${item.taggedProduct.id}`)}
-                    className="flex-row items-center bg-white/10 self-start rounded-full pl-1 pr-3 py-1 mb-3 ml-1 border border-white/20"
-                >
-                    <Image
-                        source={{ uri: item.taggedProduct.image }}
-                        className="w-6 h-6 rounded-full bg-zinc-800"
-                    />
-                    <View className="ml-2">
-                        <Text className="text-[10px] font-bold text-white leading-3">{item.taggedProduct.name}</Text>
-                        <Text className="text-[9px] text-white/60 leading-3">${item.taggedProduct.price}</Text>
-                    </View>
-                </TouchableOpacity>
+                <View className="px-4">
+                    <TouchableOpacity
+                        onPress={() => router.push(`/shop/product/${item.taggedProduct.id}`)}
+                        className="flex-row items-center bg-white/10 self-start rounded-full pl-1 pr-3 py-1 mb-3 border border-white/20"
+                    >
+                        <Image
+                            source={{ uri: item.taggedProduct.image }}
+                            className="w-6 h-6 rounded-full bg-zinc-800"
+                        />
+                        <View className="ml-2">
+                            <Text className="text-[10px] font-bold text-white leading-3">{item.taggedProduct.name}</Text>
+                            <Text className="text-[9px] text-white/60 leading-3">${item.taggedProduct.price}</Text>
+                        </View>
+                    </TouchableOpacity>
+                </View>
             )}
 
 
             {/* 3. Action Row (Reactions & Interactions) */}
-            <View className="flex-row items-center justify-between px-1">
+            <View className="flex-row items-center justify-between px-4 pb-2">
 
                 {/* Left: Aesthetic Compact Reactions */}
                 <View className="flex-row items-center gap-2">
@@ -327,6 +357,8 @@ const FeedPostItem = React.memo(({
                         onPress={() => {
                             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                             onReact(item.id, 'W');
+                            // **NEW** Telemetry: Explicit like action
+                            ExploreService.logRecommendationFeedback(item.id, 'POST', 'LIKE', item.slashes?.map((s: any) => s.tag));
                         }}
                         className="flex-row items-center px-3 py-1.5 rounded-full"
                     >
@@ -345,6 +377,8 @@ const FeedPostItem = React.memo(({
                         onPress={() => {
                             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                             onReact(item.id, 'L');
+                            // **NEW** Telemetry: Explicit dislike action
+                            ExploreService.logRecommendationFeedback(item.id, 'POST', 'DISLIKE', item.slashes?.map((s: any) => s.tag));
                         }}
                         className="flex-row items-center px-3 py-1.5 rounded-full"
                     >
@@ -363,6 +397,8 @@ const FeedPostItem = React.memo(({
                         onPress={() => {
                             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                             onReact(item.id, 'CAP');
+                            // **NEW** Telemetry: Explicit cap action
+                            ExploreService.logRecommendationFeedback(item.id, 'POST', 'CAPPED', item.slashes?.map((s: any) => s.tag));
                         }}
                         className="flex-row items-center px-3 py-1.5 rounded-full"
                     >
@@ -390,6 +426,10 @@ const FeedPostItem = React.memo(({
                         <Plus size={20} color={colors.text} />
                     </TouchableOpacity>
 
+                    <TouchableOpacity onPress={() => setSlashesModalVisible(true)} className="flex-row items-center gap-1 opacity-80">
+                        <Slash size={20} color={colors.text} />
+                    </TouchableOpacity>
+
                     <TouchableOpacity onPress={() => onCommentPress(item.id)} className="flex-row items-center gap-1 opacity-80">
                         <MessageCircle size={20} color={colors.text} />
                         {item.commentCount > 0 && <Text className="text-xs font-medium" style={{ color: colors.text }}>{formatCount(item.commentCount)}</Text>}
@@ -403,10 +443,10 @@ const FeedPostItem = React.memo(({
 
             {/* Reaction Bubbles - OPTIMIZED: Remove Video components to prevent OOM */}
             {(item.topBubbles && item.topBubbles.length > 0) && (
-                <View className="flex-row items-center mt-3 px-1">
+                <TouchableOpacity onPress={() => setBubblesModalVisible(true)} className="flex-row items-center mt-3 px-4 pb-2">
                     <View className="flex-row -space-x-2">
                         {item.topBubbles.map((bubble: any, i: number) => (
-                            <View key={i} className="w-6 h-6 rounded-full border border-black overflow-hidden bg-zinc-800">
+                            <View key={i} className="w-4 h-4 rounded-full border border-black overflow-hidden bg-zinc-800">
                                 {/* Use Image even for videos (might need thumb, but prevents crash) */}
                                 <Image
                                     source={{ uri: bubble.mediaUrl }}
@@ -419,7 +459,7 @@ const FeedPostItem = React.memo(({
                     <Text className="text-[10px] ml-2 font-medium" style={{ color: colors.secondary }}>
                         reacted
                     </Text>
-                </View>
+                </TouchableOpacity>
             )}
 
 
@@ -432,14 +472,14 @@ const FeedPostItem = React.memo(({
                     onRequestClose={() => setIsFullscreen(false)}
                 >
                     <View style={{ flex: 1, backgroundColor: 'black' }}>
-                        <Video
-                            source={{ uri: item.postMedia[0].url }}
-                            style={{ flex: 1, width: '100%', height: '100%' }}
-                            resizeMode={ResizeMode.CONTAIN}
-                            shouldPlay={isFullscreen}
-                            isLooping
-                            useNativeControls
-                        />
+                        <View style={{ flex: 1, width: '100%', height: '100%' }}>
+                            <FeedVideoPlayer
+                                url={item.postMedia[0].url}
+                                isActive={isFullscreen}
+                                contentFit="contain"
+                                nativeControls={true}
+                            />
+                        </View>
                         <TouchableOpacity
                             onPress={() => setIsFullscreen(false)}
                             style={{ position: 'absolute', top: 40, right: 20, padding: 8, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 }}
@@ -449,6 +489,12 @@ const FeedPostItem = React.memo(({
                     </View>
                 </Modal>
             )}
+
+            <ReactionBubblesModal
+                visible={bubblesModalVisible}
+                postId={item.id}
+                onClose={() => setBubblesModalVisible(false)}
+            />
 
             <SlashesModal
                 visible={slashesModalVisible}

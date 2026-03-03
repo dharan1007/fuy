@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator, Image, Dimensions, StyleSheet, ScrollView } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { Video, ResizeMode } from 'expo-av';
 import { useAuth } from '../../context/AuthContext';
 import { X, ArrowLeft, Camera as CameraIcon, Image as ImageIcon, Type, Send, Clock, Globe, Users, Lock, Save } from 'lucide-react-native';
 import { MediaUploadService } from '../../services/MediaUploadService';
@@ -11,6 +10,7 @@ import NudityWarningModal from '../NudityWarningModal';
 import PostPreview from '../PostPreview';
 import { Eye, EyeOff } from 'lucide-react-native';
 import { PostService, PostVisibility } from '../../services/PostService';
+import FeedVideoPlayer from '../FeedVideoPlayer';
 
 
 const { width, height } = Dimensions.get('window');
@@ -203,7 +203,12 @@ export default function ClockForm({ onBack }: ClockFormProps) {
                 {media ? (
                     <View style={styles.previewWrapper}>
                         {media.type === 'video' ? (
-                            <Video source={{ uri: media.uri }} style={styles.preview} resizeMode={ResizeMode.COVER} shouldPlay isLooping isMuted />
+                            <FeedVideoPlayer
+                                url={media.uri}
+                                isActive={true}
+                                isMuted={true}
+                                contentFit="cover"
+                            />
                         ) : (
                             <Image source={{ uri: media.uri }} style={styles.preview} resizeMode="cover" />
                         )}

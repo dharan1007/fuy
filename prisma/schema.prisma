@@ -31,6 +31,12 @@ model User {
   followersCount Int       @default(0)
   followingCount Int       @default(0)
 
+  // --- New Trust Metrics ---
+  cappedCount    Int       @default(0)
+  totalImpressions Int     @default(0) // Lifetime impressions for trust ratio
+  trustScore     Float     @default(0.5) // Derived score managed by backend
+  // -------------------------
+
   // Relations
   profile           Profile?
   posts             Post[]
@@ -579,6 +585,7 @@ model Post {
   impressions Int @default(0)
   shareCount  Int @default(0)
   viewCount   Int @default(0)
+  cappedCount Int @default(0) // New: Tracks Cap reactions explicitly for penalty
 
   taggedProductId String?
   taggedProduct   Product? @relation("PostTaggedProduct", fields: [taggedProductId], references: [id], onDelete: SetNull)
@@ -2454,6 +2461,11 @@ model SlashInteraction {
   positive  Int      @default(0)
   negative  Int      @default(0)
   views     Int      @default(0)
+  
+  // New granular tracking
+  fullWatches Int    @default(0)
+  quickScrolls Int   @default(0)
+
   updatedAt DateTime @updatedAt
 
   @@unique([userId, slashTag])

@@ -171,7 +171,7 @@ export default function DashboardAnalytics() {
                                 </div>
                             </div>
                             <div className="text-xs font-bold text-white bg-white/10 px-2 py-1 rounded border border-white/10">
-                                {type === 'chatTime' ? `${buddy.stats[type]}m` : buddy.stats[type]}
+                                {type === 'chatTime' ? `${buddy.stats[type]} msgs` : buddy.stats[type]}
                             </div>
                         </div>
                     ))

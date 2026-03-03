@@ -78,12 +78,12 @@ export default function AppHeader({ title, showBackButton = false, showSettingsA
             {/* Fuy Brand */}
             <div className="flex flex-col items-start gap-0">
               <span className="text-lg sm:text-xl font-bold">
-                <span className="text-white">f</span>
-                <span className="text-red-500">u</span>
-                <span className="text-white">y</span>
+                <span className="text-white">trans</span>
+                <span className="text-red-500">i</span>
+                <span className="text-white">q</span>
               </span>
               <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 font-medium leading-none">
-                Find yourself
+                Transiq
               </span>
             </div>
             {showBackButton && (

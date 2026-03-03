@@ -5,7 +5,6 @@ import { Play, Pause, Heart, MessageCircle, Share2, ChevronLeft, Volume2, Volume
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../context/ThemeContext';
-import { Video, ResizeMode } from 'expo-av';
 
 const { width, height } = Dimensions.get('window');
 

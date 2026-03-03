@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Image, ActivityIndicator, TouchableOpacity, Text, Modal, StyleSheet, Dimensions, TextInput } from 'react-native';
-import { Video, ResizeMode } from 'expo-av';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import * as FileSystem from 'expo-file-system';
 import { decryptFile } from '../../lib/encryption';
 import { Ionicons } from '@expo/vector-icons';
@@ -117,6 +117,10 @@ export default function EncryptedMedia({ type, uri, encryptionKey, viewOnce, sty
 
         return () => { isMounted = false; };
     }, [uri, encryptionKey, viewOnce, isMe]);
+
+    const player = useVideoPlayer(decryptedUri, player => {
+        player.loop = false;
+    });
 
     const handleUnlock = () => {
         if ((EncryptedMedia as any).retryLoad) {
@@ -261,12 +265,11 @@ export default function EncryptedMedia({ type, uri, encryptionKey, viewOnce, sty
 
     if (type === 'video') {
         return (
-            <Video
-                source={{ uri: decryptedUri }}
+            <VideoView
+                player={player}
                 style={style}
-                useNativeControls
-                resizeMode={ResizeMode.COVER}
-                isLooping={false}
+                nativeControls
+                contentFit="cover"
             />
         );
     }

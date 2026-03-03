@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, TextInput, Dimensions, KeyboardAvoidingView, Platform, Modal } from 'react-native';
-import { Video, ResizeMode } from 'expo-av';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { X, Send, Clock, EyeOff, Mic, Play, Pause, Lock } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { BlurView } from 'expo-blur';
@@ -22,7 +22,10 @@ export default function MediaPreview({ uri, type, onSend, onClose }: MediaPrevie
     const [isPlaying, setIsPlaying] = useState(false);
     const [password, setPassword] = useState('');
     const [showPasswordInput, setShowPasswordInput] = useState(false);
-    const videoRef = useRef<Video>(null);
+
+    const player = useVideoPlayer(uri, player => {
+        player.loop = true;
+    });
 
     const handleSend = () => {
         let expiresAt: Date | null = null;
@@ -32,14 +35,14 @@ export default function MediaPreview({ uri, type, onSend, onClose }: MediaPrevie
         onSend({ caption, viewOnce, expiresAt, password: password.trim() || undefined });
     };
 
-    const togglePlayback = async () => {
-        if (!videoRef.current) return;
-        if (isPlaying) {
-            await videoRef.current.pauseAsync();
+    const togglePlayback = () => {
+        if (player.playing) {
+            player.pause();
+            setIsPlaying(false);
         } else {
-            await videoRef.current.playAsync();
+            player.play();
+            setIsPlaying(true);
         }
-        setIsPlaying(!isPlaying);
     };
 
     return (
@@ -78,14 +81,11 @@ export default function MediaPreview({ uri, type, onSend, onClose }: MediaPrevie
                             <Image source={{ uri }} style={styles.media} resizeMode="contain" />
                         ) : (
                             <View style={styles.videoContainer}>
-                                <Video
-                                    ref={videoRef}
+                                <VideoView
+                                    player={player}
                                     style={styles.media}
-                                    source={{ uri }}
-                                    useNativeControls={false}
-                                    resizeMode={ResizeMode.CONTAIN}
-                                    isLooping
-                                    onPlaybackStatusUpdate={status => setIsPlaying(status.isLoaded && status.isPlaying)}
+                                    nativeControls={false}
+                                    contentFit="contain"
                                 />
                                 <TouchableOpacity style={styles.playOverlay} onPress={togglePlayback}>
                                     {!isPlaying && <Play size={50} color="rgba(255,255,255,0.8)" fill="rgba(255,255,255,0.5)" />}

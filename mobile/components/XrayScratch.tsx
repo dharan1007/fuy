@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, PanResponder, Dimensions, Image } from 'react-native';
 import Svg, { Mask, Rect, Path, Defs, Image as SvgImage } from 'react-native-svg';
-import { Video, ResizeMode } from 'expo-av';
+
 import { BlurView } from 'expo-blur';
+import FeedVideoPlayer from './FeedVideoPlayer';
 
 const { width } = Dimensions.get('window');
 
@@ -85,15 +86,11 @@ export default function XrayScratch({ coverUrl, contentUrl, coverType, contentTy
     const renderMedia = (url: string, type: string, play: boolean, isCover: boolean) => {
         if (type === 'VIDEO' && url && url.length > 5) {
             return (
-                <Video
-                    source={{ uri: url }}
-                    style={{ width: '100%', height: '100%' }}
-                    resizeMode={ResizeMode.COVER}
-                    shouldPlay={play}
-                    isLooping
+                <FeedVideoPlayer
+                    url={url}
+                    isActive={play}
                     isMuted={isCover}
-                    useNativeControls={false}
-                    onError={(e) => console.log("Video Error Xray:", e)}
+                    contentFit="cover"
                 />
             );
         }
