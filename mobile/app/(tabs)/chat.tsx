@@ -1448,9 +1448,10 @@ export default function ChatScreen() {
                     id: messageId,
                     content: messageContent,
                     senderId: senderId,
-                    timestamp: timestamp,
+                    createdAt: new Date(timestamp).toISOString(),
                     type: messageType,
                     mediaUrl: mediaUrl,
+                    readAt: null,
                     ...options
                 }
             });
@@ -1520,6 +1521,9 @@ export default function ChatScreen() {
                     lastExitedAt: new Date().toISOString()
                 }, { onConflict: 'conversationId,userId' });
 
+                // Mark all messages as read before evaluating retention policies.
+                await markAllAsRead(conversationId);
+
                 // Get retention setting
                 const { data: conv } = await supabase
                     .from('Conversation')
@@ -1529,11 +1533,18 @@ export default function ChatScreen() {
 
                 // Handle retention cleanup - SOFT DELETE
                 if (conv?.messageRetention === 'immediately') {
-                    // Delete read messages that are not saved
-                    await supabase.from('Message').update({ isDeleted: true })
+                    // Delete read messages that are not saved and have been read by both parties
+                    const { data: allMessages } = await supabase.from('Message')
+                        .select('id')
                         .eq('conversationId', conversationId)
                         .eq('isSaved', false)
                         .not('readAt', 'is', null);
+
+                    if (allMessages && allMessages.length > 0) {
+                        await supabase.from('Message')
+                            .update({ isDeleted: true })
+                            .in('id', allMessages.map(m => m.id));
+                    }
                 } else if (conv?.messageRetention === '1day') {
                     // Delete messages older than 24 hours (not saved)
                     const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -1553,6 +1564,7 @@ export default function ChatScreen() {
             useNativeDriver: true,
         }).start(() => {
             setSelectedUser(null);
+            setMessages([]); // Clear memory explicitly
             activeConversationIdRef.current = null;
         });
         fetchConversations();
@@ -1702,7 +1714,8 @@ export default function ChatScreen() {
                             conversationId: activeConversationIdRef.current,
                             name: newCollectionName.trim(),
                             keyword: newCollectionName.trim().toLowerCase().replace(/\s+/g, '_'),
-                            createdAt: now
+                            createdAt: now,
+                            updatedAt: now
                         })
                         .select()
                         .single();
@@ -1995,37 +2008,7 @@ export default function ChatScreen() {
 
     // Check for fact warnings before sending
     const checkFactWarnings = async (content: string): Promise<boolean> => {
-        if (!dbUserId || !selectedUser || selectedUser.id === 'dbot') return true;
-
-        try {
-            const { data: warnings } = await supabase
-                .from('FactWarning')
-                .select('keyword, warningText')
-                .eq('userId', dbUserId)
-                .eq('profileId', selectedUser.id)
-                .eq('isActive', true);
-
-            if (!warnings || warnings.length === 0) return true;
-
-            const contentLower = content.toLowerCase();
-            const matched = warnings.filter(w => contentLower.includes(w.keyword.toLowerCase()));
-
-            if (matched.length > 0) {
-                return new Promise((resolve) => {
-                    Alert.alert(
-                        '⚠️ Fact Warning',
-                        matched.map(w => `"${w.keyword}": ${w.warningText}`).join('\n\n'),
-                        [
-                            { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
-                            { text: 'Send Anyway', onPress: () => resolve(true) },
-                        ]
-                    );
-                });
-            }
-            return true;
-        } catch {
-            return true;
-        }
+        return true; // FactWarning table does not exist in schema
     };
 
     // Check trigger warnings before sending
@@ -2045,26 +2028,17 @@ export default function ChatScreen() {
             // Fetch tagged content for this profile (blacklist and happy)
             const { data: tags } = await supabase
                 .from('MessageTag')
-                .select('tagType, taggedContent, message:Message(content)')
+                .select('tagType, message!inner(content, conversationId)')
                 .eq('userId', dbUserId)
-                .eq('profileId', selectedUser.id);
-
-            // Fetch fact warnings
-            const { data: factWarnings } = await supabase
-                .from('FactWarning')
-                .select('keyword, warningText')
-                .eq('userId', dbUserId)
-                .eq('profileId', selectedUser.id)
-                .eq('isActive', true);
+                .eq('message.conversationId', activeConversationIdRef.current);
 
             const blacklistMatches: string[] = [];
             const happyMatches: string[] = [];
-            const factMatches: { keyword: string; warningText: string }[] = [];
 
             // Check blacklist tags
             if (tags) {
                 tags.forEach((tag: any) => {
-                    const tagContent = (tag.taggedContent || (Array.isArray(tag.message) ? tag.message[0]?.content : tag.message?.content) || '').toLowerCase();
+                    const tagContent = (Array.isArray(tag.message) ? tag.message[0]?.content : tag.message?.content || '').toLowerCase();
                     if (tagContent && contentLower.includes(tagContent.substring(0, 10))) {
                         if (['BLACKLIST', 'ANGRY', 'SAD'].includes(tag.tagType)) {
                             blacklistMatches.push(tagContent);
@@ -2075,20 +2049,11 @@ export default function ChatScreen() {
                 });
             }
 
-            // Check fact warnings
-            if (factWarnings) {
-                factWarnings.forEach((w: any) => {
-                    if (contentLower.includes(w.keyword.toLowerCase())) {
-                        factMatches.push({ keyword: w.keyword, warningText: w.warningText });
-                    }
-                });
-            }
-
-            const hasWarnings = blacklistMatches.length > 0 || factMatches.length > 0;
+            const hasWarnings = blacklistMatches.length > 0;
             setBondingWarnings({
                 blacklist: blacklistMatches,
                 happy: happyMatches,
-                facts: factMatches,
+                facts: [],
             });
             setShowBondingWarning(hasWarnings);
         } catch (error) {
@@ -2461,14 +2426,14 @@ export default function ChatScreen() {
                                 <View className="flex-1 justify-center space-y-1">
                                     {/* Top Row: Name & Time */}
                                     <View className="flex-row justify-between items-center">
-                                        <View className="flex-row items-center gap-1.5 flex-1 mr-2">
-                                            <Text className="text-base font-bold tracking-tight" numberOfLines={1} style={{ color: colors.text }}>
+                                        <View className="flex-row items-center gap-1.5 flex-1 mr-2 overflow-hidden">
+                                            <Text className="text-base font-bold tracking-tight shrink" numberOfLines={1} style={{ color: colors.text }}>
                                                 {nicknames[user.id] || user.name}
                                             </Text>
-                                            {user.isPinned && <Anchor size={10} color={colors.primary} style={{ transform: [{ rotate: '45deg' }] }} />}
+                                            {user.isPinned && <Anchor size={12} color={colors.primary} style={{ transform: [{ rotate: '45deg' }], flexShrink: 0 }} />}
                                             {/* Locked Icon */}
                                             {lockedConversationIds.has(user.conversationId || user.id) && (
-                                                <Lock size={10} color={colors.secondary} />
+                                                <Lock size={12} color={colors.secondary} style={{ flexShrink: 0 }} />
                                             )}
                                         </View>
 
@@ -3005,6 +2970,19 @@ export default function ChatScreen() {
                                 </View>
                             )}
 
+                            {/* Reply Preview */}
+                            {replyTo && (
+                                <View className="px-4 py-2 bg-zinc-800/50 border-t border-zinc-700 flex-row justify-between items-center">
+                                    <View className="flex-1 border-l-4 border-white pl-2">
+                                        <Text className="text-xs text-white font-bold mb-0.5">Replying to {replyTo.sender}</Text>
+                                        <Text className="text-sm text-zinc-400" numberOfLines={1}>{replyTo.content}</Text>
+                                    </View>
+                                    <TouchableOpacity onPress={() => setReplyTo(null)} className="p-2">
+                                        <X size={16} color={colors.secondary} />
+                                    </TouchableOpacity>
+                                </View>
+                            )}
+
                             {/* Input or Blocked */}
                             {blockedIds.has(selectedUser.id) ? (
                                 <View className="px-4 py-6 border-t items-center justify-center" style={{ backgroundColor: colors.card, borderColor: colors.border }}>
@@ -3136,20 +3114,6 @@ export default function ChatScreen() {
                                     </View>
                                 </BlurView>
                             )}
-
-                            {/* Reply Preview */}
-                            {replyTo && (
-                                <View className="px-4 py-2 bg-zinc-800/50 border-t border-zinc-700 flex-row justify-between items-center">
-                                    <View className="flex-1 border-l-4 border-white pl-2">
-                                        <Text className="text-xs text-white font-bold mb-0.5">Replying to {replyTo.sender}</Text>
-                                        <Text className="text-sm text-zinc-400" numberOfLines={1}>{replyTo.content}</Text>
-                                    </View>
-                                    <TouchableOpacity onPress={() => setReplyTo(null)} className="p-2">
-                                        <X size={16} color={colors.secondary} />
-                                    </TouchableOpacity>
-                                </View>
-                            )}
-
                         </View>
                     </KeyboardAvoidingView>
                 </SafeAreaView>
