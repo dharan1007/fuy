@@ -774,9 +774,9 @@ function HTMLContent() {
 
             {/* PAGE 5: CTA (Center) */}
             <Section align="center">
-                <div className="relative mb-8">
-                    <h2 className="text-9xl md:text-[14rem] font-black text-black opacity-90 leading-none tracking-tighter">
-                        D V A N G E
+                <div className="relative mb-8 w-screen left-1/2 -translate-x-1/2">
+                    <h2 className="text-7xl md:text-[12rem] font-black text-black opacity-90 leading-none tracking-[calc(-0.05em)] whitespace-nowrap text-center">
+                        DVANGE
                     </h2>
                 </div>
                 <p className="text-3xl text-gray-800 mb-12 max-w-3xl mx-auto font-medium">
