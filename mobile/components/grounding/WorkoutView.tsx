@@ -80,18 +80,98 @@ const STORAGE_KEYS = {
     GOAL_TYPE: 'wrex_goal_type',
 };
 
+// --- Exercise Library ---
+interface LibraryExercise {
+    name: string;
+    defaultSets: number;
+    defaultReps: string;
+    defaultWeight?: number;
+    muscleGroup: string;
+}
+
+const BODY_PARTS = ['Chest', 'Back', 'Shoulders', 'Legs', 'Biceps', 'Triceps', 'Core', 'Glutes'] as const;
+
+const EXERCISE_LIBRARY: Record<string, LibraryExercise[]> = {
+    Chest: [
+        { name: 'Bench Press', defaultSets: 4, defaultReps: '8-10', defaultWeight: 60, muscleGroup: 'Chest' },
+        { name: 'Incline Dumbbell Press', defaultSets: 3, defaultReps: '10-12', defaultWeight: 24, muscleGroup: 'Chest' },
+        { name: 'Cable Flyes', defaultSets: 3, defaultReps: '12-15', defaultWeight: 15, muscleGroup: 'Chest' },
+        { name: 'Push-Ups', defaultSets: 3, defaultReps: '15-20', muscleGroup: 'Chest' },
+        { name: 'Dumbbell Pullovers', defaultSets: 3, defaultReps: '10-12', defaultWeight: 20, muscleGroup: 'Chest' },
+    ],
+    Back: [
+        { name: 'Deadlift', defaultSets: 4, defaultReps: '5-6', defaultWeight: 100, muscleGroup: 'Back' },
+        { name: 'Pull-Ups', defaultSets: 4, defaultReps: '8-12', muscleGroup: 'Back' },
+        { name: 'Barbell Rows', defaultSets: 4, defaultReps: '8-10', defaultWeight: 60, muscleGroup: 'Back' },
+        { name: 'Lat Pulldown', defaultSets: 3, defaultReps: '10-12', defaultWeight: 50, muscleGroup: 'Back' },
+        { name: 'Seated Cable Row', defaultSets: 3, defaultReps: '10-12', defaultWeight: 45, muscleGroup: 'Back' },
+    ],
+    Shoulders: [
+        { name: 'Overhead Press', defaultSets: 4, defaultReps: '8-10', defaultWeight: 40, muscleGroup: 'Shoulders' },
+        { name: 'Lateral Raises', defaultSets: 3, defaultReps: '12-15', defaultWeight: 10, muscleGroup: 'Shoulders' },
+        { name: 'Face Pulls', defaultSets: 3, defaultReps: '15-20', defaultWeight: 15, muscleGroup: 'Shoulders' },
+        { name: 'Arnold Press', defaultSets: 3, defaultReps: '10-12', defaultWeight: 16, muscleGroup: 'Shoulders' },
+        { name: 'Rear Delt Flyes', defaultSets: 3, defaultReps: '12-15', defaultWeight: 8, muscleGroup: 'Shoulders' },
+    ],
+    Legs: [
+        { name: 'Squats', defaultSets: 4, defaultReps: '6-8', defaultWeight: 80, muscleGroup: 'Legs' },
+        { name: 'Lunges', defaultSets: 3, defaultReps: '10-12', defaultWeight: 20, muscleGroup: 'Legs' },
+        { name: 'Leg Press', defaultSets: 4, defaultReps: '10-12', defaultWeight: 120, muscleGroup: 'Legs' },
+        { name: 'Romanian Deadlift', defaultSets: 3, defaultReps: '8-10', defaultWeight: 60, muscleGroup: 'Legs' },
+        { name: 'Leg Curls', defaultSets: 3, defaultReps: '12-15', defaultWeight: 30, muscleGroup: 'Legs' },
+    ],
+    Biceps: [
+        { name: 'Barbell Curl', defaultSets: 3, defaultReps: '10-12', defaultWeight: 25, muscleGroup: 'Biceps' },
+        { name: 'Hammer Curl', defaultSets: 3, defaultReps: '10-12', defaultWeight: 14, muscleGroup: 'Biceps' },
+        { name: 'Concentration Curl', defaultSets: 3, defaultReps: '12-15', defaultWeight: 10, muscleGroup: 'Biceps' },
+        { name: 'Preacher Curl', defaultSets: 3, defaultReps: '10-12', defaultWeight: 20, muscleGroup: 'Biceps' },
+        { name: 'Cable Curl', defaultSets: 3, defaultReps: '12-15', defaultWeight: 15, muscleGroup: 'Biceps' },
+    ],
+    Triceps: [
+        { name: 'Tricep Pushdown', defaultSets: 3, defaultReps: '12-15', defaultWeight: 25, muscleGroup: 'Triceps' },
+        { name: 'Skull Crushers', defaultSets: 3, defaultReps: '10-12', defaultWeight: 20, muscleGroup: 'Triceps' },
+        { name: 'Dips', defaultSets: 3, defaultReps: '10-15', muscleGroup: 'Triceps' },
+        { name: 'Overhead Extension', defaultSets: 3, defaultReps: '10-12', defaultWeight: 16, muscleGroup: 'Triceps' },
+        { name: 'Close-Grip Bench Press', defaultSets: 3, defaultReps: '8-10', defaultWeight: 40, muscleGroup: 'Triceps' },
+    ],
+    Core: [
+        { name: 'Planks', defaultSets: 3, defaultReps: '60s', muscleGroup: 'Core' },
+        { name: 'Hanging Leg Raises', defaultSets: 3, defaultReps: '12-15', muscleGroup: 'Core' },
+        { name: 'Russian Twists', defaultSets: 3, defaultReps: '20', defaultWeight: 8, muscleGroup: 'Core' },
+        { name: 'Cable Crunches', defaultSets: 3, defaultReps: '15-20', defaultWeight: 25, muscleGroup: 'Core' },
+        { name: 'Ab Wheel Rollout', defaultSets: 3, defaultReps: '10-12', muscleGroup: 'Core' },
+    ],
+    Glutes: [
+        { name: 'Hip Thrusts', defaultSets: 4, defaultReps: '10-12', defaultWeight: 60, muscleGroup: 'Glutes' },
+        { name: 'Glute Bridge', defaultSets: 3, defaultReps: '12-15', defaultWeight: 40, muscleGroup: 'Glutes' },
+        { name: 'Cable Kickbacks', defaultSets: 3, defaultReps: '12-15', defaultWeight: 15, muscleGroup: 'Glutes' },
+        { name: 'Sumo Deadlift', defaultSets: 4, defaultReps: '8-10', defaultWeight: 80, muscleGroup: 'Glutes' },
+        { name: 'Bulgarian Split Squat', defaultSets: 3, defaultReps: '10-12', defaultWeight: 16, muscleGroup: 'Glutes' },
+    ],
+};
+
 export default function WorkoutView() {
     const { mode } = useTheme();
     const isDark = mode === 'dark';
 
-    // Monochrome colors
-    const colors = {
-        background: isDark ? '#000000' : '#FFFFFF',
-        surface: isDark ? '#111111' : '#F5F5F5',
-        border: isDark ? '#333333' : '#E0E0E0',
-        text: isDark ? '#FFFFFF' : '#000000',
-        textSecondary: isDark ? '#888888' : '#666666',
-        accent: isDark ? '#FFFFFF' : '#000000',
+    const colors = isDark ? {
+        background: '#0B0B0B',
+        surface: '#161616',
+        border: '#1E1E1E',
+        text: '#FFFFFF',
+        textSecondary: '#9CA3AF',
+        textTertiary: '#6B7280',
+        accent: '#FFFFFF',
+        accentSubtle: '#2A2A2A',
+    } : {
+        background: '#F8F8F8',
+        surface: '#FFFFFF',
+        border: '#E5E5E5',
+        text: '#000000',
+        textSecondary: '#6B7280',
+        textTertiary: '#9CA3AF',
+        accent: '#000000',
+        accentSubtle: '#F0F0F0',
     };
 
     const [subTab, setSubTab] = useState<'metrics' | 'plans'>('plans');
@@ -121,6 +201,10 @@ export default function WorkoutView() {
 
     // Import Modal State
     const [showImportModal, setShowImportModal] = useState(false);
+
+    // Exercise Browser State
+    const [showExerciseBrowser, setShowExerciseBrowser] = useState(false);
+    const [selectedBodyPart, setSelectedBodyPart] = useState<string>(BODY_PARTS[0]);
 
     // --- Timer State ---
     const [workoutStartTime, setWorkoutStartTime] = useState<number | null>(null);
@@ -301,6 +385,20 @@ export default function WorkoutView() {
             muscleGroup: "Other",
         };
         setNewExercises([...newExercises, exercise]);
+    };
+
+    const addFromLibrary = (libEx: LibraryExercise) => {
+        const exercise: Exercise = {
+            id: Date.now().toString() + Math.random().toString(36).slice(2, 6),
+            name: libEx.name,
+            sets: libEx.defaultSets,
+            reps: libEx.defaultReps,
+            muscleGroup: libEx.muscleGroup,
+            weight: libEx.defaultWeight,
+            restSeconds: 90,
+            restTrigger: 'after_set',
+        };
+        setNewExercises(prev => [...prev, exercise]);
     };
 
     const updateNewExercise = (id: string, field: keyof Exercise, value: any) => {
@@ -514,7 +612,7 @@ export default function WorkoutView() {
     const renderMetricsTab = () => (
         <View style={styles.tabContent}>
             {/* Inputs */}
-            <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={[styles.card, { backgroundColor: colors.surface }]}>
                 <Text style={[styles.cardTitle, { color: colors.text }]}>Your Data</Text>
                 <View style={styles.inputRow}>
                     <TextInput
@@ -523,7 +621,7 @@ export default function WorkoutView() {
                         value={userMetrics.height.toString()}
                         onChangeText={t => setUserMetrics({ ...userMetrics, height: Number(t) || 0 })}
                         keyboardType="numeric"
-                        style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text }]}
+                        style={[styles.input, { backgroundColor: colors.accentSubtle, color: colors.text }]}
                     />
                     <TextInput
                         placeholder="Weight (kg)"
@@ -531,7 +629,7 @@ export default function WorkoutView() {
                         value={userMetrics.weight.toString()}
                         onChangeText={t => setUserMetrics({ ...userMetrics, weight: Number(t) || 0 })}
                         keyboardType="numeric"
-                        style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text }]}
+                        style={[styles.input, { backgroundColor: colors.accentSubtle, color: colors.text }]}
                     />
                 </View>
                 <View style={styles.inputRow}>
@@ -541,11 +639,11 @@ export default function WorkoutView() {
                         value={userMetrics.age.toString()}
                         onChangeText={t => setUserMetrics({ ...userMetrics, age: Number(t) || 0 })}
                         keyboardType="numeric"
-                        style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text }]}
+                        style={[styles.input, { backgroundColor: colors.accentSubtle, color: colors.text }]}
                     />
                     <TouchableOpacity
                         onPress={() => setUserMetrics({ ...userMetrics, gender: userMetrics.gender === 'male' ? 'female' : 'male' })}
-                        style={[styles.genderButton, { backgroundColor: colors.background, borderColor: colors.border }]}
+                        style={[styles.genderButton, { backgroundColor: colors.accentSubtle }]}
                     >
                         <Text style={[styles.genderText, { color: colors.text }]}>{userMetrics.gender.toUpperCase()}</Text>
                     </TouchableOpacity>
@@ -560,8 +658,7 @@ export default function WorkoutView() {
                         onPress={() => setGoalType(g)}
                         style={[
                             styles.goalButton,
-                            { borderColor: colors.border },
-                            goalType === g && { backgroundColor: colors.accent }
+                            { backgroundColor: goalType === g ? colors.accent : colors.accentSubtle }
                         ]}
                     >
                         <Text style={[
@@ -576,29 +673,29 @@ export default function WorkoutView() {
 
             {/* Cards */}
             <View style={styles.metricsRow}>
-                <View style={[styles.metricCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <View style={[styles.metricCard, { backgroundColor: colors.surface }]}>
                     <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>TDEE</Text>
                     <Text style={[styles.metricValue, { color: colors.text }]}>{bodyMetrics?.tdee}</Text>
                     <Text style={[styles.metricSubtext, { color: colors.textSecondary }]}>Maintenance</Text>
                 </View>
-                <View style={[styles.metricCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <View style={[styles.metricCard, { backgroundColor: colors.surface }]}>
                     <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>GOAL</Text>
                     <Text style={[styles.metricValue, { color: colors.text }]}>{bodyMetrics?.goalCalories}</Text>
                     <Text style={[styles.metricSubtext, { color: colors.textSecondary }]}>Daily Target</Text>
                 </View>
             </View>
 
-            <View style={[styles.macrosCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={[styles.macrosCard, { backgroundColor: colors.surface }]}>
                 <Text style={[styles.cardTitle, { color: colors.text }]}>Macros ({goalType.replace('_', ' ')})</Text>
                 <View style={styles.macrosRow}>
                     <View style={styles.macroItem}>
-                        <View style={[styles.macroCircle, { borderColor: colors.border }]}>
+                        <View style={[styles.macroCircle, { borderColor: colors.accentSubtle }]}>
                             <Text style={[styles.macroValue, { color: colors.text }]}>{bodyMetrics?.proteinG}g</Text>
                         </View>
                         <Text style={[styles.macroLabel, { color: colors.textSecondary }]}>Protein</Text>
                     </View>
                     <View style={styles.macroItem}>
-                        <View style={[styles.macroCircle, { borderColor: colors.border }]}>
+                        <View style={[styles.macroCircle, { borderColor: colors.accentSubtle }]}>
                             <Text style={[styles.macroValue, { color: colors.text }]}>{bodyMetrics?.carbsG}g</Text>
                         </View>
                         <Text style={[styles.macroLabel, { color: colors.textSecondary }]}>Carbs</Text>
@@ -620,17 +717,17 @@ export default function WorkoutView() {
             <View style={styles.plansHeader}>
                 <Text style={[styles.sectionTitle, { color: colors.text }]}>Your Plans</Text>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
-                    <TouchableOpacity onPress={() => setShowImportModal(true)} style={[styles.addButton, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <TouchableOpacity onPress={() => setShowImportModal(true)} style={[styles.addButton, { backgroundColor: colors.accentSubtle }]}>
                         <Download size={16} color={colors.text} />
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => setShowCreateModal(true)} style={[styles.addButton, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                    <TouchableOpacity onPress={() => setShowCreateModal(true)} style={[styles.addButton, { backgroundColor: colors.accentSubtle }]}>
                         <Plus size={16} color={colors.text} />
                     </TouchableOpacity>
                 </View>
             </View>
 
             {plans.length === 0 && (
-                <View style={[styles.emptyState, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <View style={[styles.emptyState, { backgroundColor: colors.surface }]}>
                     <Dumbbell size={32} color={colors.textSecondary} />
                     <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No workout plans yet</Text>
                     <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>Create your first plan to get started</Text>
@@ -639,7 +736,7 @@ export default function WorkoutView() {
 
             {/* Plan List */}
             {plans.map(plan => (
-                <View key={plan.id} style={[styles.planCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <View key={plan.id} style={[styles.planCard, { backgroundColor: colors.surface }]}>
                     <View style={styles.planHeader}>
                         <View style={styles.planInfo}>
                             <Text style={[styles.planName, { color: colors.text }]}>{plan.name}</Text>
@@ -679,7 +776,7 @@ export default function WorkoutView() {
                         <TouchableOpacity
                             key={session.id}
                             onPress={() => setViewSession(session)}
-                            style={[styles.sessionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                            style={[styles.sessionCard, { backgroundColor: colors.surface }]}
                         >
                             <Text style={[styles.sessionName, { color: colors.text }]}>{session.workoutName}</Text>
                             <Text style={[styles.sessionDate, { color: colors.textSecondary }]}>
@@ -702,9 +799,9 @@ export default function WorkoutView() {
                                     <Text style={[styles.restTime, { color: colors.text }]}>{formatTime(restTimer)}</Text>
                                     <TouchableOpacity
                                         onPress={() => { setIsResting(false); setRestTimer(0); }}
-                                        style={[styles.skipRestButton, { borderColor: colors.border }]}
+                                        style={[styles.skipRestButton, { backgroundColor: colors.accentSubtle }]}
                                     >
-                                        <Text style={{ color: colors.text }}>Skip Rest</Text>
+                                        <Text style={{ color: colors.text, fontWeight: '500' }}>Skip Rest</Text>
                                     </TouchableOpacity>
                                 </View>
                             </View>
@@ -725,7 +822,7 @@ export default function WorkoutView() {
                             <View style={{ flexDirection: 'row', gap: 8 }}>
                                 <TouchableOpacity
                                     onPress={() => setIsPaused(!isPaused)}
-                                    style={[styles.pauseButton, { backgroundColor: isPaused ? '#D2042D' : colors.surface, borderColor: colors.border }]}
+                                    style={[styles.pauseButton, { backgroundColor: isPaused ? '#D2042D' : colors.accentSubtle }]}
                                 >
                                     {isPaused ? <Play size={18} color={colors.text} /> : <Pause size={18} color={colors.text} />}
                                 </TouchableOpacity>
@@ -737,7 +834,7 @@ export default function WorkoutView() {
 
                         <ScrollView style={styles.sessionScroll}>
                             {activeSession.exercises.map((ex, exIdx) => (
-                                <View key={ex.exerciseId} style={[styles.exerciseCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                                <View key={ex.exerciseId} style={[styles.exerciseCard, { backgroundColor: colors.surface }]}>
                                     <Text style={[styles.exerciseName, { color: colors.text }]}>{ex.exerciseName}</Text>
                                     <View style={styles.setsContainer}>
                                         {ex.setLogs.map((set, setIdx) => (
@@ -746,17 +843,17 @@ export default function WorkoutView() {
                                                 onPress={() => toggleSetComplete(exIdx, setIdx)}
                                                 style={[
                                                     styles.setRow,
-                                                    { borderColor: colors.border },
-                                                    set.completed && { backgroundColor: isDark ? '#3E0A10' : '#FDEDEE' }
+                                                    { backgroundColor: colors.accentSubtle },
+                                                    set.completed && { backgroundColor: isDark ? '#1A2A1A' : '#EDFEF0' }
                                                 ]}
                                             >
                                                 <View style={styles.setLeft}>
                                                     <View style={[
                                                         styles.checkbox,
                                                         { borderColor: colors.border },
-                                                        set.completed && { backgroundColor: '#D2042D', borderColor: '#D2042D' }
+                                                        set.completed && { backgroundColor: colors.accent, borderColor: colors.accent }
                                                     ]}>
-                                                        {set.completed && <Check size={14} color="#FFF" />}
+                                                        {set.completed && <Check size={14} color={isDark ? '#000' : '#FFF'} />}
                                                     </View>
                                                     <Text style={[styles.setText, { color: colors.text }]}>Set {set.setNumber}</Text>
                                                 </View>
@@ -789,38 +886,44 @@ export default function WorkoutView() {
                             placeholderTextColor={colors.textSecondary}
                             value={newPlanName}
                             onChangeText={setNewPlanName}
-                            style={[styles.modalInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+                            style={[styles.modalInput, { backgroundColor: colors.accentSubtle, color: colors.text }]}
                         />
                         <TextInput
                             placeholder="Description"
                             placeholderTextColor={colors.textSecondary}
                             value={newPlanDesc}
                             onChangeText={setNewPlanDesc}
-                            style={[styles.modalInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+                            style={[styles.modalInput, { backgroundColor: colors.accentSubtle, color: colors.text }]}
                         />
                         <TextInput
                             placeholder="Frequency (e.g. 3x/week)"
                             placeholderTextColor={colors.textSecondary}
                             value={newPlanFreq}
                             onChangeText={setNewPlanFreq}
-                            style={[styles.modalInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+                            style={[styles.modalInput, { backgroundColor: colors.accentSubtle, color: colors.text }]}
                         />
 
                         <View style={styles.exercisesHeader}>
                             <Text style={[styles.sectionTitle, { color: colors.text }]}>Exercises</Text>
-                            <TouchableOpacity onPress={addExerciseToNewPlan} style={[styles.addButton, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                                <Plus size={16} color={colors.text} />
-                            </TouchableOpacity>
+                            <View style={{ flexDirection: 'row', gap: 8 }}>
+                                <TouchableOpacity onPress={() => setShowExerciseBrowser(true)} style={[styles.addButton, { backgroundColor: colors.accentSubtle, flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12 }]}>
+                                    <Dumbbell size={14} color={colors.text} />
+                                    <Text style={{ color: colors.text, fontSize: 12, fontWeight: '600' }}>Browse</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity onPress={addExerciseToNewPlan} style={[styles.addButton, { backgroundColor: colors.accentSubtle }]}>
+                                    <Plus size={16} color={colors.text} />
+                                </TouchableOpacity>
+                            </View>
                         </View>
 
                         {newExercises.map((ex, idx) => (
-                            <View key={ex.id} style={[styles.exerciseInput, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                            <View key={ex.id} style={[styles.exerciseInput, { backgroundColor: colors.surface }]}>
                                 <TextInput
                                     placeholder="Exercise Name"
                                     placeholderTextColor={colors.textSecondary}
                                     value={ex.name}
                                     onChangeText={v => updateNewExercise(ex.id, 'name', v)}
-                                    style={[styles.exInput, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text }]}
+                                    style={[styles.exInput, { backgroundColor: colors.accentSubtle, color: colors.text }]}
                                 />
                                 <View style={styles.exRow}>
                                     <TextInput
@@ -829,21 +932,21 @@ export default function WorkoutView() {
                                         value={ex.sets.toString()}
                                         onChangeText={v => updateNewExercise(ex.id, 'sets', parseInt(v) || 0)}
                                         keyboardType="numeric"
-                                        style={[styles.exInputSmall, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text }]}
+                                        style={[styles.exInputSmall, { backgroundColor: colors.accentSubtle, color: colors.text }]}
                                     />
                                     <TextInput
                                         placeholder="Reps"
                                         placeholderTextColor={colors.textSecondary}
                                         value={ex.reps}
                                         onChangeText={v => updateNewExercise(ex.id, 'reps', v)}
-                                        style={[styles.exInputSmall, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text }]}
+                                        style={[styles.exInputSmall, { backgroundColor: colors.accentSubtle, color: colors.text }]}
                                     />
                                     <TextInput
                                         placeholder="Muscle"
                                         placeholderTextColor={colors.textSecondary}
                                         value={ex.muscleGroup}
                                         onChangeText={v => updateNewExercise(ex.id, 'muscleGroup', v)}
-                                        style={[styles.exInputSmall, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text }]}
+                                        style={[styles.exInputSmall, { backgroundColor: colors.accentSubtle, color: colors.text }]}
                                     />
                                 </View>
                                 <View style={[styles.exRow, { marginTop: 8 }]}>
@@ -853,18 +956,18 @@ export default function WorkoutView() {
                                         value={(ex.restSeconds || '90').toString()}
                                         onChangeText={v => updateNewExercise(ex.id, 'restSeconds', parseInt(v) || 0)}
                                         keyboardType="numeric"
-                                        style={[styles.exInputSmall, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text, flex: 0.5 }]}
+                                        style={[styles.exInputSmall, { backgroundColor: colors.accentSubtle, color: colors.text, flex: 0.5 }]}
                                     />
                                     <TouchableOpacity
                                         onPress={() => updateNewExercise(ex.id, 'restTrigger', ex.restTrigger === 'after_exercise' ? 'after_set' : 'after_exercise')}
-                                        style={[styles.exInputSmall, { backgroundColor: colors.background, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }]}
+                                        style={[styles.exInputSmall, { backgroundColor: colors.accentSubtle, alignItems: 'center', justifyContent: 'center' }]}
                                     >
-                                        <Text style={{ color: colors.text, fontSize: 12 }}>
+                                        <Text style={{ color: colors.text, fontSize: 12, fontWeight: '500' }}>
                                             {ex.restTrigger === 'after_exercise' ? 'After Exercise' : 'After Set'}
                                         </Text>
                                     </TouchableOpacity>
                                     <TouchableOpacity onPress={() => setNewExercises(newExercises.filter(e => e.id !== ex.id))} style={styles.deleteIcon}>
-                                        <Trash2 size={16} color="red" />
+                                        <Trash2 size={16} color={colors.textTertiary} />
                                     </TouchableOpacity>
                                 </View>
                             </View>
@@ -873,6 +976,95 @@ export default function WorkoutView() {
                         <TouchableOpacity onPress={createPlan} style={[styles.createButton, { backgroundColor: colors.accent }]}>
                             <Text style={[styles.createText, { color: isDark ? '#000' : '#FFF' }]}>Create Plan</Text>
                         </TouchableOpacity>
+                    </ScrollView>
+                </View>
+            </Modal>
+
+            {/* Exercise Browser Modal */}
+            <Modal visible={showExerciseBrowser} animationType="slide" presentationStyle="pageSheet">
+                <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
+                    <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+                        <Text style={[styles.modalTitle, { color: colors.text }]}>Exercise Library</Text>
+                        <TouchableOpacity onPress={() => setShowExerciseBrowser(false)}>
+                            <X size={24} color={colors.text} />
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Body Part Tabs */}
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, paddingVertical: 16, gap: 8 }}>
+                        {BODY_PARTS.map(part => (
+                            <TouchableOpacity
+                                key={part}
+                                onPress={() => setSelectedBodyPart(part)}
+                                style={[
+                                    styles.bodyPartTab,
+                                    { backgroundColor: selectedBodyPart === part ? colors.accent : colors.accentSubtle }
+                                ]}
+                            >
+                                <Text style={[
+                                    styles.bodyPartTabText,
+                                    { color: selectedBodyPart === part ? (isDark ? '#000' : '#FFF') : colors.text }
+                                ]}>{part}</Text>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+
+                    {/* Exercise List */}
+                    <ScrollView style={styles.modalScroll}>
+                        {(EXERCISE_LIBRARY[selectedBodyPart] || []).map((libEx, idx) => {
+                            const alreadyAdded = newExercises.some(e => e.name === libEx.name);
+                            return (
+                                <TouchableOpacity
+                                    key={idx}
+                                    onPress={() => {
+                                        if (!alreadyAdded) {
+                                            addFromLibrary(libEx);
+                                        }
+                                    }}
+                                    style={[
+                                        styles.libraryExerciseCard,
+                                        { backgroundColor: alreadyAdded ? (isDark ? '#1A2A1A' : '#EDFEF0') : colors.surface }
+                                    ]}
+                                    disabled={alreadyAdded}
+                                >
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={[styles.libraryExName, { color: colors.text }]}>{libEx.name}</Text>
+                                        <View style={{ flexDirection: 'row', gap: 12, marginTop: 4 }}>
+                                            <Text style={{ color: colors.textSecondary, fontSize: 12 }}>{libEx.defaultSets} sets</Text>
+                                            <Text style={{ color: colors.textSecondary, fontSize: 12 }}>{libEx.defaultReps} reps</Text>
+                                            {libEx.defaultWeight && (
+                                                <Text style={{ color: colors.textSecondary, fontSize: 12 }}>{libEx.defaultWeight} kg</Text>
+                                            )}
+                                        </View>
+                                    </View>
+                                    <View style={[
+                                        styles.libraryAddBtn,
+                                        { backgroundColor: alreadyAdded ? 'transparent' : colors.accentSubtle }
+                                    ]}>
+                                        {alreadyAdded ? (
+                                            <Check size={18} color={isDark ? '#4ADE80' : '#16A34A'} />
+                                        ) : (
+                                            <Plus size={18} color={colors.text} />
+                                        )}
+                                    </View>
+                                </TouchableOpacity>
+                            );
+                        })}
+
+                        {/* Summary footer */}
+                        {newExercises.length > 0 && (
+                            <View style={{ padding: 16, marginTop: 8, borderRadius: 16, backgroundColor: colors.accentSubtle, alignItems: 'center' }}>
+                                <Text style={{ color: colors.text, fontWeight: '600', fontSize: 14 }}>
+                                    {newExercises.length} exercise{newExercises.length !== 1 ? 's' : ''} added
+                                </Text>
+                                <TouchableOpacity
+                                    onPress={() => setShowExerciseBrowser(false)}
+                                    style={[styles.createButton, { backgroundColor: colors.accent, marginTop: 12, width: '100%' }]}
+                                >
+                                    <Text style={[styles.createText, { color: isDark ? '#000' : '#FFF' }]}>Done</Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
                     </ScrollView>
                 </View>
             </Modal>
@@ -890,11 +1082,11 @@ export default function WorkoutView() {
                         <ScrollView style={styles.modalScroll}>
                             {/* Summary Stats */}
                             <View style={styles.metricsRow}>
-                                <View style={[styles.metricCard, { backgroundColor: colors.surface, borderColor: colors.border, flex: 1 }]}>
+                                <View style={[styles.metricCard, { backgroundColor: colors.surface, flex: 1 }]}>
                                     <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>DURATION</Text>
                                     <Text style={[styles.metricValue, { color: colors.text }]}>{formatTime(viewSession.duration || 0)}</Text>
                                 </View>
-                                <View style={[styles.metricCard, { backgroundColor: colors.surface, borderColor: colors.border, flex: 1 }]}>
+                                <View style={[styles.metricCard, { backgroundColor: colors.surface, flex: 1 }]}>
                                     <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>INTENSITY</Text>
                                     <Text style={[styles.metricValue, { color: colors.text }]}>{viewSession.intensity}%</Text>
                                 </View>
@@ -911,14 +1103,14 @@ export default function WorkoutView() {
                                     }, null as SetLog | null);
 
                                     return (
-                                        <View key={ex.exerciseId} style={[styles.exerciseCard, { backgroundColor: colors.surface, borderColor: colors.border, marginBottom: 12 }]}>
+                                        <View key={ex.exerciseId} style={[styles.exerciseCard, { backgroundColor: colors.surface, marginBottom: 12 }]}>
                                             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                                                 <Text style={[styles.exerciseName, { color: colors.text }]}>{ex.exerciseName}</Text>
                                                 <Text style={{ color: colors.textSecondary, fontSize: 12 }}>{completedSets}/{ex.setLogs.length} sets</Text>
                                             </View>
                                             {bestSet && (
-                                                <View style={{ marginTop: 8, padding: 8, backgroundColor: colors.background, borderRadius: 8 }}>
-                                                    <Text style={{ color: colors.textSecondary, fontSize: 12 }}>Best Set: {bestSet.weight}kg x {bestSet.reps}</Text>
+                                                <View style={{ marginTop: 8, padding: 10, backgroundColor: colors.accentSubtle, borderRadius: 12 }}>
+                                                    <Text style={{ color: colors.textSecondary, fontSize: 12, fontWeight: '500' }}>Best Set: {bestSet.weight}kg x {bestSet.reps}</Text>
                                                 </View>
                                             )}
                                             <View style={{ marginTop: 8 }}>
@@ -951,18 +1143,18 @@ export default function WorkoutView() {
     return (
         <View style={styles.container}>
             {/* Sub-tabs */}
-            <View style={[styles.subTabs, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <View style={[styles.subTabs, { backgroundColor: colors.accentSubtle }]}>
                 <TouchableOpacity
                     onPress={() => setSubTab('plans')}
-                    style={[styles.subTab, subTab === 'plans' && { backgroundColor: colors.accent }]}
+                    style={[styles.subTab, subTab === 'plans' && { backgroundColor: colors.surface }]}
                 >
-                    <Text style={[styles.subTabText, { color: subTab === 'plans' ? (isDark ? '#000' : '#FFF') : colors.text }]}>Plans</Text>
+                    <Text style={[styles.subTabText, { color: subTab === 'plans' ? colors.text : colors.textSecondary }]}>Plans</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                     onPress={() => setSubTab('metrics')}
-                    style={[styles.subTab, subTab === 'metrics' && { backgroundColor: colors.accent }]}
+                    style={[styles.subTab, subTab === 'metrics' && { backgroundColor: colors.surface }]}
                 >
-                    <Text style={[styles.subTabText, { color: subTab === 'metrics' ? (isDark ? '#000' : '#FFF') : colors.text }]}>Metrics</Text>
+                    <Text style={[styles.subTabText, { color: subTab === 'metrics' ? colors.text : colors.textSecondary }]}>Metrics</Text>
                 </TouchableOpacity>
             </View>
 
@@ -977,30 +1169,35 @@ const styles = StyleSheet.create({
     },
     subTabs: {
         flexDirection: 'row',
-        padding: 4,
+        padding: 3,
         borderRadius: 12,
         marginBottom: 24,
-        borderWidth: 1,
     },
     subTab: {
         flex: 1,
         paddingVertical: 10,
         alignItems: 'center',
-        borderRadius: 8,
+        borderRadius: 10,
     },
     subTabText: {
-        fontWeight: '700',
+        fontSize: 13,
+        fontWeight: '600',
     },
     tabContent: {
         gap: 16,
     },
     card: {
-        padding: 16,
-        borderRadius: 16,
-        borderWidth: 1,
+        padding: 20,
+        borderRadius: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        elevation: 2,
     },
     cardTitle: {
-        fontWeight: '700',
+        fontSize: 15,
+        fontWeight: '600',
         marginBottom: 16,
     },
     inputRow: {
@@ -1010,19 +1207,20 @@ const styles = StyleSheet.create({
     },
     input: {
         flex: 1,
-        padding: 12,
-        borderRadius: 12,
-        borderWidth: 1,
+        padding: 14,
+        borderRadius: 14,
+        fontSize: 14,
     },
     genderButton: {
         flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
-        borderRadius: 12,
-        borderWidth: 1,
+        borderRadius: 14,
     },
     genderText: {
+        fontSize: 12,
         fontWeight: '700',
+        letterSpacing: 1,
     },
     goalScroll: {
         marginBottom: 8,
@@ -1031,39 +1229,51 @@ const styles = StyleSheet.create({
         marginRight: 8,
         paddingHorizontal: 16,
         paddingVertical: 8,
-        borderRadius: 16,
-        borderWidth: 1,
+        borderRadius: 14,
     },
     goalText: {
         fontSize: 10,
-        fontWeight: '700',
+        fontWeight: '600',
+        letterSpacing: 0.5,
     },
     metricsRow: {
         flexDirection: 'row',
-        gap: 16,
+        gap: 12,
     },
     metricCard: {
         flex: 1,
-        padding: 16,
-        borderRadius: 16,
-        borderWidth: 1,
+        padding: 20,
+        borderRadius: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        elevation: 2,
     },
     metricLabel: {
         fontSize: 10,
-        fontWeight: '700',
-        letterSpacing: 1,
+        fontWeight: '600',
+        letterSpacing: 1.5,
+        marginBottom: 8,
     },
     metricValue: {
-        fontSize: 24,
+        fontSize: 28,
         fontWeight: '700',
+        letterSpacing: -0.5,
     },
     metricSubtext: {
         fontSize: 11,
+        fontWeight: '500',
+        marginTop: 4,
     },
     macrosCard: {
-        padding: 16,
-        borderRadius: 16,
-        borderWidth: 1,
+        padding: 20,
+        borderRadius: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        elevation: 2,
     },
     macrosRow: {
         flexDirection: 'row',
@@ -1076,16 +1286,18 @@ const styles = StyleSheet.create({
         width: 64,
         height: 64,
         borderRadius: 32,
-        borderWidth: 4,
+        borderWidth: 3,
         alignItems: 'center',
         justifyContent: 'center',
         marginBottom: 8,
     },
     macroValue: {
+        fontSize: 13,
         fontWeight: '700',
     },
     macroLabel: {
         fontSize: 11,
+        fontWeight: '500',
     },
     plansHeader: {
         flexDirection: 'row',
@@ -1095,31 +1307,39 @@ const styles = StyleSheet.create({
     },
     sectionTitle: {
         fontSize: 18,
-        fontWeight: '700',
+        fontWeight: '600',
     },
     addButton: {
-        padding: 8,
-        borderRadius: 16,
-        borderWidth: 1,
+        padding: 10,
+        borderRadius: 14,
     },
     emptyState: {
-        padding: 32,
-        borderRadius: 16,
-        borderWidth: 1,
+        padding: 40,
+        borderRadius: 20,
         alignItems: 'center',
         gap: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        elevation: 2,
     },
     emptyText: {
-        fontWeight: '600',
+        fontSize: 14,
+        fontWeight: '500',
     },
     emptySubtext: {
         fontSize: 12,
     },
     planCard: {
-        padding: 16,
-        borderRadius: 16,
-        borderWidth: 1,
+        padding: 20,
+        borderRadius: 20,
         marginBottom: 12,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        elevation: 2,
     },
     planHeader: {
         flexDirection: 'row',
@@ -1131,11 +1351,12 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     planName: {
-        fontWeight: '700',
+        fontWeight: '600',
         fontSize: 16,
     },
     planDesc: {
         fontSize: 12,
+        marginTop: 2,
     },
     planActions: {
         flexDirection: 'row',
@@ -1145,13 +1366,13 @@ const styles = StyleSheet.create({
     startButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 8,
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderRadius: 12,
         gap: 4,
     },
     startText: {
-        fontWeight: '700',
+        fontWeight: '600',
         fontSize: 12,
     },
     deleteButton: {
@@ -1160,7 +1381,7 @@ const styles = StyleSheet.create({
     planMeta: {
         flexDirection: 'row',
         gap: 16,
-        marginTop: 8,
+        marginTop: 10,
     },
     metaItem: {
         flexDirection: 'row',
@@ -1169,62 +1390,74 @@ const styles = StyleSheet.create({
     },
     metaText: {
         fontSize: 11,
+        fontWeight: '500',
     },
     sessionsSection: {
         marginTop: 24,
     },
     sessionCard: {
-        padding: 12,
-        borderRadius: 12,
-        borderWidth: 1,
+        padding: 16,
+        borderRadius: 16,
         marginTop: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 1,
     },
     sessionName: {
+        fontSize: 14,
         fontWeight: '600',
     },
     sessionDate: {
-        fontSize: 11,
+        fontSize: 12,
+        marginTop: 2,
     },
     modalContainer: {
         flex: 1,
-        paddingTop: 48, // Fix for safe area
+        paddingTop: 48,
     },
     sessionHeader: {
         padding: 24,
-        borderBottomWidth: 1,
+        borderBottomWidth: StyleSheet.hairlineWidth,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
     },
     sessionTitle: {
-        fontSize: 24,
+        fontSize: 22,
         fontWeight: '700',
     },
     sessionProgress: {
         fontWeight: '600',
     },
     finishButton: {
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 12,
+        paddingHorizontal: 18,
+        paddingVertical: 10,
+        borderRadius: 14,
     },
     finishText: {
-        fontWeight: '700',
+        fontWeight: '600',
+        fontSize: 14,
     },
     sessionScroll: {
         flex: 1,
         padding: 24,
     },
     exerciseCard: {
-        padding: 16,
-        borderRadius: 16,
-        borderWidth: 1,
+        padding: 20,
+        borderRadius: 20,
         marginBottom: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        elevation: 2,
     },
     exerciseName: {
-        fontWeight: '700',
+        fontWeight: '600',
         fontSize: 16,
-        marginBottom: 12,
+        marginBottom: 14,
     },
     setsContainer: {
         gap: 8,
@@ -1233,9 +1466,8 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: 12,
-        borderRadius: 12,
-        borderWidth: 1,
+        padding: 14,
+        borderRadius: 14,
     },
     setLeft: {
         flexDirection: 'row',
@@ -1245,22 +1477,25 @@ const styles = StyleSheet.create({
     checkbox: {
         width: 24,
         height: 24,
-        borderRadius: 6,
+        borderRadius: 7,
         borderWidth: 2,
         alignItems: 'center',
         justifyContent: 'center',
     },
     setText: {
-        fontWeight: '600',
+        fontSize: 14,
+        fontWeight: '500',
     },
     setRight: {
         flexDirection: 'row',
         gap: 16,
     },
-    setInfo: {},
+    setInfo: {
+        fontSize: 13,
+    },
     modalHeader: {
         padding: 24,
-        borderBottomWidth: 1,
+        borderBottomWidth: StyleSheet.hairlineWidth,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
@@ -1274,10 +1509,10 @@ const styles = StyleSheet.create({
         padding: 24,
     },
     modalInput: {
-        padding: 12,
-        borderRadius: 12,
-        borderWidth: 1,
+        padding: 14,
+        borderRadius: 14,
         marginBottom: 12,
+        fontSize: 14,
     },
     exercisesHeader: {
         flexDirection: 'row',
@@ -1287,16 +1522,15 @@ const styles = StyleSheet.create({
         marginBottom: 12,
     },
     exerciseInput: {
-        padding: 12,
-        borderRadius: 12,
-        borderWidth: 1,
+        padding: 14,
+        borderRadius: 16,
         marginBottom: 12,
     },
     exInput: {
-        padding: 10,
-        borderRadius: 8,
-        borderWidth: 1,
+        padding: 12,
+        borderRadius: 12,
         marginBottom: 8,
+        fontSize: 14,
     },
     exRow: {
         flexDirection: 'row',
@@ -1304,54 +1538,55 @@ const styles = StyleSheet.create({
     },
     exInputSmall: {
         flex: 1,
-        padding: 10,
-        borderRadius: 8,
-        borderWidth: 1,
+        padding: 12,
+        borderRadius: 12,
+        fontSize: 14,
     },
     createButton: {
         padding: 16,
-        borderRadius: 12,
+        borderRadius: 16,
         alignItems: 'center',
         marginTop: 24,
     },
     createText: {
-        fontWeight: '700',
+        fontSize: 15,
+        fontWeight: '600',
     },
-    // Timer UI Styles
+    // Timer UI
     restOverlay: {
         position: 'absolute',
         top: 0,
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: 'rgba(0,0,0,0.85)',
+        backgroundColor: 'rgba(0,0,0,0.9)',
         justifyContent: 'center',
         alignItems: 'center',
         zIndex: 100,
     },
     restCard: {
-        padding: 32,
-        borderRadius: 24,
+        padding: 40,
+        borderRadius: 28,
         alignItems: 'center',
-        minWidth: 200,
+        minWidth: 220,
     },
     restLabel: {
-        fontSize: 14,
+        fontSize: 12,
         fontWeight: '600',
-        letterSpacing: 2,
-        marginBottom: 8,
+        letterSpacing: 3,
+        marginBottom: 12,
     },
     restTime: {
-        fontSize: 64,
-        fontWeight: '700',
+        fontSize: 72,
+        fontWeight: '200',
         fontVariant: ['tabular-nums'],
+        letterSpacing: -2,
     },
     skipRestButton: {
-        marginTop: 24,
-        paddingHorizontal: 24,
+        marginTop: 28,
+        paddingHorizontal: 28,
         paddingVertical: 12,
-        borderRadius: 8,
-        borderWidth: 1,
+        borderRadius: 14,
     },
     timerText: {
         fontSize: 16,
@@ -1361,8 +1596,7 @@ const styles = StyleSheet.create({
     pauseButton: {
         width: 44,
         height: 44,
-        borderRadius: 12,
-        borderWidth: 1,
+        borderRadius: 14,
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -1372,8 +1606,7 @@ const styles = StyleSheet.create({
     },
     editButton: {
         padding: 8,
-        borderRadius: 8,
-        borderWidth: 1,
+        borderRadius: 10,
         marginRight: 8,
         justifyContent: 'center',
         alignItems: 'center',
@@ -1382,5 +1615,39 @@ const styles = StyleSheet.create({
         marginLeft: 8,
         justifyContent: 'center',
         padding: 4,
+    },
+    // Exercise Browser styles
+    bodyPartTab: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 12,
+    },
+    bodyPartTabText: {
+        fontSize: 13,
+        fontWeight: '600',
+    },
+    libraryExerciseCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 16,
+        borderRadius: 16,
+        marginBottom: 10,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 1,
+    },
+    libraryExName: {
+        fontSize: 15,
+        fontWeight: '600',
+    },
+    libraryAddBtn: {
+        width: 36,
+        height: 36,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginLeft: 12,
     },
 });

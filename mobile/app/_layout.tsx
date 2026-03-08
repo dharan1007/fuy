@@ -37,39 +37,7 @@ const MainLayout = () => {
     const { mode } = useTheme();
     const segments = useSegments();
     const router = useRouter();
-
-    const [isRegionAllowed, setIsRegionAllowed] = useState(true);
     const { isLocked, hasKeys, isLoading: encryptLoading } = useEncryption();
-
-    useEffect(() => {
-        const checkRegion = () => {
-            try {
-                if (__DEV__) {
-                    // Skip region lock in development to allow emulators and active dev
-                    setIsRegionAllowed(true);
-                    return;
-                }
-
-                const { getLocales } = require('expo-localization');
-                const locales = getLocales();
-                const regionCode = locales[0]?.regionCode;
-                console.log('User Region:', regionCode);
-
-                const ALLOWED_REGIONS = ['IN', 'India'];
-                if (regionCode && !ALLOWED_REGIONS.includes(regionCode)) {
-                    setIsRegionAllowed(false);
-                } else {
-                    setIsRegionAllowed(true);
-                }
-            } catch (e) {
-                console.error('Region check failed, defaulting to allowed for safety:', e);
-                // Default to true if module is missing during dev, but technically should be false for strictness
-                // For production build, this module WILL be present.
-                setIsRegionAllowed(true);
-            }
-        };
-        checkRegion();
-    }, []);
 
     useEffect(() => {
         if (loading) return;
@@ -91,17 +59,7 @@ const MainLayout = () => {
         }
     }, [session, loading, segments]);
 
-    if (!isRegionAllowed) {
-        return (
-            <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-                <StatusBar style="light" />
-                <Text style={{ color: '#fff', fontSize: 24, fontWeight: 'bold', marginBottom: 12 }}>Not Available</Text>
-                <Text style={{ color: '#ccc', fontSize: 16, textAlign: 'center' }}>
-                    Sorry, this app is currently only available in India.
-                </Text>
-            </View>
-        );
-    }
+
 
     if (loading) {
         return (

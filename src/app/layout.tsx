@@ -9,19 +9,19 @@ import { Providers } from "@/components/Providers";
 
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://transiq.app"),
-  title: "Transiq - Find Your Joy",
-  description: "Find your joy, share it. The next generation social platform.",
+  metadataBase: new URL("https://dvange.app"),
+  title: "dvange",
+  description: "dvange - the next generation social platform.",
   icons: {
     icon: "/icon.png",
     shortcut: "/favicon.ico",
     apple: "/apple-icon.png",
   },
   openGraph: {
-    title: "Transiq",
+    title: "Dvange",
     description: "Find your joy, share it.",
-    url: "https://transiq.app",
-    siteName: "Transiq",
+    url: "https://dvange.app",
+    siteName: "Dvange",
     images: [
       {
         url: "/opengraph-image.png",
@@ -34,7 +34,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Transiq",
+    title: "Dvange",
     description: "Find your joy, share it.",
     images: ["/opengraph-image.png"],
   },

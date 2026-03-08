@@ -300,7 +300,7 @@ export default function ExploreScreen() {
 
             if (tab === 'Posts') {
                 // **NEW: Use algorithmic feed for general explore**
-                data = await ExploreService.getExploreFeed(PAGE_SIZE);
+                data = await ExploreService.getExploreFeed(PAGE_SIZE, from);
             } else {
                 let query = supabase
                     .from('Post')
@@ -591,9 +591,10 @@ export default function ExploreScreen() {
             if (groupCount === CATEGORY_INTERVAL && chapterPosts.length > 0) {
                 items.push({ type: 'category', category: 'chapters' });
             }
-            if (groupCount === CATEGORY_INTERVAL * 2 && audPosts.length > 0) {
-                items.push({ type: 'category', category: 'auds' });
-            }
+            // Auds category row is hidden for V2
+            // if (groupCount === CATEGORY_INTERVAL * 2 && audPosts.length > 0) {
+            //     items.push({ type: 'category', category: 'auds' });
+            // }
         }
 
         return items;
@@ -618,7 +619,7 @@ export default function ExploreScreen() {
                 {/* Tabs */}
                 <View style={{ paddingBottom: 10 }}>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: PADDING, gap: 8 }}>
-                        {['Posts', 'Slashes', 'Auds', 'Chapters'].map(tab => (
+                        {['Posts', 'Slashes', 'Chapters'].map(tab => (
                             <TouchableOpacity
                                 key={tab}
                                 onPress={() => {

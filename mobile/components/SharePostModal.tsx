@@ -267,7 +267,7 @@ export default function SharePostModal({ visible, onClose, post }: SharePostModa
         // Construct a deep link (assuming fuy:// schema or web url)
         // For now, using a placeholder web URL or just text
         const deepLink = `https://www.fuymedia.org/post/${post.id}`;
-        const message = `Check out this post by ${post.user?.profile?.displayName || 'someone'} on Transiq!\n\n${deepLink}`;
+        const message = `Check out this post by ${post.user?.profile?.displayName || 'someone'} on Dvange!\n\n${deepLink}`;
 
         try {
             const result = await Share.share({
@@ -340,7 +340,7 @@ export default function SharePostModal({ visible, onClose, post }: SharePostModa
                                 style={{ backgroundColor: activeTab === 'in-app' ? '#fff' : 'transparent' }}
                             >
                                 <Send color={activeTab === 'in-app' ? '#000' : colors.text} size={18} />
-                                <Text style={{ color: activeTab === 'in-app' ? '#000' : colors.text, fontWeight: '600' }}>Share in Transiq</Text>
+                                <Text style={{ color: activeTab === 'in-app' ? '#000' : colors.text, fontWeight: '600' }}>Share in Dvange</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 onPress={() => setActiveTab('external')}

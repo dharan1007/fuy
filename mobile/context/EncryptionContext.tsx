@@ -71,15 +71,12 @@ export const EncryptionProvider = ({ children }: { children: React.ReactNode }) 
                     : data.encryptedPrivateKey;
                 setServerEncryptedKey(encKey);
 
-                // 2. Try to auto-unlock from SecureStore (Cached PIN/Key)
-                // SECURITY: Disabled auto-unlock to force PIN entry
-                /*
+                // 2. Auto-unlock from SecureStore (Cached PIN/Key)
                 const cachedKey = await SecureStore.getItemAsync('unlocked_private_key');
                 if (cachedKey) {
                     setPrivateKey(cachedKey);
                     setIsLocked(false);
                 }
-                */
             } else {
                 setHasKeys(false);
             }
@@ -122,8 +119,9 @@ export const EncryptionProvider = ({ children }: { children: React.ReactNode }) 
             setPublicKey(pair.publicKey);
             setIsLocked(false);
             setHasKeys(true);
-            // DO NOT PERSIST DECRYPTED KEY TO DISK
-            // await SecureStore.setItemAsync('unlocked_private_key', pair.privateKey);
+
+            // Persist unlocked key session
+            await SecureStore.setItemAsync('unlocked_private_key', pair.privateKey);
 
             return true;
         } catch (e) {
@@ -142,8 +140,9 @@ export const EncryptionProvider = ({ children }: { children: React.ReactNode }) 
         if (key) {
             setPrivateKey(key);
             setIsLocked(false);
-            // DO NOT PERSIST
-            // await SecureStore.setItemAsync('unlocked_private_key', key);
+
+            // Persist unlocked key session
+            await SecureStore.setItemAsync('unlocked_private_key', key);
             return true;
         } else {
             return false;

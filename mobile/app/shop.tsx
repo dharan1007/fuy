@@ -63,7 +63,7 @@ export default function ShopScreen() {
 
     const handleExternalLink = (url: string) => {
         Alert.alert(
-            "Leaving Transiq",
+            "Leaving Dvange",
             "You are about to be redirected to an external website. Do you wish to proceed?",
             [
                 { text: "Cancel", style: "cancel" },

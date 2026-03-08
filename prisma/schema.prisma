@@ -60,6 +60,14 @@ model User {
   journalEntries   JournalEntry[]
   journalTemplates JournalTemplate[]
 
+  // --- V2 Activity Tracking ---
+  activities       Activity[]                @relation("UserActivities")
+  activityLikes    ActivityLike[]
+  activityComments ActivityComment[]
+  activityTags     ActivityTag[]
+  groupActivities  GroupActivity[]           @relation("GroupCreator")
+  groupParticipants GroupActivityParticipant[]
+
   // Invites back-relation
   invitesSent Invite[]
 
@@ -1589,6 +1597,115 @@ model Trigger {
   @@index([messageId])
 }
 
+
+// ============================================================================
+// V2 Activity Tracking (GPS, Stats, Groups)
+// ============================================================================
+
+
+model Activity {
+  id            String    @id @default(cuid())
+  userId        String
+  activityType  String    // run, walk, cycle, gym, custom
+  startTime     DateTime
+  endTime       DateTime?
+  distance      Float     @default(0) // meters
+  duration      Int       @default(0) // seconds
+  avgPace       Float     @default(0) // min/km
+  calories      Int       @default(0)
+  elevationGain Float     @default(0) // meters
+  privacyLevel  String    @default("public") // public, friends, private
+  routeData     String?   // legacy JSON fallback if needed
+  description   String?
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user          User      @relation("UserActivities", fields: [userId], references: [id], onDelete: Cascade)
+  points        ActivityPoint[]
+  likeCount     ActivityLike[]
+  commentCount  ActivityComment[]
+  taggedUsers   ActivityTag[]
+  groupParticipants GroupActivityParticipant[]
+}
+
+model ActivityPoint {
+  id          String   @id @default(cuid())
+  activityId  String
+  latitude    Float
+  longitude   Float
+  altitude    Float?
+  speed       Float?
+  timestamp   Float    // milliseconds from epoch
+  orderIndex  Int
+
+  activity    Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@index([activityId])
+}
+
+model ActivityLike {
+  id         String   @id @default(cuid())
+  activityId String
+  userId     String
+  createdAt  DateTime @default(now())
+
+  activity   Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([activityId, userId])
+}
+
+model ActivityComment {
+  id         String   @id @default(cuid())
+  activityId String
+  userId     String
+  content    String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  activity   Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ActivityTag {
+  id         String   @id @default(cuid())
+  activityId String
+  userId     String
+  createdAt  DateTime @default(now())
+
+  activity   Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([activityId, userId])
+}
+
+model GroupActivity {
+  id           String   @id @default(cuid())
+  creatorId    String
+  name         String
+  activityType String
+  inviteCode   String   @unique
+  status       String   @default("active")
+  createdAt    DateTime @default(now())
+
+  creator      User     @relation("GroupCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  participants GroupActivityParticipant[]
+}
+
+model GroupActivityParticipant {
+  id              String   @id @default(cuid())
+  groupActivityId String
+  userId          String
+  activityId      String?  // Optional link to their specific tracked Activity
+  joinedAt        DateTime @default(now())
+
+  groupActivity   GroupActivity @relation(fields: [groupActivityId], references: [id], onDelete: Cascade)
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activity        Activity?     @relation(fields: [activityId], references: [id], onDelete: SetNull)
+
+  @@unique([groupActivityId, userId])
+}
 model ChatSessionLog {
   id              String    @id @default(cuid())
   conversationId  String

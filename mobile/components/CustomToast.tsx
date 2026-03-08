@@ -1,77 +1,89 @@
-import React, { useEffect, useRef } from 'react';
-import { Text, Animated, View, TouchableOpacity, Platform } from 'react-native';
-import { Check, X, AlertCircle, Info } from 'lucide-react-native';
-import { BlurView } from 'expo-blur';
+import React, { useEffect } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, withDelay } from 'react-native-reanimated';
+import { CheckCircle2, AlertCircle } from 'lucide-react-native';
 
 export type ToastType = 'success' | 'error' | 'info';
 
-interface CustomToastProps {
+export interface CustomToastProps {
+    visible: boolean;
     message: string;
-    type: ToastType;
+    type?: ToastType;
     onHide: () => void;
 }
 
-export default function CustomToast({ message, type, onHide }: CustomToastProps) {
-    const fadeAnim = useRef(new Animated.Value(0)).current;
-    const slideAnim = useRef(new Animated.Value(-100)).current;
+export default function CustomToast({ visible, message, type = 'success', onHide }: CustomToastProps) {
+    const translateY = useSharedValue(-100);
+    const opacity = useSharedValue(0);
 
     useEffect(() => {
-        // Show
-        Animated.parallel([
-            Animated.timing(fadeAnim, {
-                toValue: 1,
-                duration: 300,
-                useNativeDriver: true,
-            }),
-            Animated.timing(slideAnim, {
-                toValue: Platform.OS === 'ios' ? 60 : 40, // Top offset
-                duration: 300,
-                useNativeDriver: true,
-            }),
-        ]).start();
+        if (visible) {
+            translateY.value = withSpring(50, { damping: 12, stiffness: 90 });
+            opacity.value = withTiming(1, { duration: 300 });
 
-        // Auto hide handled by parent or manual close
-    }, []);
+            // Auto hide after 3 seconds
+            const timeout = setTimeout(() => {
+                translateY.value = withTiming(-100, { duration: 300 });
+                opacity.value = withTiming(0, { duration: 300 });
+                setTimeout(onHide, 300); // Wait for animation to finish
+            }, 3000);
 
-    const getIcon = () => {
-        switch (type) {
-            case 'success': return <Check color="#000" size={16} />;
-            case 'error': return <X color="#fff" size={16} />;
-            default: return <Info color="#fff" size={16} />;
+            return () => clearTimeout(timeout);
+        } else {
+            translateY.value = withTiming(-100, { duration: 300 });
+            opacity.value = withTiming(0, { duration: 300 });
         }
-    };
+    }, [visible, message]);
 
-    const getBgColor = () => {
-        switch (type) {
-            case 'success': return 'bg-white';
-            case 'error': return 'bg-red-500';
-            default: return 'bg-blue-500';
-        }
-    };
+    const animatedStyle = useAnimatedStyle(() => {
+        return {
+            transform: [{ translateY: translateY.value }],
+            opacity: opacity.value,
+        };
+    });
 
     return (
-        <Animated.View
-            style={{
-                position: 'absolute',
-                top: 0,
-                transform: [{ translateY: slideAnim }],
-                left: 20,
-                right: 20,
-                opacity: fadeAnim,
-                zIndex: 9999,
-                alignItems: 'center'
-            }}
-        >
-            <BlurView intensity={80} tint="dark" className="overflow-hidden rounded-2xl w-full max-w-sm mx-auto p-1 border border-white/10">
-                <View className="bg-black/60 px-4 py-3 rounded-xl flex-row items-center gap-3">
-                    <View className={`w-6 h-6 rounded-full items-center justify-center ${getBgColor()}`}>
-                        {getIcon()}
-                    </View>
-                    <Text className="flex-1 text-white font-medium text-sm tracking-wide">
-                        {message}
-                    </Text>
-                </View>
-            </BlurView>
+        <Animated.View style={[styles.container, animatedStyle]} pointerEvents="none">
+            <View style={styles.content}>
+                {type === 'success' ? (
+                    <CheckCircle2 color="#FFFFFF" size={20} />
+                ) : (
+                    <AlertCircle color="#FFFFFF" size={20} />
+                )}
+                <Text style={styles.text}>{message}</Text>
+            </View>
         </Animated.View>
     );
 }
+
+const styles = StyleSheet.create({
+    container: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        alignItems: 'center',
+        zIndex: 9999,
+        elevation: 9999,
+    },
+    content: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#111111',
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        borderRadius: 26,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.4,
+        shadowRadius: 12,
+        gap: 8,
+    },
+    text: {
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: '600',
+    }
+});

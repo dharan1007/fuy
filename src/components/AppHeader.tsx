@@ -75,15 +75,10 @@ export default function AppHeader({ title, showBackButton = false, showSettingsA
         <div className="flex justify-between items-center h-14 sm:h-16">
           {/* Left side - Brand + Back button and Title */}
           <div className="flex items-center gap-2 sm:gap-4">
-            {/* Fuy Brand */}
+            {/* Dvange Brand */}
             <div className="flex flex-col items-start gap-0">
-              <span className="text-lg sm:text-xl font-bold">
-                <span className="text-white">trans</span>
-                <span className="text-red-500">i</span>
-                <span className="text-white">q</span>
-              </span>
-              <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 font-medium leading-none">
-                Transiq
+              <span className="text-lg sm:text-xl font-bold text-white">
+                Dvange
               </span>
             </div>
             {showBackButton && (

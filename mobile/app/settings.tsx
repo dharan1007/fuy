@@ -169,24 +169,6 @@ export default function SettingsScreen() {
             colorClass: 'bg-gray-500',
             onPress: () => router.push('/legal/privacy')
         },
-        {
-            label: 'Community Guidelines',
-            icon: ShieldCheck,
-            colorClass: 'bg-gray-500',
-            onPress: () => router.push('/legal/guidelines')
-        },
-        {
-            label: 'Marketplace Policy',
-            icon: ShieldCheck,
-            colorClass: 'bg-gray-500',
-            onPress: () => router.push('/legal/marketplace')
-        },
-        {
-            label: 'Health Disclaimer',
-            icon: ShieldCheck,
-            colorClass: 'bg-gray-500',
-            onPress: () => router.push('/legal/health')
-        },
     ];
 
     const supportItems = [
@@ -195,7 +177,7 @@ export default function SettingsScreen() {
             icon: HelpCircle,
             colorClass: 'bg-slate-500',
 
-            onPress: () => showToast("Contact support@fuy.com", 'info')
+            onPress: () => showToast("Contact support@fuymedia.org", 'info')
         },
         {
             label: 'Log Out',

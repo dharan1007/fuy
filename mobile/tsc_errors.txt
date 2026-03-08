@@ -1,4 +1,0 @@
-﻿app/shop/create-brand.tsx(38,81): error TS2554: Expected 1-2 arguments, but got 3.
-app/shop/create-brand.tsx(39,37): error TS2345: Argument of type '{ url: string; path: string; }' is not assignable to parameter of type 'SetStateAction<string>'.
-components/chat/LocationPicker.tsx(91,50): error TS2551: Property 'textSecondary' does not exist on type '{ background: string; text: string; border: string; primary: string; secondary: string; accent: string; card: string; }'. Did you mean 'secondary'?
-components/post-forms/AudForm.tsx(130,80): error TS2345: Argument of type 'string' is not assignable to parameter of type 'boolean'.

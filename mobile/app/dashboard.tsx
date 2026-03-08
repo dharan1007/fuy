@@ -32,10 +32,18 @@ const { width } = Dimensions.get('window');
 const GAP = 12;
 const ITEM_WIDTH = (width - (GAP * 5)) / 4;
 
-// Quick Action Buttons (horizontal pills)
-const QUICK_ACTIONS = [
+interface QuickAction {
+    id: string;
+    title: string;
+    icon: any;
+    route: string;
+    bg: string;
+    textColor?: string;
+}
+
+const QUICK_ACTIONS: QuickAction[] = [
     // { id: 'store', title: 'My Store', icon: ShoppingBag, route: '/dashboard/store', bg: '#1a1a1a' },
-    { id: 'channel', title: 'Channel', icon: Tv, route: '/channel', bg: '#fff', textColor: '#000' },
+    // { id: 'channel', title: 'Channel', icon: Tv, route: '/channel', bg: '#fff', textColor: '#000' }, // Hidden for V2
     { id: 'connections', title: 'Connections', icon: Heart, route: '/bonds', bg: '#dc2626' },
 ];
 

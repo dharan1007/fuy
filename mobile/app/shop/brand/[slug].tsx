@@ -75,11 +75,7 @@ export default function BrandScreen() {
                     <TouchableOpacity onPress={() => router.back()}>
                         <ArrowLeft size={24} color={colors.text} />
                     </TouchableOpacity>
-                    {isOwner && (
-                        <TouchableOpacity onPress={() => router.push('/dashboard/store')}>
-                            <Settings size={22} color={colors.text} />
-                        </TouchableOpacity>
-                    )}
+                    <View className="w-12" />
                 </View>
 
                 <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>

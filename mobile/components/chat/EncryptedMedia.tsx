@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Image, ActivityIndicator, TouchableOpacity, Text, Modal, StyleSheet, Dimensions, TextInput } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { decryptFile } from '../../lib/encryption';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
@@ -14,9 +14,11 @@ interface EncryptedMediaProps {
     viewOnce?: boolean;
     style?: any;
     isMe?: boolean;
+    onPress?: () => void;
+    resizeMode?: 'cover' | 'contain' | 'stretch';
 }
 
-export default function EncryptedMedia({ type, uri, encryptionKey, viewOnce, style, isMe }: EncryptedMediaProps) {
+export default function EncryptedMedia({ type, uri, encryptionKey, viewOnce, style, isMe, onPress, resizeMode = 'cover' }: EncryptedMediaProps) {
     const [decryptedUri, setDecryptedUri] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(false);
@@ -59,7 +61,7 @@ export default function EncryptedMedia({ type, uri, encryptionKey, viewOnce, sty
                 // Check if we already have a cached decrypted file
                 // Simple hash of uri for filename
                 const filename = uri.split('/').pop()?.split('?')[0] || 'temp_media';
-                const cacheDir = (FileSystem as any).cacheDirectory + 'media_cache/';
+                const cacheDir = FileSystem.cacheDirectory + 'media_cache/';
                 await FileSystem.makeDirectoryAsync(cacheDir, { intermediates: true }).catch(() => { });
 
                 const localEncryptedPath = cacheDir + 'enc_' + filename;
@@ -264,21 +266,32 @@ export default function EncryptedMedia({ type, uri, encryptionKey, viewOnce, sty
     }
 
     if (type === 'video') {
-        return (
+        const videoElement = (
             <VideoView
                 player={player}
                 style={style}
-                nativeControls
-                contentFit="cover"
+                nativeControls={!onPress} // If onPress exists, we might want to let the custom viewer handle it, or just keep them
+                contentFit={resizeMode === 'cover' ? 'cover' : 'contain'}
             />
         );
+        return onPress ? (
+            <TouchableOpacity onPress={onPress} activeOpacity={0.9}>
+                {videoElement}
+            </TouchableOpacity>
+        ) : videoElement;
     }
 
-    return (
+    const imageElement = (
         <Image
             source={{ uri: decryptedUri }}
             style={style}
-            resizeMode="cover"
+            resizeMode={resizeMode}
         />
     );
+
+    return onPress ? (
+        <TouchableOpacity onPress={onPress} activeOpacity={0.9}>
+            {imageElement}
+        </TouchableOpacity>
+    ) : imageElement;
 }

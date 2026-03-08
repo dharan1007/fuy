@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, FlatList, TouchableOpacity, TouchableWithoutFeedback, RefreshControl, Image, ActivityIndicator, Dimensions, Alert } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, TouchableWithoutFeedback, RefreshControl, Image, ActivityIndicator, Dimensions, Alert, Share, Animated as RNAnimated } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import { Bell, LayoutDashboard, MoreHorizontal, Plus, Check, MessageCircle, User, Globe, Play, Pause, Volume2, VolumeX, Send } from 'lucide-react-native';
+import { Bell, MoreHorizontal, Plus, Check, MessageCircle, User, Globe, Play, Pause, Volume2, VolumeX, Send } from 'lucide-react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useIsFocused } from '@react-navigation/native';
@@ -12,23 +12,25 @@ import { supabase } from '../../lib/supabase';
 
 import { BlurView } from 'expo-blur';
 import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import Svg, { Mask, Rect, Path, G, Defs, Image as SvgImage } from 'react-native-svg';
 // Import Post Menu
 import PostOptionsModal from '../../components/PostOptionsModal';
 import { PanResponder } from 'react-native';
-import DraggableSidebar from '../../components/DraggableSidebar';
 import CommentsModal from '../../components/CommentsModal';
 import ClockViewer from '../../components/ClockViewer';
 
 import ClockRailItem from '../../components/ClockRailItem'; // Added
 import FeedPostItem from '../../components/FeedPostItem';
 import SharePostModal from '../../components/SharePostModal';
+import SuggestedUsersRow from '../../components/SuggestedUsersRow';
+import InviteFriendsCard from '../../components/InviteFriendsCard';
 import { MediaUploadService } from '../../services/MediaUploadService';
 import { getSafetyFilters, applySafetyFilters } from '../../services/SafetyService';
 import { PostService } from '../../services/PostService';
 import { FeedCacheService } from '../../services/FeedCacheService';
 import { ExploreService } from '../../services/ExploreService';
+import SeptagonAvatar from '../../components/SeptagonAvatar';
 
 
 
@@ -36,6 +38,9 @@ import { ExploreService } from '../../services/ExploreService';
 const VIEWABILITY_CONFIG = { itemVisiblePercentThreshold: 60 };
 
 const { width } = Dimensions.get('window');
+
+// Session-level flag so the invite toast only shows once per app open
+let inviteToastShownThisSession = false;
 
 interface PostUser {
     id: string;
@@ -91,13 +96,21 @@ export default function FeedScreen() {
     const { session } = useAuth(); // Use Auth Context
     const [posts, setPosts] = useState<FeedPost[]>([]);
     const [clocks, setClocks] = useState<ClockStory[]>([]);
-    const [selectedClock, setSelectedClock] = useState<ClockStory | null>(null); // Added state
+    const [selectedClock, setSelectedClock] = useState<ClockStory | null>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [hasMore, setHasMore] = useState(true);
+    const [feedPage, setFeedPage] = useState(0);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
     const [userProfile, setUserProfile] = useState<{ avatarUrl: string | null } | null>(null); // Profile state
     const [scrollEnabled, setScrollEnabled] = useState(true);
+    const [globalIsMuted, setGlobalIsMuted] = useState(false); // Persistent mute state across feed
     const isScreenFocused = useIsFocused();
+
+    // Invite toast state
+    const [showInviteToast, setShowInviteToast] = useState(false);
+    const inviteToastAnim = useRef(new RNAnimated.Value(0)).current;
 
     // Menu State
     const [menuVisible, setMenuVisible] = useState(false);
@@ -125,6 +138,24 @@ export default function FeedScreen() {
         setPostToShare(post);
         setShareModalVisible(true);
     }, []);
+
+    useEffect(() => {
+        // Invite Toast Timer
+        let inviteTimer2: NodeJS.Timeout;
+        if (isScreenFocused && !inviteToastShownThisSession) {
+            inviteTimer2 = setTimeout(() => {
+                if (!inviteToastShownThisSession) {
+                    setShowInviteToast(true);
+                    inviteToastShownThisSession = true;
+                    RNAnimated.spring(inviteToastAnim, { toValue: 1, useNativeDriver: true, friction: 6 }).start();
+                }
+            }, 120000); // 2 minutes = 120,000 ms
+        }
+
+        return () => {
+            if (inviteTimer2) clearTimeout(inviteTimer2);
+        };
+    }, [isScreenFocused]);
 
     useEffect(() => {
         const checkUser = async () => {
@@ -245,39 +276,80 @@ export default function FeedScreen() {
                 setCurrentUserId(userId);
             }
 
-            // NEW: Use the programmatic mathematical distribution engine feed
-            const apiPosts = await ExploreService.getHomeFeed(15);
+            const FEED_PAGE_SIZE = 20;
 
-            // Map the API output format seamlessly to the FE schema requirements
+            const apiPosts = await ExploreService.getHomeFeed(FEED_PAGE_SIZE, 0);
+
             const transformedPosts = apiPosts.map((apiPost: any) => ({
                 id: apiPost.id,
                 content: apiPost.content,
                 postType: apiPost.postType,
                 createdAt: apiPost.createdAt,
                 user: apiPost.user,
-                postMedia: apiPost.media, // Legacy map
+                postMedia: apiPost.media,
                 slashes: apiPost.slashTags?.map((tag: string) => ({ tag })) || [],
-                reactionCounts: { W: 0, L: 0, CAP: 0 }, // Usually populated from deep API relation, defaulting for UI safety
-                topBubbles: [],
+                reactionCounts: { W: 0, L: 0, CAP: 0 },
+                topBubbles: apiPost.topBubbles || [],
                 commentCount: 0,
                 likeCount: 0,
                 shareCount: 0,
                 userReaction: null
             })) as FeedPost[];
 
-            // Cache the transformed posts
             await FeedCacheService.setHomeFeed(transformedPosts);
             setPosts(transformedPosts);
+            setFeedPage(0);
+            setHasMore(apiPosts.length >= FEED_PAGE_SIZE);
 
         } catch (error) {
-            console.error("Error fetching feed algorithmically:", error);
-            // Don't wipe posts if we hit network error but have cache
+            console.error("Error fetching feed:", error);
             if (posts.length === 0) setPosts([]);
         } finally {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [currentUserId, posts.length]);
+    }, [currentUserId]);
+
+    const loadMorePosts = useCallback(async () => {
+        if (loadingMore || !hasMore) return;
+        setLoadingMore(true);
+        try {
+            const FEED_PAGE_SIZE = 20;
+            const nextPage = feedPage + 1;
+            const offset = nextPage * FEED_PAGE_SIZE;
+            const apiPosts = await ExploreService.getHomeFeed(FEED_PAGE_SIZE, offset);
+            if (apiPosts.length === 0) {
+                setHasMore(false);
+            } else {
+                const newPosts = apiPosts.map((apiPost: any) => ({
+                    id: apiPost.id,
+                    content: apiPost.content,
+                    postType: apiPost.postType,
+                    createdAt: apiPost.createdAt,
+                    user: apiPost.user,
+                    postMedia: apiPost.media,
+                    slashes: apiPost.slashTags?.map((tag: string) => ({ tag })) || [],
+                    reactionCounts: { W: 0, L: 0, CAP: 0 },
+                    topBubbles: apiPost.topBubbles || [],
+                    commentCount: 0,
+                    likeCount: 0,
+                    shareCount: 0,
+                    userReaction: null
+                })) as FeedPost[];
+                setPosts(prev => {
+                    const existingIds = new Set(prev.map(p => p.id));
+                    const unique = newPosts.filter(p => !existingIds.has(p.id));
+                    return [...prev, ...unique];
+                });
+                setFeedPage(nextPage);
+                setHasMore(apiPosts.length >= FEED_PAGE_SIZE);
+            }
+        } catch (error) {
+            console.error('[Feed] Load more error:', error);
+        } finally {
+            setLoadingMore(false);
+        }
+    }, [loadingMore, hasMore, feedPage]);
 
     const [activePostId, setActivePostId] = useState<string | null>(null);
     const scrollTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -300,9 +372,12 @@ export default function FeedScreen() {
         };
     }, [fetchFeed]);
 
-    const onRefresh = () => {
+    const onRefresh = async () => {
         setRefreshing(true);
-        fetchFeed();
+        setFeedPage(0);
+        setHasMore(true);
+        await FeedCacheService.clearAll();
+        fetchFeed(true);
         fetchClocks();
     };
 
@@ -411,8 +486,7 @@ export default function FeedScreen() {
             : [{ id: 'add-story' }, ...otherClocks];
 
         return (
-            <View className="py-3 mb-2" style={{ borderBottomWidth: 1, borderBottomColor: mode === 'light' ? '#f0f0f0' : '#222' }}>
-                <Text style={{ paddingHorizontal: 16, marginBottom: 12, fontWeight: 'bold', color: colors.text, fontSize: 13, letterSpacing: 0.5 }}>CLOCKS</Text>
+            <View className="py-2 mb-2" style={{ borderBottomWidth: 1, borderBottomColor: mode === 'light' ? '#f0f0f0' : '#222' }}>
                 <FlatList
                     horizontal
                     data={railData}
@@ -427,8 +501,15 @@ export default function FeedScreen() {
                         if (item.id === 'add-story') {
                             return (
                                 <TouchableOpacity onPress={() => router.push('/(tabs)/create?type=CLOCK')} className="items-center gap-1">
-                                    <View className="relative w-[60px] h-[60px] rounded-full border-2 border-dashed border-white/50 items-center justify-center bg-white/5">
-                                        <Plus size={20} color={colors.text} />
+                                    <View className="relative items-center justify-center">
+                                        <SeptagonAvatar
+                                            size={60}
+                                            borderWidth={2}
+                                            borderColor={mode === 'dark' ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)'}
+                                            color="transparent"
+                                        >
+                                            <Plus size={20} color={colors.text} />
+                                        </SeptagonAvatar>
                                         <View className="absolute bottom-0 right-0 bg-white rounded-full p-1 border border-black">
                                             <Plus size={10} color="black" />
                                         </View>
@@ -460,7 +541,7 @@ export default function FeedScreen() {
     const renderHeader = () => (
         <View className="px-6 pt-4 pb-2 flex-row justify-between items-center">
             {/* Left: App Name */}
-            <Text className="text-3xl font-bold" style={{ color: colors.text }}>Transiq</Text>
+            <Text className="text-3xl font-bold" style={{ color: colors.text }}>Dvange</Text>
 
             {/* Right Group: Notification -> Hopin -> Profile (Corner) */}
             <View className="flex-row gap-4 items-center">
@@ -496,22 +577,28 @@ export default function FeedScreen() {
         </View>
     );
 
-    const renderItem = useCallback(({ item }: { item: FeedPost }) => (
-        <FeedPostItem
-            item={item}
-            isActive={activePostId === item.id && !selectedClock}
-            colors={colors}
-            mode={mode}
-            onReact={handleReact}
-            onAddBubble={handleAddBubble}
-            onToggleScroll={setScrollEnabled}
-            onActivate={() => setActivePostId(item.id)}
-            onMenuPress={handleMenuPress}
-            onCommentPress={handleCommentPress}
-            onSharePress={handleSharePress}
-            isScreenFocused={isScreenFocused}
-        />
-    ), [activePostId, colors, mode, handleReact, handleAddBubble, setScrollEnabled, isScreenFocused, handleMenuPress, handleCommentPress, handleSharePress, selectedClock]);
+    const renderItem = useCallback(({ item, index }: { item: FeedPost; index: number }) => (
+        <View>
+            {index === 2 && <SuggestedUsersRow />}
+            {index === 5 && <InviteFriendsCard />}
+            <FeedPostItem
+                item={item}
+                isActive={activePostId === item.id && !selectedClock}
+                colors={colors}
+                mode={mode}
+                onReact={handleReact}
+                onAddBubble={handleAddBubble}
+                onToggleScroll={setScrollEnabled}
+                onActivate={() => setActivePostId(item.id)}
+                onMenuPress={handleMenuPress}
+                onCommentPress={handleCommentPress}
+                onSharePress={handleSharePress}
+                isScreenFocused={isScreenFocused}
+                globalIsMuted={globalIsMuted}
+                setGlobalIsMuted={setGlobalIsMuted}
+            />
+        </View>
+    ), [activePostId, colors, mode, handleReact, handleAddBubble, setScrollEnabled, isScreenFocused, handleMenuPress, handleCommentPress, handleSharePress, selectedClock, globalIsMuted]);
 
     return (
         <View className="flex-1" style={{ backgroundColor: colors.background }}>
@@ -533,16 +620,17 @@ export default function FeedScreen() {
                         onViewableItemsChanged={onViewableItemsChanged}
                         viewabilityConfig={VIEWABILITY_CONFIG}
                         initialNumToRender={2}
-                        maxToRenderPerBatch={2}
-                        windowSize={3}
+                        maxToRenderPerBatch={3}
+                        windowSize={5}
                         removeClippedSubviews={true}
                         ListHeaderComponent={renderClockRail}
                         ListEmptyComponent={<View className="flex-1 items-center justify-center py-20"><Text style={{ color: colors.secondary }}>No posts yet. Be the first!</Text></View>}
+                        onEndReached={loadMorePosts}
+                        onEndReachedThreshold={0.5}
+                        ListFooterComponent={loadingMore ? <View style={{ padding: 20, alignItems: 'center' }}><ActivityIndicator size="small" color={colors.primary} /></View> : null}
                     />
                 )}
             </SafeAreaView>
-
-            <DraggableSidebar />
 
             <PostOptionsModal
                 visible={menuVisible}
@@ -583,6 +671,40 @@ export default function FeedScreen() {
                     onClose={() => setShareModalVisible(false)}
                     post={postToShare}
                 />
+            )}
+
+            {/* Timed Invite Toast */}
+            {showInviteToast && (
+                <RNAnimated.View style={{
+                    position: 'absolute', bottom: 90, left: 16, right: 16,
+                    backgroundColor: '#1a1a1a', borderRadius: 16, padding: 14,
+                    flexDirection: 'row', alignItems: 'center',
+                    borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+                    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 8, elevation: 10,
+                    opacity: inviteToastAnim,
+                    transform: [{ translateY: inviteToastAnim.interpolate({ inputRange: [0, 1], outputRange: [40, 0] }) }],
+                }}>
+                    <View style={{ flex: 1 }}>
+                        <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14, marginBottom: 2 }}>Invite your friends</Text>
+                        <Text style={{ color: '#999', fontSize: 11 }}>Share Dvange with your crew</Text>
+                    </View>
+                    <TouchableOpacity
+                        onPress={async () => {
+                            try {
+                                await Share.share({ message: 'Join me on Dvange! Download the app: https://dvange.com/download' });
+                                RNAnimated.timing(inviteToastAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start(() => setShowInviteToast(false));
+                            } catch (e) { /* cancelled */ }
+                        }}
+                        style={{ backgroundColor: '#fff', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, marginRight: 8 }}
+                    >
+                        <Text style={{ color: '#000', fontWeight: '700', fontSize: 12 }}>Share</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => {
+                        RNAnimated.timing(inviteToastAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start(() => setShowInviteToast(false));
+                    }}>
+                        <Text style={{ color: '#666', fontSize: 18, fontWeight: '600', paddingHorizontal: 4 }}>X</Text>
+                    </TouchableOpacity>
+                </RNAnimated.View>
             )}
         </View>
     );

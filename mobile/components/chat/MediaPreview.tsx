@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, TextInput, Dimensions, KeyboardAvoidingView, Platform, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, TextInput, Dimensions, KeyboardAvoidingView, Platform, Modal, ScrollView } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { X, Send, Clock, EyeOff, Mic, Play, Pause, Lock } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
@@ -7,33 +7,21 @@ import { BlurView } from 'expo-blur';
 
 const { width, height } = Dimensions.get('window');
 
-interface MediaPreviewProps {
+export interface MediaItem {
     uri: string;
-    type: 'image' | 'video' | 'document'; // Added document
+    type: 'image' | 'video' | 'document';
+    fileName?: string | null;
+}
+
+interface MediaPreviewProps {
+    items: MediaItem[];
     onSend: (data: { caption: string; viewOnce: boolean; expiresAt: Date | null; password?: string }) => void;
     onClose: () => void;
 }
 
-export default function MediaPreview({ uri, type, onSend, onClose }: MediaPreviewProps) {
-    const { colors } = useTheme();
-    const [caption, setCaption] = useState('');
-    const [viewOnce, setViewOnce] = useState(false);
-    const [expiration, setExpiration] = useState<'infinite' | '24h'>('infinite');
+const VideoPreviewContainer = ({ uri }: { uri: string }) => {
     const [isPlaying, setIsPlaying] = useState(false);
-    const [password, setPassword] = useState('');
-    const [showPasswordInput, setShowPasswordInput] = useState(false);
-
-    const player = useVideoPlayer(uri, player => {
-        player.loop = true;
-    });
-
-    const handleSend = () => {
-        let expiresAt: Date | null = null;
-        if (expiration === '24h') {
-            expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-        }
-        onSend({ caption, viewOnce, expiresAt, password: password.trim() || undefined });
-    };
+    const player = useVideoPlayer(uri, p => { p.loop = true; });
 
     const togglePlayback = () => {
         if (player.playing) {
@@ -46,8 +34,73 @@ export default function MediaPreview({ uri, type, onSend, onClose }: MediaPrevie
     };
 
     return (
+        <View style={styles.videoContainer}>
+            <VideoView
+                player={player}
+                style={styles.media}
+                nativeControls={false}
+                contentFit="contain"
+            />
+            <TouchableOpacity style={styles.playOverlay} onPress={togglePlayback}>
+                {!isPlaying && <Play size={50} color="rgba(255,255,255,0.8)" fill="rgba(255,255,255,0.5)" />}
+            </TouchableOpacity>
+        </View>
+    );
+};
+
+export default function MediaPreview({ items, onSend, onClose }: MediaPreviewProps) {
+    const { colors } = useTheme();
+    const [caption, setCaption] = useState('');
+    const [viewOnce, setViewOnce] = useState(false);
+    const [expiration, setExpiration] = useState<'infinite' | '24h'>('infinite');
+    const [password, setPassword] = useState('');
+    const [showPasswordInput, setShowPasswordInput] = useState(false);
+    const [currentIndex, setCurrentIndex] = useState(0);
+
+    const handleSend = () => {
+        let expiresAt: Date | null = null;
+        if (expiration === '24h') {
+            expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        }
+        onSend({ caption, viewOnce, expiresAt, password: password.trim() || undefined });
+    };
+
+    return (
         <Modal animationType="slide" transparent={false} visible={true}>
             <View style={[styles.container, { backgroundColor: '#000' }]}>
+                {/* Content */}
+                <View style={styles.content}>
+                    <ScrollView
+                        horizontal
+                        pagingEnabled
+                        showsHorizontalScrollIndicator={false}
+                        onScroll={(e) => {
+                            const slideSize = e.nativeEvent.layoutMeasurement.width;
+                            const index = e.nativeEvent.contentOffset.x / slideSize;
+                            setCurrentIndex(Math.round(index));
+                        }}
+                        scrollEventThrottle={16}
+                    >
+                        {items.map((item, index) => (
+                            <View key={`${item.uri}-${index}`} style={{ width, justifyContent: 'center', alignItems: 'center' }}>
+                                {item.type === 'image' || item.type === 'video' ? (
+                                    item.type === 'image' ? (
+                                        <Image source={{ uri: item.uri }} style={styles.media} resizeMode="contain" />
+                                    ) : (
+                                        <VideoPreviewContainer uri={item.uri} />
+                                    )
+                                ) : (
+                                    // Document Preview
+                                    <View style={styles.docContainer}>
+                                        <Text style={styles.docText}>Document Selected</Text>
+                                        <Text style={styles.docSubText}>{item.fileName || item.uri.split('/').pop()}</Text>
+                                    </View>
+                                )}
+                            </View>
+                        ))}
+                    </ScrollView>
+                </View>
+
                 {/* Header */}
                 <View style={styles.header}>
                     <TouchableOpacity onPress={onClose} style={styles.iconBtn}>
@@ -55,6 +108,11 @@ export default function MediaPreview({ uri, type, onSend, onClose }: MediaPrevie
                     </TouchableOpacity>
 
                     <View style={styles.headerControls}>
+                        {items.length > 1 && (
+                            <View style={styles.badge}>
+                                <Text style={styles.badgeText}>{currentIndex + 1} / {items.length}</Text>
+                            </View>
+                        )}
                         {/* Ephemeral Toggles */}
                         <TouchableOpacity
                             onPress={() => setViewOnce(!viewOnce)}
@@ -74,71 +132,47 @@ export default function MediaPreview({ uri, type, onSend, onClose }: MediaPrevie
                     </View>
                 </View>
 
-                {/* Content */}
-                <View style={styles.content}>
-                    {type === 'image' || type === 'video' ? (
-                        type === 'image' ? (
-                            <Image source={{ uri }} style={styles.media} resizeMode="contain" />
-                        ) : (
-                            <View style={styles.videoContainer}>
-                                <VideoView
-                                    player={player}
-                                    style={styles.media}
-                                    nativeControls={false}
-                                    contentFit="contain"
-                                />
-                                <TouchableOpacity style={styles.playOverlay} onPress={togglePlayback}>
-                                    {!isPlaying && <Play size={50} color="rgba(255,255,255,0.8)" fill="rgba(255,255,255,0.5)" />}
-                                </TouchableOpacity>
-                            </View>
-                        )
-                    ) : (
-                        // Document Preview
-                        <View style={styles.docContainer}>
-                            <Text style={styles.docText}>Document Selected</Text>
-                            <Text style={styles.docSubText}>{uri.split('/').pop()}</Text>
-                        </View>
-                    )}
-                </View>
-
                 {/* Footer / Caption */}
                 <KeyboardAvoidingView
                     behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                     style={styles.keyboardView}
                 >
                     <BlurView intensity={80} tint="dark" style={styles.footer}>
-                        <View style={styles.inputContainer}>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Add a caption..."
-                                placeholderTextColor="#999"
-                                value={caption}
-                                onChangeText={setCaption}
-                                multiline
-                            />
-                            {/* Password Toggle */}
-                            <TouchableOpacity
-                                style={[styles.passwordBtn, password ? styles.passwordBtnActive : null]}
-                                onPress={() => setShowPasswordInput(!showPasswordInput)}
-                            >
-                                <Lock size={20} color={password ? '#fff' : '#ccc'} />
-                            </TouchableOpacity>
+                        <View style={styles.footerContent}>
+                            {showPasswordInput && (
+                                <TextInput
+                                    style={styles.passwordInput}
+                                    placeholder="Set Password (Optional)"
+                                    placeholderTextColor="#999"
+                                    value={password}
+                                    onChangeText={setPassword}
+                                    secureTextEntry
+                                />
+                            )}
+                            <View style={styles.footerRow}>
+                                <View style={styles.inputContainer}>
+                                    <TextInput
+                                        style={styles.input}
+                                        placeholder="Add a caption..."
+                                        placeholderTextColor="#999"
+                                        value={caption}
+                                        onChangeText={setCaption}
+                                        multiline
+                                    />
+                                    {/* Password Toggle */}
+                                    <TouchableOpacity
+                                        style={[styles.passwordBtn, password ? styles.passwordBtnActive : null]}
+                                        onPress={() => setShowPasswordInput(!showPasswordInput)}
+                                    >
+                                        <Lock size={20} color={password ? '#fff' : '#ccc'} />
+                                    </TouchableOpacity>
+                                </View>
+
+                                <TouchableOpacity onPress={handleSend} style={styles.sendBtn}>
+                                    <Send size={24} color="#fff" />
+                                </TouchableOpacity>
+                            </View>
                         </View>
-
-                        {showPasswordInput && (
-                            <TextInput
-                                style={styles.passwordInput}
-                                placeholder="Set Password (Optional)"
-                                placeholderTextColor="#999"
-                                value={password}
-                                onChangeText={setPassword}
-                                secureTextEntry
-                            />
-                        )}
-
-                        <TouchableOpacity onPress={handleSend} style={styles.sendBtn}>
-                            <Send size={24} color="#fff" />
-                        </TouchableOpacity>
                     </BlurView>
                 </KeyboardAvoidingView>
             </View>
@@ -156,7 +190,8 @@ const styles = StyleSheet.create({
         top: 50,
         left: 0,
         right: 0,
-        zIndex: 10,
+        zIndex: 50,
+        elevation: 10,
         flexDirection: 'row',
         justifyContent: 'space-between',
         paddingHorizontal: 16,
@@ -170,6 +205,19 @@ const styles = StyleSheet.create({
         padding: 8,
         backgroundColor: 'rgba(0,0,0,0.3)',
         borderRadius: 20,
+    },
+    badge: {
+        backgroundColor: '#3B82F6',
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    badgeText: {
+        color: '#fff',
+        fontWeight: 'bold',
+        fontSize: 12,
     },
     toggleBtn: {
         flexDirection: 'row',
@@ -217,13 +265,21 @@ const styles = StyleSheet.create({
         bottom: 0,
         left: 0,
         right: 0,
-        zIndex: 20,
+        zIndex: 50,
+        elevation: 10,
     },
     footer: {
-        flexDirection: 'row',
-        alignItems: 'center',
         padding: 12,
-        paddingBottom: 30, // Safe area
+        paddingBottom: Platform.OS === 'ios' ? 30 : 12,
+    },
+    footerContent: {
+        width: '100%',
+        flexDirection: 'column',
+    },
+    footerRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        width: '100%',
     },
     input: {
         flex: 1,
@@ -283,6 +339,5 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
         marginBottom: 10,
-        marginTop: 10,
     },
 });

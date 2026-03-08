@@ -90,7 +90,7 @@ function LoginContent() {
             <div className="text-center">
               <h1 className="text-2xl sm:text-3xl font-bold text-white">Welcome Back</h1>
               <p className="mt-2 text-sm text-gray-300">
-                Sign in to continue to Fuy
+                Sign in to continue to Dvange
               </p>
             </div>
 

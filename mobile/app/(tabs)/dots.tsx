@@ -3,6 +3,9 @@ import { View, Text, Dimensions, TouchableOpacity, Image, StyleSheet, FlatList, 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import FeedVideoPlayer from '../../components/FeedVideoPlayer';
+import CustomToast from '../../components/CustomToast';
+import FloatingReactionBubbles from '../../components/FloatingReactionBubbles';
+import ReactionBubblesModal from '../../components/ReactionBubblesModal';
 import { Share2, MoreVertical, Play, Pause, Circle as DotIcon, X, Search, ChevronLeft, Send, Bookmark, Check, Plus, LayoutGrid as Grid, List, Maximize, Minimize, Menu, Volume2, VolumeX, Heart, MessageCircle } from 'lucide-react-native';
 import { PoopIcon, MagicCapIcon } from '../../components/ReactionIcons';
 import { useTheme } from '../../context/ThemeContext';
@@ -21,7 +24,13 @@ import FillsTab from '../../components/FillsTab';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 import { FeedCacheService } from '../../services/FeedCacheService';
+
+// Session-level flag for invite toast on dots page
+let inviteToastShownThisSessionDots = false;
 import { ExploreService } from '../../services/ExploreService';
+import * as ImagePicker from 'expo-image-picker';
+import { MediaUploadService } from '../../services/MediaUploadService';
+import { PostService } from '../../services/PostService';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -30,9 +39,7 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const CATEGORIES = [
     { id: 'lills', label: 'Lills' },
-    // { id: 'fills', label: 'Fills' }, // V2 - hidden for now
     { id: 'bloom', label: 'Bloom' },
-    { id: 'auds', label: 'Auds' },
 ];
 
 const FILL_FILTERS = ['All', 'New to you', 'Live', 'Stand-Up', 'Gaming', 'Music', 'Cartoons'];
@@ -104,18 +111,34 @@ const DotItem = ({ item, isActive, autoScroll, onVideoEnd, onToggleAutoScroll, o
     const [isSubscribed, setIsSubscribed] = useState(item.isSubscribed);
     const [isPlaying, setIsPlaying] = useState(true);
     const [isMuted, setIsMuted] = useState(false);
+    const [liveBubbles, setLiveBubbles] = useState<any[]>([]);
 
-    // Safety check
-    if (!item) return null;
+    // Double tap to like
+    const lastTapRef = useRef<number>(0);
+    const heartAnim = useRef(new Animated.Value(0)).current;
+    const [showDoubleTapHeart, setShowDoubleTapHeart] = useState(false);
 
-    // Video Refs (Removed for FeedVideoPlayer usage)
+    // Fetch live bubbles for this post
+    const fetchLiveBubbles = async () => {
+        if (!item?.postId) return;
+        try {
+            const { data, error } = await supabase
+                .from('ReactionBubble')
+                .select('id, mediaUrl, mediaType')
+                .eq('postId', item.postId)
+                .order('createdAt', { ascending: false })
+                .limit(5);
+            if (!error && data) setLiveBubbles(data);
+        } catch (e) { /* silent */ }
+    };
 
     // Sync state if item changes
     useEffect(() => {
         setReactionCounts(item.reactionCounts);
         setUserReaction(item.userReaction);
-        setIsSubscribed(item.isSubscribed); // Update optimistic toggle
-    }, [item]);
+        setIsSubscribed(item.isSubscribed);
+        fetchLiveBubbles();
+    }, [item.postId]);
 
     // Handle Follow
     const handleSubscribe = async () => {
@@ -170,6 +193,57 @@ const DotItem = ({ item, isActive, autoScroll, onVideoEnd, onToggleAutoScroll, o
         }
     };
 
+    const [toast, setToast] = useState({ visible: false, message: '', type: 'success' });
+    const [showBubblesModal, setShowBubblesModal] = useState(false);
+
+    const handleAddBubble = async () => {
+        if (!session?.user || !item) return;
+
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+            setToast({ visible: true, message: "Camera permission denied.", type: 'error' });
+            return;
+        }
+
+        const result = await ImagePicker.launchCameraAsync({
+            mediaTypes: ['images', 'videos'],
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.5,
+            videoMaxDuration: 3,
+        });
+
+        if (!result.canceled && result.assets[0].uri) {
+            const asset = result.assets[0];
+
+            if (asset.type === 'video' && asset.duration && asset.duration > 4000) {
+                setToast({ visible: true, message: "Video must be under 3 seconds.", type: 'error' });
+                return;
+            }
+
+            try {
+                const uploadResult = await MediaUploadService.uploadMedia(
+                    asset.uri,
+                    asset.type === 'video' ? 'VIDEO' : 'IMAGE'
+                );
+
+                await PostService.addBubble(item.postId, session.user.id, {
+                    url: uploadResult.url,
+                    type: asset.type === 'video' ? 'VIDEO' : 'IMAGE'
+                });
+
+                // Add optimistically and also refresh from DB
+                setLiveBubbles(prev => [{ id: Date.now().toString(), mediaUrl: uploadResult.url, mediaType: asset.type === 'video' ? 'VIDEO' : 'IMAGE' }, ...prev]);
+                setToast({ visible: true, message: "Reaction bubble added!", type: 'success' });
+                // Refresh from DB to confirm
+                setTimeout(fetchLiveBubbles, 1500);
+            } catch (error) {
+                console.error("Bubble upload failed:", error);
+                setToast({ visible: true, message: "Failed to upload bubble.", type: 'error' });
+            }
+        }
+    };
+
     const handleShare = async () => {
         onSharePress(item);
     };
@@ -178,7 +252,30 @@ const DotItem = ({ item, isActive, autoScroll, onVideoEnd, onToggleAutoScroll, o
     const resizeMode = item.category === 'fills' ? 'contain' : 'cover';
 
     const handleTogglePlay = () => {
-        setIsPlaying(!isPlaying);
+        const now = Date.now();
+        const DOUBLE_TAP_DELAY = 300;
+
+        if (now - lastTapRef.current < DOUBLE_TAP_DELAY) {
+            // Double tap - like with 'W'
+            if (userReaction !== 'W') {
+                handleReaction('W');
+            }
+            setShowDoubleTapHeart(true);
+            heartAnim.setValue(0);
+            Animated.sequence([
+                Animated.spring(heartAnim, { toValue: 1, useNativeDriver: true, friction: 3 }),
+                Animated.delay(400),
+                Animated.timing(heartAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+            ]).start(() => setShowDoubleTapHeart(false));
+            lastTapRef.current = 0;
+        } else {
+            lastTapRef.current = now;
+            setTimeout(() => {
+                if (lastTapRef.current === now) {
+                    setIsPlaying(!isPlaying);
+                }
+            }, DOUBLE_TAP_DELAY);
+        }
     };
 
     return (
@@ -206,44 +303,57 @@ const DotItem = ({ item, isActive, autoScroll, onVideoEnd, onToggleAutoScroll, o
                     );
                 })()
             ) : (
-                <TouchableWithoutFeedback onPress={handleTogglePlay}>
-                    <View style={[StyleSheet.absoluteFill, { backgroundColor: 'black' }]}>
-                        {item.mediaType === 'video' && item.mediaUrl ? (
-                            <FeedVideoPlayer
-                                url={item.mediaUrl}
-                                isActive={isActive}
-                                isPaused={!isPlaying}
-                                isMuted={isMuted}
-                                isScreenFocused={isScreenFocused}
-                                contentFit={resizeMode}
-                                isLooping={!autoScroll}
-                                onPlayToEnd={() => { if (autoScroll) onVideoEnd(); }}
-                            />
-                        ) : (
-                            <Image
-                                source={{ uri: item.mediaUrl }}
+                <>
+                    <TouchableWithoutFeedback onPress={handleTogglePlay}>
+                        <View style={[StyleSheet.absoluteFill, { backgroundColor: 'black' }]}>
+                            {item.mediaType === 'video' && item.mediaUrl ? (
+                                <FeedVideoPlayer
+                                    url={item.mediaUrl}
+                                    isActive={isActive}
+                                    isPaused={!isPlaying}
+                                    isMuted={isMuted}
+                                    isScreenFocused={isScreenFocused}
+                                    contentFit={resizeMode}
+                                    isLooping={!autoScroll}
+                                    onPlayToEnd={() => { if (autoScroll) onVideoEnd(); }}
+                                />
+                            ) : (
+                                <Image
+                                    source={{ uri: item.mediaUrl }}
+                                    style={StyleSheet.absoluteFill}
+                                    resizeMode={resizeMode}
+                                />
+                            )}
+
+                            {/* Gradient Overlay for text readability */}
+                            <LinearGradient
+                                colors={['transparent', 'rgba(0,0,0,0.1)', 'rgba(0,0,0,0.8)']}
                                 style={StyleSheet.absoluteFill}
-                                resizeMode={resizeMode}
+                                pointerEvents="none"
                             />
-                        )}
 
-                        {/* Gradient Overlay for text readability */}
-                        <LinearGradient
-                            colors={['transparent', 'rgba(0,0,0,0.1)', 'rgba(0,0,0,0.8)']}
-                            style={StyleSheet.absoluteFill}
-                            pointerEvents="none"
-                        />
+                            {/* Play Icon Overlay */}
+                            {!isPlaying && item.mediaType === 'video' && (
+                                <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)' }]}>
+                                    <Play size={64} color="rgba(255,255,255,0.8)" fill="rgba(255,255,255,0.8)" />
+                                </View>
+                            )}
+                        </View>
+                    </TouchableWithoutFeedback>
 
-                        {/* Play Icon Overlay */}
-                        {!isPlaying && item.mediaType === 'video' && (
-                            <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)' }]}>
-                                <Play size={64} color="rgba(255,255,255,0.8)" fill="rgba(255,255,255,0.8)" />
-                            </View>
-                        )}
-                    </View>
-                </TouchableWithoutFeedback>
+                    {/* Double-tap heart animation */}
+                    {showDoubleTapHeart && (
+                        <Animated.View pointerEvents="none" style={{
+                            position: 'absolute', top: '50%', left: '50%',
+                            marginLeft: -40, marginTop: -40, zIndex: 999,
+                            opacity: heartAnim,
+                            transform: [{ scale: heartAnim.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1.2] }) }],
+                        }}>
+                            <Heart size={80} color="#ef4444" fill="#ef4444" />
+                        </Animated.View>
+                    )}
+                </>
             )}
-
             {/* Main Overlay UI - Pushed Down */}
             <SafeAreaView style={{ flex: 1, pointerEvents: 'box-none' }}>
                 <View style={{ flex: 1, justifyContent: 'flex-end', paddingBottom: 20 }} pointerEvents="box-none">
@@ -255,22 +365,24 @@ const DotItem = ({ item, isActive, autoScroll, onVideoEnd, onToggleAutoScroll, o
                     <View style={{ position: 'absolute', right: 8, bottom: 90, alignItems: 'center', gap: 8 }}>
                         {/* Reaction Bubbles (Vertical Stack) */}
                         <View style={{ alignItems: 'center', marginBottom: 6 }}>
-                            {(item.topBubbles || []).slice(0, 3).map((bubble, i) => (
-                                <View key={i} style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 1, borderColor: '#121212', marginTop: -8, zIndex: 3 - i, overflow: 'hidden', backgroundColor: '#333', alignItems: 'center', justifyContent: 'center' }}>
-                                    {bubble.mediaType === 'VIDEO' ? (
-                                        <FeedVideoPlayer
-                                            url={bubble.mediaUrl}
-                                            isActive={isActive && isScreenFocused}
-                                            contentFit="cover"
-                                            isLooping
-                                            isMuted={true}
-                                        />
-                                    ) : (
-                                        <Image source={{ uri: bubble.mediaUrl }} style={{ width: '100%', height: '100%' }} />
-                                    )}
-                                </View>
-                            ))}
-                            <TouchableOpacity style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center', borderStyle: 'dashed', borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)', marginTop: -4, zIndex: 0 }}>
+                            <TouchableOpacity onPress={() => liveBubbles.length > 0 && setShowBubblesModal(true)}>
+                                {liveBubbles.slice(0, 3).map((bubble, i) => (
+                                    <View key={i} style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 1, borderColor: '#121212', marginTop: i === 0 ? 0 : -8, zIndex: 3 - i, overflow: 'hidden', backgroundColor: '#333', alignItems: 'center', justifyContent: 'center' }}>
+                                        {bubble.mediaType === 'VIDEO' ? (
+                                            <FeedVideoPlayer
+                                                url={bubble.mediaUrl}
+                                                isActive={isActive && isScreenFocused}
+                                                contentFit="cover"
+                                                isLooping
+                                                isMuted={true}
+                                            />
+                                        ) : (
+                                            <Image source={{ uri: bubble.mediaUrl }} style={{ width: '100%', height: '100%' }} />
+                                        )}
+                                    </View>
+                                ))}
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={handleAddBubble} style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center', borderStyle: 'dashed', borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)', marginTop: -4, zIndex: 0 }}>
                                 <Plus size={10} color="#fff" />
                             </TouchableOpacity>
                         </View>
@@ -278,59 +390,41 @@ const DotItem = ({ item, isActive, autoScroll, onVideoEnd, onToggleAutoScroll, o
                         {/* W Button */}
                         <TouchableOpacity
                             onPress={() => handleReaction('W')}
-                            style={{
-                                width: 32, height: 32, borderRadius: 16,
-                                backgroundColor: userReaction === 'W' ? 'rgba(239, 68, 68, 0.4)' : 'rgba(0,0,0,0.4)',
-                                borderWidth: 1, borderColor: userReaction === 'W' ? '#ef4444' : 'rgba(255,255,255,0.15)',
-                                justifyContent: 'center', alignItems: 'center'
-                            }}
+                            style={{ alignItems: 'center', padding: 4 }}
                         >
                             <Heart
-                                size={16}
+                                size={22}
                                 color={userReaction === 'W' ? '#ef4444' : 'white'}
                                 fill={userReaction === 'W' ? '#ef4444' : 'transparent'}
                             />
-                            <Text style={{ color: 'white', fontWeight: '700', fontSize: 8, position: 'absolute', bottom: -10 }}>{formatNumber(reactionCounts.W)}</Text>
+                            <Text style={{ color: 'white', fontWeight: '700', fontSize: 9, marginTop: 2 }}>{formatNumber(reactionCounts.W)}</Text>
                         </TouchableOpacity>
-                        <View style={{ height: 6 }} />
 
                         {/* L Button */}
                         <TouchableOpacity
                             onPress={() => handleReaction('L')}
-                            style={{
-                                width: 32, height: 32, borderRadius: 16,
-                                backgroundColor: userReaction === 'L' ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0,0,0,0.4)',
-                                borderWidth: 1, borderColor: userReaction === 'L' ? '#ffffff' : 'rgba(255,255,255,0.15)',
-                                justifyContent: 'center', alignItems: 'center'
-                            }}
+                            style={{ alignItems: 'center', padding: 4 }}
                         >
                             {userReaction === 'L' ? (
                                 <PoopIcon color="#f97316" />
                             ) : (
-                                <Text style={{ color: 'white', fontWeight: '900', fontSize: 13 }}>L</Text>
+                                <Text style={{ color: 'white', fontWeight: '900', fontSize: 16 }}>L</Text>
                             )}
-                            <Text style={{ color: 'white', fontWeight: '700', fontSize: 8, position: 'absolute', bottom: -10 }}>{formatNumber(reactionCounts.L)}</Text>
+                            <Text style={{ color: 'white', fontWeight: '700', fontSize: 9, marginTop: 2 }}>{formatNumber(reactionCounts.L)}</Text>
                         </TouchableOpacity>
-                        <View style={{ height: 6 }} />
 
                         {/* CAP Button */}
                         <TouchableOpacity
                             onPress={() => handleReaction('CAP')}
-                            style={{
-                                width: 32, height: 32, borderRadius: 16,
-                                backgroundColor: userReaction === 'CAP' ? 'rgba(59, 130, 246, 0.4)' : 'rgba(0,0,0,0.4)',
-                                borderWidth: 1, borderColor: userReaction === 'CAP' ? '#3b82f6' : 'rgba(255,255,255,0.15)',
-                                justifyContent: 'center', alignItems: 'center'
-                            }}
+                            style={{ alignItems: 'center', padding: 4 }}
                         >
                             {userReaction === 'CAP' ? (
                                 <MagicCapIcon color="#14532d" />
                             ) : (
-                                <Text style={{ color: 'white', fontWeight: '900', fontSize: 9 }}>CAP</Text>
+                                <Text style={{ color: 'white', fontWeight: '900', fontSize: 11 }}>CAP</Text>
                             )}
-                            <Text style={{ color: 'white', fontWeight: '700', fontSize: 8, position: 'absolute', bottom: -10 }}>{formatNumber(reactionCounts.CAP)}</Text>
+                            <Text style={{ color: 'white', fontWeight: '700', fontSize: 9, marginTop: 2 }}>{formatNumber(reactionCounts.CAP)}</Text>
                         </TouchableOpacity>
-                        <View style={{ height: 6 }} />
                     </View>
 
                     {/* Bottom Content: User Info & Captions & Reactions */}
@@ -383,6 +477,9 @@ const DotItem = ({ item, isActive, autoScroll, onVideoEnd, onToggleAutoScroll, o
                     </View>
                 </View>
             </SafeAreaView>
+
+            <CustomToast visible={toast.visible} message={toast.message} type={toast.type as any} onHide={() => setToast({ ...toast, visible: false })} />
+            <ReactionBubblesModal visible={showBubblesModal} postId={item.postId} onClose={() => setShowBubblesModal(false)} />
         </View>
     );
 };
@@ -418,6 +515,7 @@ const FillsPlayer = ({ dots, activeIndex, setActiveIndex, isScreenFocused, onBac
 
     // Reaction bubbles state
     const [reactionBubbles, setReactionBubbles] = useState<any[]>([]);
+    const [showBubblesModal, setShowBubblesModal] = useState(false);
 
     // Report/Block state
     const [reportingCommentId, setReportingCommentId] = useState<string | null>(null);
@@ -545,6 +643,65 @@ const FillsPlayer = ({ dots, activeIndex, setActiveIndex, isScreenFocused, onBac
         }
     };
 
+    const [toast, setToast] = useState({ visible: false, message: '', type: 'success' });
+
+    const handleAddBubble = async () => {
+        if (!session?.user || !currentItem) return;
+
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+            setToast({ visible: true, message: "Camera permission denied.", type: 'error' });
+            return;
+        }
+
+        const result = await ImagePicker.launchCameraAsync({
+            mediaTypes: ['images', 'videos'],
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.5,
+            videoMaxDuration: 3,
+        });
+
+        if (!result.canceled && result.assets[0].uri) {
+            const asset = result.assets[0];
+
+            if (asset.type === 'video' && asset.duration && asset.duration > 4000) {
+                setToast({ visible: true, message: "Video must be under 3 seconds.", type: 'error' });
+                return;
+            }
+
+            // Optimistic UI for bubbles in Fills
+            const tempBubble = {
+                id: 'temp-' + Date.now(),
+                mediaUrl: asset.uri,
+                mediaType: asset.type === 'video' ? 'VIDEO' : 'IMAGE',
+                user: { profile: { avatarUrl: session?.user?.user_metadata?.avatar_url } }
+            };
+            setReactionBubbles(prev => [tempBubble, ...prev]);
+
+            try {
+                const uploadResult = await MediaUploadService.uploadMedia(
+                    asset.uri,
+                    asset.type === 'video' ? 'VIDEO' : 'IMAGE'
+                );
+
+                await PostService.addBubble(currentItem.postId, session.user.id, {
+                    url: uploadResult.url,
+                    type: asset.type === 'video' ? 'VIDEO' : 'IMAGE'
+                });
+
+                // Replace temp with real URL and refresh from DB
+                setReactionBubbles(prev => prev.map(b => b.id === tempBubble.id ? { ...b, mediaUrl: uploadResult.url } : b));
+                setToast({ visible: true, message: "Reaction bubble added!", type: 'success' });
+                setTimeout(fetchReactionBubbles, 1500);
+            } catch (error) {
+                console.error("Bubble upload failed:", error);
+                setToast({ visible: true, message: "Failed to upload bubble.", type: 'error' });
+                setReactionBubbles(prev => prev.filter(b => b.id !== tempBubble.id));
+            }
+        }
+    };
+
     const removeFromUpNext = (itemId: string) => {
         // Use functional state update to ensure latest state and prevent race conditions
         setHiddenItems(prev => {
@@ -569,7 +726,7 @@ const FillsPlayer = ({ dots, activeIndex, setActiveIndex, isScreenFocused, onBac
                                 reason: 'Inappropriate Content',
                                 status: 'PENDING',
                                 target: 'COMMENT',
-                                details: `Reported comment ${commentId}`
+                                details: `Reported comment ${commentId} `
                             });
                             Alert.alert("Report Submitted", "Thank you for making the community safer.");
                         } catch (e) {
@@ -616,7 +773,7 @@ const FillsPlayer = ({ dots, activeIndex, setActiveIndex, isScreenFocused, onBac
         const totalSeconds = Math.floor(millis / 1000);
         const minutes = Math.floor(totalSeconds / 60);
         const seconds = totalSeconds % 60;
-        return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        return `${minutes}:${seconds.toString().padStart(2, '0')} `;
     };
 
 
@@ -770,13 +927,18 @@ const FillsPlayer = ({ dots, activeIndex, setActiveIndex, isScreenFocused, onBac
                                 </TouchableOpacity>
                             </View>
 
-                            {/* Reaction Bubbles */}
                             {reactionBubbles.length > 0 && (
                                 <View style={{ marginBottom: 16 }}>
-                                    <Text style={{ color: colors.secondary, fontSize: 11, marginBottom: 8, fontWeight: '600' }}>Reactions</Text>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                                        <Text style={{ color: colors.secondary, fontSize: 11, fontWeight: '600' }}>Reactions</Text>
+                                        <TouchableOpacity onPress={handleAddBubble} style={{ flexDirection: 'row', alignItems: 'center', padding: 4 }}>
+                                            <Plus size={12} color={colors.primary} />
+                                            <Text style={{ color: colors.primary, fontSize: 10, marginLeft: 2, fontWeight: 'bold' }}>Add</Text>
+                                        </TouchableOpacity>
+                                    </View>
                                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
                                         {reactionBubbles.map((bubble) => (
-                                            <TouchableOpacity key={bubble.id} style={{ width: 40, height: 40, borderRadius: 20, overflow: 'hidden', borderWidth: 1.5, borderColor: colors.primary }}>
+                                            <TouchableOpacity key={bubble.id} onPress={() => setShowBubblesModal(true)} style={{ width: 40, height: 40, borderRadius: 20, overflow: 'hidden', borderWidth: 1.5, borderColor: colors.primary }}>
                                                 {bubble.mediaType === 'VIDEO' ? (
                                                     <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
                                                         <Play size={12} color="#fff" fill="#fff" />
@@ -788,6 +950,13 @@ const FillsPlayer = ({ dots, activeIndex, setActiveIndex, isScreenFocused, onBac
                                         ))}
                                     </ScrollView>
                                 </View>
+                            )}
+
+                            {reactionBubbles.length === 0 && (
+                                <TouchableOpacity onPress={handleAddBubble} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, marginBottom: 16, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, borderStyle: 'dashed', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }}>
+                                    <Plus size={16} color={colors.primary} />
+                                    <Text style={{ color: colors.primary, fontSize: 12, marginLeft: 6, fontWeight: 'bold' }}>Add Reaction Bubble</Text>
+                                </TouchableOpacity>
                             )}
 
                             {/* Comments Section */}
@@ -877,6 +1046,8 @@ const FillsPlayer = ({ dots, activeIndex, setActiveIndex, isScreenFocused, onBac
                                     </ScrollView>
                                 </View>
                             </View>
+
+                            <FloatingReactionBubbles bubbles={reactionBubbles} />
                         </ScrollView>
                     )}
 
@@ -951,6 +1122,9 @@ const FillsPlayer = ({ dots, activeIndex, setActiveIndex, isScreenFocused, onBac
                     )
                 }
             </View >
+
+            <CustomToast visible={toast.visible} message={toast.message} type={toast.type as any} onHide={() => setToast({ ...toast, visible: false })} />
+            {currentItem && <ReactionBubblesModal visible={showBubblesModal} postId={currentItem.postId} onClose={() => setShowBubblesModal(false)} />}
         </View >
     );
 };
@@ -976,9 +1150,30 @@ export default function DotsScreen() {
     const [bloomSearchResults, setBloomSearchResults] = useState<{ users: any[], posts: any[] }>({ users: [], posts: [] });
 
     // Feed/Grid State
-    const [viewMode, setViewMode] = useState<'feed' | 'grid'>('feed'); // Start in Feed for Lills
+    const [viewMode, setViewMode] = useState<'feed' | 'grid'>('feed');
+
+    // Invite toast state
+    const [showInviteToast, setShowInviteToast] = useState(false);
+    const inviteToastAnim = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+        let inviteTimer2: NodeJS.Timeout;
+        if (isScreenFocused && !inviteToastShownThisSessionDots) {
+            inviteTimer2 = setTimeout(() => {
+                if (!inviteToastShownThisSessionDots) {
+                    setShowInviteToast(true);
+                    inviteToastShownThisSessionDots = true;
+                    Animated.spring(inviteToastAnim, { toValue: 1, useNativeDriver: true, friction: 6 }).start();
+                }
+            }, 120000); // 2 minutes
+        }
+        return () => { if (inviteTimer2) clearTimeout(inviteTimer2); };
+    }, [isScreenFocused]);
     const [dots, setDots] = useState<DotData[]>([]);
     const [loading, setLoading] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [hasMore, setHasMore] = useState(true);
+    const [dotsPage, setDotsPage] = useState(0);
     const [activeIndex, setActiveIndex] = useState(0);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeFillFilter, setActiveFillFilter] = useState('All');
@@ -1089,11 +1284,11 @@ export default function DotsScreen() {
             // Search Users
             const { data: users } = await supabase.from('Profile').select('userId, displayName, avatarUrl').ilike('displayName', `%${bloomSearchQuery}%`).limit(5);
             // Search Posts
-            const { data: posts } = await supabase.from('Post').select('id, content, user:User(name)').ilike('content', `%${bloomSearchQuery}%`).limit(5);
+            const { data: posts } = await supabase.from('Post').select('id, content, user:User(name, profile:Profile(displayName))').ilike('content', `%${bloomSearchQuery}%`).limit(5);
 
             setBloomSearchResults({
                 users: users?.map(u => ({ id: u.userId, name: u.displayName, avatar: u.avatarUrl, handle: '@' + u.displayName })) || [],
-                posts: posts?.map((p: any) => ({ id: p.id, content: p.content, author: Array.isArray(p.user) ? p.user[0]?.name : p.user?.name })) || []
+                posts: posts?.map((p: any) => ({ id: p.id, content: p.content, author: Array.isArray(p.user) ? (p.user[0]?.profile?.displayName || p.user[0]?.name) : (p.user?.profile?.displayName || p.user?.name) })) || []
             });
 
         }, 500);
@@ -1111,6 +1306,43 @@ export default function DotsScreen() {
         pupds: 'PULLUPDOWN',
     };
 
+    const PAGE_SIZE = 20;
+
+    const formatDots = (apiPosts: any[]): DotData[] => {
+        return (apiPosts || []).map((apiPost: any) => {
+            const media = apiPost.media || [];
+            let mediaUrl = '';
+            let mediaType: 'video' | 'image' | 'audio' = 'image';
+
+            if (media.length > 0) {
+                mediaUrl = media[0].url;
+                const type = media[0].type?.toUpperCase();
+                mediaType = type === 'VIDEO' ? 'video' : type === 'AUDIO' ? 'audio' : 'image';
+            }
+
+            return {
+                id: apiPost.id,
+                postId: apiPost.id,
+                userId: apiPost.user?.id || '',
+                username: apiPost.user?.profile?.displayName || apiPost.user?.name || 'User',
+                avatar: apiPost.user?.profile?.avatarUrl || '',
+                description: apiPost.content || '',
+                likes: 0,
+                comments: 0,
+                mediaUrl,
+                mediaType,
+                category: apiPost.postType?.toLowerCase() || 'mix',
+                isSubscribed: false,
+                followersCount: 0,
+                createdAt: apiPost.createdAt,
+                reactionCounts: { W: 0, L: 0, CAP: 0 },
+                userReaction: null,
+                topBubbles: [],
+                postMedia: media
+            };
+        });
+    };
+
     const fetchDots = async (category: string, skipCache = false) => {
         // 1. Try loading cached data first (instant display)
         const cacheKey = category === 'lills' || category === 'bloom' ? 'lills' : 'fills';
@@ -1122,7 +1354,6 @@ export default function DotsScreen() {
                 console.log(`[Dots] Using cached ${cacheKey} data`);
                 setDots(cached as any);
                 setLoading(false);
-                // Continue to fetch fresh in background
             } else {
                 setLoading(true);
             }
@@ -1130,59 +1361,22 @@ export default function DotsScreen() {
             setLoading(true);
         }
         try {
-            const postType = categoryToPostType[category];
-            if (!postType && category !== 'bloom') {
-                console.log('[Dots] No postType for category:', category);
-                setDots([]);
-                setLoading(false);
-                return;
-            }
+            const usersFilter = category === 'bloom' ? selectedUsers : undefined;
+            const slashesFilter = category === 'bloom' ? selectedSlashes : undefined;
+            const apiPosts = await ExploreService.getDotsFeed(category, PAGE_SIZE, 0, usersFilter, slashesFilter);
 
-            // USE ALGORITHMIC ENDPOINT
-            const apiPosts = await ExploreService.getDotsFeed(category as any, 10);
+            console.log(`[Dots] Fetched ${apiPosts?.length || 0} posts for ${category}`);
 
-            console.log(`[Dots] Fetched ${apiPosts?.length || 0} algorithmic posts for ${category}`);
+            const formattedDots = formatDots(apiPosts);
 
-            const formattedDots = (apiPosts || []).map((apiPost: any) => {
-                const media = apiPost.media || [];
-                let mediaUrl = '';
-                let mediaType: 'video' | 'image' | 'audio' = 'image';
-
-                if (media.length > 0) {
-                    mediaUrl = media[0].url;
-                    const type = media[0].type?.toUpperCase();
-                    mediaType = type === 'VIDEO' ? 'video' : type === 'AUDIO' ? 'audio' : 'image';
-                }
-
-                return {
-                    id: apiPost.id,
-                    postId: apiPost.id,
-                    userId: apiPost.user?.id || '',
-                    username: apiPost.user?.profile?.displayName || apiPost.user?.name || 'User',
-                    avatar: apiPost.user?.profile?.avatarUrl || '',
-                    description: apiPost.content || '',
-                    likes: 0,
-                    comments: 0,
-                    mediaUrl,
-                    mediaType,
-                    category: apiPost.postType?.toLowerCase() || 'mix',
-                    isSubscribed: false,
-                    followersCount: 0,
-                    createdAt: apiPost.createdAt,
-                    reactionCounts: { W: 0, L: 0, CAP: 0 },
-                    userReaction: null,
-                    topBubbles: [],
-                    postMedia: media
-                };
-            });
-
-            // Cache the results
             if (cacheKey === 'lills') {
                 await FeedCacheService.setDotsLills(formattedDots);
             } else {
                 await FeedCacheService.setDotsFills(formattedDots);
             }
             setDots(formattedDots);
+            setDotsPage(0);
+            setHasMore(apiPosts.length >= PAGE_SIZE);
         } catch (error) {
             console.error('[Dots] Error fetching dots:', error);
             setDots([]);
@@ -1190,6 +1384,34 @@ export default function DotsScreen() {
             setLoading(false);
         }
     };
+
+    const loadMoreDots = useCallback(async () => {
+        if (loadingMore || !hasMore) return;
+        setLoadingMore(true);
+        try {
+            const nextPage = dotsPage + 1;
+            const offset = nextPage * PAGE_SIZE;
+            const usersFilter = activeCategory === 'bloom' ? selectedUsers : undefined;
+            const slashesFilter = activeCategory === 'bloom' ? selectedSlashes : undefined;
+            const apiPosts = await ExploreService.getDotsFeed(activeCategory, PAGE_SIZE, offset, usersFilter, slashesFilter);
+            if (apiPosts.length === 0) {
+                setHasMore(false);
+            } else {
+                const newDots = formatDots(apiPosts);
+                setDots(prev => {
+                    const existingIds = new Set(prev.map(d => d.id));
+                    const unique = newDots.filter(d => !existingIds.has(d.id));
+                    return [...prev, ...unique];
+                });
+                setDotsPage(nextPage);
+                setHasMore(apiPosts.length >= PAGE_SIZE);
+            }
+        } catch (error) {
+            console.error('[Dots] Load more error:', error);
+        } finally {
+            setLoadingMore(false);
+        }
+    }, [loadingMore, hasMore, dotsPage, activeCategory]);
 
     const toggleSlashSelection = (tag: string) => {
         setSelectedSlashes(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
@@ -1477,7 +1699,17 @@ export default function DotsScreen() {
                 )}
             </SafeAreaView>
 
-            {viewMode === 'grid' ? (
+            {loading ? (
+                <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+                    <ActivityIndicator size="large" color="#fff" />
+                    <Text style={{ color: '#666', fontSize: 13, marginTop: 12 }}>Loading...</Text>
+                </View>
+            ) : dots.length === 0 ? (
+                <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 }}>
+                    <Text style={{ color: '#fff', fontSize: 18, fontWeight: '700', marginBottom: 8 }}>Nothing here yet</Text>
+                    <Text style={{ color: '#666', fontSize: 13, textAlign: 'center' }}>No content available for this category. Pull down to refresh.</Text>
+                </View>
+            ) : viewMode === 'grid' ? (
                 <FlatList
                     key="grid-view"
                     data={dots}
@@ -1501,9 +1733,12 @@ export default function DotsScreen() {
                     onViewableItemsChanged={onViewableItemsChanged}
                     viewabilityConfig={VIEWABILITY_CONFIG}
                     removeClippedSubviews={true}
-                    initialNumToRender={1}
-                    maxToRenderPerBatch={2}
-                    windowSize={3}
+                    initialNumToRender={2}
+                    maxToRenderPerBatch={3}
+                    windowSize={5}
+                    onEndReached={loadMoreDots}
+                    onEndReachedThreshold={0.5}
+                    ListFooterComponent={loadingMore ? <View style={{ height: SCREEN_HEIGHT, alignItems: 'center', justifyContent: 'center', backgroundColor: '#000' }}><ActivityIndicator size="large" color="#fff" /></View> : null}
                     style={{ backgroundColor: '#000' }}
                 />
             )}
@@ -1545,6 +1780,40 @@ export default function DotsScreen() {
                     onClose={() => setShareModalVisible(false)}
                     post={postToShare}
                 />
+            )}
+
+            {/* Timed Invite Toast */}
+            {showInviteToast && (
+                <Animated.View style={{
+                    position: 'absolute', bottom: 90, left: 16, right: 16,
+                    backgroundColor: '#1a1a1a', borderRadius: 16, padding: 14,
+                    flexDirection: 'row', alignItems: 'center',
+                    borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+                    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 8, elevation: 10,
+                    opacity: inviteToastAnim,
+                    transform: [{ translateY: inviteToastAnim.interpolate({ inputRange: [0, 1], outputRange: [40, 0] }) }],
+                }}>
+                    <View style={{ flex: 1 }}>
+                        <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14, marginBottom: 2 }}>Invite your friends</Text>
+                        <Text style={{ color: '#999', fontSize: 11 }}>Share Dvange with your crew</Text>
+                    </View>
+                    <TouchableOpacity
+                        onPress={async () => {
+                            try {
+                                await RNShare.share({ message: 'Join me on Dvange! Download the app: https://dvange.com/download' });
+                                Animated.timing(inviteToastAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start(() => setShowInviteToast(false));
+                            } catch (e) { /* cancelled */ }
+                        }}
+                        style={{ backgroundColor: '#fff', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, marginRight: 8 }}
+                    >
+                        <Text style={{ color: '#000', fontWeight: '700', fontSize: 12 }}>Share</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => {
+                        Animated.timing(inviteToastAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start(() => setShowInviteToast(false));
+                    }}>
+                        <Text style={{ color: '#666', fontSize: 18, fontWeight: '600', paddingHorizontal: 4 }}>X</Text>
+                    </TouchableOpacity>
+                </Animated.View>
             )}
         </View >
     );

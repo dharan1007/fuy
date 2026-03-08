@@ -37,14 +37,24 @@ export default function HealthView() {
     const { mode } = useTheme();
     const isDark = mode === 'dark';
 
-    // Monochrome colors
-    const colors = {
-        background: isDark ? '#000000' : '#FFFFFF',
-        surface: isDark ? '#111111' : '#F5F5F5',
-        border: isDark ? '#333333' : '#E0E0E0',
-        text: isDark ? '#FFFFFF' : '#000000',
-        textSecondary: isDark ? '#888888' : '#666666',
-        accent: isDark ? '#FFFFFF' : '#000000',
+    const colors = isDark ? {
+        background: '#0B0B0B',
+        surface: '#161616',
+        border: '#1E1E1E',
+        text: '#FFFFFF',
+        textSecondary: '#9CA3AF',
+        textTertiary: '#6B7280',
+        accent: '#FFFFFF',
+        accentSubtle: '#2A2A2A',
+    } : {
+        background: '#F8F8F8',
+        surface: '#FFFFFF',
+        border: '#E5E5E5',
+        text: '#000000',
+        textSecondary: '#6B7280',
+        textTertiary: '#9CA3AF',
+        accent: '#000000',
+        accentSubtle: '#F0F0F0',
     };
 
     const [subTab, setSubTab] = useState<'history' | 'diet' | 'recs'>('history');
@@ -67,10 +77,7 @@ export default function HealthView() {
     const [goal, setGoal] = useState<FitnessGoal>("maintain");
     const recs = getMicronutrientRecommendations(goal, "male");
 
-    // Load data on mount
-    useEffect(() => {
-        loadStoredData();
-    }, []);
+    useEffect(() => { loadStoredData(); }, []);
 
     const loadStoredData = async () => {
         try {
@@ -79,7 +86,6 @@ export default function HealthView() {
                 AsyncStorage.getItem(STORAGE_KEYS.DIET_ITEMS),
                 AsyncStorage.getItem(STORAGE_KEYS.GOAL_TYPE),
             ]);
-
             if (storedConditions) setConditions(JSON.parse(storedConditions));
             if (storedDiet) setDietItems(JSON.parse(storedDiet));
             if (storedGoal) setGoal(storedGoal as FitnessGoal);
@@ -88,14 +94,12 @@ export default function HealthView() {
         }
     };
 
-    // Save conditions
     useEffect(() => {
         if (conditions.length > 0) {
             AsyncStorage.setItem(STORAGE_KEYS.HEALTH_CONDITIONS, JSON.stringify(conditions));
         }
     }, [conditions]);
 
-    // Save diet items
     useEffect(() => {
         if (dietItems.length > 0) {
             AsyncStorage.setItem(STORAGE_KEYS.DIET_ITEMS, JSON.stringify(dietItems));
@@ -168,16 +172,16 @@ export default function HealthView() {
                 <Text style={[styles.sectionTitle, { color: colors.text }]}>Health History</Text>
                 <TouchableOpacity
                     onPress={() => setShowConditionModal(true)}
-                    style={[styles.addButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                    style={[styles.addButton, { backgroundColor: colors.accentSubtle }]}
                 >
-                    <Plus size={16} color={colors.text} />
+                    <Plus size={16} color={colors.textSecondary} />
                 </TouchableOpacity>
             </View>
 
             {conditions.length === 0 && (
-                <View style={[styles.emptyState, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <View style={[styles.emptyState, { backgroundColor: colors.surface }]}>
                     <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No health conditions logged</Text>
-                    <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>Track injuries, illnesses, or medications</Text>
+                    <Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>Track injuries, illnesses, or medications</Text>
                 </View>
             )}
 
@@ -186,8 +190,8 @@ export default function HealthView() {
                     key={c.id}
                     style={[
                         styles.conditionCard,
-                        { backgroundColor: colors.surface, borderColor: colors.border },
-                        c.resolved && { opacity: 0.6 }
+                        { backgroundColor: colors.surface },
+                        c.resolved && { opacity: 0.5 }
                     ]}
                 >
                     <View style={styles.conditionHeader}>
@@ -202,11 +206,11 @@ export default function HealthView() {
                                 >
                                     {c.name}
                                 </Text>
-                                <View style={[styles.typeBadge, { borderColor: colors.border }]}>
+                                <View style={[styles.typeBadge, { backgroundColor: colors.accentSubtle }]}>
                                     <Text style={[styles.typeText, { color: colors.textSecondary }]}>{c.type}</Text>
                                 </View>
                             </View>
-                            <Text style={[styles.conditionMeta, { color: colors.textSecondary }]}>
+                            <Text style={[styles.conditionMeta, { color: colors.textTertiary }]}>
                                 {c.date} {c.notes && `- ${c.notes}`}
                             </Text>
                         </View>
@@ -214,17 +218,17 @@ export default function HealthView() {
                             {!c.resolved && (
                                 <TouchableOpacity
                                     onPress={() => resolveCondition(c.id)}
-                                    style={[styles.actionButton, { backgroundColor: colors.background }]}
+                                    style={[styles.actionButton, { backgroundColor: colors.accentSubtle }]}
                                 >
-                                    <Check size={16} color={colors.text} />
+                                    <Check size={15} color={colors.text} />
                                 </TouchableOpacity>
                             )}
                             {c.resolved && (
                                 <TouchableOpacity
                                     onPress={() => deleteCondition(c.id)}
-                                    style={[styles.actionButton, { backgroundColor: colors.background }]}
+                                    style={[styles.actionButton, { backgroundColor: colors.accentSubtle }]}
                                 >
-                                    <Trash2 size={16} color={colors.textSecondary} />
+                                    <Trash2 size={15} color={colors.textTertiary} />
                                 </TouchableOpacity>
                             )}
                         </View>
@@ -235,7 +239,7 @@ export default function HealthView() {
             {/* Modal for adding condition */}
             <Modal visible={showConditionModal} transparent animationType="fade">
                 <View style={styles.modalOverlay}>
-                    <View style={[styles.modalContent, { backgroundColor: colors.background, borderColor: colors.border }]}>
+                    <View style={[styles.modalContent, { backgroundColor: colors.surface }]}>
                         <Text style={[styles.modalTitle, { color: colors.text }]}>Add Health Event</Text>
 
                         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.typeSelector}>
@@ -245,13 +249,12 @@ export default function HealthView() {
                                     onPress={() => setNewCondition({ ...newCondition, type: t })}
                                     style={[
                                         styles.typeButton,
-                                        { borderColor: colors.border },
-                                        newCondition.type === t && { backgroundColor: colors.accent }
+                                        { backgroundColor: newCondition.type === t ? colors.accent : colors.accentSubtle }
                                     ]}
                                 >
                                     <Text style={[
                                         styles.typeButtonText,
-                                        { color: newCondition.type === t ? (isDark ? '#000' : '#FFF') : colors.text }
+                                        { color: newCondition.type === t ? (isDark ? '#000' : '#FFF') : colors.textSecondary }
                                     ]}>
                                         {t.toUpperCase()}
                                     </Text>
@@ -261,23 +264,23 @@ export default function HealthView() {
 
                         <TextInput
                             placeholder="Condition Name"
-                            placeholderTextColor={colors.textSecondary}
+                            placeholderTextColor={colors.textTertiary}
                             value={newCondition.name}
                             onChangeText={t => setNewCondition({ ...newCondition, name: t })}
-                            style={[styles.modalInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+                            style={[styles.modalInput, { backgroundColor: colors.accentSubtle, color: colors.text }]}
                         />
                         <TextInput
                             placeholder="Notes"
-                            placeholderTextColor={colors.textSecondary}
+                            placeholderTextColor={colors.textTertiary}
                             value={newCondition.notes}
                             onChangeText={t => setNewCondition({ ...newCondition, notes: t })}
-                            style={[styles.modalInput, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
+                            style={[styles.modalInput, { backgroundColor: colors.accentSubtle, color: colors.text }]}
                         />
 
                         <View style={styles.modalButtons}>
                             <TouchableOpacity
                                 onPress={() => setShowConditionModal(false)}
-                                style={[styles.cancelButton, { borderColor: colors.border }]}
+                                style={[styles.cancelButton, { backgroundColor: colors.accentSubtle }]}
                             >
                                 <Text style={[styles.cancelText, { color: colors.text }]}>Cancel</Text>
                             </TouchableOpacity>
@@ -294,27 +297,25 @@ export default function HealthView() {
         </View>
     );
 
-
-
     const renderRecs = () => (
         <View style={styles.tabContent}>
             <View style={styles.headerRow}>
                 <Text style={[styles.sectionTitle, { color: colors.text }]}>Nutrient Guide</Text>
                 <TouchableOpacity
                     onPress={() => setGoal(goal === 'maintain' ? 'bulk_muscle' : 'maintain')}
-                    style={[styles.goalToggle, { borderColor: colors.border }]}
+                    style={[styles.goalToggle, { backgroundColor: colors.accentSubtle }]}
                 >
-                    <Text style={[styles.goalToggleText, { color: colors.text }]}>
+                    <Text style={[styles.goalToggleText, { color: colors.textSecondary }]}>
                         {goal.replace('_', ' ').toUpperCase()}
                     </Text>
                 </TouchableOpacity>
             </View>
 
             {Object.entries(recs).map(([key, value]) => (
-                <View key={key} style={[styles.recCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <View key={key} style={[styles.recCard, { backgroundColor: colors.surface }]}>
                     <View style={styles.recContent}>
-                        <View style={[styles.recIcon, { backgroundColor: colors.background }]}>
-                            <Info size={20} color={colors.text} />
+                        <View style={[styles.recIcon, { backgroundColor: colors.accentSubtle }]}>
+                            <Info size={18} color={colors.textSecondary} />
                         </View>
                         <View style={styles.recTextContent}>
                             <Text style={[styles.recTitle, { color: colors.text }]}>{key.toUpperCase()}</Text>
@@ -328,25 +329,25 @@ export default function HealthView() {
 
     return (
         <View style={styles.container}>
-            <View style={[styles.subTabs, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                <TouchableOpacity
-                    onPress={() => setSubTab('history')}
-                    style={[styles.subTab, subTab === 'history' && { backgroundColor: colors.accent }]}
-                >
-                    <Text style={[styles.subTabText, { color: subTab === 'history' ? (isDark ? '#000' : '#FFF') : colors.text }]}>History</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    onPress={() => setSubTab('diet')}
-                    style={[styles.subTab, subTab === 'diet' && { backgroundColor: colors.accent }]}
-                >
-                    <Text style={[styles.subTabText, { color: subTab === 'diet' ? (isDark ? '#000' : '#FFF') : colors.text }]}>Diet</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                    onPress={() => setSubTab('recs')}
-                    style={[styles.subTab, subTab === 'recs' && { backgroundColor: colors.accent }]}
-                >
-                    <Text style={[styles.subTabText, { color: subTab === 'recs' ? (isDark ? '#000' : '#FFF') : colors.text }]}>Guide</Text>
-                </TouchableOpacity>
+            {/* Segmented Control */}
+            <View style={[styles.subTabs, { backgroundColor: colors.accentSubtle }]}>
+                {(['history', 'diet', 'recs'] as const).map(tab => (
+                    <TouchableOpacity
+                        key={tab}
+                        onPress={() => setSubTab(tab)}
+                        style={[
+                            styles.subTab,
+                            subTab === tab && { backgroundColor: colors.surface }
+                        ]}
+                    >
+                        <Text style={[
+                            styles.subTabText,
+                            { color: subTab === tab ? colors.text : colors.textSecondary }
+                        ]}>
+                            {tab === 'recs' ? 'Guide' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+                        </Text>
+                    </TouchableOpacity>
+                ))}
             </View>
 
             {subTab === 'history' && renderHistory()}
@@ -362,19 +363,19 @@ const styles = StyleSheet.create({
     },
     subTabs: {
         flexDirection: 'row',
-        padding: 4,
+        padding: 3,
         borderRadius: 12,
         marginBottom: 24,
-        borderWidth: 1,
     },
     subTab: {
         flex: 1,
         paddingVertical: 10,
         alignItems: 'center',
-        borderRadius: 8,
+        borderRadius: 10,
     },
     subTabText: {
-        fontWeight: '700',
+        fontSize: 13,
+        fontWeight: '600',
     },
     tabContent: {
         gap: 12,
@@ -387,30 +388,38 @@ const styles = StyleSheet.create({
     },
     sectionTitle: {
         fontSize: 18,
-        fontWeight: '700',
+        fontWeight: '600',
     },
     addButton: {
-        padding: 8,
-        borderRadius: 16,
-        borderWidth: 1,
+        padding: 10,
+        borderRadius: 14,
     },
     emptyState: {
-        padding: 32,
-        borderRadius: 16,
-        borderWidth: 1,
+        padding: 40,
+        borderRadius: 20,
         alignItems: 'center',
         gap: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        elevation: 2,
     },
     emptyText: {
-        fontWeight: '600',
+        fontSize: 14,
+        fontWeight: '500',
     },
     emptySubtext: {
         fontSize: 12,
     },
     conditionCard: {
-        padding: 16,
-        borderRadius: 16,
-        borderWidth: 1,
+        padding: 18,
+        borderRadius: 18,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        elevation: 2,
     },
     conditionHeader: {
         flexDirection: 'row',
@@ -423,25 +432,26 @@ const styles = StyleSheet.create({
     conditionTitleRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
-        marginBottom: 4,
+        gap: 10,
+        marginBottom: 6,
     },
     conditionName: {
-        fontWeight: '700',
-        fontSize: 16,
+        fontWeight: '600',
+        fontSize: 15,
     },
     typeBadge: {
-        paddingHorizontal: 8,
-        paddingVertical: 2,
-        borderRadius: 6,
-        borderWidth: 1,
+        paddingHorizontal: 10,
+        paddingVertical: 3,
+        borderRadius: 8,
     },
     typeText: {
         fontSize: 10,
+        fontWeight: '600',
         textTransform: 'uppercase',
+        letterSpacing: 0.5,
     },
     conditionMeta: {
-        fontSize: 11,
+        fontSize: 12,
     },
     conditionActions: {
         flexDirection: 'row',
@@ -449,43 +459,42 @@ const styles = StyleSheet.create({
     },
     actionButton: {
         padding: 8,
-        borderRadius: 8,
+        borderRadius: 10,
     },
     modalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.8)',
+        backgroundColor: 'rgba(0,0,0,0.85)',
         justifyContent: 'center',
         padding: 24,
     },
     modalContent: {
         padding: 24,
         borderRadius: 24,
-        borderWidth: 1,
     },
     modalTitle: {
         fontSize: 20,
         fontWeight: '700',
-        marginBottom: 16,
+        marginBottom: 20,
     },
     typeSelector: {
         marginBottom: 16,
     },
     typeButton: {
         marginRight: 8,
-        paddingHorizontal: 12,
-        paddingVertical: 6,
+        paddingHorizontal: 14,
+        paddingVertical: 8,
         borderRadius: 12,
-        borderWidth: 1,
     },
     typeButtonText: {
         fontSize: 10,
         fontWeight: '700',
+        letterSpacing: 0.5,
     },
     modalInput: {
-        padding: 12,
-        borderRadius: 12,
-        borderWidth: 1,
+        padding: 14,
+        borderRadius: 14,
         marginBottom: 12,
+        fontSize: 14,
     },
     modalButtons: {
         flexDirection: 'row',
@@ -494,121 +503,51 @@ const styles = StyleSheet.create({
     },
     cancelButton: {
         flex: 1,
-        padding: 12,
-        borderRadius: 12,
+        padding: 14,
+        borderRadius: 14,
         alignItems: 'center',
-        borderWidth: 1,
     },
-    cancelText: {},
+    cancelText: {
+        fontSize: 14,
+        fontWeight: '500',
+    },
     saveButton: {
         flex: 1,
-        padding: 12,
-        borderRadius: 12,
+        padding: 14,
+        borderRadius: 14,
         alignItems: 'center',
     },
     saveText: {
-        fontWeight: '700',
-    },
-    dietInputCard: {
-        padding: 16,
-        borderRadius: 16,
-        borderWidth: 1,
-    },
-    cardTitle: {
-        fontWeight: '700',
-        marginBottom: 12,
-    },
-    foodInputRow: {
-        flexDirection: 'row',
-        gap: 8,
-    },
-    foodInput: {
-        flex: 1,
-        padding: 10,
-        borderRadius: 8,
-        borderWidth: 1,
-    },
-    addFoodButton: {
-        paddingHorizontal: 16,
-        justifyContent: 'center',
-        borderRadius: 8,
-    },
-    foodHint: {
-        fontSize: 10,
-        marginTop: 8,
-    },
-    dietHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginTop: 8,
-    },
-    clearText: {
-        fontSize: 12,
-    },
-    dietItemCard: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: 12,
-        borderRadius: 12,
-        borderWidth: 1,
-    },
-    dietItemInfo: {},
-    dietItemName: {
+        fontSize: 14,
         fontWeight: '600',
     },
-    dietItemMacros: {
-        fontSize: 11,
-    },
-    totalCard: {
-        padding: 16,
-        borderRadius: 16,
-        borderWidth: 1,
-        marginTop: 8,
-    },
-    totalTitle: {
-        fontWeight: '700',
-        marginBottom: 12,
-    },
-    totalRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-    },
-    totalItem: {
-        alignItems: 'center',
-    },
-    totalValue: {
-        fontWeight: '700',
-        fontSize: 16,
-    },
-    totalLabel: {
-        fontSize: 9,
-        letterSpacing: 0.5,
-    },
     goalToggle: {
-        paddingHorizontal: 12,
-        paddingVertical: 6,
+        paddingHorizontal: 14,
+        paddingVertical: 8,
         borderRadius: 12,
-        borderWidth: 1,
     },
     goalToggleText: {
         fontSize: 10,
         fontWeight: '600',
+        letterSpacing: 0.5,
     },
     recCard: {
-        padding: 16,
-        borderRadius: 16,
-        borderWidth: 1,
+        padding: 18,
+        borderRadius: 18,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        elevation: 2,
     },
     recContent: {
         flexDirection: 'row',
-        gap: 12,
+        gap: 14,
     },
     recIcon: {
         width: 40,
         height: 40,
-        borderRadius: 20,
+        borderRadius: 14,
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -616,11 +555,13 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     recTitle: {
-        fontWeight: '700',
-        fontSize: 16,
+        fontWeight: '600',
+        fontSize: 14,
+        letterSpacing: 0.5,
         marginBottom: 4,
     },
     recDescription: {
+        fontSize: 13,
         lineHeight: 20,
     },
 });

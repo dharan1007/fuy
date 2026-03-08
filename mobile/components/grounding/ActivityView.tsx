@@ -1,509 +1,703 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, TextInput, StyleSheet } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+    View, Text, TouchableOpacity, ScrollView, StyleSheet, Modal, Dimensions,
+    Alert, TextInput, FlatList, RefreshControl
+} from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
-import { Flame, Users, ArrowUp, Zap, MapPin, Plus, Trash2 } from 'lucide-react-native';
+import {
+    Play, Activity, TrendingUp, Flame, MapPin, Timer, Users, Search,
+    UserPlus, X, ChevronRight, Share2, Mountain
+} from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { activityTracker, ActivitySession, ActivityType } from '../../services/ActivityTrackingService';
+import ActivityTrackingService from '../../services/ActivityTrackingService';
+import { ActivityService, ActivityRecord, GroupActivityRecord } from '../../services/ActivityService';
+import LiveTrackingScreen from './LiveTrackingScreen';
+import ActivitySummaryScreen from './ActivitySummaryScreen';
+import ActivityHistoryList from './ActivityHistoryList';
+import ActivityShareCard from './ActivityShareCard';
+import { ActivityFeedCard, CommentSection } from './ActivityFeedCard';
+import ActivityMapView from './ActivityMapView';
 
-interface ActivityEntry {
-    id: string;
-    type: 'walk' | 'run' | 'bike';
-    distance: number;
-    duration: number;
-    calories: number;
-    date: string;
-}
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-interface TogetherBurnUser {
-    id: string;
-    name: string;
-    caloriesBurned: number;
-}
-
-const STORAGE_KEYS = {
-    ACTIVITIES: 'wrex_activities',
-    TOGETHER_BURN: 'wrex_together_burn',
-};
-
-// Calculate calories based on activity type and duration
-const calculateCalories = (type: 'walk' | 'run' | 'bike', durationHours: number, distanceKm: number): number => {
-    const caloriesPerHour: Record<string, number> = {
-        walk: 280,
-        run: 600,
-        bike: 450,
-    };
-    return Math.round(caloriesPerHour[type] * durationHours);
-};
-
-// Calculate average speed
-const calculateSpeed = (distanceKm: number, durationHours: number): number => {
-    if (durationHours === 0) return 0;
-    return Math.round((distanceKm / durationHours) * 10) / 10;
-};
+type ViewState = 'main' | 'tracking' | 'summary' | 'share' | 'detail';
+type SubTab = 'history' | 'feed' | 'groups';
 
 export default function ActivityView() {
     const { mode } = useTheme();
     const isDark = mode === 'dark';
 
-    // Monochrome colors
-    const colors = {
-        background: isDark ? '#000000' : '#FFFFFF',
-        surface: isDark ? '#111111' : '#F5F5F5',
-        border: isDark ? '#333333' : '#E0E0E0',
-        text: isDark ? '#FFFFFF' : '#000000',
-        textSecondary: isDark ? '#888888' : '#666666',
-        accent: isDark ? '#FFFFFF' : '#000000',
+    const colors = isDark ? {
+        background: '#0B0B0B',
+        surface: '#161616',
+        surfaceAlt: '#1C1C1C',
+        text: '#FFFFFF',
+        textSecondary: '#9CA3AF',
+        textTertiary: '#6B7280',
+        accent: '#FFFFFF',
+        accentSubtle: '#2A2A2A',
+    } : {
+        background: '#F8F8F8',
+        surface: '#FFFFFF',
+        surfaceAlt: '#F0F0F0',
+        text: '#000000',
+        textSecondary: '#6B7280',
+        textTertiary: '#9CA3AF',
+        accent: '#000000',
+        accentSubtle: '#F0F0F0',
     };
 
-    const [activityType, setActivityType] = useState<'walk' | 'run' | 'bike'>('run');
-    const [activities, setActivities] = useState<ActivityEntry[]>([]);
+    const [viewState, setViewState] = useState<ViewState>('main');
+    const [subTab, setSubTab] = useState<SubTab>('history');
+    const [localHistory, setLocalHistory] = useState<ActivitySession[]>([]);
+    const [cloudHistory, setCloudHistory] = useState<ActivityRecord[]>([]);
+    const [feedActivities, setFeedActivities] = useState<ActivityRecord[]>([]);
+    const [groups, setGroups] = useState<GroupActivityRecord[]>([]);
+    const [selectedSession, setSelectedSession] = useState<ActivitySession | null>(null);
+    const [detailActivity, setDetailActivity] = useState<ActivityRecord | null>(null);
+    const [refreshing, setRefreshing] = useState(false);
+    const [userId, setUserId] = useState<string>('');
 
-    // Input state for new activity
-    const [newDistance, setNewDistance] = useState('');
-    const [newDuration, setNewDuration] = useState('');
+    // Tag modal
+    const [showTagModal, setShowTagModal] = useState(false);
+    const [tagSearch, setTagSearch] = useState('');
+    const [searchResults, setSearchResults] = useState<any[]>([]);
+    const [taggedIds, setTaggedIds] = useState<string[]>([]);
+    const [pendingSession, setPendingSession] = useState<ActivitySession | null>(null);
 
-    // --- Together Burn State ---
-    const [friends, setFriends] = useState<TogetherBurnUser[]>([]);
-    const [newFriendName, setNewFriendName] = useState("");
-    const [newFriendCals, setNewFriendCals] = useState("");
+    // Group modal
+    const [showGroupModal, setShowGroupModal] = useState(false);
+    const [groupName, setGroupName] = useState('');
+    const [joinCode, setJoinCode] = useState('');
 
-    // Load data on mount
+    // Load user ID and data on mount
     useEffect(() => {
-        loadStoredData();
+        loadUserId();
+        loadLocalHistory();
+        loadCloudData();
+
+        // Restore in-progress session
+        activityTracker.restoreSession().then(hasSession => {
+            if (hasSession) setViewState('tracking');
+        });
     }, []);
 
-    const loadStoredData = async () => {
+    const loadUserId = async () => {
         try {
-            const [storedActivities, storedFriends] = await Promise.all([
-                AsyncStorage.getItem(STORAGE_KEYS.ACTIVITIES),
-                AsyncStorage.getItem(STORAGE_KEYS.TOGETHER_BURN),
+            const stored = await AsyncStorage.getItem('wrex_user_id');
+            if (stored) {
+                setUserId(stored);
+            } else {
+                // Try to get from supabase auth
+                const { supabase } = require('../../lib/supabase');
+                const { data } = await supabase.auth.getUser();
+                if (data?.user?.id) {
+                    setUserId(data.user.id);
+                    await AsyncStorage.setItem('wrex_user_id', data.user.id);
+                }
+            }
+        } catch (e) {
+            console.log('[ActivityView] No user ID found, using local-only mode');
+        }
+    };
+
+    const loadLocalHistory = async () => {
+        const activities = await activityTracker.getHistory();
+        setLocalHistory(activities);
+    };
+
+    const loadCloudData = async () => {
+        try {
+            if (!userId) return;
+            const [history, feed, myGroups] = await Promise.all([
+                ActivityService.getUserActivities(userId),
+                ActivityService.getActivityFeed(0, 20, userId),
+                ActivityService.getMyGroups(userId),
             ]);
-
-            if (storedActivities) setActivities(JSON.parse(storedActivities));
-            if (storedFriends) setFriends(JSON.parse(storedFriends));
-        } catch (error) {
-            console.error('Error loading activity data:', error);
+            setCloudHistory(history);
+            setFeedActivities(feed);
+            setGroups(myGroups);
+        } catch (e) {
+            console.log('[ActivityView] Cloud data fetch failed (offline mode):', e);
         }
     };
 
-    // Save activities
+    const handleRefresh = async () => {
+        setRefreshing(true);
+        await loadLocalHistory();
+        await loadCloudData();
+        setRefreshing(false);
+    };
+
     useEffect(() => {
-        if (activities.length > 0) {
-            AsyncStorage.setItem(STORAGE_KEYS.ACTIVITIES, JSON.stringify(activities));
+        if (userId) loadCloudData();
+    }, [userId]);
+
+    // --- Actions ---
+
+    const handleStartActivity = () => setViewState('tracking');
+
+    const handleFinishActivity = useCallback(async (session: ActivitySession) => {
+        // Show tag modal before saving
+        setPendingSession(session);
+        setSelectedSession(session);
+        setViewState('summary');
+
+        // Try to sync to Supabase
+        if (userId) {
+            try {
+                session.userId = userId;
+                await ActivityService.saveActivity(session);
+                console.log('[ActivityView] Activity synced to Supabase');
+                loadCloudData();
+            } catch (e) {
+                console.log('[ActivityView] Supabase sync failed (saved locally):', e);
+            }
         }
-    }, [activities]);
 
-    // Save friends
-    useEffect(() => {
-        if (friends.length > 0) {
-            AsyncStorage.setItem(STORAGE_KEYS.TOGETHER_BURN, JSON.stringify(friends));
-        }
-    }, [friends]);
+        loadLocalHistory();
+    }, [userId]);
 
-    // Calculate metrics from activities
-    const todayActivities = activities.filter(a => {
-        const today = new Date().toDateString();
-        return new Date(a.date).toDateString() === today;
-    });
+    const handleDiscardActivity = () => setViewState('main');
 
-    const currentMetrics = {
-        distance: todayActivities.reduce((sum, a) => sum + a.distance, 0),
-        duration: todayActivities.reduce((sum, a) => sum + a.duration, 0),
-        calories: todayActivities.reduce((sum, a) => sum + a.calories, 0),
-        elevation: Math.round(todayActivities.length * 50), // Simulated
-        speed: todayActivities.length > 0
-            ? calculateSpeed(
-                todayActivities.reduce((sum, a) => sum + a.distance, 0),
-                todayActivities.reduce((sum, a) => sum + a.duration, 0)
-            )
-            : 0,
+    const handleCloseSummary = () => {
+        setSelectedSession(null);
+        setPendingSession(null);
+        setViewState('main');
     };
 
-    const totalGroupBurn = friends.reduce((acc, curr) => acc + curr.caloriesBurned, 0) + currentMetrics.calories;
-
-    const addActivity = async () => {
-        const distance = parseFloat(newDistance) || 0;
-        const duration = parseFloat(newDuration) || 0;
-
-        if (distance <= 0 && duration <= 0) return;
-
-        const activity: ActivityEntry = {
-            id: Date.now().toString(),
-            type: activityType,
-            distance,
-            duration,
-            calories: calculateCalories(activityType, duration, distance),
-            date: new Date().toISOString(),
-        };
-
-        setActivities([...activities, activity]);
-        setNewDistance('');
-        setNewDuration('');
+    const handleOpenShareCard = () => {
+        if (selectedSession) setViewState('share');
     };
 
-    const deleteActivity = async (id: string) => {
-        const updated = activities.filter(a => a.id !== id);
-        setActivities(updated);
-        if (updated.length === 0) {
-            await AsyncStorage.removeItem(STORAGE_KEYS.ACTIVITIES);
-        }
+    const handleCloseShareCard = () => {
+        if (selectedSession) setViewState('summary');
+        else setViewState('main');
     };
 
-    const addFriend = async () => {
-        if (!newFriendName || !newFriendCals) return;
-        const friend: TogetherBurnUser = {
-            id: Date.now().toString(),
-            name: newFriendName,
-            caloriesBurned: Number(newFriendCals) || 0
-        };
-        setFriends([...friends, friend]);
-        setNewFriendName("");
-        setNewFriendCals("");
+    const handleSelectLocal = (activity: ActivitySession) => {
+        setSelectedSession(activity);
+        setViewState('summary');
     };
 
-    const deleteFriend = async (id: string) => {
-        const updated = friends.filter(f => f.id !== id);
-        setFriends(updated);
-        if (updated.length === 0) {
-            await AsyncStorage.removeItem(STORAGE_KEYS.TOGETHER_BURN);
+    const handleSelectCloud = async (activity: ActivityRecord) => {
+        // Fetch full details with GPS points
+        const full = await ActivityService.getActivityById(activity.id);
+        if (full && full.points) {
+            const session: ActivitySession = {
+                id: full.id,
+                userId: full.userId,
+                activityType: full.activityType as ActivityType,
+                startTime: new Date(full.startTime).getTime(),
+                endTime: full.endTime ? new Date(full.endTime).getTime() : null,
+                distance: full.distance,
+                duration: full.duration,
+                avgPace: full.avgPace,
+                calories: full.calories,
+                elevationGain: full.elevationGain,
+                points: full.points,
+                status: 'finished',
+                taggedUsers: full.taggedUsers?.map(t => t.userId) || [],
+                privacyLevel: full.privacyLevel as any,
+            };
+            setSelectedSession(session);
+            setViewState('summary');
         }
     };
 
+    const handleDeleteLocal = async (id: string) => {
+        Alert.alert('Delete Activity', 'Remove this activity?', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+                text: 'Delete', style: 'destructive', onPress: async () => {
+                    await activityTracker.deleteActivity(id);
+                    if (userId) await ActivityService.deleteActivity(id);
+                    loadLocalHistory();
+                    loadCloudData();
+                }
+            },
+        ]);
+    };
+
+    const handleLike = async (activityId: string) => {
+        if (!userId) return;
+        await ActivityService.toggleLike(activityId, userId);
+        loadCloudData();
+    };
+
+    // Tag search
+    const handleTagSearch = async (query: string) => {
+        setTagSearch(query);
+        if (query.length >= 2) {
+            const results = await ActivityService.searchUsers(query);
+            setSearchResults(results);
+        } else {
+            setSearchResults([]);
+        }
+    };
+
+    const handleTagUser = (uid: string) => {
+        setTaggedIds(prev => prev.includes(uid) ? prev.filter(id => id !== uid) : [...prev, uid]);
+    };
+
+    const handleConfirmTags = async () => {
+        if (pendingSession && taggedIds.length > 0 && userId) {
+            await ActivityService.tagUsers(pendingSession.id, taggedIds);
+        }
+        setShowTagModal(false);
+        setTaggedIds([]);
+        setTagSearch('');
+    };
+
+    // Group actions
+    const handleCreateGroup = async () => {
+        if (!groupName.trim() || !userId) return;
+        const group = await ActivityService.createGroupActivity(userId, groupName.trim(), 'run');
+        if (group) {
+            Alert.alert('Group Created', `Invite code: ${group.inviteCode}`);
+            setGroupName('');
+            setShowGroupModal(false);
+            loadCloudData();
+        }
+    };
+
+    const handleJoinGroup = async () => {
+        if (!joinCode.trim() || !userId) return;
+        const group = await ActivityService.joinGroupActivity(joinCode.trim().toUpperCase(), userId);
+        if (group) {
+            Alert.alert('Joined', `You joined ${group.name}`);
+            setJoinCode('');
+            setShowGroupModal(false);
+            loadCloudData();
+        } else {
+            Alert.alert('Error', 'Invalid or expired invite code');
+        }
+    };
+
+    // --- Stats ---
+    const totalDistance = localHistory.reduce((sum, a) => sum + a.distance, 0);
+    const totalActivities = localHistory.length;
+    const totalCalories = localHistory.reduce((sum, a) => sum + a.calories, 0);
+    const totalDuration = localHistory.reduce((sum, a) => sum + a.duration, 0);
+
+    // --- Fullscreen modals ---
+    if (viewState === 'tracking') {
+        return (
+            <Modal visible animationType="slide" presentationStyle="fullScreen">
+                <LiveTrackingScreen onFinish={handleFinishActivity} onDiscard={handleDiscardActivity} isDark={isDark} />
+            </Modal>
+        );
+    }
+
+    if (viewState === 'summary' && selectedSession) {
+        return (
+            <Modal visible animationType="slide" presentationStyle="fullScreen">
+                <ActivitySummaryScreen
+                    session={selectedSession}
+                    onClose={handleCloseSummary}
+                    onShareCard={handleOpenShareCard}
+                    onTagFriends={() => {
+                        setPendingSession(selectedSession);
+                        setShowTagModal(true);
+                    }}
+                    isDark={isDark}
+                />
+            </Modal>
+        );
+    }
+
+    if (viewState === 'share' && selectedSession) {
+        return (
+            <Modal visible animationType="slide" presentationStyle="fullScreen">
+                <ActivityShareCard session={selectedSession} onClose={handleCloseShareCard} isDark={isDark} />
+            </Modal>
+        );
+    }
+
+    // --- Main View ---
     return (
         <View style={styles.container}>
-            {/* Activity Type Selector */}
-            <View style={styles.typeSelector}>
-                {(['walk', 'run', 'bike'] as const).map(t => (
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.content}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.textSecondary} />}
+            >
+                {/* Quick Actions */}
+                <View style={styles.actionsRow}>
+                    <TouchableOpacity onPress={handleStartActivity} style={[styles.primaryAction, { backgroundColor: colors.accent }]}>
+                        <Play size={16} color={colors.background} fill={colors.background} />
+                        <Text style={[styles.primaryActionText, { color: colors.background }]}>Start Activity</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => setShowGroupModal(true)} style={[styles.secondaryAction, { backgroundColor: colors.accentSubtle }]}>
+                        <Users size={16} color={colors.text} />
+                    </TouchableOpacity>
+                </View>
+
+                {/* Summary Stats */}
+                {totalActivities > 0 && (
+                    <View style={[styles.summaryCard, { backgroundColor: colors.surface }]}>
+                        <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>ALL TIME</Text>
+                        <View style={styles.summaryGrid}>
+                            <View style={styles.summaryItem}>
+                                <MapPin size={14} color={colors.textTertiary} />
+                                <Text style={[styles.summaryValue, { color: colors.text }]}>{(totalDistance / 1000).toFixed(1)}</Text>
+                                <Text style={[styles.summaryUnit, { color: colors.textTertiary }]}>km</Text>
+                            </View>
+                            <View style={[styles.summaryDivider, { backgroundColor: colors.accentSubtle }]} />
+                            <View style={styles.summaryItem}>
+                                <Activity size={14} color={colors.textTertiary} />
+                                <Text style={[styles.summaryValue, { color: colors.text }]}>{totalActivities}</Text>
+                                <Text style={[styles.summaryUnit, { color: colors.textTertiary }]}>total</Text>
+                            </View>
+                            <View style={[styles.summaryDivider, { backgroundColor: colors.accentSubtle }]} />
+                            <View style={styles.summaryItem}>
+                                <Flame size={14} color={colors.textTertiary} />
+                                <Text style={[styles.summaryValue, { color: colors.text }]}>{totalCalories.toLocaleString()}</Text>
+                                <Text style={[styles.summaryUnit, { color: colors.textTertiary }]}>cal</Text>
+                            </View>
+                            <View style={[styles.summaryDivider, { backgroundColor: colors.accentSubtle }]} />
+                            <View style={styles.summaryItem}>
+                                <Timer size={14} color={colors.textTertiary} />
+                                <Text style={[styles.summaryValue, { color: colors.text }]}>{Math.floor(totalDuration / 3600)}</Text>
+                                <Text style={[styles.summaryUnit, { color: colors.textTertiary }]}>hrs</Text>
+                            </View>
+                        </View>
+                    </View>
+                )}
+
+                {/* Latest Activity Preview */}
+                {localHistory.length > 0 && localHistory[0].points.length >= 2 && (
                     <TouchableOpacity
-                        key={t}
-                        onPress={() => setActivityType(t)}
-                        style={[
-                            styles.typeButton,
-                            { borderColor: colors.border },
-                            activityType === t && { backgroundColor: colors.accent }
-                        ]}
+                        onPress={() => handleSelectLocal(localHistory[0])}
+                        style={[styles.recentCard, { backgroundColor: colors.surface }]}
+                        activeOpacity={0.8}
                     >
-                        <Text style={[
-                            styles.typeText,
-                            { color: activityType === t ? (isDark ? '#000' : '#FFF') : colors.text }
-                        ]}>
-                            {t.toUpperCase()}
-                        </Text>
-                    </TouchableOpacity>
-                ))}
-            </View>
-
-            {/* Log Activity Input */}
-            <View style={[styles.logCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                <Text style={[styles.cardTitle, { color: colors.text }]}>Log Activity</Text>
-                <View style={styles.inputRow}>
-                    <TextInput
-                        placeholder="Distance (km)"
-                        placeholderTextColor={colors.textSecondary}
-                        value={newDistance}
-                        onChangeText={setNewDistance}
-                        keyboardType="numeric"
-                        style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text }]}
-                    />
-                    <TextInput
-                        placeholder="Duration (hrs)"
-                        placeholderTextColor={colors.textSecondary}
-                        value={newDuration}
-                        onChangeText={setNewDuration}
-                        keyboardType="numeric"
-                        style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text }]}
-                    />
-                    <TouchableOpacity onPress={addActivity} style={[styles.addButton, { backgroundColor: colors.accent }]}>
-                        <Plus size={20} color={isDark ? '#000' : '#FFF'} />
-                    </TouchableOpacity>
-                </View>
-            </View>
-
-            {/* Metrics Grid */}
-            <View style={styles.metricsGrid}>
-                <View style={[styles.metricCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                    <View style={styles.metricHeader}>
-                        <MapPin size={14} color={colors.textSecondary} />
-                        <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>DISTANCE</Text>
-                    </View>
-                    <Text style={[styles.metricValue, { color: colors.text }]}>
-                        {currentMetrics.distance.toFixed(1)} <Text style={[styles.metricUnit, { color: colors.textSecondary }]}>km</Text>
-                    </Text>
-                </View>
-                <View style={[styles.metricCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                    <View style={styles.metricHeader}>
-                        <Flame size={14} color={colors.textSecondary} />
-                        <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>CALORIES</Text>
-                    </View>
-                    <Text style={[styles.metricValue, { color: colors.text }]}>
-                        {currentMetrics.calories} <Text style={[styles.metricUnit, { color: colors.textSecondary }]}>kcal</Text>
-                    </Text>
-                </View>
-                <View style={[styles.metricCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                    <View style={styles.metricHeader}>
-                        <Zap size={14} color={colors.textSecondary} />
-                        <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>AVG SPEED</Text>
-                    </View>
-                    <Text style={[styles.metricValue, { color: colors.text }]}>
-                        {currentMetrics.speed} <Text style={[styles.metricUnit, { color: colors.textSecondary }]}>km/h</Text>
-                    </Text>
-                </View>
-                <View style={[styles.metricCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                    <View style={styles.metricHeader}>
-                        <ArrowUp size={14} color={colors.textSecondary} />
-                        <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>ELEVATION</Text>
-                    </View>
-                    <Text style={[styles.metricValue, { color: colors.text }]}>
-                        {currentMetrics.elevation} <Text style={[styles.metricUnit, { color: colors.textSecondary }]}>m</Text>
-                    </Text>
-                </View>
-            </View>
-
-            {/* Recent Activities */}
-            {todayActivities.length > 0 && (
-                <View style={styles.recentSection}>
-                    <Text style={[styles.sectionTitle, { color: colors.text }]}>Today's Activities</Text>
-                    {todayActivities.slice(-5).reverse().map(activity => (
-                        <View key={activity.id} style={[styles.activityItem, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                        <View style={styles.recentHeader}>
                             <View>
-                                <Text style={[styles.activityType, { color: colors.text }]}>{activity.type.toUpperCase()}</Text>
-                                <Text style={[styles.activityDetails, { color: colors.textSecondary }]}>
-                                    {activity.distance}km - {activity.duration}h - {activity.calories}kcal
+                                <Text style={[styles.recentLabel, { color: colors.textSecondary }]}>LATEST</Text>
+                                <Text style={[styles.recentType, { color: colors.text }]}>
+                                    {ActivityTrackingService.getActivityLabel(localHistory[0].activityType)}
                                 </Text>
                             </View>
-                            <TouchableOpacity onPress={() => deleteActivity(activity.id)}>
-                                <Trash2 size={16} color={colors.textSecondary} />
-                            </TouchableOpacity>
-                        </View>
-                    ))}
-                </View>
-            )}
-
-            {/* Together Burn Section */}
-            <View style={[styles.togetherCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                <View style={styles.togetherHeader}>
-                    <Users size={24} color={colors.text} />
-                    <Text style={[styles.togetherTitle, { color: colors.text }]}>Together Burn</Text>
-                </View>
-
-                <View style={styles.totalBurn}>
-                    <Text style={[styles.totalLabel, { color: colors.textSecondary }]}>TOTAL GROUP ENERGY</Text>
-                    <Text style={[styles.totalValue, { color: colors.text }]}>{totalGroupBurn} <Text style={styles.totalUnit}>kcal</Text></Text>
-                </View>
-
-                {/* Add Friend Form */}
-                <View style={styles.addFriendRow}>
-                    <TextInput
-                        placeholder="Name"
-                        placeholderTextColor={colors.textSecondary}
-                        value={newFriendName}
-                        onChangeText={setNewFriendName}
-                        style={[styles.friendInput, { backgroundColor: colors.background, color: colors.text }]}
-                    />
-                    <TextInput
-                        placeholder="Kcal"
-                        placeholderTextColor={colors.textSecondary}
-                        value={newFriendCals}
-                        onChangeText={setNewFriendCals}
-                        keyboardType="numeric"
-                        style={[styles.friendInputSmall, { backgroundColor: colors.background, color: colors.text }]}
-                    />
-                    <TouchableOpacity onPress={addFriend} style={[styles.addFriendButton, { backgroundColor: colors.accent }]}>
-                        <Plus size={20} color={isDark ? '#000' : '#FFF'} />
-                    </TouchableOpacity>
-                </View>
-
-                {/* Friends List */}
-                <View style={styles.friendsList}>
-                    {friends.map(f => (
-                        <View key={f.id} style={[styles.friendItem, { backgroundColor: colors.background, borderColor: colors.border }]}>
-                            <Text style={[styles.friendName, { color: colors.text }]}>{f.name}</Text>
-                            <View style={styles.friendRight}>
-                                <Text style={[styles.friendCals, { color: colors.textSecondary }]}>{f.caloriesBurned} kcal</Text>
-                                <TouchableOpacity onPress={() => deleteFriend(f.id)}>
-                                    <Trash2 size={14} color={colors.textSecondary} />
-                                </TouchableOpacity>
+                            <View style={styles.recentStats}>
+                                <Text style={[styles.recentDist, { color: colors.text }]}>
+                                    {(localHistory[0].distance / 1000).toFixed(2)} km
+                                </Text>
+                                <Text style={[styles.recentDuration, { color: colors.textSecondary }]}>
+                                    {ActivityTrackingService.formatDuration(localHistory[0].duration)}
+                                </Text>
                             </View>
                         </View>
+                        <ActivityMapView
+                            points={localHistory[0].points}
+                            showUserLocation={false}
+                            isDark={isDark}
+                            style={styles.recentMap}
+                        />
+                    </TouchableOpacity>
+                )}
+
+                {/* Sub-tabs: History / Feed / Groups */}
+                <View style={[styles.subTabs, { backgroundColor: colors.accentSubtle }]}>
+                    {(['history', 'feed', 'groups'] as SubTab[]).map(tab => (
+                        <TouchableOpacity
+                            key={tab}
+                            onPress={() => setSubTab(tab)}
+                            style={[styles.subTab, subTab === tab && { backgroundColor: colors.surface }]}
+                        >
+                            <Text style={[styles.subTabText, { color: subTab === tab ? colors.text : colors.textSecondary }]}>
+                                {tab === 'history' ? 'History' : tab === 'feed' ? 'Feed' : 'Groups'}
+                            </Text>
+                        </TouchableOpacity>
                     ))}
-                    {friends.length === 0 && (
-                        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Add friends to complete the challenge!</Text>
-                    )}
                 </View>
-            </View>
+
+                {/* Tab Content */}
+                {subTab === 'history' && (
+                    <View style={styles.tabContent}>
+                        <ActivityHistoryList
+                            activities={localHistory}
+                            onSelect={handleSelectLocal}
+                            onDelete={handleDeleteLocal}
+                            isDark={isDark}
+                        />
+                    </View>
+                )}
+
+                {subTab === 'feed' && (
+                    <View style={styles.tabContent}>
+                        {feedActivities.length === 0 ? (
+                            <View style={[styles.emptyState, { backgroundColor: colors.surface }]}>
+                                <Activity size={32} color={colors.textTertiary} />
+                                <Text style={[styles.emptyTitle, { color: colors.textSecondary }]}>No feed yet</Text>
+                                <Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>
+                                    Activities from you and others will appear here
+                                </Text>
+                            </View>
+                        ) : (
+                            feedActivities.map(a => (
+                                <ActivityFeedCard
+                                    key={a.id}
+                                    activity={a}
+                                    currentUserId={userId}
+                                    onTap={() => handleSelectCloud(a)}
+                                    onLike={() => handleLike(a.id)}
+                                    isDark={isDark}
+                                />
+                            ))
+                        )}
+                    </View>
+                )}
+
+                {subTab === 'groups' && (
+                    <View style={styles.tabContent}>
+                        {groups.length === 0 ? (
+                            <View style={[styles.emptyState, { backgroundColor: colors.surface }]}>
+                                <Users size={32} color={colors.textTertiary} />
+                                <Text style={[styles.emptyTitle, { color: colors.textSecondary }]}>No groups yet</Text>
+                                <Text style={[styles.emptySubtext, { color: colors.textTertiary }]}>
+                                    Create or join a group to track together
+                                </Text>
+                                <TouchableOpacity
+                                    onPress={() => setShowGroupModal(true)}
+                                    style={[styles.emptyAction, { backgroundColor: colors.accent }]}
+                                >
+                                    <Text style={[styles.emptyActionText, { color: colors.background }]}>Create Group</Text>
+                                </TouchableOpacity>
+                            </View>
+                        ) : (
+                            groups.map(g => (
+                                <View key={g.id} style={[styles.groupCard, { backgroundColor: colors.surface }]}>
+                                    <View style={styles.groupInfo}>
+                                        <Text style={[styles.groupName, { color: colors.text }]}>{g.name}</Text>
+                                        <Text style={[styles.groupMeta, { color: colors.textSecondary }]}>
+                                            Code: {g.inviteCode} -- {g.participants?.length || 1} members
+                                        </Text>
+                                    </View>
+                                    <ChevronRight size={16} color={colors.textTertiary} />
+                                </View>
+                            ))
+                        )}
+                    </View>
+                )}
+            </ScrollView>
+
+            {/* Tag Users Modal */}
+            <Modal visible={showTagModal} animationType="slide" transparent>
+                <View style={styles.modalOverlay}>
+                    <View style={[styles.modalContainer, { backgroundColor: colors.surface }]}>
+                        <View style={styles.modalHeader}>
+                            <Text style={[styles.modalTitle, { color: colors.text }]}>Tag Friends</Text>
+                            <TouchableOpacity onPress={handleConfirmTags}>
+                                <Text style={[styles.modalDone, { color: colors.accent }]}>Done</Text>
+                            </TouchableOpacity>
+                        </View>
+                        <View style={[styles.searchBar, { backgroundColor: colors.accentSubtle }]}>
+                            <Search size={16} color={colors.textTertiary} />
+                            <TextInput
+                                value={tagSearch}
+                                onChangeText={handleTagSearch}
+                                placeholder="Search users..."
+                                placeholderTextColor={colors.textTertiary}
+                                style={[styles.searchInput, { color: colors.text }]}
+                            />
+                        </View>
+                        <FlatList
+                            data={searchResults}
+                            keyExtractor={(item) => item.id}
+                            renderItem={({ item }) => (
+                                <TouchableOpacity
+                                    onPress={() => handleTagUser(item.id)}
+                                    style={[styles.tagUserRow, { backgroundColor: taggedIds.includes(item.id) ? colors.accentSubtle : 'transparent' }]}
+                                >
+                                    <View style={[styles.tagAvatar, { backgroundColor: colors.accentSubtle }]}>
+                                        <Text style={[styles.tagAvatarText, { color: colors.text }]}>
+                                            {(item.profile?.displayName || item.name || '?').charAt(0)}
+                                        </Text>
+                                    </View>
+                                    <Text style={[styles.tagUserName, { color: colors.text }]}>
+                                        {item.profile?.displayName || item.name}
+                                    </Text>
+                                    {taggedIds.includes(item.id) && (
+                                        <View style={[styles.tagCheckmark, { backgroundColor: colors.accent }]}>
+                                            <X size={10} color={colors.background} />
+                                        </View>
+                                    )}
+                                </TouchableOpacity>
+                            )}
+                            style={styles.tagList}
+                        />
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Group Activity Modal */}
+            <Modal visible={showGroupModal} animationType="slide" transparent>
+                <View style={styles.modalOverlay}>
+                    <View style={[styles.modalContainer, { backgroundColor: colors.surface }]}>
+                        <View style={styles.modalHeader}>
+                            <Text style={[styles.modalTitle, { color: colors.text }]}>Group Activity</Text>
+                            <TouchableOpacity onPress={() => setShowGroupModal(false)}>
+                                <X size={20} color={colors.text} />
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Create */}
+                        <Text style={[styles.groupSectionLabel, { color: colors.textSecondary }]}>CREATE NEW</Text>
+                        <View style={[styles.groupInput, { backgroundColor: colors.accentSubtle }]}>
+                            <TextInput
+                                value={groupName}
+                                onChangeText={setGroupName}
+                                placeholder="Group name..."
+                                placeholderTextColor={colors.textTertiary}
+                                style={[styles.groupInputField, { color: colors.text }]}
+                            />
+                        </View>
+                        <TouchableOpacity
+                            onPress={handleCreateGroup}
+                            style={[styles.groupBtn, { backgroundColor: colors.accent }]}
+                            disabled={!groupName.trim()}
+                        >
+                            <Text style={[styles.groupBtnText, { color: colors.background }]}>Create Group</Text>
+                        </TouchableOpacity>
+
+                        {/* Join */}
+                        <Text style={[styles.groupSectionLabel, { color: colors.textSecondary, marginTop: 28 }]}>JOIN EXISTING</Text>
+                        <View style={[styles.groupInput, { backgroundColor: colors.accentSubtle }]}>
+                            <TextInput
+                                value={joinCode}
+                                onChangeText={setJoinCode}
+                                placeholder="Invite code..."
+                                placeholderTextColor={colors.textTertiary}
+                                style={[styles.groupInputField, { color: colors.text }]}
+                                autoCapitalize="characters"
+                            />
+                        </View>
+                        <TouchableOpacity
+                            onPress={handleJoinGroup}
+                            style={[styles.groupBtn, { backgroundColor: colors.accentSubtle }]}
+                            disabled={!joinCode.trim()}
+                        >
+                            <Text style={[styles.groupBtnText, { color: colors.text }]}>Join Group</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        paddingHorizontal: 24,
-        gap: 16,
+    container: { flex: 1 },
+    content: { paddingBottom: 40 },
+
+    // Actions
+    actionsRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
+    primaryAction: {
+        flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+        gap: 10, paddingVertical: 16, borderRadius: 18,
     },
-    typeSelector: {
-        flexDirection: 'row',
-        gap: 8,
+    primaryActionText: { fontSize: 15, fontWeight: '600' },
+    secondaryAction: {
+        width: 54, height: 54, borderRadius: 18,
+        alignItems: 'center', justifyContent: 'center',
     },
-    typeButton: {
-        flex: 1,
-        paddingVertical: 12,
-        borderRadius: 12,
-        alignItems: 'center',
-        borderWidth: 1,
+
+    // Summary
+    summaryCard: {
+        padding: 20, borderRadius: 20, marginBottom: 16,
+        shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08, shadowRadius: 12, elevation: 2,
     },
-    typeText: {
-        fontWeight: '700',
+    summaryLabel: { fontSize: 10, fontWeight: '600', letterSpacing: 2, marginBottom: 16 },
+    summaryGrid: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    summaryItem: { flex: 1, alignItems: 'center', gap: 4 },
+    summaryValue: { fontSize: 20, fontWeight: '700', letterSpacing: -0.5 },
+    summaryUnit: { fontSize: 10, fontWeight: '500' },
+    summaryDivider: { width: 1, height: 40 },
+
+    // Recent
+    recentCard: {
+        borderRadius: 20, padding: 20, marginBottom: 20,
+        shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08, shadowRadius: 12, elevation: 2,
     },
-    logCard: {
-        padding: 16,
-        borderRadius: 16,
-        borderWidth: 1,
+    recentHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
+    recentLabel: { fontSize: 10, fontWeight: '600', letterSpacing: 2 },
+    recentType: { fontSize: 18, fontWeight: '600', marginTop: 2 },
+    recentStats: { alignItems: 'flex-end' },
+    recentDist: { fontSize: 22, fontWeight: '200', letterSpacing: -0.5 },
+    recentDuration: { fontSize: 12, marginTop: 2 },
+    recentMap: { height: 140, borderRadius: 16 },
+
+    // Sub-tabs (segmented control)
+    subTabs: {
+        flexDirection: 'row', borderRadius: 14, padding: 3, marginBottom: 16,
     },
-    cardTitle: {
-        fontWeight: '700',
-        marginBottom: 12,
+    subTab: {
+        flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 12,
     },
-    inputRow: {
-        flexDirection: 'row',
-        gap: 8,
+    subTabText: { fontSize: 13, fontWeight: '600' },
+    tabContent: { minHeight: 100 },
+
+    // Empty state
+    emptyState: {
+        padding: 48, borderRadius: 20, alignItems: 'center', gap: 8,
+        shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08, shadowRadius: 10, elevation: 2,
     },
-    input: {
-        flex: 1,
-        padding: 10,
-        borderRadius: 8,
-        borderWidth: 1,
+    emptyTitle: { fontSize: 15, fontWeight: '600', marginTop: 4 },
+    emptySubtext: { fontSize: 12, textAlign: 'center' },
+    emptyAction: {
+        marginTop: 16, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 14,
     },
-    addButton: {
-        paddingHorizontal: 16,
-        justifyContent: 'center',
-        borderRadius: 8,
+    emptyActionText: { fontSize: 14, fontWeight: '600' },
+
+    // Group card
+    groupCard: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+        padding: 18, borderRadius: 18, marginBottom: 10,
+        shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.06, shadowRadius: 8, elevation: 1,
     },
-    metricsGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        justifyContent: 'space-between',
-        gap: 12,
+    groupInfo: { flex: 1 },
+    groupName: { fontSize: 15, fontWeight: '600' },
+    groupMeta: { fontSize: 11, marginTop: 3 },
+
+    // Modals
+    modalOverlay: {
+        flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)',
     },
-    metricCard: {
-        width: '48%',
-        padding: 16,
-        borderRadius: 16,
-        borderWidth: 1,
+    modalContainer: {
+        borderTopLeftRadius: 28, borderTopRightRadius: 28,
+        padding: 24, maxHeight: '70%',
     },
-    metricHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        marginBottom: 4,
+    modalHeader: {
+        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20,
     },
-    metricLabel: {
-        fontSize: 10,
-        fontWeight: '700',
-        letterSpacing: 0.5,
+    modalTitle: { fontSize: 18, fontWeight: '600' },
+    modalDone: { fontSize: 15, fontWeight: '600' },
+
+    // Search
+    searchBar: {
+        flexDirection: 'row', alignItems: 'center', gap: 10,
+        paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, marginBottom: 16,
     },
-    metricValue: {
-        fontSize: 24,
-        fontWeight: '700',
-    },
-    metricUnit: {
-        fontSize: 12,
-        fontWeight: '400',
-    },
-    recentSection: {
-        gap: 8,
-    },
-    sectionTitle: {
-        fontSize: 16,
-        fontWeight: '700',
-    },
-    activityItem: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: 12,
-        borderRadius: 12,
-        borderWidth: 1,
-    },
-    activityType: {
-        fontWeight: '700',
-    },
-    activityDetails: {
-        fontSize: 11,
-    },
-    togetherCard: {
-        borderRadius: 24,
-        padding: 24,
-        borderWidth: 1,
-    },
-    togetherHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        marginBottom: 16,
-    },
-    togetherTitle: {
-        fontSize: 20,
-        fontWeight: '700',
-    },
-    totalBurn: {
-        alignItems: 'center',
-        marginBottom: 24,
-    },
-    totalLabel: {
-        fontSize: 10,
-        fontWeight: '700',
-        letterSpacing: 1,
-    },
-    totalValue: {
-        fontSize: 48,
-        fontWeight: '700',
-    },
-    totalUnit: {
-        fontSize: 16,
-    },
-    addFriendRow: {
-        flexDirection: 'row',
-        gap: 8,
-        marginBottom: 16,
-    },
-    friendInput: {
-        flex: 1,
-        padding: 10,
-        borderRadius: 8,
-    },
-    friendInputSmall: {
-        width: 80,
-        padding: 10,
-        borderRadius: 8,
-    },
-    addFriendButton: {
-        paddingHorizontal: 12,
-        justifyContent: 'center',
-        borderRadius: 8,
-    },
-    friendsList: {
-        gap: 8,
-    },
-    friendItem: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: 12,
-        borderRadius: 12,
-        borderWidth: 1,
-    },
-    friendName: {
-        fontWeight: '600',
-    },
-    friendRight: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-    },
-    friendCals: {
-        fontWeight: '600',
-    },
-    emptyText: {
-        textAlign: 'center',
-        fontSize: 12,
-    },
+    searchInput: { flex: 1, fontSize: 14, padding: 0 },
+
+    // Tag list
+    tagList: { maxHeight: 300 },
+    tagUserRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 12 },
+    tagAvatar: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+    tagAvatarText: { fontSize: 13, fontWeight: '600' },
+    tagUserName: { fontSize: 14, fontWeight: '500', flex: 1 },
+    tagCheckmark: { width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+
+    // Group modal
+    groupSectionLabel: { fontSize: 10, fontWeight: '600', letterSpacing: 2, marginBottom: 10 },
+    groupInput: { borderRadius: 14, paddingHorizontal: 16, paddingVertical: 12, marginBottom: 12 },
+    groupInputField: { fontSize: 15, padding: 0 },
+    groupBtn: { paddingVertical: 14, borderRadius: 14, alignItems: 'center', marginBottom: 8 },
+    groupBtnText: { fontSize: 15, fontWeight: '600' },
 });

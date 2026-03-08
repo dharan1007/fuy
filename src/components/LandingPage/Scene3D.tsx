@@ -629,7 +629,7 @@ function HTMLContent() {
     const logoItems = [
         <div className="flex items-center gap-3" key="1">
             <div className="bg-black text-white p-2 rounded-lg"><Zap size={24} fill="white" /></div>
-            <span className="text-xl font-black tracking-widest text-black/80">FUY</span>
+            <span className="text-xl font-black tracking-widest text-black/80">DVANGE</span>
         </div>,
         <div className="flex items-center gap-3" key="2">
             <div className="bg-accent text-white p-2 rounded-lg" style={{ backgroundColor: ACCENT_COLOR }}><Globe size={24} /></div>
@@ -669,7 +669,7 @@ function HTMLContent() {
 
                 {/* 1. LOGO CARD (Left) */}
                 <div className="bg-white/10 backdrop-blur-xl p-0 rounded-2xl border border-white/30 shadow-2xl pointer-events-auto cursor-pointer group hover:scale-105 transition-transform w-[72px] h-[72px] flex items-center justify-center">
-                    <img src="/icon.png" alt="FUY Logo" className="w-12 h-12 rounded-xl shadow-md" />
+                    <img src="/icon.png" alt="Dvange Logo" className="w-12 h-12 rounded-xl shadow-md" />
                 </div>
 
                 {/* 2. CENTER CARD (Middle) */}
@@ -690,7 +690,7 @@ function HTMLContent() {
                 {/* MAIN HERO CONTENT */}
                 <h1 className="text-7xl md:text-[8rem] font-black tracking-tighter mb-8 text-black leading-[0.9] mt-20 md:mt-0">
                     ENTER THE <br />
-                    <span style={{ color: ACCENT_COLOR }}>FUY GALAXY</span>
+                    <span style={{ color: ACCENT_COLOR }}>DVANGE GALAXY</span>
                 </h1>
                 <p className="text-2xl md:text-3xl text-gray-800 mb-10 max-w-2xl font-light border-l-8 border-black pl-8">
                     Make friends, find people, bond, and make meaningful connections.
@@ -776,7 +776,7 @@ function HTMLContent() {
             <Section align="center">
                 <div className="relative mb-8">
                     <h2 className="text-9xl md:text-[14rem] font-black text-black opacity-90 leading-none tracking-tighter">
-                        F U Y
+                        D V A N G E
                     </h2>
                 </div>
                 <p className="text-3xl text-gray-800 mb-12 max-w-3xl mx-auto font-medium">
@@ -803,7 +803,9 @@ function HTMLContent() {
             <section className="h-screen w-screen flex flex-col justify-center items-center text-center p-0 relative bg-black">
                 {/* White Underline (border-white) */}
                 <h1 className="text-4xl md:text-[6rem] font-black text-white tracking-[0.2em] leading-snug break-words max-w-[90vw]">
-                    <span style={{ color: '#FF6060' }}>F</span>IND<span style={{ color: '#D00000' }} className="border-b-[0.5rem] md:border-b-[1rem] border-white pb-2 md:pb-4 inline-block leading-[0.8]">U</span>O<span style={{ color: '#D00000' }} className="border-b-[0.5rem] md:border-b-[1rem] border-white pb-2 md:pb-4 inline-block leading-[0.8]">Y</span>RSELF
+                    <span className="border-b-[0.5rem] md:border-b-[1rem] border-white pb-2 md:pb-4 inline-block leading-[0.8]">D</span>
+                    <span className="border-b-[0.5rem] md:border-b-[1rem] border-white pb-2 md:pb-4 inline-block leading-[0.8]">V</span>
+                    ANGE
                 </h1>
             </section>
         </Scroll>

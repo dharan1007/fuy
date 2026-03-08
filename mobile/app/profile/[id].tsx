@@ -180,6 +180,7 @@ export default function PublicProfileScreen() {
                 `)
                 .eq('userId', userId)
                 .neq('postType', 'CLOCK')
+                .neq('postType', 'FILL')
                 .not('feature', 'in', '("PROGRESS","CHECKIN","FOCUS")')
                 .order('createdAt', { ascending: false });
 
@@ -417,7 +418,8 @@ export default function PublicProfileScreen() {
             return true;
         });
 
-        const filters: Array<'ALL' | 'FILLS' | 'LILLS' | 'SIMPLE' | 'AUDIO' | 'CHANNELS' | 'XRAYS'> = ['ALL', 'FILLS', 'LILLS', 'SIMPLE', 'AUDIO', 'CHANNELS', 'XRAYS'];
+        // V2 - FILLS, CHANNELS, and AUDIO/Auds hidden for now
+        const filters: Array<'ALL' | 'FILLS' | 'LILLS' | 'SIMPLE' | 'AUDIO' | 'CHANNELS' | 'XRAYS'> = ['ALL', /* 'FILLS', */ 'LILLS', 'SIMPLE', /* 'AUDIO', */ /* 'CHANNELS', */ 'XRAYS'];
 
         return (
             <View style={{ flex: 1, borderTopLeftRadius: 32, borderTopRightRadius: 32, overflow: 'hidden', minHeight: 500, backgroundColor: colors.card }}>

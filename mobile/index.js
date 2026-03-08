@@ -1,8 +1,4 @@
-import TrackPlayer from 'react-native-track-player';
 import notifee, { EventType } from '@notifee/react-native';
-
-// Register the service BEFORE any other imports to ensure it handles background events
-// TrackPlayer.registerPlaybackService(() => require('./service'));
 
 // Register Notifee background event handler (required for foreground services)
 notifee.onBackgroundEvent(async ({ type, detail }) => {

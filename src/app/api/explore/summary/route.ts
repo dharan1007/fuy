@@ -117,7 +117,7 @@ export async function GET() {
                 where,
                 orderBy: { createdAt: 'desc' },
                 include,
-                take: limit // Direct limit, no over-fetch
+                take: limit * 4 // Fetch a larger pool for algorithmic scoring
             });
 
             // Fast normalize media
@@ -134,15 +134,15 @@ export async function GET() {
                     else if (post.xrayData?.topLayerUrl) thumbnail = { type: 'IMAGE', url: post.xrayData.topLayerUrl, thumbnailUrl: null };
                 }
 
-                // Simple score for logged-in users
-                let recoScore = 0;
+                // Algorithmic Score: Random factor + user preference + interaction weight
+                let recoScore = Math.random() * 0.5; // Base variety
                 if (userId) {
                     const postSlashes = post.slashes?.map((s: any) => s.tag) || [];
                     for (const tag of postSlashes) {
                         recoScore += slashPrefs[tag] || 0;
                     }
-                    recoScore += (post._count.likes + post._count.comments) / 20;
                 }
+                recoScore += (post._count.likes + post._count.comments) / 10;
 
                 return {
                     id: post.id,
@@ -167,7 +167,7 @@ export async function GET() {
                     ...(post.audData && { audData: post.audData }),
                     ...(post.xrayData && { xrayData: post.xrayData }),
                 };
-            }).sort((a: any, b: any) => b.recoScore - a.recoScore);
+            }).sort((a: any, b: any) => b.recoScore - a.recoScore).slice(0, limit);
         };
 
         // Reduced parallel queries - fetch only what's needed

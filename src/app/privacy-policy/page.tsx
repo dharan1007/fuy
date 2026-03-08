@@ -10,7 +10,7 @@ export default function PrivacyPolicyPage() {
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <h1 className="text-4xl font-bold text-gray-900">Privacy Policy</h1>
-          <p className="mt-2 text-lg text-gray-600">FUY Media</p>
+          <p className="mt-2 text-lg text-gray-600">Dvange</p>
           <p className="mt-4 text-lg text-gray-600">
             Last updated: November 15, 2025
           </p>
@@ -24,10 +24,10 @@ export default function PrivacyPolicyPage() {
           {/* Introduction */}
           <section>
             <p className="text-gray-600 mb-4">
-              FUY Media ("we," "us," "our") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our real-time messaging platform, web and mobile applications, and services (collectively, the "Platform").
+              Dvange ("we," "us," "our") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our real-time messaging platform, web and mobile applications, and services (collectively, the "Platform").
             </p>
             <p className="text-gray-600 mb-4">
-              Please read this Privacy Policy carefully. By accessing or using FUY Media, you acknowledge that you have read, understood, and agree to be bound by all the provisions of this Privacy Policy.
+              Please read this Privacy Policy carefully. By accessing or using Dvange, you acknowledge that you have read, understood, and agree to be bound by all the provisions of this Privacy Policy.
             </p>
             <p className="text-gray-600">
               <strong>Contact:</strong> fuymedia@gmail.com
@@ -166,7 +166,7 @@ export default function PrivacyPolicyPage() {
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-3">3.4 Business Transfers</h3>
                 <p className="text-gray-600">
-                  If FUY Media is acquired, merges with another company, or undergoes restructuring, your information may be transferred as part of that transaction.
+                  If Dvange is acquired, merges with another company, or undergoes restructuring, your information may be transferred as part of that transaction.
                 </p>
               </div>
 
@@ -265,7 +265,7 @@ export default function PrivacyPolicyPage() {
 
             <div className="space-y-4 text-gray-600">
               <p>
-                FUY Media is not intended for children under 13. We do not knowingly collect information from children under 13. If we become aware that a child under 13 has provided us with information, we will delete it immediately.
+                Dvange is not intended for children under 13. We do not knowingly collect information from children under 13. If we become aware that a child under 13 has provided us with information, we will delete it immediately.
               </p>
               <p>
                 For children 13-18, parental consent is required to use the Platform. Parents can contact us to request deletion of their child's account or information.
@@ -331,7 +331,7 @@ export default function PrivacyPolicyPage() {
                 Your information may be transferred to, stored in, and processed in countries other than your country of residence. Currently, our primary data storage location is in India. These countries may have data protection laws that differ from your home country.
               </p>
               <p>
-                By using FUY Media, you consent to the transfer of your information to countries outside your country of residence, which may not have the same data protection laws. We ensure that any international transfers comply with applicable data protection laws and are protected by appropriate safeguards.
+                By using Dvange, you consent to the transfer of your information to countries outside your country of residence, which may not have the same data protection laws. We ensure that any international transfers comply with applicable data protection laws and are protected by appropriate safeguards.
               </p>
             </div>
           </section>
@@ -342,7 +342,7 @@ export default function PrivacyPolicyPage() {
 
             <div className="space-y-4 text-gray-600">
               <p>
-                FUY Media may contain links to third-party websites and services. We are not responsible for their privacy practices. Please review their privacy policies before providing personal information.
+                Dvange may contain links to third-party websites and services. We are not responsible for their privacy practices. Please review their privacy policies before providing personal information.
               </p>
             </div>
           </section>
@@ -382,10 +382,10 @@ export default function PrivacyPolicyPage() {
                 <li>Requiring you to accept the updated policy before continuing to use the service</li>
               </ul>
               <p className="mt-4">
-                Your continued use of FUY Media after changes are posted constitutes your acceptance of the updated policy.
+                Your continued use of Dvange after changes are posted constitutes your acceptance of the updated policy.
               </p>
               <p>
-                <strong>Last Updated:</strong> November 15, 2025<br/>
+                <strong>Last Updated:</strong> November 15, 2025<br />
                 <strong>Effective Date:</strong> November 15, 2025
               </p>
             </div>

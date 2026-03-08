@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, Alert, Modal, TextInput, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, Alert, Modal, TextInput, StyleSheet, Dimensions, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { decryptFile } from '../../lib/encryption';
 import { BlurView } from 'expo-blur';
-import { X, Lock } from 'lucide-react-native';
+import { X, Lock, FileText } from 'lucide-react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { useToast } from '../../context/ToastContext';
+
 
 interface DocumentBubbleProps {
     filename: string;
@@ -21,6 +24,8 @@ export default function DocumentBubble({ filename, fileSize, uri, encryptionKey,
     const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
     const [password, setPassword] = useState('');
     const [decryptionError, setDecryptionError] = useState(false);
+    const { showToast } = useToast();
+
 
     const formatSize = (bytes?: number) => {
         if (!bytes) return '';
@@ -32,7 +37,7 @@ export default function DocumentBubble({ filename, fileSize, uri, encryptionKey,
 
     const handleDownload = async (pw?: string) => {
         // If password protected and no password provided yet, show prompt
-        if (encryptionKey?.startsWith('pw:') && !pw) {
+        if (encryptionKey?.includes('pw:') && !pw) {
             setShowPasswordPrompt(true);
             return;
         }
@@ -41,7 +46,7 @@ export default function DocumentBubble({ filename, fileSize, uri, encryptionKey,
         setDecryptionError(false);
         try {
             // 1. Determine local path
-            const cacheDir = (FileSystem as any).cacheDirectory + 'docs/';
+            const cacheDir = FileSystem.cacheDirectory + 'docs/';
             await FileSystem.makeDirectoryAsync(cacheDir, { intermediates: true }).catch(() => { });
             const localPath = cacheDir + (filename || 'document.dat');
 
@@ -100,14 +105,22 @@ export default function DocumentBubble({ filename, fileSize, uri, encryptionKey,
                 let keyStr = '';
 
                 if (encryptionKey.includes('pw:')) {
-                    // It's password protected.
-                    // Format could be: `iv:pw:salt` OR `pw:salt` (if iv missing? no)
-                    // Or maybe `chat.tsx` joins them differently.
-                    // I'll assume `chat.tsx` uses `iv:key`.
-                    // So `iv:pw:salt`.
-                    iv = parts[0];
-                    keyStr = parts.slice(1).join(':'); // "pw:salt"
+                    // Password protected: typically `pw:salt` or `iv:pw:salt`
+                    // Check if it has 3 parts (iv:pw:salt)
+                    if (parts.length === 3) {
+                        iv = parts[0];
+                        keyStr = `${parts[1]}:${parts[2]}`; // "pw:salt"
+                    } else if (parts.length === 2 && parts[0] === 'pw') {
+                        // Just "pw:salt", no IV appended? unlikely but fallback
+                        iv = '';
+                        keyStr = encryptionKey;
+                    } else {
+                        // Fallback
+                        iv = parts[0];
+                        keyStr = parts.slice(1).join(':');
+                    }
                 } else {
+                    // Normal key: `iv:key`
                     iv = parts[0];
                     keyStr = parts[1];
                 }
@@ -123,10 +136,40 @@ export default function DocumentBubble({ filename, fileSize, uri, encryptionKey,
             }
 
             // 3. Share / Open
-            if (await Sharing.isAvailableAsync()) {
-                await Sharing.shareAsync(localPath, { mimeType: mimeType || 'application/octet-stream', UTI: 'public.item' });
+            if (Platform.OS === 'android') {
+                try {
+                    const IntentLauncher = require('expo-intent-launcher');
+                    const contentUri = await FileSystem.getContentUriAsync(localPath);
+
+                    let typeToUse = mimeType || 'application/octet-stream';
+                    if (typeToUse === 'application/octet-stream' || !mimeType) {
+                        const ext = filename?.split('.').pop()?.toLowerCase();
+                        if (ext === 'pdf') typeToUse = 'application/pdf';
+                        else if (ext === 'doc' || ext === 'docx') typeToUse = 'application/msword';
+                        else if (ext === 'xls' || ext === 'xlsx') typeToUse = 'application/vnd.ms-excel';
+                        else if (ext === 'ppt' || ext === 'pptx') typeToUse = 'application/vnd.ms-powerpoint';
+                        else if (ext === 'txt') typeToUse = 'text/plain';
+                        else if (ext === 'csv') typeToUse = 'text/csv';
+                        else if (ext === 'rtf') typeToUse = 'application/rtf';
+                    }
+
+                    await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+                        data: contentUri,
+                        flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
+                        type: typeToUse
+                    });
+                } catch (e) {
+                    console.log('IntentLauncher not available or failed, falling back to Sharing API', e);
+                    if (await Sharing.isAvailableAsync()) {
+                        await Sharing.shareAsync(localPath, { mimeType: mimeType || 'application/octet-stream', UTI: 'public.item', dialogTitle: 'Open Document' });
+                    }
+                }
             } else {
-                Alert.alert('Saved', 'File saved to: ' + localPath);
+                if (await Sharing.isAvailableAsync()) {
+                    await Sharing.shareAsync(localPath, { mimeType: mimeType || 'application/octet-stream', UTI: 'public.item', dialogTitle: 'Open Document' });
+                } else {
+                    showToast('File saved to: ' + filename, 'info');
+                }
             }
             setShowPasswordPrompt(false);
             setPassword('');
@@ -135,44 +178,78 @@ export default function DocumentBubble({ filename, fileSize, uri, encryptionKey,
             console.error('Download error:', error);
             if (encryptionKey?.includes('pw:') && !decryptionError) {
                 setDecryptionError(true);
-                Alert.alert('Error', 'Incorrect password or decryption failed');
+                showToast('Incorrect password', 'error');
             } else {
-                Alert.alert('Error', 'Failed to download document');
+                showToast('Failed to download document', 'error');
             }
         } finally {
             setDownloading(false);
         }
     };
 
+    // --- Micro-Interactions ---
+    const scale = useSharedValue(0.97);
+    const opacity = useSharedValue(0);
+
+    React.useEffect(() => {
+        scale.value = withTiming(1, { duration: 150 });
+        opacity.value = withTiming(1, { duration: 150 });
+    }, []);
+
+    const animatedStyle = useAnimatedStyle(() => ({
+        transform: [{ scale: scale.value }],
+        opacity: opacity.value
+    }));
+
+    const handlePressIn = () => {
+        scale.value = withTiming(0.97, { duration: 150 });
+    };
+
+    const handlePressOut = () => {
+        scale.value = withTiming(1, { duration: 150 });
+    };
+
     return (
-        <>
+        <Animated.View style={animatedStyle}>
             <TouchableOpacity
                 onPress={() => handleDownload()}
-                className={`flex-row items-center p-3 rounded-xl gap-3 ${isMe ? 'bg-primary/20' : 'bg-zinc-800'}`}
-                style={{ maxWidth: 250 }}
+                onPressIn={handlePressIn}
+                onPressOut={handlePressOut}
+                activeOpacity={0.9}
+                style={[
+                    styles.minimalContainer,
+                    { backgroundColor: isMe ? '#111111' : '#1A1A1A' }
+                ]}
             >
-                <View className={`w-10 h-10 rounded-full items-center justify-center ${isMe ? 'bg-indigo-500' : 'bg-zinc-700'}`}>
-                    {downloading ? (
-                        <ActivityIndicator size="small" color="#fff" />
-                    ) : (
-                        encryptionKey?.includes('pw:') ?
-                            <Lock size={20} color="#fff" /> :
-                            <Ionicons name="document-text" size={20} color="#fff" />
-                    )}
+                {/* Subtle Neutral Indicator */}
+                <View style={styles.neutralIndicator} />
+
+                {/* Main Content Area */}
+                <View style={styles.contentArea}>
+                    <View style={styles.textContainer}>
+                        <Text
+                            className="font-semibold"
+                            numberOfLines={1}
+                            style={styles.fileNameText}
+                        >
+                            {filename || 'Document'}
+                        </Text>
+                        <Text style={styles.metadataText}>
+                            {formatSize(fileSize)} • {mimeType?.split('/')[1]?.toUpperCase() || 'FILE'}
+                        </Text>
+                    </View>
+
+                    {/* Simple Minimal Icon Container */}
+                    <View style={styles.iconContainer}>
+                        {downloading ? (
+                            <ActivityIndicator size="small" color="#FFFFFF" />
+                        ) : (
+                            encryptionKey?.includes('pw:') ?
+                                <Lock size={18} color="#FFFFFF" /> :
+                                <FileText size={18} color="#FFFFFF" />
+                        )}
+                    </View>
                 </View>
-                <View className="flex-1">
-                    <Text className={`font-medium text-sm ${isMe ? 'text-white' : 'text-zinc-200'}`} numberOfLines={1}>
-                        {filename || 'Document'}
-                    </Text>
-                    <Text className="text-xs text-zinc-400">
-                        {formatSize(fileSize)} • {mimeType?.split('/')[1]?.toUpperCase() || 'FILE'}
-                        {encryptionKey?.includes('pw:') && ' • Protected'}
-                    </Text>
-                </View>
-                {/* Download Icon */}
-                {!downloading && (
-                    <Ionicons name="download-outline" size={20} color={isMe ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.5)'} />
-                )}
             </TouchableOpacity>
 
             <Modal visible={showPasswordPrompt} transparent animationType="fade">
@@ -219,6 +296,58 @@ export default function DocumentBubble({ filename, fileSize, uri, encryptionKey,
                     </View>
                 </BlurView>
             </Modal>
-        </>
+        </Animated.View>
     );
 }
+
+const { width } = Dimensions.get('window');
+
+const styles = StyleSheet.create({
+    minimalContainer: {
+        width: width * 0.70,
+        borderRadius: 16,
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+        backgroundColor: '#111111',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    neutralIndicator: {
+        width: 3,
+        height: 24,
+        borderRadius: 3,
+        backgroundColor: 'rgba(255,255,255,0.25)',
+        marginRight: 10,
+    },
+    contentArea: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    textContainer: {
+        flex: 1,
+        marginRight: 12,
+        justifyContent: 'center',
+    },
+    fileNameText: {
+        fontSize: 14, // or 15
+        fontWeight: '600',
+        color: '#FFFFFF',
+        marginBottom: 4,
+    },
+    metadataText: {
+        fontSize: 12,
+        color: 'rgba(255,255,255,0.55)',
+    },
+    iconContainer: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: '#1A1A1A',
+        alignItems: 'center',
+        justifyContent: 'center',
+    }
+});

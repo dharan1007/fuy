@@ -23,7 +23,7 @@ export default function AuthenticatedLayout({
       {/* Footer sticks to bottom via mt-auto on the flex column wrapper */}
       <footer className="mt-auto border-t bg-white dark:bg-black dark:border-white/10">
         <div className="mx-auto max-w-6xl px-4 py-6 text-sm text-neutral-600 dark:text-neutral-300 flex items-center justify-between">
-          <span>© {new Date().getFullYear()} transiq</span>
+          <span>© {new Date().getFullYear()} dvange</span>
           <div className="flex gap-4" />
         </div>
       </footer>

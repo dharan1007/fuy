@@ -12,30 +12,50 @@ export async function POST(request: Request) {
         const body = await request.json();
         const { conversationId } = body;
 
-        // Verify user is participant or Admin
+        if (!conversationId) {
+            return NextResponse.json({ error: 'conversationId is required' }, { status: 400 });
+        }
+
+        // Verify conversation exists and user is a participant
         const conversation = await prisma.conversation.findUnique({
             where: { id: conversationId },
-            include: { states: true }
         });
 
         if (!conversation) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-        // Logic: if requested, delete for BOTH (mark deleted in ConversationState for all participants)
-        // Or actually delete the messages? The user said "delete from each if they want... if one deletes... it will be deleted from both".
-        // This usually means hard delete or soft delete for everyone.
+        const userId = session.user.id;
+        if (conversation.participantA !== userId && conversation.participantB !== userId) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+        }
 
-        await prisma.conversationState.updateMany({
-            where: { conversationId: conversationId },
-            data: { isDeleted: true, lastDeletedAt: new Date() }
+        // Hard delete: remove everything in correct FK order
+        // 1. Get all message IDs in this conversation
+        const messages = await prisma.message.findMany({
+            where: { conversationId },
+            select: { id: true },
         });
+        const messageIds = messages.map(m => m.id);
 
-        // Optionally, if strictly "deleted from both", we could remove the conversation entirely.
-        // But maintaining state with 'isDeleted' is safer for audit.
+        if (messageIds.length > 0) {
+            // 2. Delete message child records
+            await prisma.messageTag.deleteMany({ where: { messageId: { in: messageIds } } });
+            await prisma.trigger.deleteMany({ where: { messageId: { in: messageIds } } });
+            await prisma.deletedMessage.deleteMany({ where: { messageId: { in: messageIds } } });
+        }
+
+        // 3. Delete all messages
+        await prisma.message.deleteMany({ where: { conversationId } });
+
+        // 4. Delete conversation state records
+        await prisma.conversationState.deleteMany({ where: { conversationId } });
+
+        // 5. Delete the conversation
+        await prisma.conversation.delete({ where: { id: conversationId } });
 
         return NextResponse.json({ success: true });
 
     } catch (error) {
+        console.error('Error deleting chat:', error);
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }
-

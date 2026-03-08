@@ -169,6 +169,7 @@ export const decryptMessage = (
 };
 // --- 3. File Encryption (Symmetric AES) ---
 
+import * as FileSystemLegacy from 'expo-file-system/legacy';
 import * as FileSystem from 'expo-file-system';
 
 /**
@@ -179,7 +180,7 @@ import * as FileSystem from 'expo-file-system';
  */
 export const encryptFile = async (uri: string, password?: string): Promise<{ encryptedUri: string; key: string; iv: string } | null> => {
     try {
-        const fileData = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' });
+        const fileData = await FileSystemLegacy.readAsStringAsync(uri, { encoding: 'base64' });
 
         let key: string;
         let keyHex: string;
@@ -213,9 +214,10 @@ export const encryptFile = async (uri: string, password?: string): Promise<{ enc
         }).toString();
 
         const fileName = (uri.split('/').pop() || 'temp_enc') + '.enc';
-        const encryptedUri = (FileSystem as any).cacheDirectory + fileName;
+        const cacheDir = FileSystemLegacy.cacheDirectory || FileSystemLegacy.documentDirectory || 'file:///';
+        const encryptedUri = cacheDir + fileName;
 
-        await FileSystem.writeAsStringAsync(encryptedUri, encrypted);
+        await FileSystemLegacy.writeAsStringAsync(encryptedUri, encrypted);
 
         return {
             encryptedUri,
@@ -233,7 +235,7 @@ export const encryptFile = async (uri: string, password?: string): Promise<{ enc
  */
 export const decryptFile = async (encryptedUri: string, keyString: string, ivHex: string, password?: string): Promise<string | null> => {
     try {
-        const encryptedData = await FileSystem.readAsStringAsync(encryptedUri);
+        const encryptedData = await FileSystemLegacy.readAsStringAsync(encryptedUri);
 
         let decryptionKey = keyString;
 
@@ -255,8 +257,14 @@ export const decryptFile = async (encryptedUri: string, keyString: string, ivHex
             iv: CryptoJS.enc.Hex.parse(ivHex)
         });
 
-        const base64Data = decrypted.toString(CryptoJS.enc.Utf8);
-        if (!base64Data) throw new Error("Decryption failed (result empty)");
+        let base64Data: string;
+        try {
+            base64Data = decrypted.toString(CryptoJS.enc.Utf8);
+            if (!base64Data) throw new Error("Decryption failed (result empty)");
+        } catch (e) {
+            console.warn("UTF-8 conversion failed - likely wrong password");
+            return null;
+        }
 
         // Identify extension or default to .dat - ideally we store original mime/ext
         // For now, let's assume valid base64 is returned and we can just use it (e.g. Image uri)
@@ -265,9 +273,10 @@ export const decryptFile = async (encryptedUri: string, keyString: string, ivHex
 
         // Generate a random filename to avoid conflicts
         const tempFileName = 'dec_' + Date.now() + '.tmp';
-        const targetUri = (FileSystem as any).cacheDirectory + tempFileName;
+        const cacheDir = FileSystemLegacy.cacheDirectory || FileSystemLegacy.documentDirectory || 'file:///';
+        const targetUri = cacheDir + tempFileName;
 
-        await FileSystem.writeAsStringAsync(targetUri, base64Data, { encoding: 'base64' });
+        await FileSystemLegacy.writeAsStringAsync(targetUri, base64Data, { encoding: 'base64' });
 
         return targetUri;
     } catch (error) {

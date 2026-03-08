@@ -2,12 +2,9 @@ import 'react-native-url-polyfill/auto';
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Bypassing ISP block by routing to Next.js API proxy
+// Bypassing ISP block by routing to Next.js API proxy (disabled until proxy is deployed to production)
 const rawSupabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
-const baseUrl = process.env.EXPO_PUBLIC_API_URL || 'https://fuymedia.org';
-const supabaseUrl = rawSupabaseUrl.includes('supabase.co')
-    ? `${baseUrl}/api/supabase`
-    : rawSupabaseUrl;
+const supabaseUrl = rawSupabaseUrl;
 
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 
@@ -50,7 +47,18 @@ export async function fetchPublicPosts(limit: number = 20, postType?: string) {
                     media:Media (url, type)
                 ),
                 _count:PostLike (count),
-                commentCount:Comment (count)
+                commentCount:Comment (count),
+                bubbles:ReactionBubble (
+                    id,
+                    mediaUrl,
+                    mediaType,
+                    createdAt,
+                    userId,
+                    user:User (
+                        name,
+                        profile:Profile (avatarUrl, displayName)
+                    )
+                )
             `)
             .eq('visibility', 'PUBLIC')
             .order('createdAt', { ascending: false })
@@ -92,6 +100,7 @@ export async function fetchPublicPosts(limit: number = 20, postType?: string) {
                 name: p.user?.name,
                 profile: p.user?.profile,
             },
+            bubbles: p.bubbles || [],
             media: (p.postMedia || []).map((pm: any) => ({
                 url: pm.media?.url,
                 type: pm.media?.type,

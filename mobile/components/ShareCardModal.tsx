@@ -226,8 +226,8 @@ export default function ShareCardModal({ visible, onClose, cardCode, cardOwnerNa
     };
 
     const handleExternalShare = async () => {
-        const deepLink = `fuy://profile-card/${cardCode}`;
-        const message = `Check out ${cardOwnerName}'s Profile Card on Transiq!\n\nOpen this link in the Transiq app: ${deepLink}\n\nOr search code: ${cardCode} in the Explore tab.`;
+        const deepLink = `dvange://profile-card/${cardCode}`;
+        const message = `Check out ${cardOwnerName}'s Profile Card on Dvange!\n\nOpen this link in the Dvange app: ${deepLink}\n\nOr search code: ${cardCode} in the Explore tab.`;
 
         try {
             await Share.share({
@@ -292,7 +292,7 @@ export default function ShareCardModal({ visible, onClose, cardCode, cardOwnerNa
                                 style={{ backgroundColor: activeTab === 'in-app' ? '#fff' : 'transparent' }}
                             >
                                 <Users color={activeTab === 'in-app' ? '#000' : colors.text} size={18} />
-                                <Text style={{ color: activeTab === 'in-app' ? '#000' : colors.text, fontWeight: '600' }}>Share in Transiq</Text>
+                                <Text style={{ color: activeTab === 'in-app' ? '#000' : colors.text, fontWeight: '600' }}>Share in Dvange</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 onPress={() => setActiveTab('external')}
@@ -367,7 +367,7 @@ export default function ShareCardModal({ visible, onClose, cardCode, cardOwnerNa
                                     Share to Other Apps
                                 </Text>
                                 <Text className="text-center mb-6 px-4" style={{ color: colors.secondary }}>
-                                    Share a secure link that opens this profile card in the Transiq app.
+                                    Share a secure link that opens this profile card in the Dvange app.
                                 </Text>
                                 <TouchableOpacity
                                     onPress={handleExternalShare}

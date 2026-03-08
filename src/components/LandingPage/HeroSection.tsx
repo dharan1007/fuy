@@ -14,9 +14,9 @@ export default function HeroSection() {
           transition={{ duration: 0.8, delay: 0.2 }}
           className="text-6xl md:text-8xl font-bold"
         >
-          <span className="text-white">f</span>
-          <span className="text-red-500">u</span>
-          <span className="text-white">y</span>
+          <span className="text-white border-b-4 border-white pb-1">d</span>
+          <span className="text-red-500 border-b-4 border-red-500 pb-1">v</span>
+          <span className="text-white">ange</span>
         </motion.h1>
 
         <motion.p
@@ -25,7 +25,7 @@ export default function HeroSection() {
           transition={{ duration: 0.8, delay: 0.4 }}
           className="text-xl md:text-2xl text-gray-300 max-w-2xl mx-auto px-4"
         >
-          Find yourself
+          dvange
         </motion.p>
 
         <motion.div

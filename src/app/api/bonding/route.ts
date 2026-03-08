@@ -45,7 +45,10 @@ export async function GET(request: Request) {
             const messages = await prisma.message.findMany({
                 where: {
                     conversationId: conversation.id,
-                    NOT: { tags: { equals: [] } } // Only messages with tags
+                    OR: [
+                        { NOT: { tags: { equals: [] } } },
+                        { triggers: { some: {} } }
+                    ]
                 },
                 include: {
                     sender: {
@@ -53,20 +56,25 @@ export async function GET(request: Request) {
                             name: true,
                             profile: { select: { displayName: true, avatarUrl: true } }
                         }
-                    }
+                    },
+                    triggers: true
                 },
                 orderBy: { createdAt: 'desc' }
             });
 
             // Transform to expected shape
             tags = messages.flatMap(msg => {
-                // msg.tags is String[]
-                return msg.tags.map(tag => ({
+                const combinedTags = [...(msg.tags || [])];
+                if (msg.triggers && msg.triggers.length > 0) {
+                    if (!combinedTags.includes('Trigger')) combinedTags.push('Trigger');
+                }
+
+                return combinedTags.map(tag => ({
                     id: `${msg.id}-${tag}`,
                     messageId: msg.id,
                     userId: msg.senderId,
-                    profileId: profileId, // Contextual
-                    tagType: tag, // "Urgent", "Fun", etc.
+                    profileId: profileId,
+                    tagType: tag,
                     taggedContent: null,
                     note: null,
                     createdAt: msg.createdAt,
@@ -79,20 +87,15 @@ export async function GET(request: Request) {
                 }));
             });
 
-            // Filter tags if needed (e.g. only "Urgent" goes to Blacklist? No, matching logic in UI)
-            // UI expects tagCounts
             tagCounts = tags.reduce((acc, tag) => {
                 acc[tag.tagType] = (acc[tag.tagType] || 0) + 1;
                 return acc;
             }, {} as Record<string, number>);
         }
 
-        // Return empty facts as feature is removed
-        const facts: any[] = [];
-
         return NextResponse.json({
             tags,
-            facts,
+            facts: [],
             tagCounts,
         });
 

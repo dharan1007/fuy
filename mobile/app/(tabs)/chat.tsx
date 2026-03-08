@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useNavigation, useFocusEffect } from 'expo-router';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import { Mic, Send, Search, Settings, MoreVertical, Phone, Video, Image as ImageIcon, Smile, X, ChevronLeft, ChevronUp, ChevronDown, GripVertical, Sparkles, User as UserIcon, Sun, Moon, Anchor, Heart, Map as MapIcon, Book, Plus, Tag, Frown, AlertTriangle, Check, CheckCheck, Clock, Trash2, EyeOff, Lock, Bookmark, Users } from 'lucide-react-native';
+import { Mic, Send, Search, Settings, MoreVertical, Phone, Video, Image as ImageIcon, Smile, X, ChevronLeft, ChevronUp, ChevronDown, GripVertical, Sparkles, User as UserIcon, Sun, Moon, Anchor, Heart, Map as MapIcon, Book, Plus, Tag, Frown, AlertTriangle, Check, CheckCheck, Clock, Trash2, EyeOff, Lock, Bookmark, Users, Reply, Download } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PanResponder, Animated as RNAnimated } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -14,7 +14,9 @@ import { useNavVisibility } from '../../context/NavContext';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 import { useEncryption } from '../../context/EncryptionContext';
-import { encryptMessage, decryptMessage } from '../../lib/encryption';
+import { encryptMessage, decryptMessage, decryptFile } from '../../lib/encryption';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 
 import { MediaUploadService } from '../../services/MediaUploadService';
 
@@ -41,7 +43,7 @@ interface Message {
     id: string;
     role: 'user' | 'assistant' | 'system';
     content: string;
-    type?: 'text' | 'image' | 'video' | 'audio' | 'post' | 'reply' | 'document' | 'location';
+    type?: 'text' | 'image' | 'video' | 'audio' | 'post' | 'reply' | 'document' | 'location' | 'trigger';
     mediaUrl?: string;
     createdAt?: string;
     timestamp: number;
@@ -63,6 +65,7 @@ interface Message {
     fileSize?: number;
     mimeType?: string;
     duration?: number;
+    isSending?: boolean;
 }
 
 interface ChatUser {
@@ -170,6 +173,7 @@ export default function ChatScreen() {
 
     const handleSaveNickname = async () => {
         if (!editUser) return;
+        console.log(`[ChatAction] handleSaveNickname: targetUser=${editUser.id}, nickname=${tempNickname.trim()}`);
         const newNicks = { ...nicknames, [editUser.id]: tempNickname.trim() };
         if (!tempNickname.trim()) delete newNicks[editUser.id];
         setNicknames(newNicks);
@@ -182,6 +186,7 @@ export default function ChatScreen() {
     const [optionsUser, setOptionsUser] = useState<ChatUser | null>(null);
 
     const handleShowOptions = (user: ChatUser) => {
+        console.log(`[ChatAction] handleShowOptions: user=${user.id}`);
         setOptionsUser(user);
         setShowOptionsModal(true);
     };
@@ -221,6 +226,7 @@ export default function ChatScreen() {
     const [customRetentionDays, setCustomRetentionDays] = useState(7);
 
     const [isUploading, setIsUploading] = useState(false);
+    const isSendingRef = useRef(false);
     const [tempAccepted, setTempAccepted] = useState(false);
 
     // Safety: Blocked Users
@@ -235,6 +241,9 @@ export default function ChatScreen() {
     const [isSettingPin, setIsSettingPin] = useState(false);
     const [pendingUnlockConversationId, setPendingUnlockConversationId] = useState<string | null>(null);
     const [showPinPrompt, setShowPinPrompt] = useState(false);
+    const [chatToDelete, setChatToDelete] = useState<string | null>(null);
+    const [deletedConversationIds, setDeletedConversationIds] = useState<Set<string>>(new Set());
+    const deletedIdsRef = useRef<Set<string>>(new Set());
 
     // Toast state
     const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -247,20 +256,95 @@ export default function ChatScreen() {
 
     // --- Media & Location State ---
     const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
-    const [previewMedia, setPreviewMedia] = useState<{ uri: string; type: 'image' | 'video' | 'document' } | null>(null);
+    const [previewMedia, setPreviewMedia] = useState<{ uri: string; type: 'image' | 'video' | 'document'; fileSize?: number; mimeType?: string; fileName?: string | null }[]>([]);
     const [showLocationPicker, setShowLocationPicker] = useState(false);
+    const [viewingMediaMsg, setViewingMediaMsg] = useState<Message | null>(null);
+
+    // --- Message Scroll & Highlight State ---
+    const scrollViewRef = useRef<ScrollView>(null);
+    const messageLayouts = useRef<Record<string, number>>({});
+    const [highlightedMsgId, setHighlightedMsgId] = useState<string | null>(null);
+
+    const scrollToMessage = (msgId: string) => {
+        const yPos = messageLayouts.current[msgId];
+        if (yPos !== undefined && scrollViewRef.current) {
+            scrollViewRef.current.scrollTo({ y: Math.max(0, yPos - 20), animated: true });
+
+            // Flash effect
+            setHighlightedMsgId(msgId);
+            setTimeout(() => setHighlightedMsgId(null), 1500);
+        }
+    };
 
     // --- Handlers ---
+    const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50MB limit
+
+    const handleDownloadMediaToDevice = async (msg: Message) => {
+        try {
+            if (!msg.mediaUrl) return;
+            const filename = msg.mediaUrl.split('/').pop()?.split('?')[0] || 'media_dl';
+            const cacheDir = FileSystem.cacheDirectory + 'chat_downloads/';
+            await FileSystem.makeDirectoryAsync(cacheDir, { intermediates: true }).catch(() => { });
+
+            const localEncryptedPath = cacheDir + 'enc_' + filename;
+            const downloadRes = await FileSystem.downloadAsync(msg.mediaUrl, localEncryptedPath);
+
+            let decryptedPath = localEncryptedPath;
+            if (msg.mediaEncryptionKey) {
+                const parts = msg.mediaEncryptionKey.split(':');
+                if (parts.length >= 2 && !msg.mediaEncryptionKey.includes('pw:')) {
+                    const iv = parts[0];
+                    const keyStr = parts[1];
+                    const dec = await decryptFile(localEncryptedPath, keyStr, iv);
+                    if (dec) decryptedPath = dec;
+                } else if (msg.mediaEncryptionKey.includes('pw:')) {
+                    Alert.alert("Password Required", "Cannot download password protected file directly.");
+                    return;
+                }
+            }
+            if (decryptedPath) {
+                if (await Sharing.isAvailableAsync()) {
+                    await Sharing.shareAsync(decryptedPath);
+                } else {
+                    Alert.alert("Error", "Sharing is not available on this device.");
+                }
+            }
+        } catch (e) {
+            console.error("Download Error:", e);
+            Alert.alert("Error", "Could not download media");
+        }
+    };
+
     const handlePickMedia = async (source: 'camera' | 'library') => {
+        console.log(`[ChatAction] handlePickMedia: source=${source}`);
         setShowAttachmentMenu(false);
         try {
             const result = source === 'camera'
                 ? await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.All, quality: 0.8 })
-                : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.All, quality: 0.8 });
+                : await ImagePicker.launchImageLibraryAsync({
+                    mediaTypes: ImagePicker.MediaTypeOptions.All,
+                    quality: 0.8,
+                    allowsMultipleSelection: true,
+                    selectionLimit: 12
+                });
 
-            if (!result.canceled && result.assets[0]) {
-                const asset = result.assets[0];
-                setPreviewMedia({ uri: asset.uri, type: asset.type === 'video' ? 'video' : 'image' });
+            if (!result.canceled && result.assets && result.assets.length > 0) {
+                const validAssets = result.assets.filter(a => (a.fileSize || 0) <= MAX_FILE_SIZE_BYTES);
+
+                if (validAssets.length < result.assets.length) {
+                    Alert.alert('File Size Limit', 'Some files exceeded the 50MB limit and were skipped.');
+                }
+
+                if (validAssets.length === 0) return;
+
+                const items = validAssets.map(asset => ({
+                    uri: asset.uri,
+                    type: asset.type === 'video' ? 'video' as const : 'image' as const,
+                    fileSize: asset.fileSize,
+                    mimeType: asset.mimeType,
+                    fileName: asset.fileName
+                }));
+                setPreviewMedia(items);
             }
         } catch (error) {
             Alert.alert('Error', 'Failed to pick media');
@@ -268,95 +352,118 @@ export default function ChatScreen() {
     };
 
     const handlePickDocument = async () => {
+        console.log(`[ChatAction] handlePickDocument: invoked`);
         setShowAttachmentMenu(false);
         try {
-            const result = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true });
-            if (result.canceled) return;
+            const result = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true, multiple: true });
+            if (result.canceled || !result.assets || result.assets.length === 0) return;
 
-            Alert.alert('Send Document?', result.assets[0].name, [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Send',
-                    onPress: async () => {
-                        setIsUploading(true);
-                        try {
-                            const uploadResult = await MediaUploadService.uploadDocument(
-                                result.assets[0].uri,
-                                true // Encrypt docs by default
-                            );
+            const validAssets = result.assets.filter(a => (a.size || 0) <= MAX_FILE_SIZE_BYTES);
+            if (validAssets.length < result.assets.length) {
+                Alert.alert('File Size Limit', 'Some documents exceeded the 50MB limit and were skipped.');
+            }
+            if (validAssets.length === 0) return;
 
-                            await sendMessage(
-                                'document',
-                                '📄 ' + result.assets[0].name,
-                                uploadResult.url,
-                                {
-                                    mediaEncryptionKey: uploadResult.encryptionKey ? `${uploadResult.iv}:${uploadResult.encryptionKey}` : undefined,
-                                    mimeType: result.assets[0].mimeType,
-                                    fileName: result.assets[0].name,
-                                    fileSize: result.assets[0].size,
-                                }
-                            );
-                        } catch (e) {
-                            Alert.alert('Error sending doc');
-                            console.error(e);
-                        } finally { setIsUploading(false); }
-                    }
-                }
-            ]);
+            if (validAssets.length > 12) {
+                Alert.alert('Limit Exceeded', 'You can only select up to 12 documents at once.');
+                validAssets.splice(12);
+            }
 
+            const items = validAssets.map(asset => ({
+                uri: asset.uri,
+                type: 'document' as const,
+                fileSize: asset.size,
+                mimeType: asset.mimeType,
+                fileName: asset.name
+            }));
+
+            setPreviewMedia(items);
         } catch (error) {
             console.log('Error picking doc', error);
         }
     };
 
     const handleSendMedia = async (data: { caption: string; viewOnce: boolean; expiresAt: Date | null; password?: string }) => {
-        if (!previewMedia) return;
+        if (!previewMedia || previewMedia.length === 0) return;
+        console.log(`[ChatAction] handleSendMedia: multipleCount=${previewMedia.length}, viewOnce=${data.viewOnce}`);
 
-        setIsUploading(true);
-        setPreviewMedia(null); // Close preview immediately
+        const itemsToUpload = [...previewMedia];
+        setPreviewMedia([]); // Close preview immediately
 
-        const tempId = Date.now().toString();
-        const type = previewMedia.type === 'video' ? 'video' : previewMedia.type === 'document' ? 'document' : 'image';
+        for (let i = 0; i < itemsToUpload.length; i++) {
+            const item = itemsToUpload[i];
+            const tempId = `temp-${Date.now()}-${i}`;
+            const type = item.type;
 
-        // Optimistic update removed, sendMessage handles it
-        // const newMessage: Message = ...
+            // Give the caption to the first item, others get empty string (unless it is a document, then name)
+            const itemContent = i === 0 && data.caption ? data.caption : (type === 'document' ? `📄 ${item.fileName || 'Document'}` : '');
 
-        try {
-            const uploadResult = await MediaUploadService.uploadMedia(
-                previewMedia.uri,
-                type === 'video' ? 'VIDEO' : type === 'document' ? 'DOCUMENT' : 'IMAGE',
-                undefined,
-                true, // Always encrypt media for privacy, except maybe public
-                data.password // Pass password if provided
-            );
+            // Optimistic Media "Sending" Bubble to UI instantly!
+            const optimisticMsg: Message = {
+                id: tempId,
+                role: 'user',
+                content: itemContent,
+                type: type,
+                mediaUrl: item.uri,
+                timestamp: Date.now(),
+                createdAt: new Date().toISOString(),
+                senderId: dbUserId!,
+                readAt: null,
+                isSaved: false,
+                viewOnce: data.viewOnce,
+                isSending: true,
+                fileName: item.fileName || undefined,
+                fileSize: item.fileSize,
+                mimeType: item.mimeType,
+            };
 
-            // Update message with real URL and encryption key
-            setMessages(prev => prev.map(msg =>
-                msg.id === tempId ? {
-                    ...msg,
-                    mediaUrl: uploadResult.url,
-                    mediaEncryptionKey: uploadResult.encryptionKey ?
-                        (uploadResult.iv ? `${uploadResult.iv}:${uploadResult.encryptionKey}` : uploadResult.encryptionKey)
-                        : undefined,
-                    fileSize: 0, // We could get this from file info
-                    fileName: previewMedia.type === 'document' ? previewMedia.uri.split('/').pop() : undefined
-                } : msg
-            ));
+            setMessages(prev => [...prev, optimisticMsg]);
+            setIsLoading(false);
 
-            // Persist to DB (omitted for brevity, assume similar to optimistic update)
-            // ...
+            try {
+                // Upload service call
+                let uploadResult;
+                if (type === 'document') {
+                    uploadResult = await MediaUploadService.uploadDocument(item.uri, true, data.password);
+                } else {
+                    uploadResult = await MediaUploadService.uploadMedia(
+                        item.uri,
+                        type === 'video' ? 'VIDEO' : 'IMAGE',
+                        undefined,
+                        true, // Always encrypt
+                        data.password
+                    );
+                }
 
-        } catch (error) {
-            console.error("Failed to upload media:", error);
-            showToast("Failed to send media", 'error');
-            // Remove failed message
-            setMessages(prev => prev.filter(msg => msg.id !== tempId));
-        } finally {
-            setIsUploading(false);
+                // Call the actual sendMessage logic to commit to DB and broadcast
+                await sendMessage(
+                    type,
+                    itemContent,
+                    uploadResult.url,
+                    {
+                        mediaEncryptionKey: uploadResult.encryptionKey ?
+                            (uploadResult.iv ? `${uploadResult.iv}:${uploadResult.encryptionKey}` : uploadResult.encryptionKey)
+                            : undefined,
+                        mimeType: item.mimeType,
+                        fileName: item.fileName || undefined,
+                        fileSize: item.fileSize,
+                        viewOnce: data.viewOnce,
+                        isPasswordProtected: !!data.password,
+                        tempId: tempId
+                    }
+                );
+
+            } catch (error) {
+                console.error("Failed to upload media:", error);
+                showToast("Failed to send some media", 'error');
+                setMessages(prev => prev.filter(msg => msg.id !== tempId));
+            }
         }
+        setIsUploading(false);
     };
 
     const handleSendLocation = async (loc: { latitude: number; longitude: number; address?: string }) => {
+        console.log(`[ChatAction] handleSendLocation: loc=${loc.latitude},${loc.longitude}`);
         setShowLocationPicker(false);
 
         await sendMessage(
@@ -397,6 +504,7 @@ export default function ChatScreen() {
     // Slash command state
     const [showSlashMenu, setShowSlashMenu] = useState(false);
     const [slashSearchQuery, setSlashSearchQuery] = useState('');
+    const [selectedSlashCollectionId, setSelectedSlashCollectionId] = useState<string | null>(null);
     const [allTriggers, setAllTriggers] = useState<any[]>([]);
 
 
@@ -420,18 +528,34 @@ export default function ChatScreen() {
         const fetchConversationStates = async () => {
             const { data: states } = await supabase
                 .from('ConversationState')
-                .select('conversationId, isHidden, isLocked')
+                .select('conversationId, isHidden, isLocked, isDeleted')
                 .eq('userId', dbUserId);
 
             if (states) {
                 const hidden = new Set<string>();
                 const locked = new Set<string>();
+                const dbDeleted = new Set<string>();
                 states.forEach((s: any) => {
                     if (s.isHidden) hidden.add(s.conversationId);
                     if (s.isLocked) locked.add(s.conversationId);
+                    if (s.isDeleted) dbDeleted.add(s.conversationId);
                 });
                 setHiddenConversationIds(hidden);
                 setLockedConversationIds(locked);
+
+                // MERGE local deleted IDs with DB deleted IDs (never overwrite local deletions)
+                // Local AsyncStorage is the primary source of truth since RLS may block DB writes
+                let mergedDeleted = new Set<string>(dbDeleted);
+                try {
+                    const storedDeleted = await AsyncStorage.getItem('deletedConversationIds');
+                    if (storedDeleted) {
+                        const localIds: string[] = JSON.parse(storedDeleted);
+                        localIds.forEach(id => mergedDeleted.add(id));
+                    }
+                } catch (_) { /* ignore */ }
+                setDeletedConversationIds(mergedDeleted);
+                deletedIdsRef.current = mergedDeleted;
+                await AsyncStorage.setItem('deletedConversationIds', JSON.stringify(Array.from(mergedDeleted)));
             }
         };
         fetchConversationStates();
@@ -505,6 +629,7 @@ export default function ChatScreen() {
     const [pinnedOrder, setPinnedOrder] = useState<string[]>([]);
 
     const handlePin = async (userId: string) => {
+        console.log(`[ChatAction] handlePin: targetUser=${userId}, currentlyPinned=${pinnedIds.has(userId)}`);
         const newSet = new Set(pinnedIds);
         let newOrder = [...pinnedOrder];
 
@@ -567,7 +692,8 @@ export default function ChatScreen() {
 
             // Subscribe to realtime changes for Conversations
             const channel = supabase.channel('public:Conversation')
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'Conversation' }, () => {
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'Conversation' }, (payload) => {
+                    console.log(`[Realtime] public:Conversation update received:`, payload);
                     fetchConversations();
                 })
                 .subscribe();
@@ -575,6 +701,7 @@ export default function ChatScreen() {
             // Subscribe to User presence/status changes
             const userChannel = supabase.channel('public:User')
                 .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'User' }, (payload) => {
+                    console.log(`[Realtime] public:User status update received for user=${payload.new.id}, lastSeen=${payload.new.lastSeen}`);
                     // Update search results or conversation list status if visible
                     setSearchResults(prev => prev.map(u => {
                         if (u.id === payload.new.id) {
@@ -641,6 +768,7 @@ export default function ChatScreen() {
         const channel = supabase.channel(`chat:${activeConversationIdRef.current}`)
             // FAST PATH: Listen for broadcast messages (instant delivery)
             .on('broadcast', { event: 'typing' }, (payload) => {
+                console.log(`[Realtime] chat:${activeConversationIdRef.current} broadcast typing event received from sender=${payload.payload.senderId}`);
                 if (payload.payload.senderId !== dbUserId) {
                     setIsPartnerTyping(true);
                     // Clear previous timeout
@@ -653,6 +781,7 @@ export default function ChatScreen() {
             })
             .on('broadcast', { event: 'new_message' }, (payload) => {
                 const newMsg = payload.payload;
+                console.log(`[Realtime] chat:${activeConversationIdRef.current} broadcast new_message received: id=${newMsg.id}`);
                 // Skip if it's our own message (already added via optimistic update)
                 if (newMsg.senderId === dbUserId) return;
 
@@ -695,6 +824,7 @@ export default function ChatScreen() {
             .on('postgres_changes',
                 { event: '*', schema: 'public', table: 'Message', filter: `conversationId=eq.${activeConversationIdRef.current}` },
                 (payload) => {
+                    console.log(`[Realtime] chat:${activeConversationIdRef.current} Message postgres_changes received: eventType=${payload.eventType}`);
                     if (payload.eventType === 'INSERT') {
                         const newMsg = payload.new;
                         setMessages(prev => {
@@ -757,10 +887,23 @@ export default function ChatScreen() {
     const fetchConversations = async () => {
         const { data: { user: currentUser } } = await supabase.auth.getUser();
         if (!currentUser) return;
+        console.log(`[ChatData] fetchConversations: invoked for user=${currentUser.id}`);
 
         try {
+            // Always load deleted IDs from AsyncStorage and merge with in-memory ref
+            // This ensures deletions persist even when realtime events re-trigger this function
+            let currentDeletedIds = new Set<string>(deletedIdsRef.current);
+            try {
+                const storedDeleted = await AsyncStorage.getItem('deletedConversationIds');
+                if (storedDeleted) {
+                    const parsed: string[] = JSON.parse(storedDeleted);
+                    parsed.forEach(id => currentDeletedIds.add(id));
+                    deletedIdsRef.current = currentDeletedIds;
+                    setDeletedConversationIds(currentDeletedIds);
+                }
+            } catch (e) { /* ignore parse errors */ }
+
             // Fetch conversations where user is A or B
-            // Also join User and Profile tables to get names and avatars
             const { data, error } = await supabase
                 .from('Conversation')
                 .select(`
@@ -777,9 +920,10 @@ export default function ChatScreen() {
 
             if (error) throw error;
 
-            if (error) throw error;
-
             const formatted: ChatUser[] = data.map((c: any) => {
+                // Filter out deleted conversations immediately
+                if (currentDeletedIds.has(c.id)) return null;
+
                 const isA = c.participantA === currentUser.id;
                 const partner = isA ? c.userB : c.userA;
 
@@ -787,12 +931,12 @@ export default function ChatScreen() {
                 if (!partner) return null;
 
                 const name = partner.profile?.displayName || partner.name || 'Unknown User';
-                const avatar = partner.profile?.avatarUrl || null; // No fallback avatar
+                const avatar = partner.profile?.avatarUrl || null;
 
                 return {
                     id: partner.id,
                     name: name,
-                    avatar: avatar, // Type needs to update or handle empty string? ChatUser defines string. I can pass empty string.
+                    avatar: avatar,
                     status: (isUserOnline(partner.lastSeen) ? 'online' : 'offline') as 'online' | 'offline' | 'away',
                     lastMessage: (() => {
                         if (!c.lastMessage) return 'Start a conversation';
@@ -835,7 +979,42 @@ export default function ChatScreen() {
     };
 
     const getSortedConversations = () => {
-        let list = searchQuery ? searchResults : conversations;
+        const searchLower = searchQuery.toLowerCase().trim();
+        const isHiddenSearch = searchLower === 'hidden';
+
+        if (searchLower.length > 0) {
+            console.log(`[ChatList] Searching for: "${searchLower}". Is override Hidden Mode? ${isHiddenSearch}`);
+        }
+
+        // Filter out deleted chats FIRST
+        const activeConversations = conversations.filter(c => !deletedConversationIds.has(c.conversationId || c.id));
+
+        // If explicitly typing "hidden", bypass the remote `searchResults` array 
+        // and filter our local `conversations` array instead.
+        let list: ChatUser[] = [];
+
+        if (isHiddenSearch) {
+            list = activeConversations;
+        } else if (searchLower.length > 0) {
+            // Find local conversations that match the name
+            const localMatches = activeConversations.filter(c =>
+                c.name && c.name.toLowerCase().includes(searchLower)
+            );
+
+            // Combine Supabase search results with local matches, keeping unique IDs
+            const combinedMap = new Map();
+            searchResults
+                .filter(u => !deletedConversationIds.has(u.conversationId || u.id))
+                .forEach(u => combinedMap.set(u.id, u));
+            localMatches.forEach(u => {
+                if (!combinedMap.has(u.id)) combinedMap.set(u.id, u);
+            });
+
+            list = Array.from(combinedMap.values());
+            console.log(`[ChatList] Combined ${localMatches.length} local matches with ${searchResults.length} remote hits.`);
+        } else {
+            list = activeConversations;
+        }
 
         // Update flags dynamically
         list = list.map(c => ({
@@ -845,13 +1024,13 @@ export default function ChatScreen() {
             isLocked: lockedConversationIds.has(c.conversationId || c.id)
         }));
 
-        // Show hidden chats ONLY when specifically searching for "hidden"
-        const searchLower = searchQuery.toLowerCase().trim();
-        const showHidden = searchLower === 'hidden';
-
-        if (showHidden) {
+        if (isHiddenSearch) {
+            console.log(`[ChatList] Filtering ${list.length} local conversations for hidden ones...`);
             // Only show hidden chats
             list = list.filter(c => c.isHidden);
+        } else if (searchLower.length > 0) {
+            // Show all chats (including hidden) matching the search term
+            // `list` now includes both local matches and Supabase results!
         } else {
             // Filter out hidden chats for normal view
             list = list.filter(c => !c.isHidden);
@@ -885,6 +1064,7 @@ export default function ChatScreen() {
     };
 
     const searchUsers = async (query: string) => {
+        console.log(`[ChatData] searchUsers: query="${query}"`);
         if (query.length < 2) {
             setSearchResults([]);
             return;
@@ -925,16 +1105,23 @@ export default function ChatScreen() {
 
             const formatted = combinedData.map((u: any) => {
                 const profile = Array.isArray(u.profile) ? u.profile[0] : u.profile;
+                // Attempt to find an existing conversation with this user to inherit flags and ID
+                const existingConv = conversations.find((c: any) => c.id === u.id);
+
                 return {
                     id: u.id,
                     name: profile?.displayName || u.name || 'Unknown',
                     avatar: profile?.avatarUrl || '',
                     status: (isUserOnline(u.lastSeen) ? 'online' : 'offline') as 'online' | 'offline' | 'away',
                     lastSeen: u.lastSeen,
-                    publicKey: profile?.publicKey
+                    publicKey: profile?.publicKey,
+                    conversationId: existingConv?.conversationId || null,
+                    isHidden: hiddenConversationIds.has(existingConv?.conversationId || u.id),
+                    isLocked: lockedConversationIds.has(existingConv?.conversationId || u.id),
+                    lastMessage: existingConv?.lastMessage || '',
+                    lastMessageAt: existingConv?.lastMessageAt || null,
                 };
-            }).filter((u: any) => !blockedIds.has(u.id));
-
+            }).filter((u: any) => !blockedIds.has(u.id)) as ChatUser[];
 
             setSearchResults(formatted);
         } catch (err) {
@@ -944,30 +1131,103 @@ export default function ChatScreen() {
 
     // Chat Management Handlers
     const handleDeleteChat = async (conversationId: string) => {
+        console.log(`[ChatAction] handleDeleteChat: initiated for conv=${conversationId}`);
         if (!dbUserId) return;
 
+        // === STEP 1: Persist deletion locally FIRST (before any DB call) ===
+        // This ensures the chat stays gone even if DB operations fail
+        const newDeletedIds = new Set(deletedIdsRef.current).add(conversationId);
+        deletedIdsRef.current = newDeletedIds;
+        setDeletedConversationIds(newDeletedIds);
+        setConversations(prev => prev.filter(c => (c.conversationId || c.id) !== conversationId));
+        setShowOptionsModal(false);
+
+        // Persist to AsyncStorage immediately -- this is the source of truth on next launch
+        await AsyncStorage.setItem('deletedConversationIds', JSON.stringify(Array.from(newDeletedIds)));
+
+        // Clean up cached data
         try {
-            // Upsert ConversationState with isDeleted = true
-            await supabase.from('ConversationState').upsert({
-                conversationId,
-                userId: dbUserId,
-                isDeleted: true
-            }, { onConflict: 'conversationId,userId' });
+            await AsyncStorage.multiRemove([
+                `wallpaper_${conversationId}`,
+                `accepted_${conversationId}`,
+            ]);
+        } catch (_) { /* non-critical */ }
 
-            // Remove from local list
-            setConversations(prev => prev.filter(c => (c.conversationId || c.id) !== conversationId));
-            setShowOptionsModal(false);
-
-            // Show success toast
-            showToast('Chat deleted successfully', 'success');
-        } catch (err) {
-            console.error('Error deleting chat:', err);
-            showToast('Failed to delete chat', 'error');
+        // Remove from pinned if pinned
+        const pinnedUser = conversations.find(c => (c.conversationId || c.id) === conversationId);
+        if (pinnedUser && pinnedIds.has(pinnedUser.id)) {
+            const newPinned = new Set(pinnedIds);
+            newPinned.delete(pinnedUser.id);
+            setPinnedIds(newPinned);
+            const newOrder = pinnedOrder.filter(id => id !== pinnedUser.id);
+            setPinnedOrder(newOrder);
+            await AsyncStorage.setItem('pinnedChatIds', JSON.stringify(Array.from(newPinned)));
+            await AsyncStorage.setItem('pinnedChatOrder', JSON.stringify(newOrder));
         }
+
+        // === STEP 2: Attempt hard delete from database ===
+        // If any of these fail (e.g. RLS), the conversation stays hidden locally
+        try {
+            // Get all message IDs first
+            const { data: msgRows, error: msgFetchErr } = await supabase
+                .from('Message')
+                .select('id')
+                .eq('conversationId', conversationId);
+
+            if (msgFetchErr) console.warn('[DeleteChat] Could not fetch messages:', msgFetchErr.message);
+
+            const messageIds = (msgRows || []).map((m: any) => m.id);
+
+            if (messageIds.length > 0) {
+                // Delete message children -- ignore errors (tables might not have matching rows)
+                const { error: tagErr } = await supabase.from('MessageTag').delete().in('messageId', messageIds);
+                if (tagErr) console.warn('[DeleteChat] MessageTag delete:', tagErr.message);
+
+                const { error: trigErr } = await supabase.from('Trigger').delete().in('messageId', messageIds);
+                if (trigErr) console.warn('[DeleteChat] Trigger delete:', trigErr.message);
+
+                const { error: delMsgErr } = await supabase.from('DeletedMessage').delete().in('messageId', messageIds);
+                if (delMsgErr) console.warn('[DeleteChat] DeletedMessage delete:', delMsgErr.message);
+            }
+
+            // Delete messages
+            const { error: msgDelErr } = await supabase.from('Message').delete().eq('conversationId', conversationId);
+            if (msgDelErr) console.warn('[DeleteChat] Message delete:', msgDelErr.message);
+
+            // Delete conversation state
+            const { error: stateDelErr } = await supabase.from('ConversationState').delete().eq('conversationId', conversationId);
+            if (stateDelErr) console.warn('[DeleteChat] ConversationState delete:', stateDelErr.message);
+
+            // Delete conversation
+            const { error: convDelErr } = await supabase.from('Conversation').delete().eq('id', conversationId);
+            if (convDelErr) {
+                console.warn('[DeleteChat] Conversation delete failed:', convDelErr.message);
+                // Fallback: if hard delete fails (RLS), ensure soft delete flag is set
+                await supabase.from('ConversationState').upsert({
+                    conversationId,
+                    userId: dbUserId,
+                    isDeleted: true
+                }, { onConflict: 'conversationId,userId' });
+            }
+        } catch (err) {
+            console.error('[DeleteChat] DB operation error:', err);
+            // Even if DB fails entirely, the chat stays hidden locally via AsyncStorage
+            // Attempt soft-delete fallback
+            try {
+                await supabase.from('ConversationState').upsert({
+                    conversationId,
+                    userId: dbUserId,
+                    isDeleted: true
+                }, { onConflict: 'conversationId,userId' });
+            } catch (_) { /* last resort fallback failed */ }
+        }
+
+        showToast('Chat deleted', 'success');
     };
 
     const handleHideChat = async (conversationId: string) => {
         if (!dbUserId) return;
+        console.log(`[ChatAction] handleHideChat: conversationId=${conversationId}, currentlyHidden=${hiddenConversationIds.has(conversationId)}`);
 
         try {
             const isCurrentlyHidden = hiddenConversationIds.has(conversationId);
@@ -999,6 +1259,7 @@ export default function ChatScreen() {
 
 
     const handleLockChat = async (conversationId: string) => {
+        console.log(`[ChatAction] handleLockChat: initiated for conv=${conversationId}`);
         setLockModalConversationId(conversationId);
         setIsSettingPin(true);
         setPinInput('');
@@ -1007,6 +1268,7 @@ export default function ChatScreen() {
     };
 
     const handleSetPin = async () => {
+        console.log(`[ChatAction] handleSetPin: creating PIN for conv=${lockModalConversationId}`);
         if (!lockModalConversationId || !dbUserId || pinInput.length < 4) {
             Alert.alert('Error', 'PIN must be at least 4 digits');
             return;
@@ -1035,6 +1297,7 @@ export default function ChatScreen() {
 
     const handleUnlockChat = async (conversationId: string) => {
         if (!dbUserId) return;
+        console.log(`[ChatAction] handleUnlockChat: removing lock for conv=${conversationId}`);
 
         try {
             // Remove PIN
@@ -1105,6 +1368,7 @@ export default function ChatScreen() {
     };
 
     const fetchMessages = async (conversationId: string, targetUserArg?: ChatUser) => {
+        console.log(`[ChatData] fetchMessages: fetching messages for conv=${conversationId}`);
         const { data: { user: currentUser } } = await supabase.auth.getUser();
         if (!currentUser) return;
 
@@ -1116,7 +1380,7 @@ export default function ChatScreen() {
             const { data: messagesData, error } = await supabase
                 .from('Message')
                 .select(`
-                    id, conversationId, senderId, content, type, mediaUrl, isSaved, readAt, createdAt,
+                    id, conversationId, senderId, content, type, mediaUrl, isSaved, readAt, createdAt, mediaEncryptionKey, viewOnce, fileName, fileSize, mimeType, duration,
                     sender:User!senderId(id, name, profile:Profile(avatarUrl, publicKey)),
                     messageTags:MessageTag(tagType),
                     sharedPost:Post!sharedPostId(id, content, postType, user:User(id, name, profile:Profile(displayName, avatarUrl)), postMedia:PostMedia(media:Media(url, type)))
@@ -1167,6 +1431,7 @@ export default function ChatScreen() {
                         } catch (e) { /* ignore JSON parse error */ }
                     }
 
+                    const safeCreatedAt = m.createdAt.endsWith('Z') ? m.createdAt : `${m.createdAt}Z`;
                     return {
                         id: m.id,
                         conversationId: m.conversationId,
@@ -1174,12 +1439,19 @@ export default function ChatScreen() {
                         content: text,
                         type: m.type,
                         mediaUrl: m.mediaUrl,
-                        timestamp: new Date(m.createdAt).getTime(),
+                        timestamp: new Date(safeCreatedAt).getTime(),
+                        createdAt: safeCreatedAt,
                         sender: m.senderId === currentUser?.id ? 'me' : 'them',
                         role: (m.senderId === currentUser?.id ? 'user' : 'assistant') as 'user' | 'assistant' | 'system',
                         isSaved: m.isSaved,
                         readAt: m.readAt,
-                        tags: m.messageTags?.map((t: any) => t.tagType) || []
+                        tags: m.messageTags?.map((t: any) => t.tagType) || [],
+                        mediaEncryptionKey: m.mediaEncryptionKey,
+                        viewOnce: m.viewOnce,
+                        fileName: m.fileName,
+                        fileSize: m.fileSize,
+                        mimeType: m.mimeType,
+                        duration: m.duration
                     };
                 });
 
@@ -1207,6 +1479,7 @@ export default function ChatScreen() {
     // --- Actions ---
 
     const handleUserSelect = async (user: ChatUser) => {
+        console.log(`[ChatUI] handleUserSelect: opening chat with user=${user.id}`);
         const { data: { user: currentUser } } = await supabase.auth.getUser();
         if (!currentUser) {
             Alert.alert("Error", "You must be logged in.");
@@ -1268,6 +1541,25 @@ export default function ChatScreen() {
             }
 
             activeConversationIdRef.current = conversationId;
+
+            // If this conversation was previously deleted, un-delete it
+            if (deletedIdsRef.current.has(conversationId)) {
+                try {
+                    await supabase.from('ConversationState').upsert({
+                        conversationId,
+                        userId: currentUser.id,
+                        isDeleted: false
+                    }, { onConflict: 'conversationId,userId' });
+                    const newDeletedIds = new Set(deletedIdsRef.current);
+                    newDeletedIds.delete(conversationId);
+                    deletedIdsRef.current = newDeletedIds;
+                    setDeletedConversationIds(newDeletedIds);
+                    await AsyncStorage.setItem('deletedConversationIds', JSON.stringify(Array.from(newDeletedIds)));
+                } catch (e) {
+                    console.error('Error un-deleting conversation:', e);
+                }
+            }
+
             await fetchMessages(conversationId, user);
 
             // Load wallpaper from local storage first (faster)
@@ -1300,6 +1592,11 @@ export default function ChatScreen() {
                     .single();
                 if (retData?.messageRetention) {
                     setMessageRetention(retData.messageRetention as any);
+
+                    // Run retention cleanup on chat open (covers 1-day case and any pending immediate cleanup)
+                    if (retData.messageRetention && retData.messageRetention !== 'forever') {
+                        performRetentionCleanup(conversationId, retData.messageRetention);
+                    }
                 }
             } catch (retErr) {
                 console.log('[Chat] messageRetention field may not exist:', retErr);
@@ -1317,44 +1614,192 @@ export default function ChatScreen() {
         await supabase.from('Message').update({ readAt: new Date().toISOString() }).eq('id', messageId);
     };
 
-    const markAllAsRead = async (conversationId: string) => {
-        if (!dbUserId) return;
+    // Helper: fetch IDs of messages that have tags or triggers (must be protected from retention deletion)
+    const getProtectedMessageIds = async (conversationId: string): Promise<Set<string>> => {
+        const { data: taggedMsgs } = await supabase.from('MessageTag')
+            .select('messageId, message!inner(conversationId)')
+            .eq('message.conversationId', conversationId);
+        const { data: triggeredMsgs } = await supabase.from('Trigger')
+            .select('messageId, message!inner(conversationId)')
+            .eq('message.conversationId', conversationId);
+        const ids = new Set<string>();
+        (taggedMsgs || []).forEach((t: any) => ids.add(t.messageId));
+        (triggeredMsgs || []).forEach((t: any) => ids.add(t.messageId));
+        return ids;
+    };
 
-        // Mark all messages from partner where readAt is null
-        const { data: updatedMessages } = await supabase.from('Message')
-            .update({ readAt: new Date().toISOString() })
-            .eq('conversationId', conversationId)
-            .neq('senderId', dbUserId)
-            .is('readAt', null)
-            .select('id');
-
-        // If retention is 'immediately', delete messages that have been read by both parties - SOFT DELETE
-        if (messageRetention === 'immediately') {
-            // Find all messages where both parties have seen them
-            // A message is "seen by both" if:
-            // - It was sent by me AND partner has read it (readAt is set)
-            // - It was sent by partner AND I just read it (above update)
-            const { data: allMessages } = await supabase.from('Message')
-                .select('id, senderId, readAt')
-                .eq('conversationId', conversationId)
-                .not('readAt', 'is', null);
-
-            if (allMessages && allMessages.length > 0) {
-                const messageIds = allMessages.map(m => m.id);
-
-                // Soft Delete these messages from DB
-                await supabase.from('Message')
-                    .update({ isDeleted: true })
-                    .in('id', messageIds);
-
-                // Remove from local state
-                setMessages(prev => prev.filter(m => !messageIds.includes(m.id)));
+    // Helper: delete media files from Supabase storage for given message URLs
+    const deleteMediaFromStorage = async (mediaUrls: string[]) => {
+        const validUrls = mediaUrls.filter(Boolean);
+        if (validUrls.length === 0) return;
+        for (const url of validUrls) {
+            try {
+                // Extract path from URL: .../storage/v1/object/public/bucket/path
+                const match = url.match(/\/storage\/v1\/object\/(?:public|sign)\/([^/]+)\/(.+)/);
+                if (match) {
+                    const bucket = match[1];
+                    const filePath = match[2].split('?')[0]; // strip query params
+                    await supabase.storage.from(bucket).remove([filePath]);
+                }
+            } catch (e) {
+                console.warn('[Retention] Failed to delete media file:', url, e);
             }
         }
     };
 
+    // Core retention cleanup: hard-deletes messages from DB + storage
+    // For 'immediately': only deletes messages that both users have seen AND both have left the chat
+    // For '1day': only deletes messages where readAt + 24h has passed (both must have seen)
+    const performRetentionCleanup = async (conversationId: string, retention: string) => {
+        if (retention === 'forever' || !retention) return;
+
+        const protectedIds = await getProtectedMessageIds(conversationId);
+
+        // Get both users' ConversationState to check exit times
+        const { data: conv } = await supabase
+            .from('Conversation')
+            .select('participantA, participantB')
+            .eq('id', conversationId)
+            .single();
+        if (!conv) return;
+
+        const { data: states } = await supabase
+            .from('ConversationState')
+            .select('userId, lastExitedAt')
+            .eq('conversationId', conversationId);
+
+        const stateMap: Record<string, string | null> = {};
+        (states || []).forEach((s: any) => {
+            stateMap[s.userId] = s.lastExitedAt;
+        });
+
+        const userAExit = stateMap[conv.participantA] || null;
+        const userBExit = stateMap[conv.participantB] || null;
+
+        // Both users must have exited the chat at least once
+        if (!userAExit || !userBExit) return;
+
+        if (retention === 'immediately') {
+            // Find all read, non-saved messages
+            const { data: candidates } = await supabase.from('Message')
+                .select('id, mediaUrl, senderId, readAt, createdAt')
+                .eq('conversationId', conversationId)
+                .eq('isSaved', false)
+                .eq('isDeleted', false)
+                .not('readAt', 'is', null);
+
+            if (!candidates || candidates.length === 0) return;
+
+            // Filter: the message must have been seen by BOTH users,
+            // AND both users must have exited the chat AFTER seeing it.
+            // readAt = when the receiver read it. Sender saw it when they sent it.
+            // For sender: they exited after createdAt
+            // For receiver: they exited after readAt
+            const idsToDelete: string[] = [];
+            const mediaToDelete: string[] = [];
+
+            for (const msg of candidates) {
+                if (protectedIds.has(msg.id)) continue;
+
+                const isSenderA = msg.senderId === conv.participantA;
+                const senderExit = isSenderA ? userAExit : userBExit;
+                const receiverExit = isSenderA ? userBExit : userAExit;
+
+                // Sender exits after they sent it (they saw it by sending)
+                const senderSawAndLeft = new Date(senderExit).getTime() >= new Date(msg.createdAt).getTime();
+                // Receiver exits after they read it
+                const receiverSawAndLeft = msg.readAt && new Date(receiverExit).getTime() >= new Date(msg.readAt).getTime();
+
+                if (senderSawAndLeft && receiverSawAndLeft) {
+                    idsToDelete.push(msg.id);
+                    if (msg.mediaUrl) mediaToDelete.push(msg.mediaUrl);
+                }
+            }
+
+            if (idsToDelete.length === 0) return;
+
+            // Delete media from storage first
+            await deleteMediaFromStorage(mediaToDelete);
+
+            // Hard delete from DB in batches of 50
+            for (let i = 0; i < idsToDelete.length; i += 50) {
+                const batch = idsToDelete.slice(i, i + 50);
+                await supabase.from('Message').delete().in('id', batch);
+            }
+
+            // Remove from local state
+            const deletedSet = new Set(idsToDelete);
+            setMessages(prev => prev.filter(m => !deletedSet.has(m.id)));
+
+            console.log(`[Retention] Immediately deleted ${idsToDelete.length} messages, ${mediaToDelete.length} media files`);
+
+        } else if (retention === '1day') {
+            const now = Date.now();
+            const DAY_MS = 24 * 60 * 60 * 1000;
+
+            // Find messages that have been read AND are non-saved
+            const { data: candidates } = await supabase.from('Message')
+                .select('id, mediaUrl, senderId, readAt, createdAt')
+                .eq('conversationId', conversationId)
+                .eq('isSaved', false)
+                .eq('isDeleted', false)
+                .not('readAt', 'is', null);
+
+            if (!candidates || candidates.length === 0) return;
+
+            const idsToDelete: string[] = [];
+            const mediaToDelete: string[] = [];
+
+            for (const msg of candidates) {
+                if (protectedIds.has(msg.id)) continue;
+
+                // readAt = when receiver read it. 24h must have passed since readAt.
+                const readTime = new Date(msg.readAt).getTime();
+                if (now - readTime < DAY_MS) continue; // Not yet 24h since read
+
+                const isSenderA = msg.senderId === conv.participantA;
+                const senderExit = isSenderA ? userAExit : userBExit;
+                const receiverExit = isSenderA ? userBExit : userAExit;
+
+                // Both must have exited after the message
+                const senderSawAndLeft = new Date(senderExit).getTime() >= new Date(msg.createdAt).getTime();
+                const receiverSawAndLeft = new Date(receiverExit).getTime() >= readTime;
+
+                if (senderSawAndLeft && receiverSawAndLeft) {
+                    idsToDelete.push(msg.id);
+                    if (msg.mediaUrl) mediaToDelete.push(msg.mediaUrl);
+                }
+            }
+
+            if (idsToDelete.length === 0) return;
+
+            await deleteMediaFromStorage(mediaToDelete);
+
+            for (let i = 0; i < idsToDelete.length; i += 50) {
+                const batch = idsToDelete.slice(i, i + 50);
+                await supabase.from('Message').delete().in('id', batch);
+            }
+
+            const deletedSet = new Set(idsToDelete);
+            setMessages(prev => prev.filter(m => !deletedSet.has(m.id)));
+
+            console.log(`[Retention] 1day deleted ${idsToDelete.length} messages, ${mediaToDelete.length} media files`);
+        }
+    };
+
+    const markAllAsRead = async (conversationId: string) => {
+        if (!dbUserId) return;
+
+        // Mark all messages from partner where readAt is null
+        await supabase.from('Message')
+            .update({ readAt: new Date().toISOString() })
+            .eq('conversationId', conversationId)
+            .neq('senderId', dbUserId)
+            .is('readAt', null);
+    };
+
     const sendMessage = async (
-        type: 'text' | 'image' | 'video' | 'audio' | 'post' | 'document' | 'location' = 'text',
+        type: 'text' | 'image' | 'video' | 'audio' | 'post' | 'document' | 'location' | 'trigger' = 'text',
         content: string = inputText,
         mediaUrl: string | null = null,
         options: {
@@ -1367,19 +1812,20 @@ export default function ChatScreen() {
             mimeType?: string;
             duration?: number;
             isPasswordProtected?: boolean;
+            tempId?: string;
         } = {}
     ) => {
+        console.log(`[ChatAction] sendMessage: type=${type}, hasMediaUrl=${!!mediaUrl}`);
+        if (isSendingRef.current) return;
         if (!content.trim() && type === 'text' && !mediaUrl) return;
 
-        // Check Trigger Warnings
-        if (type === 'text' && content) {
-            const proceed = await checkTriggerWarnings(content);
-            if (!proceed) return;
-        }
+        isSendingRef.current = true;
+        const currentText = content;
 
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
             Alert.alert("Error", "You must be logged in to send messages");
+            isSendingRef.current = false;
             return;
         }
 
@@ -1390,28 +1836,25 @@ export default function ChatScreen() {
         let messageType: any = type;
 
         // E2EE Encryption
-        let messageContent = content;
-        if (privateKey && selectedUser?.publicKey && type === 'text') {
+        let messageContent = currentText;
+        if (privateKey && selectedUser?.publicKey && (type === 'text' || type === 'trigger')) {
             try {
-                const encrypted = encryptMessage(content, privateKey, selectedUser.publicKey);
+                const encrypted = encryptMessage(currentText, privateKey, selectedUser.publicKey);
                 // Pack as JSON
                 messageContent = JSON.stringify({ c: encrypted.ciphertext, n: encrypted.nonce });
             } catch (e) {
                 console.error("Encryption failed:", e);
                 Alert.alert("Security Error", "Could not encrypt message.");
+                isSendingRef.current = false;
                 return;
             }
-        } else if (!privateKey && type === 'text') {
-            // Allow sending unencrypted if keys missing is normal (e.g. fresh login without restore)
-            // But warn if implementing strict security. 
-            // For now, proceed as plain text to avoid blocking.
         }
 
         // Handle Reply
         if (replyTo && type === 'text') {
             messageType = 'reply';
             messageContent = JSON.stringify({
-                text: content,
+                text: currentText,
                 replyTo: replyTo
             });
         }
@@ -1420,7 +1863,7 @@ export default function ChatScreen() {
         const optimisticMsg: Message = {
             id: messageId,
             role: 'user',
-            content: content,
+            content: currentText,
             type: messageType,
             mediaUrl: mediaUrl || undefined,
             timestamp: timestamp,
@@ -1428,16 +1871,39 @@ export default function ChatScreen() {
             senderId: senderId,
             readAt: null,
             isSaved: false,
-            // Add new fields for optimistic UI
-            mediaType: options.mimeType ? (type as any) : undefined, // Simplify
+            mediaType: options.mimeType ? (type as any) : undefined,
             viewOnce: options.viewOnce,
-            isPasswordProtected: options.isPasswordProtected, // Added
-
+            isPasswordProtected: options.isPasswordProtected,
+            fileName: options.fileName,
+            fileSize: options.fileSize,
+            mimeType: options.mimeType,
+            duration: options.duration,
         };
 
-        setMessages(prev => [...prev, optimisticMsg]);
-        setInputText('');
+        // Update UI INSTANTLY for zero perceived latency
+        setMessages(prev => {
+            if (options.tempId) {
+                // Replace the 'Sending...' temp media message with the real one
+                return prev.map(msg => msg.id === options.tempId ? optimisticMsg : msg);
+            }
+            return [...prev, optimisticMsg];
+        });
+
+        if (type === 'text') setInputText('');
         setReplyTo(null);
+
+        // Check Trigger Warnings AFTER updating UI but BEFORE network payload
+        // This keeps UI responsive but still blocks bad content
+        if (type === 'text' && currentText) {
+            const proceed = await checkTriggerWarnings(currentText);
+            if (!proceed) {
+                // Revert optimistic UI if warning rejected
+                setMessages(prev => prev.filter(msg => msg.id !== messageId));
+                setInputText(currentText);
+                isSendingRef.current = false;
+                return;
+            }
+        }
 
         // FAST PATH: Broadcast
         if (chatChannelRef.current) {
@@ -1469,6 +1935,7 @@ export default function ChatScreen() {
                     content: messageContent,
                     type: messageType,
                     mediaUrl: mediaUrl,
+                    createdAt: new Date(timestamp).toISOString(),
                     mediaType: type !== 'text' ? type : null, // Store specific media type
                     mediaEncryptionKey: options.mediaEncryptionKey,
                     viewOnce: options.viewOnce || false,
@@ -1478,7 +1945,6 @@ export default function ChatScreen() {
                     fileSize: options.fileSize,
                     mimeType: options.mimeType,
                     duration: options.duration,
-                    // isPasswordProtected: options.isPasswordProtected || false // V2 - column not yet in DB
                 });
 
             if (error) {
@@ -1490,7 +1956,7 @@ export default function ChatScreen() {
             await supabase
                 .from('Conversation')
                 .update({
-                    lastMessage: type === 'text' ? content : (type === 'image' ? (options.viewOnce ? '📷 View Once Photo' : '📷 Photo') : (type === 'video' ? '🎥 Video' : (type === 'location' ? '📍 Location' : '📄 Document'))),
+                    lastMessage: type === 'text' ? currentText : (type === 'image' ? (options.viewOnce ? '📷 View Once Photo' : '📷 Photo') : (type === 'video' ? '🎥 Video' : (type === 'document' ? `📄 Document` : '📍 Location'))),
                     lastMessageAt: new Date().toISOString()
                 })
                 .eq('id', activeConversationIdRef.current);
@@ -1498,6 +1964,9 @@ export default function ChatScreen() {
         } catch (err: any) {
             console.error('Error sending message:', err);
             Alert.alert("Delivery Failed", `Could not send message: ${err.message || 'Unknown error'}`);
+            // Optionally revert message on failure
+        } finally {
+            isSendingRef.current = false;
         }
     };
 
@@ -1508,66 +1977,61 @@ export default function ChatScreen() {
         return diff < 5 * 60 * 1000;
     };
 
-    const handleBack = async () => {
-        // Direct Supabase retention cleanup on exit - no API call needed
-        if (activeConversationIdRef.current && dbUserId) {
-            try {
-                const conversationId = activeConversationIdRef.current;
+    const handleBack = () => {
+        // Capture conversation ID before clearing it
+        const conversationId = activeConversationIdRef.current;
 
-                // Record exit time
-                await supabase.from('ConversationState').upsert({
-                    conversationId,
-                    userId: dbUserId,
-                    lastExitedAt: new Date().toISOString()
-                }, { onConflict: 'conversationId,userId' });
+        // IMMEDIATELY clear messages and run slide animation for instant back navigation
+        // This prevents the UI from blocking on network calls
+        setMessages([]);
 
-                // Mark all messages as read before evaluating retention policies.
-                await markAllAsRead(conversationId);
-
-                // Get retention setting
-                const { data: conv } = await supabase
-                    .from('Conversation')
-                    .select('messageRetention')
-                    .eq('id', conversationId)
-                    .single();
-
-                // Handle retention cleanup - SOFT DELETE
-                if (conv?.messageRetention === 'immediately') {
-                    // Delete read messages that are not saved and have been read by both parties
-                    const { data: allMessages } = await supabase.from('Message')
-                        .select('id')
-                        .eq('conversationId', conversationId)
-                        .eq('isSaved', false)
-                        .not('readAt', 'is', null);
-
-                    if (allMessages && allMessages.length > 0) {
-                        await supabase.from('Message')
-                            .update({ isDeleted: true })
-                            .in('id', allMessages.map(m => m.id));
-                    }
-                } else if (conv?.messageRetention === '1day') {
-                    // Delete messages older than 24 hours (not saved)
-                    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-                    await supabase.from('Message').update({ isDeleted: true })
-                        .eq('conversationId', conversationId)
-                        .eq('isSaved', false)
-                        .lt('createdAt', cutoff);
-                }
-            } catch (err) {
-                console.error('[Chat] Failed to cleanup on exit:', err);
-            }
+        // Remove active chat channel subscription immediately
+        if (chatChannelRef.current) {
+            supabase.removeChannel(chatChannelRef.current);
+            chatChannelRef.current = null;
         }
 
         Animated.timing(slideAnim, {
             toValue: width,
-            duration: 300,
+            duration: 250,
             useNativeDriver: true,
         }).start(() => {
             setSelectedUser(null);
-            setMessages([]); // Clear memory explicitly
             activeConversationIdRef.current = null;
         });
+
+        // Refresh conversation list
         fetchConversations();
+
+        // Run cleanup in background (fire-and-forget, does not block UI)
+        if (conversationId && dbUserId) {
+            (async () => {
+                try {
+                    // Record exit time
+                    await supabase.from('ConversationState').upsert({
+                        conversationId,
+                        userId: dbUserId,
+                        lastExitedAt: new Date().toISOString()
+                    }, { onConflict: 'conversationId,userId' });
+
+                    // Mark all messages as read
+                    await markAllAsRead(conversationId);
+
+                    // Get retention setting and run cleanup
+                    const { data: conv } = await supabase
+                        .from('Conversation')
+                        .select('messageRetention')
+                        .eq('id', conversationId)
+                        .single();
+
+                    if (conv?.messageRetention && conv.messageRetention !== 'forever') {
+                        await performRetentionCleanup(conversationId, conv.messageRetention);
+                    }
+                } catch (err) {
+                    console.error('[Chat] Background cleanup failed:', err);
+                }
+            })();
+        }
     };
 
     // Save/unsave a message
@@ -1636,16 +2100,47 @@ export default function ChatScreen() {
         }
     };
 
-    // --- Trigger Functions ---
+    // --- Trigger & Tag Functions ---
     const fetchTriggerCollections = async () => {
         if (!dbUserId || !activeConversationIdRef.current) return;
-        const { data } = await supabase
+
+        // 1. Fetch proper Trigger Collections
+        const { data: dbCollections } = await supabase
             .from('TriggerCollection')
             .select('id, name, keyword')
             .eq('userId', dbUserId)
             .eq('conversationId', activeConversationIdRef.current)
             .order('name');
-        if (data) setTriggerCollections(data);
+
+        // 2. Fetch distinct custom Tags used in this conversation
+        const { data: tagData, error: tagError } = await supabase
+            .from('MessageTag')
+            .select('tagType, Message!inner(conversationId)')
+            .eq('userId', dbUserId)
+            .eq('Message.conversationId', activeConversationIdRef.current);
+
+        console.log(`[SlashMenu] Fetched tagData:`, tagData?.length, tagError);
+        if (tagError) {
+            Alert.alert("Tag Fetch Error (Cols)", tagError.message);
+        }
+
+        const finalCollections: any[] = dbCollections || [];
+
+        if (tagData) {
+            // Extract unique tags
+            const uniqueTags = Array.from(new Set(tagData.map((t: any) => t.tagType)));
+            uniqueTags.forEach(tag => {
+                // Add virtual collection for each tag
+                finalCollections.push({
+                    id: `tag_${tag}`,
+                    name: `Tagged: ${tag}`,
+                    keyword: String(tag).toLowerCase(),
+                    isTag: true
+                });
+            });
+        }
+
+        setTriggerCollections(finalCollections);
     };
 
     const openTriggerModal = (msg: Message) => {
@@ -1773,10 +2268,12 @@ export default function ChatScreen() {
     // Check Trigger Warnings
 
 
-    // Fetch all triggers for slash command
+    // Fetch all triggers and tagged messages for slash command
     const fetchAllTriggers = async () => {
         if (!dbUserId) return;
-        const { data } = await supabase
+
+        // 1. Fetch standard triggers
+        const { data: triggerData } = await supabase
             .from('Trigger')
             .select(`
                 id, selectedText, conditionType, createdAt,
@@ -1785,7 +2282,42 @@ export default function ChatScreen() {
             `)
             .eq('collection.userId', dbUserId)
             .eq('isActive', true);
-        if (data) setAllTriggers(data);
+
+        // 2. Fetch tagged messages for this chat
+        const { data: tagData, error: tagError } = await supabase
+            .from('MessageTag')
+            .select(`
+                id, tagType, createdAt,
+                Message!inner(id, senderId, content, createdAt, conversationId)
+            `)
+            .eq('userId', dbUserId)
+            .eq('Message.conversationId', activeConversationIdRef.current);
+
+        console.log(`[SlashMenu] Fetched allTriggers tags:`, tagData?.length, tagError);
+        if (tagError) {
+            Alert.alert("Tag Fetch Error (Items)", tagError.message);
+        }
+
+        let combined: any[] = triggerData || [];
+
+        if (tagData) {
+            const formattedTags = tagData.map((t: any) => ({
+                id: t.id,
+                selectedText: t.Message?.content ? t.Message.content : 'Media/File',
+                createdAt: t.createdAt,
+                conditionType: 'tag',
+                isTagTrigger: true,
+                collection: {
+                    id: `tag_${t.tagType}`,
+                    name: `Tagged: ${t.tagType}`,
+                    keyword: String(t.tagType).toLowerCase()
+                },
+                message: t.Message
+            }));
+            combined = [...combined, ...formattedTags];
+        }
+
+        setAllTriggers(combined);
     };
 
 
@@ -1799,6 +2331,7 @@ export default function ChatScreen() {
             if (type === 'me') {
                 // Insert into DeletedMessage table
                 const { error } = await supabase.from('DeletedMessage').insert({
+                    id: 'dm' + Date.now().toString(36) + Math.random().toString(36).substring(2, 8),
                     userId: dbUserId,
                     messageId: selectedMessageToDelete.id
                 });
@@ -1825,6 +2358,7 @@ export default function ChatScreen() {
     };
 
     const handleDeleteMessage = (message: Message) => {
+        console.log(`[ChatAction] handleDeleteMessage: showing delete modal for msg=${message.id}`);
         const timeDiff = Date.now() - message.timestamp;
         const canDeleteForEveryone = timeDiff <= 5 * 60 * 1000 && message.senderId === dbUserId;
 
@@ -1919,6 +2453,7 @@ export default function ChatScreen() {
     };
 
     const handleStartEdit = (message: Message) => {
+        console.log(`[ChatAction] handleStartEdit: initiated edit for msg=${message.id}`);
         // 5-minute time limit check
         const timeDiff = Date.now() - message.timestamp;
         if (timeDiff > 5 * 60 * 1000) {
@@ -1933,10 +2468,11 @@ export default function ChatScreen() {
 
     const saveEditedMessage = async () => {
         if (!editingMessageId || !inputText.trim()) return;
+        console.log(`[ChatAction] saveEditedMessage: saving new content for msg=${editingMessageId}`);
         const previousContent = messages.find(m => m.id === editingMessageId)?.content;
         try {
             setMessages(prev => prev.map(m => m.id === editingMessageId ? { ...m, content: inputText, isEdited: true } : m));
-            const { error } = await supabase.from('Message').update({ content: inputText, isEdited: true, updatedAt: new Date().toISOString() }).eq('id', editingMessageId);
+            const { error } = await supabase.from('Message').update({ content: inputText, isEdited: true }).eq('id', editingMessageId);
             if (error) {
                 if (previousContent) setMessages(prev => prev.map(m => m.id === editingMessageId ? { ...m, content: previousContent } : m));
                 throw error;
@@ -2150,8 +2686,12 @@ export default function ChatScreen() {
             fetchTriggerCollections();
             fetchAllTriggers();
             setShowSlashMenu(true);
+            if (text === '/') {
+                setSelectedSlashCollectionId(null);
+            }
         } else {
             setShowSlashMenu(false);
+            setSelectedSlashCollectionId(null);
         }
 
         // Check bonding content after a short delay
@@ -2164,8 +2704,13 @@ export default function ChatScreen() {
 
     // Handle selecting a trigger from slash menu
     const handleSlashSelect = (trigger: any) => {
-        const insertText = `"${trigger.selectedText}" - ${new Date(trigger.createdAt).toLocaleDateString()}`;
-        setInputText(insertText);
+        const triggerPayload = {
+            text: trigger.selectedText,
+            senderId: trigger.message?.senderId || dbUserId,
+            createdAt: trigger.message?.createdAt || trigger.createdAt
+        };
+
+        sendMessage('trigger', JSON.stringify(triggerPayload));
         setShowSlashMenu(false);
     };
 
@@ -2177,23 +2722,8 @@ export default function ChatScreen() {
 
     // --- Render Components ---
 
-    const getGreeting = () => {
-        const hour = new Date().getHours();
-        if (hour < 12) return 'Good Morning';
-        if (hour < 18) return 'Good Afternoon';
-        return 'Good Evening';
-    };
-
     const renderHeader = () => (
-        <View className="px-6 pt-6 pb-2 flex-row justify-between items-center z-10">
-            <View>
-                <Text className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-1">
-                    {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}
-                </Text>
-                <Text className="text-3xl font-bold" style={{ color: colors.text }}>
-                    {getGreeting()}
-                </Text>
-            </View>
+        <View className="px-6 pt-2 pb-2 flex-row justify-end items-center z-10">
             <TouchableOpacity
                 className="shadow-lg"
                 style={{ shadowColor: colors.primary, shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } }}
@@ -2214,24 +2744,24 @@ export default function ChatScreen() {
     );
 
     const renderSearchBar = () => (
-        <View className="px-6 py-2 mb-2">
+        <View className="px-6 py-1 mb-1">
             <BlurView
                 intensity={20}
                 tint={mode === 'light' ? 'light' : 'dark'}
-                className="flex-row items-center px-4 py-3.5 rounded-full overflow-hidden border"
+                className="flex-row items-center px-4 py-2 rounded-full overflow-hidden border"
                 style={{ borderColor: 'rgba(255,255,255,0.1)', backgroundColor: mode === 'light' ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.05)' }}
             >
-                <Search color={colors.secondary} size={18} />
+                <Search color={colors.secondary} size={16} />
                 <TextInput
                     placeholder="Search conversations..."
                     placeholderTextColor={colors.secondary}
                     value={searchQuery}
                     onChangeText={(t) => { setSearchQuery(t); searchUsers(t); }}
-                    className="flex-1 ml-3 text-base font-medium"
+                    className="flex-1 ml-3 text-sm font-medium"
                     style={{ color: colors.text }}
                 />
             </BlurView>
-            <View className="flex-row justify-end mt-3 px-2">
+            <View className="flex-row justify-end mt-2 px-2">
                 <TouchableOpacity
                     onPress={() => setSortMode(prev => prev === 'pinned' ? 'recent' : prev === 'recent' ? 'followers' : 'pinned')}
                     className="flex-row items-center gap-1.5 opacity-80"
@@ -2439,10 +2969,13 @@ export default function ChatScreen() {
 
                                         {user.lastMessageAt && (
                                             <Text className="text-[10px] font-medium opacity-60 mr-8" style={{ color: colors.secondary }}>
-                                                {new Date(user.lastMessageAt).getTime() > new Date().setHours(0, 0, 0, 0) ?
-                                                    new Date(user.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) :
-                                                    new Date(user.lastMessageAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-                                                }
+                                                {(() => {
+                                                    const safeDate = user.lastMessageAt.endsWith('Z') ? user.lastMessageAt : `${user.lastMessageAt}Z`;
+                                                    const msgTime = new Date(safeDate).getTime();
+                                                    return msgTime > new Date().setHours(0, 0, 0, 0) ?
+                                                        new Date(safeDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) :
+                                                        new Date(safeDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                                                })()}
                                             </Text>
                                         )}
                                     </View>
@@ -2541,7 +3074,7 @@ export default function ChatScreen() {
         };
 
         return (
-            <Animated.View style={{ transform: [{ translateX: slideAnim }], backgroundColor: colors.background, position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50 }}>
+            <Animated.View style={{ transform: [{ translateX: slideAnim }], backgroundColor: '#000000', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50 }}>
                 <SafeAreaView className="flex-1">
                     {/* Header - OUTSIDE KeyboardAvoidingView to stay fixed */}
                     <BlurView intensity={80} tint={mode === 'light' ? 'light' : 'dark'} className="flex-row items-center justify-between px-4 py-3 border-b" style={{ borderColor: colors.border }}>
@@ -2549,7 +3082,13 @@ export default function ChatScreen() {
                             <TouchableOpacity onPress={handleBack} className="mr-3 p-2 rounded-full">
                                 <ChevronLeft color={colors.text} size={24} />
                             </TouchableOpacity>
-                            <Image source={{ uri: selectedUser.avatar }} className="w-10 h-10 rounded-full bg-gray-200" />
+                            {selectedUser.avatar ? (
+                                <Image source={{ uri: selectedUser.avatar }} className="w-10 h-10 rounded-full bg-gray-200" />
+                            ) : (
+                                <View className="w-10 h-10 rounded-full items-center justify-center bg-zinc-800" style={{ borderColor: colors.card, borderWidth: 1 }}>
+                                    <UserIcon size={20} color={colors.secondary} />
+                                </View>
+                            )}
                             <View className="ml-3 flex-1">
                                 <View className="flex-row items-center gap-2">
                                     <Text className="text-base font-bold" numberOfLines={1} style={{ color: colors.text }}>{selectedUser.name}</Text>
@@ -2570,10 +3109,6 @@ export default function ChatScreen() {
                             })} className="p-2 rounded-full bg-gray-200/20">
                                 <Heart size={20} color={colors.text} />
                             </TouchableOpacity>
-                            {/* Collaborative */}
-                            <TouchableOpacity onPress={() => setShowCollaborativeModal(true)} className="p-2 rounded-full bg-gray-200/20">
-                                <Users size={20} color={colors.text} />
-                            </TouchableOpacity>
                             {/* Chat Settings */}
                             <TouchableOpacity onPress={() => setShowChatSettings(true)} className="p-2 rounded-full bg-gray-200/20">
                                 <MoreVertical size={20} color={colors.text} />
@@ -2584,20 +3119,11 @@ export default function ChatScreen() {
 
                     {/* Messages and Input - Inside KeyboardAvoidingView */}
                     <KeyboardAvoidingView
-                        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+                        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                         className="flex-1"
                         keyboardVerticalOffset={0}
                     >
                         <View style={{ flex: 1 }}>
-                            {/* Optional Wallpaper Background */}
-                            {chatBackground && (
-                                <Image
-                                    source={{ uri: chatBackground }}
-                                    style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.6 }}
-                                    resizeMode="cover"
-                                />
-                            )}
-
                             {/* Messages */}
                             {isLoading ? (
                                 <View className="flex-1 items-center justify-center">
@@ -2606,9 +3132,10 @@ export default function ChatScreen() {
                             ) : (
                                 <ScrollView
                                     className="flex-1 px-4 py-6"
-                                    contentContainerStyle={{ flexGrow: 1 }}
+                                    contentContainerStyle={{ flexGrow: 1, paddingBottom: 24 }}
                                     keyboardShouldPersistTaps="handled"
-                                    ref={ref => ref?.scrollToEnd({ animated: true })}
+                                    ref={scrollViewRef}
+                                    onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
                                 >
 
                                     {/* MESSAGE REQUEST UI (Top of Chat) */}
@@ -2638,8 +3165,12 @@ export default function ChatScreen() {
                                     {/* Empty State / Start Conversation */}
                                     {messages.length === 0 && !isDbot && (
                                         <View className="flex-1 items-center justify-center py-20 opacity-50">
-                                            <View className="w-20 h-20 rounded-full bg-zinc-800 items-center justify-center mb-4">
-                                                <Image source={{ uri: selectedUser.avatar }} className="w-20 h-20 rounded-full opacity-50" />
+                                            <View className="w-20 h-20 rounded-full bg-zinc-800 border items-center justify-center mb-4" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+                                                {selectedUser.avatar ? (
+                                                    <Image source={{ uri: selectedUser.avatar }} className="w-full h-full rounded-full opacity-60" />
+                                                ) : (
+                                                    <UserIcon size={32} color={colors.secondary} />
+                                                )}
                                             </View>
                                             <Text className="text-lg font-bold text-zinc-400">Start a conversation</Text>
                                             <Text className="text-sm text-zinc-600 text-center mt-2 px-10">
@@ -2690,6 +3221,15 @@ export default function ChatScreen() {
                                             }
                                         }
 
+                                        let triggerContext: any = null;
+                                        if (msg.type === 'trigger') {
+                                            try {
+                                                triggerContext = JSON.parse(displayContent);
+                                            } catch (e) {
+                                                triggerContext = { text: displayContent };
+                                            }
+                                        }
+
                                         const getTagColor = (tag: string) => {
                                             if (tag === 'RED') return 'bg-red-500';
                                             if (tag === 'GREEN') return 'bg-green-500';
@@ -2704,7 +3244,13 @@ export default function ChatScreen() {
                                             .filter(t => t && t !== 'RED' && t !== 'GREEN');
 
                                         return (
-                                            <View key={msg.id} className="mb-4">
+                                            <View
+                                                key={msg.id}
+                                                style={{ marginBottom: 10 }}
+                                                onLayout={(e) => {
+                                                    messageLayouts.current[msg.id] = e.nativeEvent.layout.y;
+                                                }}
+                                            >
                                                 {showDateSeparator && (
                                                     <View className="items-center my-4">
                                                         <View className="px-3 py-1 bg-zinc-800/80 rounded-full border border-zinc-700/50">
@@ -2744,31 +3290,46 @@ export default function ChatScreen() {
                                                             <View>
                                                                 {/* Reply Context Bubble */}
                                                                 {replyContext && (
-                                                                    <View
-                                                                        className="mb-1 px-3 py-2 rounded-2xl bg-zinc-800/50 border-l-2 border-white opacity-80"
+                                                                    <TouchableOpacity
+                                                                        onPress={() => scrollToMessage(replyContext.id)}
+                                                                        activeOpacity={0.7}
+                                                                        className="mb-1 px-3 py-2 rounded-xl bg-zinc-800/80 border-l-4 border-blue-500 shadow-sm"
                                                                         style={{ alignSelf: isMe ? 'flex-end' : 'flex-start' }}
                                                                     >
-                                                                        <Text className="text-[10px] text-white font-bold mb-0.5">Replying to {replyContext.sender}</Text>
-                                                                        <Text className="text-xs text-zinc-400" numberOfLines={1}>{replyContext.content}</Text>
-                                                                    </View>
+                                                                        <Text className="text-[10px] text-blue-400 font-bold mb-0.5" style={{ color: mode === 'light' ? '#3B82F6' : '#60A5FA' }}>Replying to {replyContext.sender}</Text>
+                                                                        <Text className="text-xs text-zinc-300" style={{ color: mode === 'light' ? '#4B5563' : '#D1D5DB' }} numberOfLines={1}>{replyContext.content}</Text>
+                                                                    </TouchableOpacity>
                                                                 )}
 
                                                                 <View
-                                                                    className="px-4 py-3 rounded-2xl relative"
+                                                                    className={`${(msg.type === 'image' || msg.type === 'video' || msg.type === 'document' || msg.type === 'location') ? '' : 'px-4 py-3'} rounded-2xl relative`}
                                                                     style={{
-                                                                        backgroundColor: isMe ? (mode === 'light' ? '#000000' : '#FFFFFF') : (mode === 'light' ? '#E5E5EA' : '#262626'),
-                                                                        borderWidth: 0
+                                                                        backgroundColor: (msg.type === 'image' || msg.type === 'video' || msg.type === 'document' || msg.type === 'location') ? 'transparent' : (isMe ? (mode === 'light' ? '#000000' : '#FFFFFF') : (mode === 'light' ? '#E5E5EA' : '#262626')),
+                                                                        borderWidth: highlightedMsgId === msg.id ? 2 : 0,
+                                                                        borderColor: highlightedMsgId === msg.id ? '#3B82F6' : 'transparent',
                                                                     }}
                                                                 >
                                                                     {msg.type === 'image' || msg.type === 'video' ? (
-                                                                        <EncryptedMedia
-                                                                            type={msg.type as 'image' | 'video'}
-                                                                            uri={msg.mediaUrl || ''}
-                                                                            encryptionKey={msg.mediaEncryptionKey}
-                                                                            viewOnce={msg.viewOnce}
-                                                                            isMe={isMe}
-                                                                            style={{ width: 200, height: 260, borderRadius: 8 }}
-                                                                        />
+                                                                        <View className="relative">
+                                                                            <EncryptedMedia
+                                                                                type={msg.type as 'image' | 'video'}
+                                                                                uri={msg.mediaUrl || ''}
+                                                                                encryptionKey={msg.mediaEncryptionKey}
+                                                                                viewOnce={msg.viewOnce}
+                                                                                isMe={isMe}
+                                                                                style={{ width: 200, height: 260, borderRadius: 8, opacity: msg.isSending ? 0.5 : 1 }}
+                                                                                onPress={() => {
+                                                                                    if (!msg.isSending && !msg.viewOnce && !msg.mediaEncryptionKey?.includes('pw:')) {
+                                                                                        setViewingMediaMsg(msg);
+                                                                                    }
+                                                                                }}
+                                                                            />
+                                                                            {msg.isSending && (
+                                                                                <View className="absolute inset-0 items-center justify-center bg-black/20 rounded-lg">
+                                                                                    <ActivityIndicator size="small" color="#FFFFFF" />
+                                                                                </View>
+                                                                            )}
+                                                                        </View>
                                                                     ) : msg.type === 'document' ? (
                                                                         <DocumentBubble
                                                                             filename={msg.fileName || 'Document'}
@@ -2798,6 +3359,30 @@ export default function ChatScreen() {
                                                                                 console.log('Post pressed');
                                                                             }}
                                                                         />
+                                                                    ) : msg.type === 'trigger' && triggerContext ? (
+                                                                        <View className="flex-col">
+                                                                            {/* Custom Target User Header */}
+                                                                            <View className="flex-row items-center mb-1 pb-1 border-b border-white/10">
+                                                                                <Text className="text-[10px] font-bold uppercase tracking-wider" style={{ color: colors.primary }}>
+                                                                                    Saved Message
+                                                                                </Text>
+                                                                            </View>
+                                                                            {/* Body */}
+                                                                            <Text className="text-sm italic font-medium mt-1 mb-2" style={{ color: isMe ? (mode === 'light' ? '#FFFFFF' : '#000000') : (mode === 'light' ? '#000000' : '#FFFFFF') }}>
+                                                                                "{triggerContext.text}"
+                                                                            </Text>
+                                                                            {/* Footer Metadata */}
+                                                                            <View className="flex-row justify-between items-center opacity-70">
+                                                                                <Text className="text-[9px]" style={{ color: isMe ? (mode === 'light' ? '#FFFFFF' : '#000000') : (mode === 'light' ? '#000000' : '#FFFFFF') }}>
+                                                                                    Sent by {triggerContext.senderId === dbUserId ? 'You' : (nicknames[triggerContext.senderId] || selectedUser?.name || 'Partner')}
+                                                                                </Text>
+                                                                                {triggerContext.createdAt && (
+                                                                                    <Text className="text-[9px]" style={{ color: isMe ? (mode === 'light' ? '#FFFFFF' : '#000000') : (mode === 'light' ? '#000000' : '#FFFFFF') }}>
+                                                                                        {new Date(triggerContext.createdAt).toLocaleDateString()}
+                                                                                    </Text>
+                                                                                )}
+                                                                            </View>
+                                                                        </View>
                                                                     ) : (
                                                                         <View className="flex-row items-end flex-wrap">
                                                                             <Text className="text-sm" style={{ color: isMe ? (mode === 'light' ? '#FFFFFF' : '#000000') : (mode === 'light' ? '#000000' : '#FFFFFF') }}>
@@ -2811,9 +3396,9 @@ export default function ChatScreen() {
                                                                         </View>
                                                                     )}
 
-                                                                    {/* Time and Status Footer */}
-                                                                    <View className="flex-row items-center justify-end mt-1 gap-1">
-                                                                        <Text style={{ fontSize: 9, color: isMe ? (mode === 'light' ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)') : (mode === 'light' ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.6)') }}>
+                                                                    {/* Time and Status Footer (Metadata) */}
+                                                                    <View className="flex-row items-center justify-end mt-[6px] gap-1">
+                                                                        <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>
                                                                             {msg.createdAt
                                                                                 ? new Date(msg.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })
                                                                                 : new Date(msg.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })
@@ -2821,10 +3406,13 @@ export default function ChatScreen() {
                                                                         </Text>
                                                                         {isMe && (
                                                                             <View>
-                                                                                {msg.readAt ? (
-                                                                                    <CheckCheck size={10} color="#3B82F6" />
+                                                                                {msg.isSending ? (
+                                                                                    // Pending Upload Status
+                                                                                    <ActivityIndicator size={10} color="rgba(255,255,255,0.45)" />
+                                                                                ) : msg.readAt ? (
+                                                                                    <CheckCheck size={12} color="rgba(255,255,255,0.45)" />
                                                                                 ) : (
-                                                                                    <Check size={10} color={mode === 'light' ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)'} />
+                                                                                    <Check size={12} color="rgba(255,255,255,0.45)" />
                                                                                 )}
                                                                             </View>
                                                                         )}
@@ -2862,46 +3450,67 @@ export default function ChatScreen() {
                                                     </View>
                                                 </SwipeableMessage>
 
-                                                {/* INLINE TAGGING MENU */}
+                                                {/* INLINE MENU */}
                                                 {taggingMessageId === msg.id && (
                                                     <View className="mt-2 self-center w-full items-center">
                                                         {!isAddingTag ? (
                                                             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingHorizontal: 16, alignItems: 'center' }}>
-                                                                {/* RED */}
-                                                                <TouchableOpacity onPress={() => tagMessage('RED')} className="w-8 h-8 rounded-full bg-red-500/30 border-2 border-red-500" />
 
-                                                                {/* YELLOW + (Add) */}
-                                                                <TouchableOpacity onPress={() => { setIsAddingTag(true); setNewTagText(''); }} className="w-8 h-8 rounded-full bg-yellow-500/30 border-2 border-yellow-500 items-center justify-center">
-                                                                    <Plus size={16} color="#FFFFFF" />
-                                                                </TouchableOpacity>
+                                                                {['image', 'video', 'document'].includes(msg.type || '') ? (
+                                                                    <>
+                                                                        <TouchableOpacity onPress={() => { setReplyTo({ id: msg.id, content: msg.type || '', sender: msg.senderId === dbUserId ? 'You' : (selectedUser?.name || 'User') }); setTaggingMessageId(null); }} className="px-3 py-1.5 bg-blue-500 rounded-full flex-row items-center gap-1">
+                                                                            <Reply size={12} color="#FFFFFF" />
+                                                                            <Text className="text-xs font-bold text-white">Reply</Text>
+                                                                        </TouchableOpacity>
+                                                                        <TouchableOpacity onPress={() => { handleSaveMessage(msg.id, msg.isSaved || false); setTaggingMessageId(null); }} className="px-3 py-1.5 bg-zinc-700 rounded-full flex-row items-center gap-1 border border-zinc-600">
+                                                                            <Bookmark fill={msg.isSaved ? "#fff" : "transparent"} size={12} color="#FFFFFF" />
+                                                                            <Text className="text-xs font-bold text-white">{msg.isSaved ? 'Unsave' : 'Save'}</Text>
+                                                                        </TouchableOpacity>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <TouchableOpacity onPress={() => { setReplyTo({ id: msg.id, content: displayContent, sender: msg.senderId === dbUserId ? 'You' : (selectedUser?.name || 'User') }); setTaggingMessageId(null); }} className="px-3 py-1.5 bg-blue-500 rounded-full flex-row items-center gap-1">
+                                                                            <Reply size={12} color="#FFFFFF" />
+                                                                            <Text className="text-xs font-bold text-white">Reply</Text>
+                                                                        </TouchableOpacity>
 
-                                                                {/* GREEN */}
-                                                                <TouchableOpacity onPress={() => tagMessage('GREEN')} className="w-8 h-8 rounded-full bg-green-500/30 border-2 border-green-500" />
+                                                                        {/* RED */}
+                                                                        <TouchableOpacity onPress={() => tagMessage('RED')} className="w-8 h-8 rounded-full bg-red-500/30 border-2 border-red-500" />
 
-                                                                {/* Custom Tags */}
-                                                                {uniqueTags.map(t => (
-                                                                    <TouchableOpacity key={t} onPress={() => tagMessage(t)} className="px-3 py-1.5 bg-white rounded-full border border-zinc-800 opacity-90">
-                                                                        <Text className="text-xs font-bold text-black">{t}</Text>
-                                                                    </TouchableOpacity>
-                                                                ))}
+                                                                        {/* YELLOW + (Add) */}
+                                                                        <TouchableOpacity onPress={() => { setIsAddingTag(true); setNewTagText(''); }} className="w-8 h-8 rounded-full bg-yellow-500/30 border-2 border-yellow-500 items-center justify-center">
+                                                                            <Plus size={16} color="#FFFFFF" />
+                                                                        </TouchableOpacity>
 
-                                                                <TouchableOpacity
-                                                                    onPress={() => openTriggerModal(msg)}
-                                                                    className="px-3 py-1.5 bg-orange-500 rounded-full flex-row items-center gap-1"
-                                                                >
-                                                                    <AlertTriangle size={12} color="#FFFFFF" />
-                                                                    <Text className="text-xs font-bold text-white">Trigger</Text>
-                                                                </TouchableOpacity>
+                                                                        {/* GREEN */}
+                                                                        <TouchableOpacity onPress={() => tagMessage('GREEN')} className="w-8 h-8 rounded-full bg-green-500/30 border-2 border-green-500" />
 
-                                                                {/* Edit Button */}
-                                                                <TouchableOpacity
-                                                                    onPress={() => handleStartEdit(msg)}
-                                                                    className="px-2 py-1 bg-white rounded-full flex-row items-center gap-1 border border-zinc-800"
-                                                                >
-                                                                    <Text className="text-[10px] font-bold text-black" style={{ color: '#000' }}>Edit</Text>
-                                                                </TouchableOpacity>
+                                                                        {/* Custom Tags */}
+                                                                        {uniqueTags.map(t => (
+                                                                            <TouchableOpacity key={t} onPress={() => tagMessage(t)} className="px-3 py-1.5 bg-white rounded-full border border-zinc-800 opacity-90">
+                                                                                <Text className="text-xs font-bold text-black">{t}</Text>
+                                                                            </TouchableOpacity>
+                                                                        ))}
 
-                                                                {/* Delete Button */}
+                                                                        <TouchableOpacity
+                                                                            onPress={() => openTriggerModal(msg)}
+                                                                            className="px-3 py-1.5 bg-orange-500 rounded-full flex-row items-center gap-1"
+                                                                        >
+                                                                            <AlertTriangle size={12} color="#FFFFFF" />
+                                                                            <Text className="text-xs font-bold text-white">Trigger</Text>
+                                                                        </TouchableOpacity>
+
+                                                                        {/* Edit Button */}
+                                                                        <TouchableOpacity
+                                                                            onPress={() => handleStartEdit(msg)}
+                                                                            className="px-2 py-1 bg-white rounded-full flex-row items-center gap-1 border border-zinc-800"
+                                                                        >
+                                                                            <Text className="text-[10px] font-bold text-black" style={{ color: '#000' }}>Edit</Text>
+                                                                        </TouchableOpacity>
+                                                                    </>
+                                                                )}
+
+                                                                {/* Delete Button (Available for all message types if isMe, but we'll show it generally just for consistency since original allowed it) */}
                                                                 <TouchableOpacity
                                                                     onPress={() => handleDeleteMessage(msg)}
                                                                     className="px-2 py-1 bg-red-500/20 rounded-full flex-row items-center gap-1 border border-red-500/50"
@@ -3013,92 +3622,129 @@ export default function ChatScreen() {
 
                                     {/* Slash Command Menu */}
                                     {showSlashMenu && (
-                                        <View className="mb-3 p-3 rounded-xl" style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }}>
-                                            <View className="flex-row items-center justify-between mb-2">
-                                                <Text className="font-bold" style={{ color: colors.text }}>Trigger Collections</Text>
-                                                <TouchableOpacity onPress={() => setShowSlashMenu(false)}>
-                                                    <X size={16} color={colors.secondary} />
+                                        <View className="mb-3 p-3 rounded-xl absolute bottom-full left-4 right-4 z-50 shadow-lg" style={{ backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, maxHeight: 350 }}>
+                                            <View className="flex-row items-center justify-between mb-3 border-b pb-2" style={{ borderColor: colors.border }}>
+                                                {selectedSlashCollectionId ? (
+                                                    <View className="flex-row items-center gap-2">
+                                                        <TouchableOpacity onPress={() => setSelectedSlashCollectionId(null)}>
+                                                            <Text style={{ color: colors.primary, fontSize: 14 }}>← Back</Text>
+                                                        </TouchableOpacity>
+                                                        <Text className="font-bold text-sm" style={{ color: colors.text }}>
+                                                            {triggerCollections.find(c => c.id === selectedSlashCollectionId)?.name}
+                                                        </Text>
+                                                    </View>
+                                                ) : (
+                                                    <Text className="font-bold text-sm" style={{ color: colors.text }}>Trigger Collections</Text>
+                                                )}
+                                                <TouchableOpacity onPress={() => { setShowSlashMenu(false); setSelectedSlashCollectionId(null); }}>
+                                                    <X size={18} color={colors.secondary} />
                                                 </TouchableOpacity>
                                             </View>
-                                            <ScrollView style={{ maxHeight: 200 }}>
-                                                {triggerCollections.filter(c =>
-                                                    !slashSearchQuery || c.name.toLowerCase().includes(slashSearchQuery) || c.keyword?.toLowerCase().includes(slashSearchQuery)
-                                                ).map(c => (
-                                                    <TouchableOpacity
-                                                        key={c.id}
-                                                        className="py-2 border-b"
-                                                        style={{ borderColor: colors.border }}
-                                                        onPress={() => {
-                                                            // Show triggers in this collection
-                                                            const collTriggers = allTriggers.filter((t: any) => t.collection?.id === c.id);
-                                                            if (collTriggers.length > 0) {
-                                                                handleSlashSelect(collTriggers[0]);
-                                                            }
-                                                        }}
-                                                    >
-                                                        <Text className="font-semibold" style={{ color: colors.text }}>/{c.keyword || c.name}</Text>
-                                                        <Text className="text-xs" style={{ color: colors.secondary }}>{c.name}</Text>
-                                                    </TouchableOpacity>
-                                                ))}
-                                                {allTriggers.filter((t: any) =>
-                                                    !slashSearchQuery || t.selectedText.toLowerCase().includes(slashSearchQuery)
-                                                ).slice(0, 5).map((trigger: any) => (
-                                                    <TouchableOpacity
-                                                        key={trigger.id}
-                                                        className="py-2 border-b"
-                                                        style={{ borderColor: colors.border }}
-                                                        onPress={() => handleSlashSelect(trigger)}
-                                                    >
-                                                        <Text className="text-sm" style={{ color: colors.text }} numberOfLines={1}>
-                                                            {trigger.selectedText}
-                                                        </Text>
-                                                        <Text className="text-xs" style={{ color: colors.secondary }}>
-                                                            {trigger.collection?.name} - {new Date(trigger.createdAt).toLocaleDateString()}
-                                                        </Text>
-                                                    </TouchableOpacity>
-                                                ))}
-                                                {triggerCollections.length === 0 && allTriggers.length === 0 && (
-                                                    <Text className="py-4 text-center" style={{ color: colors.secondary }}>
-                                                        No triggers yet. Create one from a message.
-                                                    </Text>
+
+                                            <ScrollView>
+                                                {!selectedSlashCollectionId ? (
+                                                    // STEP 1: SHOW COLLECTIONS
+                                                    <>
+                                                        {triggerCollections.filter(c =>
+                                                            !slashSearchQuery || c.name.toLowerCase().includes(slashSearchQuery) || c.keyword?.toLowerCase().includes(slashSearchQuery)
+                                                        ).map(c => {
+                                                            const count = allTriggers.filter((t: any) => t.collection?.id === c.id).length;
+                                                            return (
+                                                                <TouchableOpacity
+                                                                    key={c.id}
+                                                                    className="py-3 items-center flex-row justify-between border-b"
+                                                                    style={{ borderColor: colors.border }}
+                                                                    onPress={() => setSelectedSlashCollectionId(c.id)}
+                                                                >
+                                                                    <View>
+                                                                        <Text className="font-bold text-[15px] mb-1" style={{ color: colors.text }}>/{c.keyword || c.name.toLowerCase()}</Text>
+                                                                        <Text className="text-xs" style={{ color: colors.secondary }}>{c.name}</Text>
+                                                                    </View>
+                                                                    <View className="bg-zinc-800/50 px-2 py-1 rounded-md">
+                                                                        <Text className="text-xs font-bold" style={{ color: colors.text }}>{count} items</Text>
+                                                                    </View>
+                                                                </TouchableOpacity>
+                                                            );
+                                                        })}
+                                                        {triggerCollections.length === 0 && (
+                                                            <Text className="py-6 text-center text-sm" style={{ color: colors.secondary }}>
+                                                                No trigger collections yet. Create one by tapping the 3 dots on a message.
+                                                            </Text>
+                                                        )}
+                                                    </>
+                                                ) : (
+                                                    // STEP 2: SHOW TRIGGERS IN SELECTED COLLECTION
+                                                    <>
+                                                        {allTriggers.filter((t: any) => t.collection?.id === selectedSlashCollectionId).length > 0 ? (
+                                                            allTriggers.filter((t: any) => t.collection?.id === selectedSlashCollectionId)
+                                                                .filter((t: any) => !slashSearchQuery || t.selectedText.toLowerCase().includes(slashSearchQuery))
+                                                                .map((trigger: any) => (
+                                                                    <TouchableOpacity
+                                                                        key={trigger.id}
+                                                                        className="py-3 border-b"
+                                                                        style={{ borderColor: colors.border }}
+                                                                        onPress={() => handleSlashSelect(trigger)}
+                                                                    >
+                                                                        <Text className="text-sm font-medium mb-1" style={{ color: colors.text }} numberOfLines={4}>
+                                                                            "{trigger.selectedText}"
+                                                                        </Text>
+                                                                        <Text className="text-[10px]" style={{ color: colors.secondary }}>
+                                                                            {trigger.message ? (
+                                                                                `${new Date(trigger.message.createdAt).toLocaleDateString()} at ${new Date(trigger.message.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} • by ${trigger.message.senderId === dbUserId ? 'You' : (nicknames[trigger.message.senderId] || selectedUser?.name || 'Partner')}`
+                                                                            ) : (
+                                                                                `Saved on ${new Date(trigger.createdAt).toLocaleDateString()}`
+                                                                            )}
+                                                                        </Text>
+                                                                    </TouchableOpacity>
+                                                                ))) : (
+                                                            <Text className="py-6 text-center text-sm" style={{ color: colors.secondary }}>
+                                                                No saved messages in this collection.
+                                                            </Text>
+                                                        )}
+                                                    </>
                                                 )}
                                             </ScrollView>
                                         </View>
                                     )}
                                     <View className="flex-row items-center gap-2">
-                                        {/* Media button */}
                                         <TouchableOpacity className="p-2" onPress={() => setShowAttachmentMenu(true)}>
                                             <Paperclip size={22} color={colors.secondary} />
                                         </TouchableOpacity>
 
-                                        {/* Emoji/Sticker button */}
-                                        <TouchableOpacity className="p-2" onPress={() => Alert.alert('Coming Soon', 'Sticker picker coming soon!')}>
-                                            <Smile size={22} color={colors.secondary} />
-                                        </TouchableOpacity>
+                                        {/* Emoji/Sticker button removed for V2 */}
 
                                         <TextInput
                                             placeholder={editingMessageId ? "Edit message..." : "Type a message..."}
-                                            placeholderTextColor={colors.secondary}
+                                            placeholderTextColor="rgba(255,255,255,0.45)"
                                             value={inputText}
                                             onChangeText={handleInputChange}
-                                            className="flex-1 h-12 px-4 rounded-full border"
+                                            className="flex-1 px-5"
                                             style={{
-                                                backgroundColor: editingMessageId ? (mode === 'light' ? '#FFFFFF' : '#27272a') : colors.card,
-                                                borderColor: editingMessageId ? (mode === 'light' ? '#e4e4e7' : '#3f3f46') : colors.border,
-                                                color: colors.text
+                                                height: 52,
+                                                borderRadius: 26,
+                                                backgroundColor: '#111111',
+                                                borderWidth: 1,
+                                                borderColor: 'rgba(255,255,255,0.08)',
+                                                color: '#FFFFFF',
+                                                fontSize: 14
                                             }}
                                             onSubmitEditing={() => editingMessageId ? saveEditedMessage() : sendMessage()}
                                             returnKeyType="send"
                                         />
                                         <TouchableOpacity
                                             onPress={() => editingMessageId ? saveEditedMessage() : sendMessage()}
-                                            className="w-12 h-12 rounded-full items-center justify-center shadow-lg"
-                                            style={{ backgroundColor: editingMessageId ? (mode === 'light' ? '#FFFFFF' : '#27272a') : colors.primary }}
+                                            className="items-center justify-center shadow-sm"
+                                            style={{
+                                                width: 42,
+                                                height: 42,
+                                                borderRadius: 21,
+                                                backgroundColor: '#FFFFFF',
+                                            }}
                                         >
                                             {editingMessageId ? (
-                                                <CheckCheck color={mode === 'light' ? '#000' : '#fff'} size={20} />
+                                                <CheckCheck color="#000000" size={20} />
                                             ) : (
-                                                <Send color={mode === 'light' ? '#fff' : '#000'} size={20} />
+                                                <Send color="#000000" size={18} style={{ marginLeft: -2, marginTop: 2 }} />
                                             )}
                                         </TouchableOpacity>
 
@@ -3117,7 +3763,7 @@ export default function ChatScreen() {
                         </View>
                     </KeyboardAvoidingView>
                 </SafeAreaView>
-            </Animated.View>
+            </Animated.View >
         );
     };
 
@@ -3208,20 +3854,35 @@ export default function ChatScreen() {
 
             if (!result.canceled && result.assets[0]) {
                 const asset = result.assets[0];
+                setIsUploading(true);
 
-                // Store wallpaper locally per conversation (works offline)
-                if (activeConversationIdRef.current) {
-                    const wallpaperKey = `wallpaper_${activeConversationIdRef.current}`;
-                    await AsyncStorage.setItem(wallpaperKey, asset.uri);
+                try {
+                    // Upload to cloud storage for persistence across app restarts
+                    const uploadResult = await MediaUploadService.uploadMedia(
+                        asset.uri, 'IMAGE', undefined, false
+                    );
+                    const permanentUrl = uploadResult.url;
 
-                    // Also try to save to DB for sync (non-blocking)
-                    supabase
-                        .from('Conversation')
-                        .update({ wallpaperUrl: asset.uri })
-                        .eq('id', activeConversationIdRef.current);
+                    // Store the permanent URL locally and in DB
+                    if (activeConversationIdRef.current) {
+                        const wallpaperKey = `wallpaper_${activeConversationIdRef.current}`;
+                        await AsyncStorage.setItem(wallpaperKey, permanentUrl);
+
+                        // Also save to DB for sync across devices
+                        supabase
+                            .from('Conversation')
+                            .update({ wallpaperUrl: permanentUrl })
+                            .eq('id', activeConversationIdRef.current);
+                    }
+
+                    setChatBackground(permanentUrl);
+                    showToast('Wallpaper updated', 'success');
+                } catch (uploadErr) {
+                    console.error('Failed to upload wallpaper:', uploadErr);
+                    showError('Failed to upload wallpaper. Please try again.');
+                } finally {
+                    setIsUploading(false);
                 }
-
-                setChatBackground(asset.uri);
             }
         } catch (err) {
             console.error('Image picker error:', err);
@@ -3232,6 +3893,10 @@ export default function ChatScreen() {
     const handleRemoveBackground = async () => {
         setChatBackground(null);
         if (activeConversationIdRef.current) {
+            // Clean up AsyncStorage cached wallpaper
+            const wallpaperKey = `wallpaper_${activeConversationIdRef.current}`;
+            await AsyncStorage.removeItem(wallpaperKey);
+            // Remove from DB
             await supabase.from('Conversation').update({ wallpaperUrl: null }).eq('id', activeConversationIdRef.current);
         }
     };
@@ -3276,24 +3941,9 @@ export default function ChatScreen() {
 
             console.log('[ChatSettings] Retention setting updated to:', messageRetention);
 
-            // Trigger message deletion based on retention setting - USE SOFT DELETE
-            if (messageRetention === 'immediately') {
-                // Delete read messages that are not saved
-                const { error: deleteError } = await supabase.from('Message')
-                    .update({ isDeleted: true }) // Soft delete instead of hard delete
-                    .eq('conversationId', conversationId)
-                    .eq('isSaved', false)
-                    .not('readAt', 'is', null);
-                if (deleteError) console.error('[ChatSettings] Delete error:', deleteError);
-            } else if (messageRetention === '1day') {
-                // Delete messages older than 24 hours (not saved)
-                const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-                const { error: deleteError } = await supabase.from('Message')
-                    .update({ isDeleted: true }) // Soft delete
-                    .eq('conversationId', conversationId)
-                    .eq('isSaved', false)
-                    .lt('createdAt', cutoff);
-                if (deleteError) console.error('[ChatSettings] Delete error:', deleteError);
+            // Trigger retention cleanup with new setting
+            if (messageRetention !== 'forever') {
+                await performRetentionCleanup(conversationId, messageRetention);
             }
 
             // Refresh messages to show updated list
@@ -3670,8 +4320,8 @@ export default function ChatScreen() {
     return (
         <View style={{ flex: 1, backgroundColor: colors.background }}>
             <SafeAreaView className="flex-1">
-                {renderHeader()}
                 {renderSearchBar()}
+                {/* Profile Pic Header Removed for V2 */}
                 {renderUserList()}
                 {renderChatRoom()}
                 {renderTagModal()}
@@ -3771,21 +4421,9 @@ export default function ChatScreen() {
                                         {/* Delete Chat */}
                                         <TouchableOpacity
                                             onPress={() => {
-                                                Alert.alert(
-                                                    'Delete Chat',
-                                                    'Are you sure you want to delete this chat? This will hide it from your chat list.',
-                                                    [
-                                                        { text: 'Cancel', style: 'cancel' },
-                                                        {
-                                                            text: 'Delete',
-                                                            style: 'destructive',
-                                                            onPress: () => {
-                                                                const convId = optionsUser.conversationId || optionsUser.id;
-                                                                handleDeleteChat(convId);
-                                                            }
-                                                        }
-                                                    ]
-                                                );
+                                                const convId = optionsUser.conversationId || optionsUser.id;
+                                                setChatToDelete(convId);
+                                                setShowOptionsModal(false);
                                             }}
                                             className="flex-row items-center p-4 rounded-xl"
                                             style={{ backgroundColor: '#fef2f2' }}
@@ -3809,10 +4447,45 @@ export default function ChatScreen() {
                     </TouchableOpacity>
                 </Modal>
 
+                {/* Delete Chat Confirmation Modal */}
+                <Modal visible={!!chatToDelete} transparent animationType="fade">
+                    <View className="flex-1 justify-center items-center bg-black/60 px-6">
+                        <BlurView intensity={80} tint={mode === 'light' ? 'light' : 'dark'} className="w-full max-w-sm rounded-[28px] overflow-hidden border border-white/10" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 5 }}>
+                            <View className="p-6 items-center">
+                                <View className="w-14 h-14 rounded-full bg-red-500/10 items-center justify-center mb-5 border border-red-500/20">
+                                    <Trash2 size={28} color="#ef4444" />
+                                </View>
+                                <Text className="text-xl font-bold mb-2 text-center" style={{ color: colors.text }}>Delete Chat?</Text>
+                                <Text className="text-sm text-center mb-6 leading-5" style={{ color: colors.secondary }}>
+                                    Are you sure you want to delete this chat? This will hide it from your chat list forever.
+                                </Text>
+                                <View className="flex-row gap-3 w-full">
+                                    <TouchableOpacity
+                                        onPress={() => setChatToDelete(null)}
+                                        className="flex-1 py-3.5 rounded-2xl border border-white/10 items-center justify-center bg-white/5"
+                                    >
+                                        <Text className="font-semibold text-base" style={{ color: colors.text }}>Cancel</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        onPress={() => {
+                                            if (chatToDelete) handleDeleteChat(chatToDelete);
+                                            setChatToDelete(null);
+                                        }}
+                                        className="flex-1 py-3.5 rounded-2xl items-center justify-center bg-red-600 shadow-sm"
+                                    >
+                                        <Text className="font-bold text-white text-base">Delete</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        </BlurView>
+                    </View>
+                </Modal>
+
 
                 {/* Toast Notification */}
                 {toastMessage && (
                     <CustomToast
+                        visible={true}
                         message={toastMessage}
                         type={toastType}
                         onHide={() => setToastMessage(null)}
@@ -4111,12 +4784,11 @@ export default function ChatScreen() {
                 </Modal>
 
                 {/* Media Preview Modal */}
-                {previewMedia && (
+                {previewMedia.length > 0 && (
                     <MediaPreview
-                        uri={previewMedia.uri}
-                        type={previewMedia.type}
+                        items={previewMedia as any}
                         onSend={handleSendMedia}
-                        onClose={() => setPreviewMedia(null)}
+                        onClose={() => setPreviewMedia([])}
                     />
                 )}
 
@@ -4126,6 +4798,61 @@ export default function ChatScreen() {
                         onSend={handleSendLocation}
                         onClose={() => setShowLocationPicker(false)}
                     />
+                </Modal>
+
+                {/* Media Viewer Modal (Full Screen) */}
+                <Modal visible={!!viewingMediaMsg} transparent animationType="fade" onRequestClose={() => setViewingMediaMsg(null)}>
+                    <View style={{ flex: 1, backgroundColor: '#000' }}>
+                        {/* Header Actions */}
+                        <View style={{
+                            position: 'absolute', top: 50, left: 0, right: 0, zIndex: 50,
+                            flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+                            paddingHorizontal: 20, paddingTop: 10, paddingBottom: 10,
+                            backgroundColor: 'rgba(0,0,0,0.5)'
+                        }}>
+                            <TouchableOpacity onPress={() => setViewingMediaMsg(null)} style={{ padding: 8 }}>
+                                <X color="#fff" size={28} />
+                            </TouchableOpacity>
+                            <View style={{ flexDirection: 'row', gap: 20 }}>
+                                <TouchableOpacity onPress={() => {
+                                    if (viewingMediaMsg) {
+                                        setReplyTo({
+                                            id: viewingMediaMsg.id,
+                                            content: viewingMediaMsg.type === 'video' ? 'Video' : 'Photo',
+                                            sender: viewingMediaMsg.senderId === dbUserId ? 'You' : (selectedUser?.name || 'User')
+                                        });
+                                    }
+                                    setViewingMediaMsg(null);
+                                }}>
+                                    <Reply color="#fff" size={24} />
+                                </TouchableOpacity>
+                                <TouchableOpacity onPress={() => {
+                                    if (viewingMediaMsg) handleSaveMessage(viewingMediaMsg.id, viewingMediaMsg.isSaved || false);
+                                }}>
+                                    <Bookmark color="#fff" fill={viewingMediaMsg?.isSaved ? "#fff" : "transparent"} size={24} />
+                                </TouchableOpacity>
+                                <TouchableOpacity onPress={() => {
+                                    if (viewingMediaMsg) handleDownloadMediaToDevice(viewingMediaMsg);
+                                }}>
+                                    <Download color="#fff" size={24} />
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+
+                        {/* Display Content */}
+                        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                            {viewingMediaMsg && (
+                                <EncryptedMedia
+                                    type={viewingMediaMsg.type as 'image' | 'video'}
+                                    uri={viewingMediaMsg.mediaUrl || ''}
+                                    encryptionKey={viewingMediaMsg.mediaEncryptionKey}
+                                    isMe={true} // bypass restrictions in full screen preview
+                                    style={{ width: Dimensions.get('window').width, height: Dimensions.get('window').height - 150 }}
+                                    resizeMode="contain"
+                                />
+                            )}
+                        </View>
+                    </View>
                 </Modal>
 
             </SafeAreaView>

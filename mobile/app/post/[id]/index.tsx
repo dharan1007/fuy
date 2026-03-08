@@ -60,7 +60,7 @@ export default function SimilarPostsScreen() {
     const [activeId, setActiveId] = useState<string | null>(null);
 
     const [shareModalVisible, setShareModalVisible] = useState(false);
-    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+    const [toast, setToast] = useState<{ message: string; type: any } | null>(null);
     const [postToShare, setPostToShare] = useState<any>(null);
 
     // Interaction State
@@ -481,6 +481,7 @@ export default function SimilarPostsScreen() {
 
             {toast && (
                 <CustomToast
+                    visible={!!toast}
                     message={toast.message}
                     type={toast.type}
                     onHide={() => setToast(null)}

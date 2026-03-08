@@ -355,7 +355,7 @@ export default function ProfileCardView() {
 
                     {/* Brand Footer */}
                     <View className="absolute bottom-4 right-4 bg-black/50 px-2 py-1 rounded">
-                        <Text className="text-white/30 text-[8px] font-black tracking-[0.2em]">TRANSIQ</Text>
+                        <Text className="text-white/30 text-[8px] font-black tracking-[0.2em]">DVANGE</Text>
                     </View>
                 </View>
             </View>

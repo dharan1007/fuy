@@ -36,7 +36,6 @@ import {
     Heart,
     ArrowRight,
     Bookmark,
-    LayoutDashboard,
     Edit,
     Trash2,
     Check,
@@ -75,7 +74,7 @@ export default function HopinExploreScreen() {
     const router = useRouter();
     const { colors, mode } = useTheme();
 
-    const [activeTab, setActiveTab] = useState<'explore' | 'map' | 'dashboard'>('explore');
+    const [activeTab, setActiveTab] = useState<'explore' | 'map'>('explore');
     const [dashboardTab, setDashboardTab] = useState<'hosting' | 'joined' | 'tickets'>('hosting');
     const [searchQuery, setSearchQuery] = useState('');
     const [allPlans, setAllPlans] = useState<Plan[]>([]);
@@ -750,13 +749,12 @@ export default function HopinExploreScreen() {
             <Toast />
             {activeTab === 'map' && <MapViewComponent />}
             {activeTab === 'explore' && <ExploreView />}
-            {activeTab === 'dashboard' && <DashboardView />}
 
             {/* Tab bar */}
             <SafeAreaView edges={['bottom']} className="absolute bottom-0 left-0 right-0">
                 <View className="mx-5 mb-4">
                     <View className="flex-row rounded-full overflow-hidden" style={{ backgroundColor: accent }}>
-                        {[{ key: 'map', icon: Map, label: 'MAP' }, { key: 'explore', icon: Grid, label: 'EXPLORE' }, { key: 'dashboard', icon: LayoutDashboard, label: 'DASHBOARD' }].map(tab => (
+                        {[{ key: 'map', icon: Map, label: 'MAP' }, { key: 'explore', icon: Grid, label: 'EXPLORE' }].map(tab => (
                             <TouchableOpacity key={tab.key} onPress={() => setActiveTab(tab.key as any)} className="flex-1 py-4 items-center" style={{ backgroundColor: activeTab === tab.key ? (isDark ? MONO.gray700 : MONO.gray200) : 'transparent' }}>
                                 <tab.icon size={20} color={activeTab === tab.key ? textPrimary : (isDark ? MONO.gray600 : MONO.gray400)} />
                                 <Text style={[styles.fontMono, { fontSize: 9, marginTop: 4, letterSpacing: 1, color: activeTab === tab.key ? textPrimary : (isDark ? MONO.gray600 : MONO.gray400) }]}>{tab.label}</Text>

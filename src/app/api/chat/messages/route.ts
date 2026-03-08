@@ -5,6 +5,7 @@ import { logger } from "@/lib/logger";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
+import { analyzeMessage } from "@/lib/analysis";
 
 // Get messages for a conversation
 export async function GET(req: Request) {
@@ -181,7 +182,10 @@ export async function POST(req: Request) {
       );
     }
 
-    // Create message
+    // Analyze message for tags and triggers
+    const { tags: autoTags } = await analyzeMessage(content, conversationId);
+
+    // Create message with auto-tags
     const message = await prisma.message.create({
       data: {
         conversationId,
@@ -189,7 +193,8 @@ export async function POST(req: Request) {
         content: content.trim(),
         type: body.type || 'text',
         sharedPostId: body.sharedPostId || null,
-      } as any, // Cast to any to bypass likely stale Prisma client types
+        tags: autoTags, // Apply automated tags
+      } as any,
       include: {
         sender: {
           select: {

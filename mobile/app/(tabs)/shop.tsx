@@ -372,7 +372,7 @@ export default function ShopScreen() {
                             </TouchableOpacity>
                             {/* Create Brand / My Store button */}
                             <TouchableOpacity
-                                onPress={() => myBrands.length > 0 ? router.push('/dashboard/store') : router.push('/shop/create-brand')}
+                                onPress={() => router.push('/shop/create-brand')}
                                 style={{
                                     paddingHorizontal: 10,
                                     paddingVertical: 5,
@@ -382,7 +382,7 @@ export default function ShopScreen() {
                                 }}
                             >
                                 <Text style={{ fontSize: 9, fontWeight: '500', color: colors.text, letterSpacing: 0.5 }}>
-                                    {myBrands.length > 0 ? 'store' : 'create'}
+                                    {'create'}
                                 </Text>
                             </TouchableOpacity>
                             {/* Search */}

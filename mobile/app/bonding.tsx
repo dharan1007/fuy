@@ -901,7 +901,8 @@ export default function BondingScreen() {
                             {/* Warning Analytics */}
                             <WarningChart data={getWarningAnalytics()} />
 
-                            {/* Private Access Request Card */}
+                            {/* Private Access Request Card - HIDDEN FOR V2 */}
+                            {/* 
                             <View style={styles.accessCard}>
                                 <View style={styles.accessCardHeader}>
                                     {accessRequestStatus === 'approved' ? (
@@ -945,7 +946,8 @@ export default function BondingScreen() {
                                         <Text style={styles.accessBtnText}>Approved</Text>
                                     </View>
                                 )}
-                            </View>
+                            </View> 
+                            */}
 
                             {/* Category Tabs */}
                             <View style={styles.tabs}>

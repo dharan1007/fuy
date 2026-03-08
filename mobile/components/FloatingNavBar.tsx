@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, TouchableOpacity, StyleSheet, Dimensions, Animated, PanResponder, Image, Platform } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { Home, Search, PlusSquare, MessageCircle, User, Circle } from 'lucide-react-native';
+import { Home, Search, PlusSquare, MessageCircle, User, Circle, ChevronUp, PenTool, Timer, X } from 'lucide-react-native';
 import Svg, { Path, Circle as SvgCircle, Line } from 'react-native-svg';
 import { useTheme } from '../context/ThemeContext';
 import { useRouter, useSegments } from 'expo-router';
@@ -70,7 +70,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const BUTTON_SIZE = 46;
 // FIX: Constrain width to 90% of screen, maxing out at 400px
 const EXPANDED_WIDTH = Math.min(SCREEN_WIDTH * 0.90, 400);
-const BOTTOM_PADDING = 10; // Slightly increased for better corner aesthetic
+const BOTTOM_PADDING = 0; // Dropped to the very bottom
 const SIDE_MARGIN = 16;
 
 // Corner Positions
@@ -88,10 +88,12 @@ interface FloatingNavBarProps {
 
 export default function FloatingNavBar({ currentRoute, onNavigate }: FloatingNavBarProps) {
     const { colors, mode } = useTheme();
+    const router = useRouter();
     const segments = useSegments();
     const insets = useSafeAreaInsets();
 
     const [isExpanded, setIsExpanded] = useState(true);
+    const [toolsExpanded, setToolsExpanded] = useState(false);
     const isExpandedRef = useRef(true);
     // Track side preference: 'left' or 'right'
     const sideRef = useRef<'left' | 'right'>('left');
@@ -121,6 +123,7 @@ export default function FloatingNavBar({ currentRoute, onNavigate }: FloatingNav
             })
         ]).start();
         setIsExpanded(false);
+        setToolsExpanded(false);
     };
 
     const expand = () => {
@@ -202,6 +205,42 @@ export default function FloatingNavBar({ currentRoute, onNavigate }: FloatingNav
         })
     ).current;
 
+    // Tools box draggable logic
+    const toolsPanX = useRef(new Animated.Value(0)).current;
+    const toolsPanResponder = useRef(
+        PanResponder.create({
+            onStartShouldSetPanResponder: () => true,
+            onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 5,
+            onPanResponderGrant: () => {
+                const currentVal = (toolsPanX as any)._value;
+                toolsPanX.setOffset(currentVal);
+                toolsPanX.setValue(0);
+            },
+            onPanResponderMove: Animated.event(
+                [null, { dx: toolsPanX }],
+                { useNativeDriver: false }
+            ),
+            onPanResponderRelease: (_, gesture) => {
+                toolsPanX.flattenOffset();
+
+                // Constrain position within the nav bar roughly
+                const currentX = (toolsPanX as any)._value;
+                let targetX = currentX;
+
+                // Initial position is visually right-aligned. Positive X moves it off-screen right. Negative X moves it left along the bar.
+                if (targetX > 20) targetX = 0; // Don't let it go off the right edge too much
+                else if (targetX < -EXPANDED_WIDTH + 60) targetX = -EXPANDED_WIDTH + 60; // Don't let it go off the left edge
+
+                Animated.spring(toolsPanX, {
+                    toValue: targetX,
+                    useNativeDriver: false,
+                    friction: 7,
+                    tension: 50
+                }).start();
+            },
+        })
+    ).current;
+
     // Hide on certain screens
     const segmentsArray = segments as string[];
     if (segmentsArray.includes('bonding') ||
@@ -247,7 +286,7 @@ export default function FloatingNavBar({ currentRoute, onNavigate }: FloatingNav
             {...(isExpanded ? expandPanResponder.panHandlers : panResponder.panHandlers)}
         >
             <Animated.View style={{
-                width: animatedWidth,
+                width: '100%',
                 borderRadius: animatedBorderRadius,
                 overflow: 'hidden',
                 height: '100%',
@@ -298,6 +337,53 @@ export default function FloatingNavBar({ currentRoute, onNavigate }: FloatingNav
                             })}
                         </Animated.View>
                     )}
+                </View>
+            </Animated.View>
+
+            {/* Attached Floating Tools Box (Canvas & Focus) */}
+            <Animated.View
+                style={{
+                    position: 'absolute',
+                    right: 24, // Initial right margin
+                    bottom: BUTTON_SIZE, // Exactly touching the top of the nav bar
+                    opacity: navOpacity, // Fades out perfectly when nav bar collapses
+                    alignItems: 'center',
+                    pointerEvents: isExpanded ? 'auto' : 'none',
+                    zIndex: 1001,
+                    transform: [{ translateX: toolsPanX }]
+                }}
+                {...toolsPanResponder.panHandlers}
+            >
+                <View style={{
+                    backgroundColor: 'rgba(0,0,0,0.85)',
+                    borderTopLeftRadius: 12,
+                    borderTopRightRadius: 12,
+                    borderBottomLeftRadius: 0, // Flat bottom to seem 'attached'
+                    borderBottomRightRadius: 0,
+                    borderWidth: 1,
+                    borderBottomWidth: 0,
+                    borderColor: 'rgba(255,255,255,0.1)',
+                    overflow: 'hidden',
+                }}>
+                    <View style={{ padding: 2, alignItems: 'center' }}>
+                        {toolsExpanded ? (
+                            <>
+                                <TouchableOpacity onPress={() => { router.push('/canvas'); setToolsExpanded(false); }} style={{ padding: 6, marginBottom: 4, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 8 }}>
+                                    <PenTool color="#fff" size={16} />
+                                </TouchableOpacity>
+                                <TouchableOpacity onPress={() => { router.push('/focus'); setToolsExpanded(false); }} style={{ padding: 6, marginBottom: 4, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 8 }}>
+                                    <Timer color="#fff" size={16} />
+                                </TouchableOpacity>
+                                <TouchableOpacity onPress={() => setToolsExpanded(false)} style={{ padding: 6, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 8 }}>
+                                    <X color="#fff" size={16} />
+                                </TouchableOpacity>
+                            </>
+                        ) : (
+                            <TouchableOpacity onPress={() => setToolsExpanded(true)} style={{ paddingVertical: 4, paddingHorizontal: 8, alignItems: 'center', justifyContent: 'center' }}>
+                                <ChevronUp color="#ccc" size={16} />
+                            </TouchableOpacity>
+                        )}
+                    </View>
                 </View>
             </Animated.View>
         </Animated.View>

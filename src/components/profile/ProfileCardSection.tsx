@@ -95,7 +95,7 @@ export default function ProfileCardSection({ userId, uniqueCode, isOwnProfile }:
                     </div>
 
                     <div className="absolute bottom-4 text-[10px] opacity-40 tracking-[0.2em] font-light">
-                        FUY • PROFILE CARD
+                        DVANGE • PROFILE CARD
                     </div>
                 </div>
 

@@ -41,7 +41,7 @@ export default function HeaderNav() {
       <div className={styles.ribbonContent}>
         {/* Logo */}
         <Link href="/" className={styles.logo}>
-          <span className={styles.logoText}>Fuy</span>
+          <span className={styles.logoText}>Dvange</span>
           <span className={styles.logoPulse} />
         </Link>
 

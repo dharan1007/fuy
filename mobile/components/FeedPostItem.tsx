@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, Image, TouchableWithoutFeedback, Modal, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, Image, TouchableWithoutFeedback, Modal, ActivityIndicator, Animated as RNAnimated } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { MoreHorizontal, Plus, MessageCircle, Send, Play, Volume2, VolumeX, User, Slash, Maximize2, ChevronLeft, ChevronRight, Users } from 'lucide-react-native';
 import SlashesModal from './SlashesModal';
@@ -8,13 +8,14 @@ import XrayScratch from './XrayScratch';
 import { VerifiedBadge } from './VerifiedBadge';
 import TaggedUsersModal from './TaggedUsersModal';
 import ReactionBubblesModal from './ReactionBubblesModal';
+import FloatingReactionBubbles from './FloatingReactionBubbles';
 import { MediaUploadService } from '../services/MediaUploadService';
 import { useAuth } from '../context/AuthContext';
 import * as ImagePicker from 'expo-image-picker';
 import Svg, { Path, Defs, ClipPath, G, Rect } from 'react-native-svg';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring, withSequence, runOnJS } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withSpring, withSequence, withTiming, runOnJS } from 'react-native-reanimated';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { Heart, Sparkles } from 'lucide-react-native';
 import { PoopIcon, MagicCapIcon } from './ReactionIcons';
@@ -37,6 +38,8 @@ interface FeedPostItemProps {
     onCommentPress: (postId: string) => void;
     onSharePress: (post: any) => void;
     isScreenFocused: boolean;
+    globalIsMuted?: boolean;
+    setGlobalIsMuted?: (muted: boolean) => void;
 }
 
 const FeedPostItem = React.memo(({
@@ -51,17 +54,44 @@ const FeedPostItem = React.memo(({
     onMenuPress,
     onCommentPress,
     onSharePress,
-    isScreenFocused
+    isScreenFocused,
+    globalIsMuted = false,
+    setGlobalIsMuted = () => { }
 }: FeedPostItemProps) => {
     const hasMedia = item.postMedia && item.postMedia.length > 0;
 
     // Tap to Play/Pause Control
     const [isPaused, setIsPaused] = useState(false);
-    const [isMuted, setIsMuted] = useState(false);
     const [slashesModalVisible, setSlashesModalVisible] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [taggedUsersModalVisible, setTaggedUsersModalVisible] = useState(false);
     const [bubblesModalVisible, setBubblesModalVisible] = useState(false);
+    const [bubblesCollapsed, setBubblesCollapsed] = useState(false);
+    const bubbleScale = useSharedValue(1);
+    const bubbleOpacity = useSharedValue(1);
+
+    const popBubbles = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        // Pop animation: scale up then shrink to 0
+        bubbleScale.value = withSequence(
+            withSpring(1.3, { damping: 4, stiffness: 300 }),
+            withSpring(0, { damping: 8, stiffness: 200 })
+        );
+        bubbleOpacity.value = withTiming(0, { duration: 300 });
+        setTimeout(() => {
+            setBubblesCollapsed(true);
+        }, 350);
+    };
+
+    const bubbleAnimStyle = useAnimatedStyle(() => ({
+        transform: [{ scale: bubbleScale.value }],
+        opacity: bubbleOpacity.value,
+    }));
+
+    // Double tap to like
+    const lastTapRef = useRef<number>(0);
+    const heartAnim = useRef(new RNAnimated.Value(0)).current;
+    const [showHeart, setShowHeart] = useState(false);
 
     // Carousel State
     const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
@@ -107,10 +137,35 @@ const FeedPostItem = React.memo(({
     };
 
     const handlePress = () => {
-        if (!isActive) {
-            onActivate();
+        const now = Date.now();
+        const DOUBLE_TAP_DELAY = 300;
+
+        if (now - lastTapRef.current < DOUBLE_TAP_DELAY) {
+            // Double tap - like with 'W'
+            if (item.userReaction !== 'W') {
+                onReact(item.id, 'W');
+            }
+            // Show heart animation
+            setShowHeart(true);
+            heartAnim.setValue(0);
+            RNAnimated.sequence([
+                RNAnimated.spring(heartAnim, { toValue: 1, useNativeDriver: true, friction: 3 }),
+                RNAnimated.delay(400),
+                RNAnimated.timing(heartAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+            ]).start(() => setShowHeart(false));
+            lastTapRef.current = 0;
         } else {
-            setIsPaused(prev => !prev);
+            lastTapRef.current = now;
+            // Single tap after delay
+            setTimeout(() => {
+                if (lastTapRef.current === now) {
+                    if (!isActive) {
+                        onActivate();
+                    } else {
+                        setIsPaused(prev => !prev);
+                    }
+                }
+            }, DOUBLE_TAP_DELAY);
         }
     };
 
@@ -126,8 +181,7 @@ const FeedPostItem = React.memo(({
     };
 
     const name = item.user?.profile?.displayName || item.user?.name || 'Anonymous';
-    const rawName = item.user?.name || 'anonymous';
-    const handle = `@${rawName.toLowerCase().replace(/ /g, '')}`;
+    const handle = `@${(item.user?.profile?.displayName || item.user?.name || 'anonymous').toLowerCase().replace(/ /g, '')}`;
     const avatar = item.user?.profile?.avatarUrl;
     const location = item.user?.profile?.location;
 
@@ -135,8 +189,7 @@ const FeedPostItem = React.memo(({
     let aspectRatio = 1 / 1.1; // Default
     if (item.postType === 'LILL') aspectRatio = 9 / 16;
     if (item.postType === 'FILL') aspectRatio = 16 / 9;
-    if (!aspectRatio) aspectRatio = 1; // Fallback
-    if (!hasMedia) aspectRatio = undefined as any;
+    if (!aspectRatio) aspectRatio = undefined as any;
 
     return (
         <View className="mb-8 w-full border-b border-white/5 pb-4">
@@ -144,40 +197,42 @@ const FeedPostItem = React.memo(({
             {/* 1. Header Row (Above Media) */}
             <View className="flex-row items-center justify-between mb-3 px-4">
                 <View className="flex-row items-center flex-1">
-                    {/* Avatar */}
-                    <TouchableOpacity onPress={() => {
-                        handleProfilePress();
-                        // **NEW** Telemetry: Profile Visit
-                        ExploreService.logRecommendationFeedback(item.id, 'POST', 'PROFILE_VISIT', item.slashes?.map((s: any) => s.tag));
-                    }}>
-                        {avatar ? (
-                            <Image
-                                source={{ uri: avatar }}
-                                className="w-11 h-11 rounded-full bg-zinc-800 border border-white/10"
-                            />
-                        ) : (
-                            <View className="w-11 h-11 rounded-full bg-zinc-800 border border-white/10 items-center justify-center">
-                                <User size={20} color={colors.text} />
-                            </View>
-                        )}
-                    </TouchableOpacity>
+                    <View className="flex-row items-center bg-white/5 rounded-[24px] p-1 border border-white/20" style={{ shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 3 }}>
+                        {/* Avatar */}
+                        <TouchableOpacity onPress={() => {
+                            handleProfilePress();
+                            // **NEW** Telemetry: Profile Visit
+                            ExploreService.logRecommendationFeedback(item.id, 'POST', 'PROFILE_VISIT', item.slashes?.map((s: any) => s.tag));
+                        }}>
+                            {avatar ? (
+                                <Image
+                                    source={{ uri: avatar }}
+                                    className="w-10 h-10 rounded-full bg-zinc-800 border border-white/20"
+                                />
+                            ) : (
+                                <View className="w-10 h-10 rounded-full bg-zinc-800 border border-white/20 items-center justify-center">
+                                    <User size={20} color={colors.text} />
+                                </View>
+                            )}
+                        </TouchableOpacity>
 
-                    {/* Meta */}
-                    <View className="ml-3 flex-1">
-                        <View className="flex-row items-center">
-                            <TouchableOpacity onPress={() => {
-                                handleProfilePress();
-                                ExploreService.logRecommendationFeedback(item.id, 'POST', 'PROFILE_VISIT', item.slashes?.map((s: any) => s.tag));
-                            }}>
-                                <Text className="text-sm mr-1 font-medium" style={{ color: colors.text }}>
-                                    {name}
-                                </Text>
-                            </TouchableOpacity>
-                            <VerifiedBadge size={10} isHumanVerified={item.user?.isHumanVerified} />
+                        {/* Meta */}
+                        <View className="ml-2 mr-3 justify-center">
+                            <View className="flex-row items-center">
+                                <TouchableOpacity onPress={() => {
+                                    handleProfilePress();
+                                    ExploreService.logRecommendationFeedback(item.id, 'POST', 'PROFILE_VISIT', item.slashes?.map((s: any) => s.tag));
+                                }}>
+                                    <Text className="text-[13px] mr-1 font-bold shadow-sm" style={{ color: colors.text }}>
+                                        {name}
+                                    </Text>
+                                </TouchableOpacity>
+                                <VerifiedBadge size={8} isHumanVerified={item.user?.isHumanVerified} />
+                            </View>
+                            <Text className="text-[9px] font-medium mt-0.5 opacity-70" style={{ color: colors.secondary }}>
+                                {handle}{location ? ` • ${location}` : ''}
+                            </Text>
                         </View>
-                        <Text className="text-[11px] font-medium" style={{ color: colors.secondary }}>
-                            {handle}{location ? ` • ${location}` : ''}
-                        </Text>
                     </View>
                 </View>
 
@@ -246,20 +301,56 @@ const FeedPostItem = React.memo(({
                                         <View style={{ width: '100%', height: '100%', backgroundColor: '#111' }}>
                                             <View style={{ flex: 1 }}>
                                                 <FeedVideoPlayer
+                                                    key={media.url}
                                                     url={media.url}
                                                     isActive={isActive}
                                                     isPaused={isPaused}
-                                                    isMuted={isMuted}
+                                                    isMuted={globalIsMuted}
                                                     isScreenFocused={isScreenFocused}
                                                     posterUrl={media.thumbnailUrl || media.url}
                                                 />
                                                 {/* Audio Toggle Overlay */}
                                                 <TouchableOpacity
-                                                    onPress={(e) => { e.stopPropagation(); setIsMuted(!isMuted); }}
-                                                    style={{ position: 'absolute', bottom: 16, right: 16, backgroundColor: 'rgba(0,0,0,0.5)', padding: 8, borderRadius: 20, zIndex: 10 }}
+                                                    onPress={(e) => { e.stopPropagation(); setGlobalIsMuted(!globalIsMuted); }}
+                                                    style={{ position: 'absolute', bottom: 12, right: 12, backgroundColor: 'rgba(0,0,0,0.4)', padding: 6, borderRadius: 20, zIndex: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
                                                 >
-                                                    {isMuted ? <VolumeX color="white" size={20} /> : <Volume2 color="white" size={20} />}
+                                                    {globalIsMuted ? <VolumeX color="white" size={14} /> : <Volume2 color="white" size={14} />}
                                                 </TouchableOpacity>
+
+                                                {/* Double-tap heart animation */}
+                                                {showHeart && (
+                                                    <RNAnimated.View style={{
+                                                        position: 'absolute', top: '50%', left: '50%',
+                                                        marginLeft: -40, marginTop: -40,
+                                                        opacity: heartAnim,
+                                                        transform: [{ scale: heartAnim.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1.2] }) }],
+                                                    }}>
+                                                        <Heart size={80} color="#ef4444" fill="#ef4444" />
+                                                    </RNAnimated.View>
+                                                )}
+
+                                                {/* Floating SWIPEABLE Bubbles Over Media */}
+                                                {(item.topBubbles && item.topBubbles.length > 0 && !bubblesCollapsed) && (
+                                                    <View style={{ position: 'absolute', top: 12, right: 12, zIndex: 10 }}>
+                                                        <GestureDetector gesture={
+                                                            Gesture.Pan()
+                                                                .activeOffsetX([-10, 10])
+                                                                .onEnd((e) => {
+                                                                    if (e.translationX > 20 || e.translationX < -20) {
+                                                                        runOnJS(popBubbles)();
+                                                                    }
+                                                                })
+                                                        }>
+                                                            <Animated.View style={[{ flexDirection: 'row-reverse' }, bubbleAnimStyle]}>
+                                                                {item.topBubbles.slice(0, 3).map((bubble: any, i: number) => (
+                                                                    <TouchableOpacity key={bubble.id || i} onPress={(e) => { e.stopPropagation(); setBubblesModalVisible(true); }} style={{ width: 30, height: 30, borderRadius: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)', overflow: 'hidden', backgroundColor: 'rgba(0,0,0,0.6)', marginLeft: i > 0 ? -6 : 0, zIndex: 10 - i }}>
+                                                                        <Image source={{ uri: bubble.mediaUrl }} style={{ width: '100%', height: '100%', backgroundColor: '#222' }} />
+                                                                    </TouchableOpacity>
+                                                                ))}
+                                                            </Animated.View>
+                                                        </GestureDetector>
+                                                    </View>
+                                                )}
                                             </View>
                                             {/* Play Overlay */}
                                             {isActive && isPaused && (
@@ -270,21 +361,7 @@ const FeedPostItem = React.memo(({
                                                 </View>
                                             )}
 
-                                            {/* Volume Control */}
-                                            <TouchableOpacity
-                                                onPress={(e) => {
-                                                    e.stopPropagation();
-                                                    setIsMuted(!isMuted);
-                                                }}
-                                                className="absolute bottom-3 right-3 p-2 bg-black/40 rounded-full backdrop-blur-sm"
-                                                style={{ zIndex: 10 }}
-                                            >
-                                                {isMuted ? (
-                                                    <VolumeX size={16} color="white" />
-                                                ) : (
-                                                    <Volume2 size={16} color="white" />
-                                                )}
-                                            </TouchableOpacity>
+
                                         </View>
                                     </TouchableWithoutFeedback>
                                     {/* 
@@ -315,15 +392,18 @@ const FeedPostItem = React.memo(({
 
             {/* Caption */}
             {hasMedia && item.content && (
-                <View className="px-4 mb-3">
-                    <Text className="text-sm font-medium leading-5" style={{ color: colors.text }} numberOfLines={3}>
-                        {item.content}
-                        {item.slashes && item.slashes.length > 0 && (
-                            <Text className="text-sm font-bold opacity-50" style={{ color: colors.text }}>
-                                {item.slashes.map((s: any) => ` /${s.tag}`).join('')}
-                            </Text>
-                        )}
-                    </Text>
+                <View className="px-4 mb-4">
+                    <View className="p-3.5 rounded-2xl bg-white/[0.03] border border-white/[0.08]">
+                        <Text className="text-[13px] font-medium leading-5" style={{ color: colors.text }} numberOfLines={3}>
+                            <Text style={{ fontWeight: '900', color: colors.primary, opacity: 0.8 }}>&gt; </Text>
+                            {item.content}
+                            {item.slashes && item.slashes.length > 0 && (
+                                <Text className="text-sm font-bold opacity-40 ml-1" style={{ color: colors.text }}>
+                                    {' ' + item.slashes.map((s: any) => `/${s.tag}`).join(' ')}
+                                </Text>
+                            )}
+                        </Text>
+                    </View>
                 </View>
             )}
 
@@ -350,118 +430,101 @@ const FeedPostItem = React.memo(({
             {/* 3. Action Row (Reactions & Interactions) */}
             <View className="flex-row items-center justify-between px-4 pb-2">
 
-                {/* Left: Aesthetic Compact Reactions */}
-                <View className="flex-row items-center gap-2">
+                {/* Left: Aesthetic Compact Reactions - GROUPED */}
+                <View className="flex-row items-center gap-1 bg-white/5 rounded-full px-2 py-1.5 border border-white/20">
                     {/* W Button (Heart) */}
                     <TouchableOpacity
                         onPress={() => {
                             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                             onReact(item.id, 'W');
-                            // **NEW** Telemetry: Explicit like action
                             ExploreService.logRecommendationFeedback(item.id, 'POST', 'LIKE', item.slashes?.map((s: any) => s.tag));
                         }}
-                        className="flex-row items-center px-3 py-1.5 rounded-full"
+                        className="flex-row items-center px-2 py-1 rounded-full"
                     >
                         <Heart
-                            size={16}
+                            size={14}
                             color={item.userReaction === 'W' ? '#ef4444' : 'white'}
                             fill={item.userReaction === 'W' ? '#ef4444' : 'transparent'}
                         />
-                        <Text className="text-[11px] ml-1.5 font-medium" style={{ color: 'white' }}>
+                        <Text className="text-[10px] ml-1.5 font-bold tracking-wider" style={{ color: 'white' }}>
                             {formatCount((item.reactionCounts as any)?.['W'] || 0)}
                         </Text>
                     </TouchableOpacity>
 
-                    {/* L Button (L Text -> Poop Icon) */}
+                    {/* L Button */}
                     <TouchableOpacity
                         onPress={() => {
                             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                             onReact(item.id, 'L');
-                            // **NEW** Telemetry: Explicit dislike action
                             ExploreService.logRecommendationFeedback(item.id, 'POST', 'DISLIKE', item.slashes?.map((s: any) => s.tag));
                         }}
-                        className="flex-row items-center px-3 py-1.5 rounded-full"
+                        className="flex-row items-center px-2 py-1 rounded-full"
                     >
                         {item.userReaction === 'L' ? (
                             <PoopIcon color="#f97316" />
                         ) : (
-                            <Text className="text-[11px] font-bold" style={{ color: 'white' }}>L</Text>
+                            <Text className="text-[10px] font-bold tracking-wider" style={{ color: 'white' }}>L</Text>
                         )}
-                        <Text className="text-[11px] ml-1.5 font-medium" style={{ color: 'white' }}>
+                        <Text className="text-[10px] ml-1.5 font-bold tracking-wider" style={{ color: 'white' }}>
                             {formatCount((item.reactionCounts as any)?.['L'] || 0)}
                         </Text>
                     </TouchableOpacity>
 
-                    {/* CAP Button (CAP Text -> Magic Cap Icon) */}
+                    {/* CAP Button */}
                     <TouchableOpacity
                         onPress={() => {
                             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                             onReact(item.id, 'CAP');
-                            // **NEW** Telemetry: Explicit cap action
                             ExploreService.logRecommendationFeedback(item.id, 'POST', 'CAPPED', item.slashes?.map((s: any) => s.tag));
                         }}
-                        className="flex-row items-center px-3 py-1.5 rounded-full"
+                        className="flex-row items-center px-2 py-1 rounded-full"
                     >
                         {item.userReaction === 'CAP' ? (
                             <MagicCapIcon color="#14532d" />
                         ) : (
-                            <Text className="text-[11px] font-bold" style={{ color: 'white' }}>CAP</Text>
+                            <Text className="text-[10px] font-bold tracking-wider" style={{ color: 'white' }}>CAP</Text>
                         )}
-                        <Text className="text-[11px] ml-1.5 font-medium" style={{ color: 'white' }}>
+                        <Text className="text-[10px] ml-1.5 font-bold tracking-wider" style={{ color: 'white' }}>
                             {formatCount((item.reactionCounts as any)?.['CAP'] || 0)}
                         </Text>
                     </TouchableOpacity>
                 </View>
 
-                {/* Right: Interactions (Comments, Share, Slash, Tags) */}
-                <View className="flex-row items-center gap-4">
+                {/* Right: Interactions - GROUPED */}
+                <View className="flex-row items-center gap-3 bg-white/5 rounded-full px-4 py-1.5 border border-white/20">
                     {/* Tagged Users Icon */}
                     {item.taggedUsers && item.taggedUsers.length > 0 && (
                         <TouchableOpacity onPress={() => setTaggedUsersModalVisible(true)} className="opacity-80">
-                            <Users size={18} color={colors.text} />
+                            <Users size={16} color={colors.text} />
                         </TouchableOpacity>
                     )}
 
                     <TouchableOpacity onPress={() => onAddBubble(item.id)} className="opacity-80">
-                        <Plus size={20} color={colors.text} />
+                        <Plus size={18} color={colors.text} />
                     </TouchableOpacity>
 
                     <TouchableOpacity onPress={() => setSlashesModalVisible(true)} className="flex-row items-center gap-1 opacity-80">
-                        <Slash size={20} color={colors.text} />
+                        <Slash size={16} color={colors.text} strokeWidth={2.5} />
                     </TouchableOpacity>
 
                     <TouchableOpacity onPress={() => onCommentPress(item.id)} className="flex-row items-center gap-1 opacity-80">
-                        <MessageCircle size={20} color={colors.text} />
-                        {item.commentCount > 0 && <Text className="text-xs font-medium" style={{ color: colors.text }}>{formatCount(item.commentCount)}</Text>}
+                        <MessageCircle size={18} color={colors.text} />
+                        {item.commentCount > 0 && <Text className="text-[10px] font-bold tracking-wider" style={{ color: colors.text }}>{formatCount(item.commentCount)}</Text>}
                     </TouchableOpacity>
 
                     <TouchableOpacity onPress={() => onSharePress(item)} className="opacity-80">
-                        <Send size={20} color={colors.text} style={{ transform: [{ rotate: '-45deg' }, { translateX: 2 }] }} />
+                        <Send size={18} color={colors.text} style={{ transform: [{ rotate: '-45deg' }, { translateX: 2 }] }} />
                     </TouchableOpacity>
+
                 </View>
             </View>
 
-            {/* Reaction Bubbles - OPTIMIZED: Remove Video components to prevent OOM */}
-            {(item.topBubbles && item.topBubbles.length > 0) && (
-                <TouchableOpacity onPress={() => setBubblesModalVisible(true)} className="flex-row items-center mt-3 px-4 pb-2">
-                    <View className="flex-row -space-x-2">
-                        {item.topBubbles.map((bubble: any, i: number) => (
-                            <View key={i} className="w-4 h-4 rounded-full border border-black overflow-hidden bg-zinc-800">
-                                {/* Use Image even for videos (might need thumb, but prevents crash) */}
-                                <Image
-                                    source={{ uri: bubble.mediaUrl }}
-                                    className="w-full h-full"
-                                    style={{ backgroundColor: '#333' }}
-                                />
-                            </View>
-                        ))}
-                    </View>
-                    <Text className="text-[10px] ml-2 font-medium" style={{ color: colors.secondary }}>
-                        reacted
-                    </Text>
-                </TouchableOpacity>
+            {/* FLOATING REACTION BUBBLES ON THE RIGHT */}
+            {item.bubbles && item.bubbles.length > 0 && (
+                <View style={{ position: 'absolute', right: 0, bottom: 120, zIndex: 50 }} pointerEvents="box-none">
+                    <FloatingReactionBubbles bubbles={item.bubbles} />
+                </View>
             )}
-
 
             {/* Fullscreen Video Modal for FILL posts */}
             {item.postType === 'FILL' && (

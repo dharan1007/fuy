@@ -107,7 +107,7 @@ export default function SignupScreen() {
                         <View className="px-8 w-full max-w-md mx-auto flex-1 justify-center pb-20">
                             {/* Header */}
                             <View className="mb-10">
-                                <Text className="text-4xl font-bold text-white mb-2 tracking-tighter">Join Transiq</Text>
+                                <Text className="text-4xl font-bold text-white mb-2 tracking-tighter">Join Dvange</Text>
                                 <Text className="text-white/40 text-base">Claim your spot in the universe.</Text>
                             </View>
 

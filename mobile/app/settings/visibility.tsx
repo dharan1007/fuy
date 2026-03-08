@@ -11,7 +11,7 @@ import { supabase } from '../../lib/supabase'; // Using supabase directly for si
 
 // Privacy Options
 const PRIVACY_OPTIONS = [
-    { value: 'PUBLIC', label: 'Public', icon: Globe, description: 'Everyone on Transiq can see this' },
+    { value: 'PUBLIC', label: 'Public', icon: Globe, description: 'Everyone on Dvange can see this' },
     { value: 'FOLLOWERS', label: 'Followers Only', icon: Users, description: 'Only your followers can see this' },
     { value: 'SELECTED', label: 'Selected Users', icon: UserPlus, description: 'Only specific people you choose' },
     { value: 'PRIVATE', label: 'Only Me', icon: Lock, description: 'Visible only to you' }

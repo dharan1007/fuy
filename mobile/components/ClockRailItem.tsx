@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Image } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { User } from 'lucide-react-native';
+import SeptagonAvatar from './SeptagonAvatar';
 
 interface ClockRailItemProps {
     item: any;
@@ -56,22 +57,16 @@ export default function ClockRailItem({ item, showSeconds, onPress, mode, colors
     return (
         <TouchableOpacity className="items-center gap-1" onPress={onPress}>
             <View className="relative">
-                {/* Monochrome Ring */}
-                <View className={`p-[2px] rounded-full border-2 ${mode === 'dark' ? 'border-white' : 'border-black'}`}>
-                    <View className="p-[2px] bg-black rounded-full">
-                        {item.user.profile?.avatarUrl ? (
-                            <Image
-                                source={{ uri: item.user.profile.avatarUrl }}
-                                className="w-[52px] h-[52px] rounded-full"
-                                style={{ backgroundColor: '#222' }}
-                            />
-                        ) : (
-                            <View className="w-[52px] h-[52px] rounded-full items-center justify-center" style={{ backgroundColor: '#222' }}>
-                                <User size={24} color="white" />
-                            </View>
-                        )}
-                    </View>
-                </View>
+                {/* Septagon Ring and Avatar */}
+                <SeptagonAvatar
+                    source={item.user.profile?.avatarUrl ? { uri: item.user.profile.avatarUrl } : undefined}
+                    size={60}
+                    borderWidth={2}
+                    borderColor={mode === 'dark' ? 'white' : 'black'}
+                    color={mode === 'dark' ? '#222' : '#f0f0f0'}
+                >
+                    {!item.user.profile?.avatarUrl && <User size={24} color={mode === 'dark' ? 'white' : 'black'} />}
+                </SeptagonAvatar>
                 {/* Monochrome Badge with Live Time */}
                 <View className="absolute -bottom-1 -right-1 bg-white border border-black rounded-full px-1.5 py-0.5" style={{ minWidth: showSeconds ? 50 : undefined, alignItems: 'center' }}>
                     <Text style={{ color: 'black', fontSize: showSeconds ? 8 : 9, fontWeight: 'bold' }}>

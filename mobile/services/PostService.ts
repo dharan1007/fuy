@@ -415,13 +415,18 @@ export class PostService {
      * Adds a reaction bubble to a post.
      */
     static async addBubble(postId: string, userId: string, media: { url: string, type: 'IMAGE' | 'VIDEO' }) {
+        const bubbleId = Crypto.randomUUID();
+        const now = new Date().toISOString();
+
         const { data, error } = await supabase
             .from('ReactionBubble')
             .insert({
+                id: bubbleId,
                 postId,
                 userId,
                 mediaUrl: media.url,
-                mediaType: media.type
+                mediaType: media.type,
+                createdAt: now
             })
             .select() // Return data so we can update UI with real ID if needed
             .single();
@@ -444,7 +449,18 @@ export class PostService {
                 user:User(name, profile:Profile(displayName, avatarUrl)),
                 postMedia:PostMedia(media:Media(url, type)),
                 likes:PostLike(count),
-                comments:PostComment(count)
+                comments:PostComment(count),
+                bubbles:ReactionBubble(
+                    id,
+                    mediaUrl,
+                    mediaType,
+                    createdAt,
+                    userId,
+                    user:User (
+                        name,
+                        profile:Profile (avatarUrl, displayName)
+                    )
+                )
             `)
             .eq('visibility', 'PUBLIC')
             .order('createdAt', { ascending: false })

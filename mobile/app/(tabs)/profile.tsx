@@ -16,6 +16,7 @@ import { VerifiedBadge } from '../../components/VerifiedBadge';
 import { useToast } from '../../context/ToastContext';
 import ShareCardModal from '../../components/ShareCardModal';
 import PostAnalyticsModal from '../../components/PostAnalyticsModal';
+import InviteFriendsCard from '../../components/InviteFriendsCard';
 
 const { width } = Dimensions.get('window');
 const COLUMN_WIDTH = width / 3 - 2;
@@ -196,6 +197,7 @@ export default function ProfileScreen() {
                 `)
                 .eq('userId', userId)
                 .neq('postType', 'CLOCK')
+                .neq('postType', 'FILL')
                 .not('feature', 'in', '("PROGRESS","CHECKIN","FOCUS")')
                 .order('createdAt', { ascending: false });
 
@@ -600,8 +602,8 @@ export default function ProfileScreen() {
             return true;
         });
 
-        // V2 - FILLS and CHANNELS hidden for now
-        const filters: Array<'ALL' | 'FILLS' | 'LILLS' | 'SIMPLE' | 'AUDIO' | 'CHANNELS' | 'XRAYS'> = ['ALL', /* 'FILLS', */ 'LILLS', 'SIMPLE', 'AUDIO', /* 'CHANNELS', */ 'XRAYS'];
+        // V2 - FILLS, CHANNELS, and AUDIO/Auds hidden for now
+        const filters: Array<'ALL' | 'FILLS' | 'LILLS' | 'SIMPLE' | 'AUDIO' | 'CHANNELS' | 'XRAYS'> = ['ALL', /* 'FILLS', */ 'LILLS', 'SIMPLE', /* 'AUDIO', */ /* 'CHANNELS', */ 'XRAYS'];
 
         return (
             <View style={{ flex: 1, borderTopLeftRadius: 32, borderTopRightRadius: 32, overflow: 'hidden', minHeight: 500, backgroundColor: colors.card }}>
@@ -1058,6 +1060,7 @@ export default function ProfileScreen() {
                 {renderHeader()}
                 {renderStats()}
                 {renderContent()}
+                <InviteFriendsCard />
             </ScrollView>
             {renderSocialModal()}
             {renderStalkMeModal()}
