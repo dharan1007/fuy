@@ -70,10 +70,10 @@ export default function ChannelProfilePage() {
                 <SpaceBackground />
                 <h1 className="text-4xl font-black text-white mb-4">Channel Not Found</h1>
                 <button
-                    onClick={() => router.push('/explore')}
+                    onClick={() => router.push('/')}
                     className="px-6 py-2 bg-white text-black font-bold rounded-xl"
                 >
-                    Back to Explore
+                    Back to Home
                 </button>
             </div>
         );

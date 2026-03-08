@@ -38,7 +38,7 @@ export default function PostDetailPage() {
         if (window.history.length > 2) {
             router.back();
         } else {
-            router.push('/explore');
+            router.push('/');
         }
     };
 
@@ -55,7 +55,7 @@ export default function PostDetailPage() {
             <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-4">
                 <h1 className="text-xl font-bold mb-4">{error || 'Post not found'}</h1>
                 <button
-                    onClick={() => router.push('/explore')}
+                    onClick={() => router.push('/')}
                     className="px-4 py-2 bg-white/10 rounded-lg hover:bg-white/20"
                 >
                     Go Home

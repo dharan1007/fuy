@@ -170,7 +170,7 @@ export default function HomeSidebarSuggestions({ initialUsers = [], initialPlans
             ))}
           </div>
           <Link href="/hopin" className="text-white/60 hover:text-white text-sm font-medium mt-4 block">
-            Explore more plans
+            See more plans
           </Link>
         </div>
       )}
