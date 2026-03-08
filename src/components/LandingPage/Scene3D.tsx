@@ -803,8 +803,8 @@ function HTMLContent() {
             <section className="h-screen w-screen flex flex-col justify-center items-center text-center p-0 relative bg-black">
                 {/* White Underline (border-white) */}
                 <h1 className="text-4xl md:text-[6rem] font-black text-white tracking-[0.2em] leading-snug break-words max-w-[90vw]">
-                    <span className="border-b-[0.5rem] md:border-b-[1rem] border-white pb-2 md:pb-4 inline-block leading-[0.8]">D</span>
-                    <span className="border-b-[0.5rem] md:border-b-[1rem] border-white pb-2 md:pb-4 inline-block leading-[0.8]">V</span>
+                    <span className="text-red-600 border-b-[0.5rem] md:border-b-[1rem] border-red-600 pb-2 md:pb-4 inline-block leading-[0.8]">D</span>
+                    <span className="text-red-600 border-b-[0.5rem] md:border-b-[1rem] border-red-600 pb-2 md:pb-4 inline-block leading-[0.8]">V</span>
                     ANGE
                 </h1>
             </section>
