@@ -537,15 +537,6 @@ export default function HomeClient({ isAdmin = false }: { isAdmin?: boolean }) {
 
 
 
-                    {/* Explore */}
-                    <Link
-                        href="/explore"
-                        className="text-white/80 hover:text-white transition-colors hover:scale-110 transform duration-200"
-                        title="Explore"
-                    >
-                        <Globe className="w-5 h-5" />
-                    </Link>
-
                     {/* Dots Feed */}
                     <Link
                         href="/dots"

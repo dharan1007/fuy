@@ -54,10 +54,10 @@ export default async function WatchPage({ params }: { params: { id: string } }) 
                 <h1 className="text-4xl font-black mb-4">Frequency Lost</h1>
                 <p className="text-white/40 mb-8 text-lg font-mono">This episode doesn't exist or has been archived.</p>
                 <Link
-                    href="/explore"
+                    href="/"
                     className="px-8 py-3 bg-white text-black font-black uppercase tracking-widest rounded-2xl hover:bg-gray-200 transition-all"
                 >
-                    Return to Explore
+                    Return to Home
                 </Link>
             </div>
         );

@@ -11,10 +11,7 @@ import FillsHero from '@/components/FillsHero';
 
 // Categories for content filtering
 const CATEGORIES = [
-    { id: 'fills', label: 'Fills' },
-    { id: 'bloom', label: 'Bloom' },
     { id: 'lills', label: 'Lills' },
-    { id: 'auds', label: 'Auds' },
 ];
 
 const FILL_FILTERS = ['All', 'New to you', 'Live', 'Stand-Up', 'Gaming', 'Music', 'Cartoons', 'Challenges', 'Visual Arts'];
@@ -42,7 +39,7 @@ interface DotData {
 export default function DotsPage() {
     const { data: session, status } = useSession();
     const router = useRouter();
-    const [activeCategory, setActiveCategory] = useState('fills');
+    const [activeCategory, setActiveCategory] = useState('lills');
     const [dots, setDots] = useState<DotData[]>([]);
     const [loading, setLoading] = useState(false); // Changed default to false to handle initial load carefully
     const [activeDotIndex, setActiveDotIndex] = useState(0);
