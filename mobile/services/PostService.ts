@@ -1,6 +1,7 @@
 
 import * as Crypto from 'expo-crypto';
 import { supabase } from '../lib/supabase';
+import { SlashService } from './SlashService';
 
 export type PostVisibility = 'PUBLIC' | 'FRIENDS' | 'PRIVATE' | 'SPECIFIC';
 export type PostType = 'STANDARD' | 'FILL' | 'LILL' | 'SIMPLE' | 'UD' | 'AUD' | 'CHAN' | 'CHAPTER' | 'XRAY' | 'CLOCK' | 'PULLUPDOWN';
@@ -30,6 +31,10 @@ export interface CreatePostParams {
         duration: number;
         aspectRatio?: string;
         thumbnailUrl?: string;
+        mainSlashId?: string;
+        bloomSlashIds?: string[];
+        bloomScript?: string;
+        difficulty?: 'intro' | 'overview' | 'deep' | 'expert';
     };
     audData?: {
         title: string;
@@ -82,6 +87,37 @@ export class PostService {
     static async createPost(params: CreatePostParams) {
         console.log('[PostService] Creating post:', params.postType);
 
+        // ===== CLIENT-SIDE TEXT MODERATION =====
+        // Quick local blocklist check before sending to database
+        const textToCheck = [
+            params.content || '',
+            ...(params.slashes || []),
+            params.pullUpDownData?.question || '',
+            params.pullUpDownData?.optionA || '',
+            params.pullUpDownData?.optionB || '',
+            params.chanData?.channelName || '',
+            params.chanData?.description || '',
+            params.chapterData?.title || '',
+            params.chapterData?.description || '',
+        ].join(' ').toLowerCase();
+
+        const BLOCKED_TERMS = [
+            'terrorism', 'terrorist', 'bomb', 'jihad', 'isis', 'al-qaeda', 'suicide bomber',
+            'mass shooting', 'school shooting', 'massacre', 'kill civilians',
+            'porn', 'pornography', 'xxx', 'nsfw', 'nude', 'nudes', 'sex tape', 'hardcore',
+            'cocaine', 'heroin', 'methamphetamine', 'drug trafficking', 'fentanyl',
+            'child porn', 'kiddie porn', 'pedophile', 'child exploitation',
+            'human trafficking', 'sex trafficking',
+            'nazi', 'white supremacy', 'kkk', 'ku klux klan', 'ethnic cleansing', 'genocide',
+            'kill yourself', 'kys', 'go die', 'rape', 'rapist',
+        ];
+
+        for (const term of BLOCKED_TERMS) {
+            if (textToCheck.includes(term)) {
+                throw new Error(`Your post contains prohibited content ("${term}") and cannot be published. Please remove it and try again.`);
+            }
+        }
+
         // Generate ID client-side because DB default might be missing/failing
         const newPostId = Crypto.randomUUID();
         const now = new Date().toISOString();
@@ -130,6 +166,10 @@ export class PostService {
                 await this.createFill(postId, params.fillData);
             } else if (params.postType === 'LILL' && params.lillData) {
                 await this.createLill(postId, params.lillData);
+                // Slash linking for Lills
+                if (params.lillData.mainSlashId) {
+                    await this.linkLillToSlashes(postId, params.userId, params.lillData);;
+                }
             } else if (params.postType === 'SIMPLE') {
                 await this.createSimple(postId);
             } else if (params.postType === 'AUD' && params.audData) {
@@ -149,6 +189,11 @@ export class PostService {
             // 4. Handle Tags
             if (params.taggedUserIds) {
                 await this.attachUserTags(postId, params.taggedUserIds);
+            }
+
+            // 5. Handle Slash Tags (many-to-many linking)
+            if (params.slashes && params.slashes.length > 0) {
+                await this.linkSlashes(postId, params.slashes);
             }
 
         } catch (error) {
@@ -215,9 +260,12 @@ export class PostService {
         if (error) throw error;
     }
 
-    static async createLill(postId: string, data: { duration: number, aspectRatio?: string, thumbnailUrl?: string }) {
+    static async createLill(postId: string, data: { duration: number, aspectRatio?: string, thumbnailUrl?: string, mainSlashId?: string, bloomSlashIds?: string[], bloomScript?: string, difficulty?: string }) {
         const lillId = Crypto.randomUUID();
         const now = new Date().toISOString();
+        // Note: mainSlashId, bloomSlashes, bloomScript, difficulty are NOT columns in the Lill table.
+        // Lill table only has: id, postId, thumbnailUrl, duration, aspectRatio, musicUrl, musicTitle, filters, createdAt.
+        // Slash linking is handled separately via linkLillToSlashes.
         const { error } = await supabase.from('Lill').insert({
             id: lillId,
             postId,
@@ -225,9 +273,59 @@ export class PostService {
             aspectRatio: data.aspectRatio || '9:16',
             thumbnailUrl: data.thumbnailUrl || null,
             createdAt: now
-            // Lill has no updatedAt
         });
         if (error) throw error;
+    }
+
+    /**
+     * Link a lill to its main slash and bloom slashes.
+     * Returns pendingSlashAccess: true if user needs to request access to a locked slash.
+     */
+    static async linkLillToSlashes(
+        postId: string,
+        userId: string,
+        lillData: { mainSlashId?: string, bloomSlashIds?: string[] }
+    ): Promise<{ pendingSlashAccess: boolean; lockedSlashIds: string[] }> {
+        const lockedSlashIds: string[] = [];
+        const allSlashIds = [
+            ...(lillData.mainSlashId ? [lillData.mainSlashId] : []),
+            ...(lillData.bloomSlashIds || []),
+        ];
+        const uniqueSlashIds = [...new Set(allSlashIds)];
+
+        for (const slashId of uniqueSlashIds) {
+            try {
+                // Check if slash is open or user is contributor
+                const slashResult = await SlashService.getSlashById(slashId);
+                if (!slashResult.success || !slashResult.data) continue;
+
+                const slash = slashResult.data;
+                const isCreator = slash.creatorId === userId;
+                const isApproved = isCreator || await SlashService.isContributor(slashId, userId);
+
+                if (slash.accessMode === 'open' || isApproved) {
+                    // Link lill to slash
+                    await supabase.from('SlashPost').insert({
+                        slashId,
+                        postId,
+                        contributorId: userId,
+                    }).select().maybeSingle();
+
+                    // Increment lill count
+                    await supabase.rpc('increment_lill_count', { p_slash_id: slashId });
+                } else {
+                    // Locked and not approved -- flag for access request
+                    lockedSlashIds.push(slashId);
+                }
+            } catch (e) {
+                console.error('[PostService] Slash linking error:', e);
+            }
+        }
+
+        return {
+            pendingSlashAccess: lockedSlashIds.length > 0,
+            lockedSlashIds,
+        };
     }
 
     static async createSimple(postId: string) {
@@ -305,7 +403,7 @@ export class PostService {
         if (error) throw error;
     }
 
-    static async createStory(postId: string, data: { duration: number }) {
+    static async createStory(postId: string, data: { duration: number, mediaUrl?: string, mediaType?: string, expiresAt?: string }) {
         const storyId = Crypto.randomUUID();
         const now = new Date().toISOString();
         const { error } = await supabase.from('Story').insert({
@@ -328,17 +426,18 @@ export class PostService {
             question: data.question,
             allowMultiple: data.allowMultiple,
             createdAt: now
-            // PullUpDown has no updatedAt
         }).select().single();
 
         if (error) throw error;
 
         // 2. Create Options
+        // PullUpDownOption schema: id, pullUpDownId, text, specialDetails?, uniqueDetails?, taggedUserId?, tagStatus, voteCount
+        // No isUp or createdAt columns exist.
         const opt1Id = Crypto.randomUUID();
         const opt2Id = Crypto.randomUUID();
         const options = [
-            { id: opt1Id, pullUpDownId: pull.id, text: data.optionA, isUp: true, createdAt: now },
-            { id: opt2Id, pullUpDownId: pull.id, text: data.optionB, isUp: false, createdAt: now }
+            { id: opt1Id, pullUpDownId: pull.id, text: data.optionA },
+            { id: opt2Id, pullUpDownId: pull.id, text: data.optionB }
         ];
 
         const { error: optError } = await supabase.from('PullUpDownOption').insert(options);
@@ -351,19 +450,78 @@ export class PostService {
     static async attachUserTags(postId: string, userIds: string[]) {
         if (!userIds || userIds.length === 0) return;
 
-        // PostTag might not have an 'id' column, usually it's composite key (postId, userId).
-        // If it DOES have 'id', we need to generate it.
-        // Assuming composite for now, but if it fails, user will report.
-        // Safe bet: manually generate UUID for id ONLY IF column exists.
-        // I will assume it DOES NOT need ID for now to avoid breaking it if no ID column.
-
+        // PostTag schema: id (cuid), postId, userId, createdAt
+        // Supabase default for cuid might not be set, so we generate IDs.
+        const now = new Date().toISOString();
         const tags = userIds.map(uid => ({
+            id: Crypto.randomUUID(),
             postId,
-            userId: uid
+            userId: uid,
+            createdAt: now
         }));
 
         const { error } = await supabase.from('PostTag').insert(tags);
         if (error) throw error;
+    }
+
+    // Helper for Slash Tags (many-to-many via _PostToSlash implicit join table)
+    static async linkSlashes(postId: string, slashTags: string[]) {
+        if (!slashTags || slashTags.length === 0) return;
+
+        for (const tag of slashTags) {
+            const cleanTag = tag.trim().toLowerCase();
+            if (!cleanTag) continue;
+
+            try {
+                // 1. Find or create the Slash
+                let slashId: string | null = null;
+                const { data: existing } = await supabase
+                    .from('Slash')
+                    .select('id')
+                    .eq('tag', cleanTag)
+                    .maybeSingle();
+
+                if (existing) {
+                    slashId = existing.id;
+                } else {
+                    const newId = Crypto.randomUUID();
+                    const now = new Date().toISOString();
+                    const { data: created, error: createErr } = await supabase
+                        .from('Slash')
+                        .insert({ id: newId, tag: cleanTag, createdAt: now })
+                        .select('id')
+                        .single();
+                    if (createErr) {
+                        console.log('[PostService] Slash create failed (may already exist):', createErr.message);
+                        // Race condition: another insert beat us. Try to fetch again.
+                        const { data: retry } = await supabase
+                            .from('Slash')
+                            .select('id')
+                            .eq('tag', cleanTag)
+                            .maybeSingle();
+                        slashId = retry?.id || null;
+                    } else {
+                        slashId = created?.id || null;
+                    }
+                }
+
+                if (!slashId) continue;
+
+                // 2. Link Slash to Post via the implicit Prisma join table _PostToSlash
+                // Prisma implicit many-to-many tables follow the format: _ModelAToModelB
+                // with columns: A (reference to first model) and B (reference to second model)
+                // For Post.slashes <-> Slash.posts, the table is _PostToSlash with columns A=PostId, B=SlashId
+                const { error: linkErr } = await supabase
+                    .from('_PostToSlash')
+                    .insert({ A: postId, B: slashId });
+
+                if (linkErr && !linkErr.message?.includes('duplicate')) {
+                    console.log('[PostService] Slash link error:', linkErr.message);
+                }
+            } catch (e: any) {
+                console.log('[PostService] Slash processing non-fatal:', e.message);
+            }
+        }
     }
     static async deletePost(postId: string) {
         const { error } = await supabase.from('Post').delete().eq('id', postId);
