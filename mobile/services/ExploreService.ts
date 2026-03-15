@@ -331,113 +331,58 @@ export const ExploreService = {
     },
 
     /**
-     * Fetch Home Feed with offset pagination (Direct Supabase)
-     * On initial load (offset=0), fetches a larger pool and shuffles for variety.
-     * On subsequent pages (offset>0), uses deterministic pagination.
+     * Fetch Home Feed via V2 API API endpoint (`/api/feed/home`)
      */
     async getHomeFeed(limit: number = 20, offset: number = 0): Promise<FeedPost[]> {
-        const { data: session } = await supabase.auth.getSession();
-        const userId = session.session?.user?.id;
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData.session?.access_token;
 
-        // For initial load / refresh, fetch a bigger pool and shuffle
-        const isInitialLoad = offset === 0;
-        const fetchSize = isInitialLoad ? Math.max(limit * 5, 100) : limit;
-        const from = isInitialLoad ? 0 : offset;
-        const to = from + fetchSize - 1;
+        if (!token) return [];
 
-        const { data, error } = await supabase
-            .from('Post')
-            .select(`
-                id, postType, content, createdAt,
-                user:User!userId (
-                    id, name, trustScore,
-                    profile:Profile (
-                        displayName, avatarUrl
-                    )
-                ),
-                postMedia:PostMedia(
-                    media:Media(type, url, thumbnailUrl, thumbnailBlurHash)
-                ),
-                topBubbles:ReactionBubble(id, mediaUrl, mediaType),
-                slashes:Slash(tag),
-                likes:PostLike(count),
-                comments:PostComment(count),
-                audioUsages:AudioUsage(
-                    audioAsset:AudioAsset(
-                        id, title, isOriginal, originalCreator:originalCreatorId(id, name, profile:Profile(displayName))
-                    )
-                )
-            `)
-            .eq('status', 'PUBLISHED')
-            .eq('visibility', 'PUBLIC')
-            .neq('userId', userId || '')
-            .order('createdAt', { ascending: false })
-            .range(from, to);
+        try {
+            const url = new URL(`${API_URL}/api/feed/home`);
+            // Only add limit parameter if you have one. Offset is currently not natively supported by /api/feed/home 
+            // but we'll send it if needed. However the v2 route currently only takes limit.
+            url.searchParams.append('limit', limit.toString());
+            if (offset > 0) {
+               // We can append offset, but the current backend v2 feed seems to only use 'limit'. 
+               url.searchParams.append('offset', offset.toString()); 
+            }
 
-        if (error) {
-            console.error("Supabase Home Feed Error:", error);
-            throw error;
-        }
-
-        let posts = (data || []).map((post: any) => {
-            let audioInfo;
-            if (post.audioUsages && post.audioUsages.length > 0) {
-                const asset = post.audioUsages[0].audioAsset;
-                if (asset) {
-                    const creator = asset.originalCreator;
-                    const cProfile = Array.isArray(creator?.profile) ? creator?.profile[0] : creator?.profile;
-                    const creatorName = cProfile?.displayName || creator?.name || 'Unknown';
-                    audioInfo = {
-                        audioAssetId: asset.id,
-                        audioTitle: asset.title || 'Original audio',
-                        audioCreatorName: creatorName,
-                        isOriginalAudio: asset.isOriginal
-                    };
+            const response = await fetch(url.toString(), {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
                 }
+            });
+
+            if (!response.ok) {
+                console.error(`[ExploreService] Error fetching home feed: ${response.status}`);
+                return [];
             }
 
-            // Extract media with blur hash
-            const media = (post.postMedia || []).map((pm: any) => {
-                const m = Array.isArray(pm.media) ? pm.media[0] : pm.media;
-                if (!m) return null;
-                return {
-                    type: m.type || 'IMAGE',
-                    url: m.url,
-                    thumbnailUrl: m.thumbnailUrl,
-                    thumbnailBlurHash: m.thumbnailBlurHash,
-                };
-            }).filter(Boolean);
-
-            return {
-                id: post.id,
-                postType: post.postType,
-                content: post.content,
-                createdAt: post.createdAt,
-                slashTags: post.slashes?.map((s: any) => s.tag) || [],
-                user: {
-                    id: post.user?.id,
-                    name: post.user?.name,
-                    trustScore: post.user?.trustScore || 0.5,
-                    profile: Array.isArray(post.user?.profile) ? post.user.profile[0] : post.user?.profile
-                },
-                media,
-                topBubbles: post.topBubbles || [],
-                score: 1.0,
-                audioInfo
-            };
-        });
-
-        // Shuffle on initial load so each refresh gives a different order
-        if (isInitialLoad && posts.length > limit) {
-            // Fisher-Yates shuffle
-            for (let i = posts.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [posts[i], posts[j]] = [posts[j], posts[i]];
-            }
-            posts = posts.slice(0, limit);
+            const data = await response.json();
+            
+            // Map the API formatted posts to the local FeedPost format
+            return (data.posts || []).map((p: any) => ({
+                id: p.id,
+                postType: p.postType,
+                content: p.content,
+                createdAt: p.createdAt,
+                slashTags: p.slashTags || [],
+                user: p.user,
+                media: p.media || [],
+                topBubbles: [], // Set to empty array if API doesn't return
+                score: p.score || 1.0,
+                audioInfo: undefined,
+                source: p.source
+            }));
+            
+        } catch (error) {
+            console.error("Home Feed API Error:", error);
+            return [];
         }
-
-        return posts;
     },
 
     /**
@@ -466,7 +411,7 @@ export const ExploreService = {
                         profile:Profile(displayName, avatarUrl)
                     ),
                     postMedia:PostMedia(media:Media(type, url)),
-                    slashes:Slash(tag),
+                    slashes:Slash!_PostToSlash(tag),
                     audioUsages:AudioUsage(
                         audioAsset:AudioAsset(
                             id, title, isOriginal,
@@ -500,7 +445,7 @@ export const ExploreService = {
             postType: post.postType,
             content: post.content,
             createdAt: post.createdAt,
-            slashTags: post.slashes?.map((s: any) => s.tag) || [],
+            slashTags: post.slashes?.map((s: any) => s.tag).filter(Boolean) || [],
             user: {
                 id: post.user?.id,
                 name: post.user?.name,
