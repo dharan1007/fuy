@@ -38,10 +38,9 @@ export default function ProductScreen() {
     };
 
     const getImages = (): string[] => {
-        if (!product?.images) return ['https://via.placeholder.com/600'];
         try {
             const imgs = JSON.parse(product.images);
-            return imgs.length > 0 ? imgs : ['https://via.placeholder.com/600'];
+            return imgs.length > 0 ? imgs : [];
         } catch {
             return [product.images];
         }
@@ -122,7 +121,13 @@ export default function ProductScreen() {
             <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
                 {/* Main Image */}
                 <View style={{ width, height: width, backgroundColor: isDark ? '#1a1a1a' : '#f5f5f5' }}>
-                    <Image source={{ uri: images[selectedImage] }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                    {images.length > 0 ? (
+                        <Image source={{ uri: images[selectedImage] }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                    ) : (
+                        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                            <Store size={48} color={subtleText} />
+                        </View>
+                    )}
                     {product.type !== 'PHYSICAL' && (
                         <View style={{ position: 'absolute', bottom: 12, left: 12, backgroundColor: 'rgba(0,0,0,0.7)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 }}>
                             <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>{product.type}</Text>
@@ -215,23 +220,38 @@ export default function ProductScreen() {
                     )}
                     */}
 
-                    <TouchableOpacity
-                        onPress={() => {
-                            if (product.externalUrl) {
-                                handleExternalLink(product.externalUrl);
-                            } else {
-                                // router.push('/cart'); // Cart not implemented
-                                Alert.alert('Coming Soon', 'Direct purchase will be available in the next update.');
-                            }
-                        }}
-                        style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 10, backgroundColor: product.externalUrl ? colors.text : '#333', gap: 6 }}
-                        disabled={!product.externalUrl}
-                    >
-                        {product.externalUrl ? <ExternalLink size={18} color={colors.background} /> : null}
-                        <Text style={{ fontSize: 14, fontWeight: '700', color: product.externalUrl ? colors.background : '#888' }}>
-                            {product.externalUrl ? 'Buy From' : 'Coming Soon'}
-                        </Text>
-                    </TouchableOpacity>
+                    {product.type === 'PHYSICAL' ? (
+                        <TouchableOpacity
+                            onPress={() => {
+                                if (product.externalUrl) {
+                                    handleExternalLink(product.externalUrl);
+                                }
+                            }}
+                            style={{
+                                flex: 1,
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                paddingVertical: 14,
+                                borderRadius: 10,
+                                backgroundColor: product.externalUrl ? colors.text : '#333',
+                                gap: 6,
+                                opacity: product.externalUrl ? 1 : 0.5
+                            }}
+                            disabled={!product.externalUrl}
+                        >
+                            {product.externalUrl ? <ExternalLink size={18} color={colors.background} /> : null}
+                            <Text style={{ fontSize: 14, fontWeight: '700', color: product.externalUrl ? colors.background : '#888' }}>
+                                {product.externalUrl ? 'Buy From Store' : 'Unavailable'}
+                            </Text>
+                        </TouchableOpacity>
+                    ) : (
+                        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 14 }}>
+                            <Text style={{ color: colors.secondary, fontSize: 13, fontWeight: '600', textAlign: 'center' }}>
+                                Digital products are currently only available for purchase on the web version.
+                            </Text>
+                        </View>
+                    )}
                 </View>
             </SafeAreaView>
         </View>

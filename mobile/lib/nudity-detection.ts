@@ -1,7 +1,10 @@
 // mobile/lib/nudity-detection.ts
-// Client-side nudity/NSFW content detection service
-// Uses keyword-based image path analysis and simple heuristics
-// For production, consider integrating a proper ML-based solution like NSFW.js
+// Production NSFW content detection service
+// Calls the server-side nsfwjs ML model for real pixel-level image analysis
+// No more filename-based mocking.
+
+import { getApiUrl } from './api';
+import { supabase } from './supabase';
 
 export type NudityClassification = 'CLEAN' | 'SUGGESTIVE' | 'EXPLICIT';
 
@@ -13,24 +16,12 @@ export interface NudityAnalysisResult {
     message: string;
 }
 
-// Suspicious keywords in image URLs or file names that might indicate NSFW content
-const EXPLICIT_KEYWORDS = [
-    'nude', 'naked', 'nsfw', 'porn', 'xxx', 'sex', 'explicit',
-    'adult', 'hardcore', 'fetish', 'erotic', 'onlyfans'
-];
-
-const SUGGESTIVE_KEYWORDS = [
-    'bikini', 'underwear', 'lingerie', 'bra', 'panty', 'panties',
-    'swimsuit', 'topless', 'shirtless', 'revealing', 'sexy'
-];
-
 /**
- * Analyzes an image URI for potential nudity/NSFW content
- * This is a basic implementation using filename/path analysis
- * For production, use a proper ML model like NSFW.js or cloud API
+ * Analyzes an image by sending its URL to the server-side ML model.
+ * The server runs nsfwjs (TensorFlow.js) to classify the actual pixels.
+ * This is NOT a filename check -- it scans the real image content.
  */
 export async function analyzeImageForNudity(imageUri: string): Promise<NudityAnalysisResult> {
-    // Default clean result
     const cleanResult: NudityAnalysisResult = {
         isClean: true,
         classification: 'CLEAN',
@@ -43,48 +34,67 @@ export async function analyzeImageForNudity(imageUri: string): Promise<NudityAna
         return cleanResult;
     }
 
-    const lowerUri = imageUri.toLowerCase();
-    const fileName = lowerUri.split('/').pop() || '';
+    try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
 
-    // Check for explicit keywords
-    const foundExplicit = EXPLICIT_KEYWORDS.filter(keyword =>
-        lowerUri.includes(keyword) || fileName.includes(keyword)
-    );
+        if (!token) {
+            console.warn('[NudityDetection] No auth token, skipping moderation');
+            return cleanResult;
+        }
 
-    if (foundExplicit.length > 0) {
-        return {
-            isClean: false,
-            classification: 'EXPLICIT',
-            confidence: 0.85,
-            detectedCategories: foundExplicit.map(k => `Explicit content: "${k}" detected`),
-            message: 'This image appears to contain explicit adult content which is not allowed on the platform.'
-        };
+        const apiUrl = getApiUrl();
+        const response = await fetch(`${apiUrl}/api/moderate/image`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+                imageUrls: [imageUri],
+                userId: session?.user?.id,
+            }),
+        });
+
+        if (!response.ok) {
+            console.warn('[NudityDetection] Server moderation failed, allowing upload:', response.status);
+            return cleanResult; // Fail open
+        }
+
+        const result = await response.json();
+
+        if (result.classification === 'EXPLICIT') {
+            return {
+                isClean: false,
+                classification: 'EXPLICIT',
+                confidence: result.confidence || 0.85,
+                detectedCategories: result.flaggedReasons || ['Explicit content detected'],
+                message: 'This image contains explicit content that violates our community guidelines and cannot be published.'
+            };
+        }
+
+        if (result.classification === 'SUGGESTIVE') {
+            return {
+                isClean: false,
+                classification: 'SUGGESTIVE',
+                confidence: result.confidence || 0.70,
+                detectedCategories: result.flaggedReasons || ['Suggestive content detected'],
+                message: 'This image may contain suggestive content. You can still post it, but it will be reviewed by our moderation team.'
+            };
+        }
+
+        return cleanResult;
+
+    } catch (error: any) {
+        console.error('[NudityDetection] Error calling moderation API:', error.message);
+        // Fail open: allow upload if server is unreachable
+        return cleanResult;
     }
-
-    // Check for suggestive keywords
-    const foundSuggestive = SUGGESTIVE_KEYWORDS.filter(keyword =>
-        lowerUri.includes(keyword) || fileName.includes(keyword)
-    );
-
-    if (foundSuggestive.length > 0) {
-        return {
-            isClean: false,
-            classification: 'SUGGESTIVE',
-            confidence: 0.70,
-            detectedCategories: foundSuggestive.map(k => `Potentially suggestive: "${k}" detected`),
-            message: 'This image may contain suggestive content. You can still post it, but it will be flagged for review.'
-        };
-    }
-
-    // For actual image content analysis, we would use TensorFlow.js with NSFW model here
-    // Since we want to avoid heavy dependencies, we use a simpler approach
-    // In production, you can add: npm install @nsfw-filter/nsfwjs @tensorflow/tfjs
-
-    return cleanResult;
 }
 
 /**
- * Analyzes multiple images and returns the worst classification
+ * Analyzes multiple images and returns the worst classification.
+ * Sends all URLs to the server in a single batch request.
  */
 export async function analyzeMultipleImages(imageUris: string[]): Promise<NudityAnalysisResult> {
     if (!imageUris || imageUris.length === 0) {
@@ -97,35 +107,61 @@ export async function analyzeMultipleImages(imageUris: string[]): Promise<Nudity
         };
     }
 
-    const results = await Promise.all(imageUris.map(analyzeImageForNudity));
+    try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
 
-    // Check for any explicit content first
-    const explicitResult = results.find(r => r.classification === 'EXPLICIT');
-    if (explicitResult) {
-        return explicitResult;
+        if (!token) {
+            console.warn('[NudityDetection] No auth token, skipping batch moderation');
+            return { isClean: true, classification: 'CLEAN', confidence: 1.0, detectedCategories: [], message: '' };
+        }
+
+        const apiUrl = getApiUrl();
+        const response = await fetch(`${apiUrl}/api/moderate/image`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+                imageUrls: imageUris,
+                userId: session?.user?.id,
+            }),
+        });
+
+        if (!response.ok) {
+            console.warn('[NudityDetection] Batch moderation failed, allowing upload');
+            return { isClean: true, classification: 'CLEAN', confidence: 1.0, detectedCategories: [], message: '' };
+        }
+
+        const result = await response.json();
+
+        if (result.classification === 'EXPLICIT') {
+            return {
+                isClean: false,
+                classification: 'EXPLICIT',
+                confidence: result.confidence || 0.85,
+                detectedCategories: result.flaggedReasons || ['Explicit content detected'],
+                message: 'One or more images contain explicit content that violates our community guidelines.'
+            };
+        }
+
+        if (result.classification === 'SUGGESTIVE') {
+            return {
+                isClean: false,
+                classification: 'SUGGESTIVE',
+                confidence: result.confidence || 0.70,
+                detectedCategories: result.flaggedReasons || ['Suggestive content detected'],
+                message: 'One or more images may contain suggestive content. They will be reviewed by our moderation team.'
+            };
+        }
+
+        return { isClean: true, classification: 'CLEAN', confidence: 1.0, detectedCategories: [], message: '' };
+
+    } catch (error: any) {
+        console.error('[NudityDetection] Batch error:', error.message);
+        return { isClean: true, classification: 'CLEAN', confidence: 1.0, detectedCategories: [], message: '' };
     }
-
-    // Then check for suggestive content
-    const suggestiveResult = results.find(r => r.classification === 'SUGGESTIVE');
-    if (suggestiveResult) {
-        // Combine all suggestive categories
-        const allCategories = results
-            .filter(r => r.classification === 'SUGGESTIVE')
-            .flatMap(r => r.detectedCategories);
-        return {
-            ...suggestiveResult,
-            detectedCategories: [...new Set(allCategories)]
-        };
-    }
-
-    // All clean
-    return {
-        isClean: true,
-        classification: 'CLEAN',
-        confidence: 0.95,
-        detectedCategories: [],
-        message: ''
-    };
 }
 
 /**

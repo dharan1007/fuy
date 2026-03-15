@@ -8,6 +8,7 @@ import { BlurView } from 'expo-blur';
 import { X, Lock, FileText } from 'lucide-react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { useToast } from '../../context/ToastContext';
+import { supabase } from '../../lib/supabase';
 
 
 interface DocumentBubbleProps {
@@ -48,15 +49,41 @@ export default function DocumentBubble({ filename, fileSize, uri, encryptionKey,
             // 1. Determine local path
             const cacheDir = FileSystem.cacheDirectory + 'docs/';
             await FileSystem.makeDirectoryAsync(cacheDir, { intermediates: true }).catch(() => { });
-            const localPath = cacheDir + (filename || 'document.dat');
+            
+            // Safe filename hash for R2 URLs
+            let filenameHash = 0;
+            for (let i = 0; i < uri.length; i++) {
+                filenameHash = (Math.imul(31, filenameHash) + uri.charCodeAt(i)) | 0;
+            }
+            const safeBaseName = filename ? filename.replace(/[^a-zA-Z0-9.-]/g, '_') : `doc_${Math.abs(filenameHash)}`;
+            const localPath = cacheDir + safeBaseName;
 
             // 2. Download (encrypted)
             // If encrypted, we download to temp first
 
+            // Handle old Supabase Public Storage URLs that require signing to prevent 400 errors
+            let downloadUri = uri;
+            if (uri.includes('.supabase.co/storage/v1/object/public/')) {
+                try {
+                    const parts = uri.split('/storage/v1/object/public/')[1].split('/');
+                    const bucket = parts[0];
+                    const path = parts.slice(1).join('/');
+                    const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 3600);
+                    if (!error && data?.signedUrl) {
+                        downloadUri = data.signedUrl;
+                    }
+                } catch (urlErr) {
+                    console.warn('[DocumentBubble] Failed to sign legacy Supabase URL:', urlErr);
+                }
+            }
+
             if (encryptionKey) {
                 const tempEncPath = localPath + '.enc';
-                const downloadRes = await FileSystem.downloadAsync(uri, tempEncPath);
-                if (downloadRes.status !== 200) throw new Error('Download failed');
+                const downloadRes = await FileSystem.downloadAsync(downloadUri, tempEncPath);
+                if (downloadRes.status !== 200) {
+                     console.error('[DocumentBubble] Download failed with status', downloadRes.status, 'for URI:', uri.substring(0, 100) + '...');
+                     throw new Error('Download failed');
+                }
 
                 let key = encryptionKey;
                 let iv = '';
@@ -131,7 +158,7 @@ export default function DocumentBubble({ filename, fileSize, uri, encryptionKey,
 
                 await FileSystem.moveAsync({ from: decryptedPath, to: localPath });
             } else {
-                const downloadRes = await FileSystem.downloadAsync(uri, localPath);
+                const downloadRes = await FileSystem.downloadAsync(downloadUri, localPath);
                 if (downloadRes.status !== 200) throw new Error('Download failed');
             }
 

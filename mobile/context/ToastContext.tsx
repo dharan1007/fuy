@@ -23,7 +23,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     return (
         <ToastContext.Provider value={{ showToast }}>
             {children}
-            {toast && <CustomToast message={toast.message} type={toast.type} onHide={() => setToast(null)} />}
+            {toast && <CustomToast visible={true} message={toast.message} type={toast.type} onHide={() => setToast(null)} />}
         </ToastContext.Provider>
     );
 }

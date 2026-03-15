@@ -194,6 +194,7 @@ export default function ActivityView() {
                 distance: full.distance,
                 duration: full.duration,
                 avgPace: full.avgPace,
+                avgSpeed: full.avgSpeed || 0,
                 calories: full.calories,
                 elevationGain: full.elevationGain,
                 points: full.points,

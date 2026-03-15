@@ -3,35 +3,66 @@ import { View, Text, ScrollView, TouchableOpacity, TextInput, Dimensions, FlatLi
 import { Image } from 'expo-image';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Search, X, Play, ChevronRight } from 'lucide-react-native';
+import { Search, X, Play, ChevronRight, Bookmark } from 'lucide-react-native';
 import SlashesModal from '../../components/SlashesModal';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { getSafetyFilters } from '../../services/SafetyService';
 import { supabase } from '../../lib/supabase';
-import { ExploreService } from '../../services/ExploreService';
+import { ExploreService, ExploreMode, FeedPost } from '../../services/ExploreService';
+import { TagAffinityService } from '../../services/TagAffinityService';
 import { useTheme } from '../../context/ThemeContext';
+import { useAuth } from '../../context/AuthContext';
 import ChansTab from '../../components/ChansTab';
+import { FlashList } from '@shopify/flash-list';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Haptics from 'expo-haptics';
+import Animated, {
+    useSharedValue,
+    useAnimatedStyle,
+    withSpring,
+    withTiming,
+    withDelay,
+    withSequence,
+    FadeInDown,
+    runOnJS,
+} from 'react-native-reanimated';
+import {
+    GestureDetector,
+    Gesture,
+    LongPressGestureHandler,
+    TapGestureHandler,
+    State,
+} from 'react-native-gesture-handler';
+import { useExplorePrefetch } from '../../hooks/useExplorePrefetch';
+import TrendingStrip from '../../components/explore/TrendingStrip';
+import ModeSwitcher from '../../components/explore/ModeSwitcher';
+import VibeMatchRow from '../../components/explore/VibeMatchRow';
+import PeekOverlay from '../../components/explore/PeekOverlay';
+import ExploreEmptyState from '../../components/explore/ExploreEmptyState';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const PADDING = 16;
 const GAP = 2;
 const TILE_SIZE = (SCREEN_WIDTH - GAP * 2) / 3;
 const LARGE_TILE = TILE_SIZE * 2 + GAP;
+const STORAGE_KEY_MODE = 'app:explore:last_mode';
 
 // ─── Types ───────────────────────────────────────────────────────────────
 interface Post {
     id: string;
-    media: { url: string; type: string; variant?: string; thumbnailUrl?: string }[] | null;
+    media: { url: string; type: string; variant?: string; thumbnailUrl?: string; thumbnailBlurHash?: string }[] | null;
     content: string;
     postType?: string;
     postMedia?: { media: { url: string; type: string; variant?: string; thumbnailUrl?: string } }[];
     lillData?: { thumbnailUrl?: string }[] | { thumbnailUrl?: string };
     fillData?: { thumbnailUrl?: string }[] | { thumbnailUrl?: string };
     chanData?: { id?: string; channelName?: string; description?: string; coverImageUrl?: string };
-    user?: { name?: string; profile?: { avatarUrl?: string; displayName?: string } };
+    user?: { id?: string; name?: string; profile?: { avatarUrl?: string; displayName?: string } };
     topBubbles?: { mediaUrl: string; mediaType: string }[];
     slashes?: { tag: string }[];
+    slashTags?: string[];
+    isWildcard?: boolean;
 }
 
 interface SearchResult {
@@ -45,15 +76,25 @@ interface SearchResult {
 }
 
 // Helper to get the best thumbnail URL from a post
-function getPostThumbnail(post: Post): string | null {
-    if (!post.media || post.media.length === 0) return null;
+function getPostThumbnail(post: Post): { url: string | null; blurHash: string | null } {
+    if (!post.media || post.media.length === 0) return { url: null, blurHash: null };
+
     const thumb = post.media.find(m => m.thumbnailUrl);
-    if (thumb?.thumbnailUrl) return thumb.thumbnailUrl;
+    if (thumb?.thumbnailUrl) {
+        return { url: thumb.thumbnailUrl, blurHash: thumb.thumbnailBlurHash || null };
+    }
+
     const img = post.media.find(m => m.type?.toUpperCase() === 'IMAGE');
-    if (img?.url) return img.url;
+    if (img?.url) {
+        return { url: img.url, blurHash: img.thumbnailBlurHash || null };
+    }
+
     const imgExt = post.media.find(m => m.url?.match(/\.(jpeg|jpg|png|webp|gif)$/i));
-    if (imgExt?.url) return imgExt.url;
-    return post.media[0]?.url || null;
+    if (imgExt?.url) {
+        return { url: imgExt.url, blurHash: imgExt.thumbnailBlurHash || null };
+    }
+
+    return { url: post.media[0]?.url || null, blurHash: post.media[0]?.thumbnailBlurHash || null };
 }
 
 function isVideoPost(post: Post): boolean {
@@ -61,68 +102,199 @@ function isVideoPost(post: Post): boolean {
     return post.media.some(m => m.type === 'VIDEO' || m.url?.match(/\.(mp4|mov|webm)$/i));
 }
 
-// ─── Grid Tile ───────────────────────────────────────────────────────────
-const GridTile = React.memo(({ post, size, onPress }: { post: Post; size: 'small' | 'large'; onPress: () => void }) => {
-    const tileW = size === 'large' ? LARGE_TILE : TILE_SIZE;
-    const tileH = size === 'large' ? LARGE_TILE : TILE_SIZE;
-    const url = getPostThumbnail(post);
-    const video = isVideoPost(post);
+// ─── Save Bookmark Animation Component ──────────────────────────────────
+const SaveBookmarkOverlay = ({ visible }: { visible: boolean }) => {
+    const scale = useSharedValue(0);
+    const opacity = useSharedValue(0);
+
+    useEffect(() => {
+        if (visible) {
+            opacity.value = withTiming(1, { duration: 100 });
+            scale.value = withSequence(
+                withSpring(1.2, { damping: 12, stiffness: 300 }),
+                withDelay(400, withSpring(0, { damping: 15, stiffness: 200 }))
+            );
+            // Fade out after animation
+            opacity.value = withDelay(500, withTiming(0, { duration: 150 }));
+        } else {
+            scale.value = 0;
+            opacity.value = 0;
+        }
+    }, [visible]);
+
+    const animStyle = useAnimatedStyle(() => ({
+        transform: [{ scale: scale.value }],
+        opacity: opacity.value,
+    }));
+
+    if (!visible) return null;
 
     return (
-        <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={onPress}
-            style={{ width: tileW, height: tileH, padding: GAP / 2 }}
+        <Animated.View
+            pointerEvents="none"
+            style={[{
+                position: 'absolute',
+                top: 0, left: 0, right: 0, bottom: 0,
+                justifyContent: 'center',
+                alignItems: 'center',
+                zIndex: 50,
+            }, animStyle]}
         >
-            <View style={{ flex: 1, borderRadius: 4, overflow: 'hidden', backgroundColor: '#1a1a1a' }}>
-                {url ? (
-                    <Image
-                        source={{ uri: url }}
-                        style={{ width: '100%', height: '100%' }}
-                        transition={200}
-                    />
-                ) : (
-                    <View style={{ flex: 1, backgroundColor: '#1a1a1a', justifyContent: 'center', alignItems: 'center' }}>
-                        <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>No media</Text>
-                    </View>
-                )}
-            </View>
-        </TouchableOpacity>
+            <Bookmark size={28} color="white" fill="white" />
+        </Animated.View>
+    );
+};
+
+// ─── Wildcard "New For You" Pill ─────────────────────────────────────────
+const WildcardPill = ({ colors }: { colors: any }) => {
+    const opacity = useSharedValue(1);
+
+    useEffect(() => {
+        opacity.value = withDelay(3000, withTiming(0, { duration: 500 }));
+    }, []);
+
+    const animStyle = useAnimatedStyle(() => ({
+        opacity: opacity.value,
+    }));
+
+    return (
+        <Animated.View
+            pointerEvents="none"
+            style={[{
+                position: 'absolute',
+                top: 6,
+                left: 6,
+                zIndex: 10,
+                backgroundColor: (colors.card || '#1a1a1a') + 'D9', // 85% opacity
+                paddingHorizontal: 6,
+                paddingVertical: 2,
+                borderRadius: 6,
+            }, animStyle]}
+        >
+            <Text style={{ color: colors.text, fontSize: 10, fontWeight: '500' }}>new for you</Text>
+        </Animated.View>
+    );
+};
+
+// ─── Grid Tile ───────────────────────────────────────────────────────────
+const GridTile = React.memo(({
+    post,
+    size,
+    onPress,
+    onDoubleTap,
+    onLongPress,
+    colors,
+    showSaveAnim,
+}: {
+    post: Post;
+    size: 'small' | 'large';
+    onPress: () => void;
+    onDoubleTap: () => void;
+    onLongPress: () => void;
+    colors: any;
+    showSaveAnim: boolean;
+}) => {
+    const tileW = size === 'large' ? LARGE_TILE : TILE_SIZE;
+    const tileH = size === 'large' ? LARGE_TILE : TILE_SIZE;
+    const { url, blurHash } = getPostThumbnail(post);
+
+    // Gesture detection: single-tap waits for double-tap to fail
+    const doubleTapRef = useRef<any>(null);
+
+    const singleTap = Gesture.Tap()
+        .numberOfTaps(1)
+        .onEnd(() => {
+            runOnJS(onPress)();
+        });
+
+    const doubleTap = Gesture.Tap()
+        .numberOfTaps(2)
+        .onEnd(() => {
+            runOnJS(onDoubleTap)();
+        });
+
+    const longPress = Gesture.LongPress()
+        .minDuration(350)
+        .onStart(() => {
+            runOnJS(onLongPress)();
+        });
+
+    const composed = Gesture.Exclusive(doubleTap, Gesture.Exclusive(longPress, singleTap));
+
+    return (
+        <GestureDetector gesture={composed}>
+            <Animated.View style={{ width: tileW, height: tileH, padding: GAP / 2 }}>
+                <View style={{ flex: 1, borderRadius: 4, overflow: 'hidden', backgroundColor: '#1a1a1a' }}>
+                    {url ? (
+                        <Image
+                            source={{ uri: url }}
+                            style={{ width: '100%', height: '100%' }}
+                            transition={200}
+                            cachePolicy="memory-disk"
+                            placeholder={blurHash || undefined}
+                            placeholderContentFit="cover"
+                        />
+                    ) : (
+                        <View style={{ flex: 1, backgroundColor: '#1a1a1a', justifyContent: 'center', alignItems: 'center' }}>
+                            <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12 }}>No media</Text>
+                        </View>
+                    )}
+
+                    {/* Wildcard pill */}
+                    {post.isWildcard && <WildcardPill colors={colors} />}
+
+                    {/* Save bookmark animation */}
+                    <SaveBookmarkOverlay visible={showSaveAnim} />
+                </View>
+            </Animated.View>
+        </GestureDetector>
     );
 });
 
 // ─── Featured Row (Large + 2 Small) ──────────────────────────────────────
-const FeaturedRow = React.memo(({ item, onPostPress }: {
+const FeaturedRow = React.memo(({ item, onPostPress, onDoubleTap, onLongPress, colors, savingPostId }: {
     item: { large: Post; smalls: Post[] };
     onPostPress: (id: string) => void;
+    onDoubleTap: (post: Post) => void;
+    onLongPress: (post: Post) => void;
+    colors: any;
+    savingPostId: string | null;
 }) => {
-    // Deterministic side based on post ID char code sum
     const charSum = item.large.id.split('').reduce((sum, c) => sum + c.charCodeAt(0), 0);
     const isLeftLarge = charSum % 2 === 0;
 
+    const largeTile = (
+        <GridTile
+            post={item.large}
+            size="large"
+            onPress={() => onPostPress(item.large.id)}
+            onDoubleTap={() => onDoubleTap(item.large)}
+            onLongPress={() => onLongPress(item.large)}
+            colors={colors}
+            showSaveAnim={savingPostId === item.large.id}
+        />
+    );
+    const smallTiles = (
+        <View>
+            {item.smalls.map(post => (
+                <GridTile
+                    key={post.id}
+                    post={post}
+                    size="small"
+                    onPress={() => onPostPress(post.id)}
+                    onDoubleTap={() => onDoubleTap(post)}
+                    onLongPress={() => onLongPress(post)}
+                    colors={colors}
+                    showSaveAnim={savingPostId === post.id}
+                />
+            ))}
+            {item.smalls.length < 2 && <View style={{ width: TILE_SIZE, height: TILE_SIZE }} />}
+        </View>
+    );
+
     return (
         <View style={{ flexDirection: 'row' }}>
-            {isLeftLarge ? (
-                <>
-                    <GridTile post={item.large} size="large" onPress={() => onPostPress(item.large.id)} />
-                    <View>
-                        {item.smalls.map(post => (
-                            <GridTile key={post.id} post={post} size="small" onPress={() => onPostPress(post.id)} />
-                        ))}
-                        {item.smalls.length < 2 && <View style={{ width: TILE_SIZE, height: TILE_SIZE }} />}
-                    </View>
-                </>
-            ) : (
-                <>
-                    <View>
-                        {item.smalls.map(post => (
-                            <GridTile key={post.id} post={post} size="small" onPress={() => onPostPress(post.id)} />
-                        ))}
-                        {item.smalls.length < 2 && <View style={{ width: TILE_SIZE, height: TILE_SIZE }} />}
-                    </View>
-                    <GridTile post={item.large} size="large" onPress={() => onPostPress(item.large.id)} />
-                </>
-            )}
+            {isLeftLarge ? <>{largeTile}{smallTiles}</> : <>{smallTiles}{largeTile}</>}
         </View>
     );
 });
@@ -138,13 +310,10 @@ const CategoryRow = React.memo(({ title, posts, onPostPress, colors }: {
 
     return (
         <View style={{ marginVertical: 12 }}>
-            {/* Row header */}
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, marginBottom: 10 }}>
                 <Text style={{ color: colors.text, fontSize: 17, fontWeight: '700' }}>{title}</Text>
                 <ChevronRight color={colors.text + '60'} size={20} />
             </View>
-
-            {/* Horizontal list */}
             <FlatList
                 data={posts}
                 horizontal
@@ -152,8 +321,7 @@ const CategoryRow = React.memo(({ title, posts, onPostPress, colors }: {
                 keyExtractor={item => `cat-${item.id}`}
                 contentContainerStyle={{ paddingHorizontal: 12 }}
                 renderItem={({ item }) => {
-                    const url = getPostThumbnail(item);
-                    const video = isVideoPost(item);
+                    const { url } = getPostThumbnail(item);
                     return (
                         <TouchableOpacity
                             activeOpacity={0.85}
@@ -166,7 +334,6 @@ const CategoryRow = React.memo(({ title, posts, onPostPress, colors }: {
                                     style={{ width: '100%', height: '100%' }}
                                     contentFit="cover"
                                     cachePolicy="memory-disk"
-                                    recyclingKey={`cat-${item.id}`}
                                     transition={200}
                                 />
                             ) : (
@@ -174,8 +341,6 @@ const CategoryRow = React.memo(({ title, posts, onPostPress, colors }: {
                                     <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11 }}>No media</Text>
                                 </View>
                             )}
-
-                            {/* Bottom gradient with user info */}
                             <LinearGradient
                                 colors={['transparent', 'rgba(0,0,0,0.7)']}
                                 style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 60, justifyContent: 'flex-end', padding: 8 }}
@@ -196,6 +361,7 @@ const CategoryRow = React.memo(({ title, posts, onPostPress, colors }: {
 export default function ExploreScreen() {
     const router = useRouter();
     const { colors, mode } = useTheme();
+    const { session } = useAuth();
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedQuery, setDebouncedQuery] = useState('');
     const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -208,10 +374,29 @@ export default function ExploreScreen() {
     const [currentTab, setCurrentTab] = useState('Posts');
     const [isScreenFocused, setIsScreenFocused] = useState(true);
 
+    // New explore features state
+    const [exploreMode, setExploreMode] = useState<ExploreMode>('foryou');
+    const [selectedTag, setSelectedTag] = useState<string | null>(null);
+    const [trendingRefreshKey, setTrendingRefreshKey] = useState(0);
+    const [currentVisibleIndex, setCurrentVisibleIndex] = useState(0);
+    const [savingPostId, setSavingPostId] = useState<string | null>(null);
+    const [gridOpacity, setGridOpacity] = useState(1);
+
+    // Peek overlay state
+    const [peekVisible, setPeekVisible] = useState(false);
+    const [peekCreatorId, setPeekCreatorId] = useState<string | null>(null);
+    const [peekThumbnail, setPeekThumbnail] = useState<string | null>(null);
+
+    // RETURN_VIEW tracking
+    const departureTimestamps = useRef<Map<string, number>>(new Map());
+
     // Category row data
     const [chapterPosts, setChapterPosts] = useState<Post[]>([]);
     const [audPosts, setAudPosts] = useState<Post[]>([]);
     const [allSlashes, setAllSlashes] = useState<{ tag: string, count: number }[]>([]);
+
+    // User interests for empty state
+    const [userInterests, setUserInterests] = useState<string[]>([]);
 
     // Focus tracking
     useFocusEffect(
@@ -220,6 +405,40 @@ export default function ExploreScreen() {
             return () => setIsScreenFocused(false);
         }, [])
     );
+
+    // Prefetch hook
+    const { onScroll: prefetchOnScroll } = useExplorePrefetch(posts, currentVisibleIndex);
+
+    // Restore last explore mode from storage
+    useEffect(() => {
+        AsyncStorage.getItem(STORAGE_KEY_MODE).then(saved => {
+            if (saved && ['foryou', 'fresh', 'nearby', 'following'].includes(saved)) {
+                setExploreMode(saved as ExploreMode);
+            }
+        });
+    }, []);
+
+    // Session start: apply decay and fetch interests
+    useEffect(() => {
+        if (session?.user?.id) {
+            TagAffinityService.applyAffinityDecay(session.user.id);
+            // Fetch user interests for empty state
+            supabase
+                .from('Profile')
+                .select('currentlyInto, tags')
+                .eq('userId', session.user.id)
+                .maybeSingle()
+                .then(({ data }) => {
+                    if (data) {
+                        const interests = [
+                            ...(data.currentlyInto || []),
+                            ...(data.tags ? [data.tags] : []),
+                        ].filter(Boolean);
+                        setUserInterests(interests);
+                    }
+                });
+        }
+    }, [session?.user?.id]);
 
     // ─── Data Fetching ───────────────────────────────────────────────────
     const getCurrentUser = async () => {
@@ -231,29 +450,21 @@ export default function ExploreScreen() {
         const lill = Array.isArray(p.lillData) ? p.lillData[0] : p.lillData;
         const fill = Array.isArray(p.fillData) ? p.fillData[0] : p.fillData;
         const chanCover = Array.isArray(p.chan_data) ? p.chan_data?.[0]?.coverImageUrl : p.chan_data?.coverImageUrl;
-
-        // Prioritize specific cover images if available
         const thumbnailUrl = lill?.thumbnailUrl || fill?.thumbnailUrl || chanCover || null;
 
-        // Robustly map postMedia -> Media
         const media = (p.postMedia || []).map((pm: any) => {
-            // Handle both direct media object or nested in array if join went wrong
             const m = Array.isArray(pm.media) ? pm.media[0] : pm.media;
             if (!m) return null;
-
-            // Ensure type is set
             if (!m.type) {
                 m.type = m.url?.match(/\.(mp4|mov|webm)$/i) ? 'VIDEO' : 'IMAGE';
             }
             return m;
         }).filter(Boolean);
 
-        // If we found a specific thumbnail (e.g. LILL/FILL/CHAN), inject it into the first media item or create a dummy one if needed for display
         if (thumbnailUrl) {
             if (media.length > 0) {
                 media[0].thumbnailUrl = thumbnailUrl;
             } else {
-                // If no media but we have a thumbnail, treat it as an image media for display purposes
                 media.push({ url: thumbnailUrl, type: 'IMAGE', thumbnailUrl });
             }
         }
@@ -267,7 +478,8 @@ export default function ExploreScreen() {
             postMedia: p.postMedia,
             user: Array.isArray(p.user) ? p.user[0] : p.user,
             topBubbles: p.topBubbles || [],
-            slashes: p.slashes || []
+            slashes: p.slashes || [],
+            isWildcard: p.isWildcard || false,
         };
     };
 
@@ -277,7 +489,7 @@ export default function ExploreScreen() {
         chan_data:Chan(*),
         lillData:Lill(thumbnailUrl),
         fillData:Fill(thumbnailUrl),
-        postMedia:PostMedia(media:Media(url, type, variant)),
+        postMedia:PostMedia(media:Media(url, type, variant, thumbnailUrl, thumbnailBlurHash)),
         topBubbles:ReactionBubble(mediaUrl, mediaType),
         slashes:Slash(tag)
     `;
@@ -299,8 +511,8 @@ export default function ExploreScreen() {
             let error = null;
 
             if (tab === 'Posts') {
-                // **NEW: Use algorithmic feed for general explore**
-                data = await ExploreService.getExploreFeed(PAGE_SIZE, from);
+                // Use algorithmic explore feed
+                data = await ExploreService.getExploreFeed(PAGE_SIZE, from, exploreMode, selectedTag || undefined);
             } else {
                 let query = supabase
                     .from('Post')
@@ -335,11 +547,6 @@ export default function ExploreScreen() {
                 return;
             }
 
-            // DEBUG: Log the first post to see what we are getting
-            if (data && data.length > 0) {
-                console.log('[Explore Debug] First Post Raw:', JSON.stringify(data[0], null, 2));
-            }
-
             const transformed = tab === 'Posts'
                 ? (data || []).map((apiPost: any) => ({
                     id: apiPost.id,
@@ -350,7 +557,9 @@ export default function ExploreScreen() {
                     postMedia: apiPost.media,
                     user: apiPost.user,
                     topBubbles: [],
-                    slashes: apiPost.slashTags?.map((tag: string) => ({ tag })) || []
+                    slashes: apiPost.slashTags?.map((tag: string) => ({ tag })) || [],
+                    slashTags: apiPost.slashTags || [],
+                    isWildcard: apiPost.isWildcard || false,
                 })) as Post[]
                 : (data || []).map(transformPost);
 
@@ -369,7 +578,6 @@ export default function ExploreScreen() {
         }
     };
 
-    // Fetch category rows for horizontal scrolling sections
     const fetchCategoryRows = async () => {
         try {
             const [chapRes, audRes] = await Promise.all([
@@ -409,7 +617,19 @@ export default function ExploreScreen() {
             if (currentTab === 'Posts') fetchCategoryRows();
         }
         getCurrentUser();
-    }, [currentTab]);
+    }, [currentTab, exploreMode, selectedTag]);
+
+    // ─── Mode Switching ──────────────────────────────────────────────────
+    const handleModeChange = useCallback(async (newMode: ExploreMode) => {
+        if (newMode === exploreMode) return;
+        setGridOpacity(0);
+        setExploreMode(newMode);
+        AsyncStorage.setItem(STORAGE_KEY_MODE, newMode);
+        setPosts([]);
+        setHasMore(true);
+        // Grid will fade in after data loads via useEffect
+        setTimeout(() => setGridOpacity(1), 200);
+    }, [exploreMode]);
 
     // ─── Search ──────────────────────────────────────────────────────────
     useEffect(() => {
@@ -527,82 +747,132 @@ export default function ExploreScreen() {
     const onRefresh = useCallback(() => {
         setRefreshing(true);
         setHasMore(true);
+        setTrendingRefreshKey(prev => prev + 1);
         fetchPosts(currentTab, false);
         if (currentTab === 'Posts') fetchCategoryRows();
-    }, [currentTab]);
+    }, [currentTab, exploreMode, selectedTag]);
 
     const loadMore = () => {
         if (!hasMore || loading) return;
         fetchPosts(currentTab, true);
     };
 
-    // ─── Grid Layout Builder ─────────────────────────────────────────────
-    // Builds a mixed-size grid: every 3rd group has 1 large tile + 2 small
-    // Pattern repeats: Row A (3 small), Row B (3 small), Row C (1 large + 2 stacked small)
-    const gridData = useMemo(() => {
-        if (currentTab !== 'Posts' || posts.length === 0) return [];
+    // ─── Double-Tap Save Handler ─────────────────────────────────────────
+    const handleDoubleTap = useCallback(async (post: Post) => {
+        if (!currentUserId) return;
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        setSavingPostId(post.id);
+        setTimeout(() => setSavingPostId(null), 900);
 
-        type GridItem =
-            | { type: 'row6'; posts: Post[] }
-            | { type: 'featured6'; col1: { large: Post, smalls: Post[] }; col2: { large: Post, smalls: Post[] } | null }
-            | { type: 'category'; category: 'chapters' | 'auds' }
-            | { type: 'spacer' };
+        const saved = await ExploreService.savePost(post.id, currentUserId);
+        const tags = post.slashTags || post.slashes?.map(s => s.tag) || [];
+        ExploreService.logRecommendationFeedback(post.id, 'POST', 'SAVE', tags);
+    }, [currentUserId]);
+
+    // ─── Long-Press Peek Handler ─────────────────────────────────────────
+    const handleLongPress = useCallback((post: Post) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        const { url } = getPostThumbnail(post);
+        setPeekThumbnail(url);
+        setPeekCreatorId(post.user?.id || null);
+        setPeekVisible(true);
+
+        const tags = post.slashTags || post.slashes?.map(s => s.tag) || [];
+        ExploreService.logRecommendationFeedback(post.id, 'POST', 'LONG_PRESS_PEEK', tags);
+    }, []);
+
+    // ─── RETURN_VIEW Tracking ────────────────────────────────────────────
+    const handleViewableItemsChanged = useCallback(({ viewableItems, changed }: { viewableItems: any[]; changed: any[] }) => {
+        // Track visible index
+        if (viewableItems.length > 0 && viewableItems[0].index != null) {
+            setCurrentVisibleIndex(viewableItems[0].index);
+        }
+
+        // RETURN_VIEW detection
+        const now = Date.now();
+        const currentlyVisible = new Set(viewableItems.map((v: any) => v.item?.id).filter(Boolean));
+
+        // Items that left viewporttrack departure time
+        for (const item of changed) {
+            if (!item.isViewable && item.item?.id) {
+                departureTimestamps.current.set(item.item.id, now);
+            }
+        }
+
+        // Items that re-entered — check if within 30s
+        for (const item of changed) {
+            if (item.isViewable && item.item?.id) {
+                const departedAt = departureTimestamps.current.get(item.item.id);
+                if (departedAt && now - departedAt < 30000) {
+                    const tags = item.item.slashTags || item.item.slashes?.map((s: any) => s.tag) || [];
+                    ExploreService.logRecommendationFeedback(item.item.id, 'POST', 'RETURN_VIEW', tags);
+                }
+                departureTimestamps.current.delete(item.item.id);
+            }
+        }
+    }, []);
+
+    // ─── Grid Layout Builder ─────────────────────────────────────────────
+    type GridItem =
+        | { type: 'row'; posts: Post[]; key: string }
+        | { type: 'featured'; large: Post; smalls: Post[]; key: string }
+        | { type: 'vibe_match'; key: string }
+        | { type: 'category'; category: 'chapters' | 'auds'; key: string };
+
+    const gridData = useMemo((): GridItem[] => {
+        if (currentTab !== 'Posts' || posts.length === 0) return [];
 
         const items: GridItem[] = [];
         let idx = 0;
         let groupCount = 0;
-        const CATEGORY_INTERVAL = 3; // Insert category row every N groups
+        let postCount = 0;
 
         while (idx < posts.length) {
+            // Insert VibeMatchRow after roughly 6 posts
+            if (postCount >= 6 && postCount < 10 && !items.find(i => i.type === 'vibe_match')) {
+                items.push({ type: 'vibe_match', key: 'vibe-match' });
+            }
+
             const groupInCycle = groupCount % 3;
 
             if (groupInCycle < 2) {
-                // Regular 6-column row
-                const row = posts.slice(idx, idx + 6);
+                // Regular 3-column row
+                const row = posts.slice(idx, idx + 3);
                 if (row.length > 0) {
-                    items.push({ type: 'row6', posts: row });
+                    items.push({ type: 'row', posts: row, key: `row-${idx}` });
+                    postCount += row.length;
                     idx += row.length;
                 } else break;
             } else {
-                // Featured row: 2 panels (1 large + 2 small) side by side
-                const large1 = posts[idx];
-                const smalls1 = posts.slice(idx + 1, idx + 3);
+                // Featured row: 1 large + 2 small
+                const large = posts[idx];
+                const smalls = posts.slice(idx + 1, idx + 3);
 
-                let large2 = null;
-                let smalls2: Post[] = [];
-                if (idx + 3 < posts.length) {
-                    large2 = posts[idx + 3];
-                    smalls2 = posts.slice(idx + 4, idx + 6);
-                }
-
-                if (large1) {
+                if (large) {
                     items.push({
-                        type: 'featured6',
-                        col1: { large: large1, smalls: smalls1 },
-                        col2: large2 ? { large: large2, smalls: smalls2 } : null
+                        type: 'featured',
+                        large,
+                        smalls,
+                        key: `feat-${idx}`,
                     });
-                    idx += 1 + smalls1.length + (large2 ? 1 + smalls2.length : 0);
+                    postCount += 1 + smalls.length;
+                    idx += 1 + smalls.length;
                 } else break;
             }
 
             groupCount++;
-
-            // Insert category rows between grid sections
-            if (groupCount === CATEGORY_INTERVAL && chapterPosts.length > 0) {
-                items.push({ type: 'category', category: 'chapters' });
-            }
-            // Auds category row is hidden for V2
-            // if (groupCount === CATEGORY_INTERVAL * 2 && audPosts.length > 0) {
-            //     items.push({ type: 'category', category: 'auds' });
-            // }
         }
 
         return items;
-    }, [posts, currentTab, chapterPosts, audPosts]);
+    }, [posts, currentTab]);
 
     const handlePostPress = useCallback((id: string) => {
         router.push(`/post/${id}` as any);
     }, [router]);
+
+    // ─── FlashList Estimated Size ────────────────────────────────────────
+    // Average of small (TILE_SIZE) and large rows, weighted 2:1
+    const estimatedItemSize = Math.round((TILE_SIZE * 2 + LARGE_TILE) / 3);
 
     // ─── Render ──────────────────────────────────────────────────────────
     return (
@@ -617,9 +887,9 @@ export default function ExploreScreen() {
                 </View>
 
                 {/* Tabs */}
-                <View style={{ paddingBottom: 10 }}>
+                <View style={{ paddingBottom: 4 }}>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: PADDING, gap: 8 }}>
-                        {['Posts', 'Slashes', 'Chapters'].map(tab => (
+                        {['Posts', 'Slashes'/*, 'Chapters'*/].map(tab => (
                             <TouchableOpacity
                                 key={tab}
                                 onPress={() => {
@@ -643,6 +913,20 @@ export default function ExploreScreen() {
                         ))}
                     </ScrollView>
                 </View>
+
+                {/* Mode Switcher (only for Posts tab) */}
+                {currentTab === 'Posts' && (
+                    <ModeSwitcher activeMode={exploreMode} onModeChange={handleModeChange} />
+                )}
+
+                {/* Trending Strip (only for Posts tab) */}
+                {currentTab === 'Posts' && (
+                    <TrendingStrip
+                        selectedTag={selectedTag}
+                        onSelectTag={setSelectedTag}
+                        forceRefresh={trendingRefreshKey}
+                    />
+                )}
 
                 {/* Search Overlay */}
                 {isSearching && (
@@ -740,86 +1024,97 @@ export default function ExploreScreen() {
                         </View>
                     </ScrollView>
                 ) : currentTab === 'Posts' ? (
-                    <ScrollView
-                        showsVerticalScrollIndicator={false}
-                        contentContainerStyle={{ paddingBottom: 100 }}
-                        scrollEventThrottle={16}
-                        onScroll={(e) => {
-                            const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent;
-                            const isCloseToBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - 500;
-                            if (isCloseToBottom && !loading && hasMore) {
-                                loadMore();
-                            }
-                        }}
-                        refreshControl={
-                            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="white" />
-                        }
-                    >
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ minWidth: SCREEN_WIDTH * 2 }}>
-                            <View style={{ flexDirection: 'column', width: SCREEN_WIDTH * 2 }}>
-                                {loading && posts.length === 0 ? (
-                                    <View style={{ width: '100%', justifyContent: 'center', alignItems: 'center', paddingTop: 100 }}>
-                                        <ActivityIndicator size="large" color="white" />
-                                    </View>
-                                ) : (
-                                    gridData.map((item, idx) => {
-                                        if (item.type === 'row6') {
-                                            return (
-                                                <View key={`grid-${idx}`} style={{ flexDirection: 'row', width: SCREEN_WIDTH * 2 }}>
-                                                    {item.posts.map(post => (
-                                                        <GridTile
-                                                            key={post.id}
-                                                            post={post}
-                                                            size="small"
-                                                            onPress={() => handlePostPress(post.id)}
-                                                        />
-                                                    ))}
-                                                    {item.posts.length < 6 && Array.from({ length: 6 - item.posts.length }).map((_, i) => (
-                                                        <View key={`empty-${i}`} style={{ width: TILE_SIZE, height: TILE_SIZE }} />
-                                                    ))}
-                                                </View>
-                                            );
+                    loading && posts.length === 0 ? (
+                        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                            <ActivityIndicator size="large" color="white" />
+                        </View>
+                    ) : posts.length === 0 ? (
+                        <ExploreEmptyState
+                            selectedTag={selectedTag}
+                            onClearTag={() => setSelectedTag(null)}
+                            topInterests={userInterests}
+                            onSelectInterest={(tag) => setSelectedTag(tag)}
+                            vibeMatchProfile={null}
+                            onFollowProfile={() => { }}
+                            onNavigateToProfile={(userId) => router.push(`/profile/${userId}` as any)}
+                        />
+                    ) : (
+                        <View style={{ flex: 1, opacity: gridOpacity }}>
+                            <FlashList
+                                data={gridData}
+                                drawDistance={Dimensions.get('window').height * 2}
+                                onEndReached={loadMore}
+                                onEndReachedThreshold={0.5}
+                                onViewableItemsChanged={handleViewableItemsChanged}
+                                onScroll={prefetchOnScroll}
+                                scrollEventThrottle={16}
+                                showsVerticalScrollIndicator={false}
+                                contentContainerStyle={{ paddingBottom: 100 }}
+                                refreshControl={
+                                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="white" />
+                                }
+                                keyExtractor={(item) => item.key}
+                                renderItem={({ item }) => {
+                                    if (item.type === 'row') {
+                                        return (
+                                            <View style={{ flexDirection: 'row' }}>
+                                                {item.posts.map(post => (
+                                                    <GridTile
+                                                        key={post.id}
+                                                        post={post}
+                                                        size="small"
+                                                        onPress={() => handlePostPress(post.id)}
+                                                        onDoubleTap={() => handleDoubleTap(post)}
+                                                        onLongPress={() => handleLongPress(post)}
+                                                        colors={colors}
+                                                        showSaveAnim={savingPostId === post.id}
+                                                    />
+                                                ))}
+                                                {item.posts.length < 3 && Array.from({ length: 3 - item.posts.length }).map((_, i) => (
+                                                    <View key={`empty-${i}`} style={{ width: TILE_SIZE, height: TILE_SIZE }} />
+                                                ))}
+                                            </View>
+                                        );
+                                    }
+
+                                    if (item.type === 'featured') {
+                                        return (
+                                            <FeaturedRow
+                                                item={{ large: item.large, smalls: item.smalls }}
+                                                onPostPress={handlePostPress}
+                                                onDoubleTap={handleDoubleTap}
+                                                onLongPress={handleLongPress}
+                                                colors={colors}
+                                                savingPostId={savingPostId}
+                                            />
+                                        );
+                                    }
+
+                                    if (item.type === 'vibe_match') {
+                                        return <VibeMatchRow />;
+                                    }
+
+                                    if (item.type === 'category') {
+                                        if (item.category === 'chapters') {
+                                            return <CategoryRow title="Chapters" posts={chapterPosts} onPostPress={handlePostPress} colors={colors} />;
                                         }
-
-                                        if (item.type === 'featured6') {
-                                            return (
-                                                <View key={`grid-${idx}`} style={{ flexDirection: 'row', width: SCREEN_WIDTH * 2 }}>
-                                                    <View style={{ width: SCREEN_WIDTH }}>
-                                                        <FeaturedRow item={item.col1} onPostPress={handlePostPress} />
-                                                    </View>
-                                                    {item.col2 ? (
-                                                        <View style={{ width: SCREEN_WIDTH }}>
-                                                            <FeaturedRow item={item.col2} onPostPress={handlePostPress} />
-                                                        </View>
-                                                    ) : (
-                                                        <View style={{ width: SCREEN_WIDTH }} />
-                                                    )}
-                                                </View>
-                                            );
+                                        if (item.category === 'auds') {
+                                            return <CategoryRow title="Auds" posts={audPosts} onPostPress={handlePostPress} colors={colors} />;
                                         }
+                                    }
 
-                                        if (item.type === 'category') {
-                                            if (item.category === 'chapters') {
-                                                return <CategoryRow key={`grid-${idx}`} title="Chapters" posts={chapterPosts} onPostPress={handlePostPress} colors={colors} />;
-                                            }
-                                            if (item.category === 'auds') {
-                                                return <CategoryRow key={`grid-${idx}`} title="Auds" posts={audPosts} onPostPress={handlePostPress} colors={colors} />;
-                                            }
-                                        }
-
-                                        return null;
-                                    })
-                                )}
-
-                                {loading && hasMore && posts.length > 0 && (
-                                    <View style={{ width: '100%', alignItems: 'center', padding: 20 }}>
+                                    return null;
+                                }}
+                                ListFooterComponent={loading && hasMore && posts.length > 0 ? (
+                                    <View style={{ alignItems: 'center', padding: 20 }}>
                                         <ActivityIndicator size="small" color="white" />
                                     </View>
-                                )}
-                            </View>
-                        </ScrollView>
-                    </ScrollView>
+                                ) : null}
+                            />
+                        </View>
+                    )
                 ) : (
+                    // Other tab content (fallback grid for non-Posts tabs)
                     <ScrollView
                         showsVerticalScrollIndicator={false}
                         contentContainerStyle={{ paddingBottom: 100 }}
@@ -835,27 +1130,31 @@ export default function ExploreScreen() {
                             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="white" />
                         }
                     >
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ minWidth: SCREEN_WIDTH * 2 }}>
-                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', width: SCREEN_WIDTH * 2 }}>
-                                {loading && posts.length === 0 ? (
-                                    <View style={{ width: '100%', justifyContent: 'center', alignItems: 'center', paddingTop: 100 }}>
-                                        <ActivityIndicator size="large" color="white" />
-                                    </View>
-                                ) : (
-                                    posts.map(item => (
-                                        <GridTile
-                                            key={item.id}
-                                            post={item}
-                                            size="small"
-                                            onPress={() => handlePostPress(item.id)}
-                                        />
-                                    ))
-                                )}
-                            </View>
-                        </ScrollView>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                            {posts.map(item => (
+                                <GridTile
+                                    key={item.id}
+                                    post={item}
+                                    size="small"
+                                    onPress={() => handlePostPress(item.id)}
+                                    onDoubleTap={() => handleDoubleTap(item)}
+                                    onLongPress={() => handleLongPress(item)}
+                                    colors={colors}
+                                    showSaveAnim={savingPostId === item.id}
+                                />
+                            ))}
+                        </View>
                     </ScrollView>
                 )}
             </SafeAreaView>
+
+            {/* Peek Overlay */}
+            <PeekOverlay
+                visible={peekVisible}
+                creatorUserId={peekCreatorId}
+                thumbnailUrl={peekThumbnail}
+                onDismiss={() => setPeekVisible(false)}
+            />
         </View>
     );
 }

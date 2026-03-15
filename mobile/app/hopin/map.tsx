@@ -183,13 +183,9 @@ export default function HopinMapScreen() {
                 </TouchableOpacity>
             </View>
 
-            {/* Map placeholder */}
-            <View className="mx-5 mb-4 p-5 rounded-2xl items-center" style={{ backgroundColor: cardBg }}>
-                <MapIcon size={32} color={textSecondary} />
-                <Text style={[styles.fontSerif, { fontSize: 18, color: textPrimary, marginTop: 12 }]}>Map Coming Soon</Text>
-                <Text style={[styles.fontSans, { fontSize: 12, color: textSecondary, textAlign: 'center', marginTop: 4 }]}>
-                    Install react-native-maps for interactive map
-                </Text>
+            {/* Events */}
+            <View className="px-5 mb-2">
+                <Text style={[styles.fontMono, { fontSize: 10, color: textSecondary, letterSpacing: 3 }]}>FEATURED EVENTS</Text>
             </View>
 
             {/* Events */}

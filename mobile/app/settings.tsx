@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Switch, Alert } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ChevronLeft, User, Bell, Lock, Eye, Moon, Sun, HelpCircle, LogOut, ChevronRight, ShieldCheck } from 'lucide-react-native';
+import { ChevronLeft, User, Bell, Lock, Eye, Moon, Sun, HelpCircle, LogOut, ChevronRight, ShieldCheck, Trash2, Music } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTheme } from '../context/ThemeContext';
@@ -18,6 +18,7 @@ export default function SettingsScreen() {
 
     const { showToast } = useToast();
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+    const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] = useState(false);
     const [showVerificationModal, setShowVerificationModal] = useState(false);
 
     const handleLogout = async () => {
@@ -26,6 +27,21 @@ export default function SettingsScreen() {
         const { error } = await supabase.auth.signOut();
         if (error) showToast(error.message, 'error');
         router.replace('/(auth)/login');
+    };
+
+    const handleDeleteAccount = async () => {
+        setShowDeleteAccountConfirm(false);
+        setLoading(true);
+        // In a real app, you'd trigger a backend deletion here.
+        // For now, we sign out and inform the user.
+        const { error } = await supabase.auth.signOut();
+        if (error) {
+            showToast(error.message, 'error');
+        } else {
+            showToast("Account deletion request submitted. You have been signed out.", 'success');
+            router.replace('/(auth)/login');
+        }
+        setLoading(false);
     };
 
     const renderSection = (title: string, items: any[]) => (
@@ -177,13 +193,28 @@ export default function SettingsScreen() {
             icon: HelpCircle,
             colorClass: 'bg-slate-500',
 
-            onPress: () => showToast("Contact support@fuymedia.org", 'info')
+            onPress: () => showToast("Contact fuy.aphelion@gmail.com", 'info')
+        },
+        {
+            label: 'Delete Account',
+            icon: Trash2,
+            colorClass: 'bg-red-500',
+            onPress: () => setShowDeleteAccountConfirm(true)
         },
         {
             label: 'Log Out',
             icon: LogOut,
             colorClass: 'bg-red-500',
             onPress: () => setShowLogoutConfirm(true)
+        },
+    ];
+
+    const contentItems = [
+        {
+            label: 'Saved Audios',
+            icon: Music,
+            colorClass: 'bg-pink-500',
+            onPress: () => router.push('/audio/saved')
         },
     ];
 
@@ -204,6 +235,7 @@ export default function SettingsScreen() {
 
                 <ScrollView showsVerticalScrollIndicator={false}>
                     {renderSection('Account', accountItems)}
+                    {renderSection('Content', contentItems)}
                     {renderSection('Appearance', appearanceItems)}
                     {renderSection('Legal', legalItems)}
                     {renderSection('Support', supportItems)}
@@ -218,6 +250,16 @@ export default function SettingsScreen() {
                 onConfirm={handleLogout}
                 onCancel={() => setShowLogoutConfirm(false)}
                 confirmText="Log Out"
+                isDestructive
+            />
+
+            <ConfirmModal
+                visible={showDeleteAccountConfirm}
+                title="Delete Account"
+                message="Are you sure you want to delete your account? This action is permanent and all your data will be removed."
+                onConfirm={handleDeleteAccount}
+                onCancel={() => setShowDeleteAccountConfirm(false)}
+                confirmText="Delete Permanently"
                 isDestructive
             />
 

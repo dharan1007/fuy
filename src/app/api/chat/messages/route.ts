@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/session";
 import { analyzeMessage } from "@/lib/analysis";
+import { sendPushNotification } from "@/lib/push";
 
 // Get messages for a conversation
 export async function GET(req: Request) {
@@ -239,7 +240,16 @@ export async function POST(req: Request) {
     }
 
     // Supabase Realtime automatically handles 'INSERT' events on the Message table.
-    // Use 'postgres_changes' on certain tables in your client to listen.
+    // Dispatch an out-of-band Push Notification to the recipient so their phone rings if they are offline.
+    const senderName = message.sender?.profile?.displayName || message.sender?.name || "Someone";
+    
+    // Process notification asynchronously so we don't block the API response
+    sendPushNotification(
+      otherUserId,
+      `${senderName}`,
+      isSpecialType ? `Shared an attachment with you` : content.trim(),
+      { conversationId, type: 'chat_message' }
+    ).catch(e => logger.error("Push dispatch failed:", e));
 
     return NextResponse.json({ message }, { status: 201 });
   } catch (error: any) {

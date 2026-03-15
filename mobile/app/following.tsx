@@ -88,10 +88,11 @@ export default function FollowingScreen() {
                     const mapped: UserItem[] = data.map((item: any) => {
                         const user = item.subscribedTo;
                         const profile = Array.isArray(user?.profile) ? user.profile[0] : user?.profile;
+                        const odId = user?.id || item.subscribedToId;
                         return {
-                            id: user?.id || item.subscribedToId,
-                            name: user?.name || 'Unknown',
-                            displayName: profile?.displayName || 'user',
+                            id: odId,
+                            name: user?.name || ('user_' + odId.slice(-6)),
+                            displayName: profile?.displayName || ('user_' + odId.slice(-6)),
                             avatarUrl: profile?.avatarUrl || '',
                             type: 'following',
                         };
@@ -118,10 +119,11 @@ export default function FollowingScreen() {
                     const mapped: UserItem[] = data.map((item: any) => {
                         const user = item.subscriber;
                         const profile = Array.isArray(user?.profile) ? user.profile[0] : user?.profile;
+                        const odId = user?.id || item.subscriberId;
                         return {
-                            id: user?.id || item.subscriberId,
-                            name: user?.name || 'Unknown',
-                            displayName: profile?.displayName || 'user',
+                            id: odId,
+                            name: user?.name || ('user_' + odId.slice(-6)),
+                            displayName: profile?.displayName || ('user_' + odId.slice(-6)),
                             avatarUrl: profile?.avatarUrl || '',
                             type: 'follower',
                         };

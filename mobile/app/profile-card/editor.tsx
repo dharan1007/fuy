@@ -415,18 +415,22 @@ export default function ProfileCardEditor() {
                     </View>
                 </View>
 
-                {/* Step Indicator */}
-                <View className="flex-row px-4 py-4 gap-2">
-                    {steps.map((step, i) => (
-                        <TouchableOpacity
-                            key={step.id}
-                            onPress={() => setCurrentStep(i)}
-                            className="flex-1"
-                        >
-                            <View className={`h-1 rounded-full ${currentStep === i ? 'bg-white' : 'bg-white/20'}`} />
-                            <Text className={`text-[8px] font-black tracking-wider text-center mt-2 ${currentStep === i ? 'text-white' : 'text-white/30'}`}>{step.title.toUpperCase()}</Text>
-                        </TouchableOpacity>
-                    ))}
+                {/* Step Wizard Header */}
+                <View className="px-4 py-4">
+                    {/* Progress Bar */}
+                    <View className="h-1 bg-white/10 rounded-full overflow-hidden mb-4">
+                        <View style={{ width: `${((currentStep + 1) / steps.length) * 100}%`, height: '100%', backgroundColor: '#fff', borderRadius: 4 }} />
+                    </View>
+                    {/* Step Info */}
+                    <View className="flex-row items-center justify-between">
+                        <View>
+                            <Text className="text-white/40 text-[10px] font-black tracking-[0.2em] mb-1">STEP {currentStep + 1} OF {steps.length}</Text>
+                            <Text className="text-white text-lg font-black tracking-wide">{steps[currentStep].title.toUpperCase()}</Text>
+                            <Text className="text-white/40 text-xs mt-1">{
+                                ['Who you are at a glance', 'Work, education, skills', 'Your energy and communication style', 'What makes you, you', 'Things that light you up', 'How your card looks'][currentStep]
+                            }</Text>
+                        </View>
+                    </View>
                 </View>
 
                 {/* Content */}

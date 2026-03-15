@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { View, Image, ActivityIndicator, TouchableOpacity, Text, Modal, StyleSheet, Dimensions, TextInput } from 'react-native';
-import { useVideoPlayer, VideoView } from 'expo-video';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, ActivityIndicator, Alert, TextInput, KeyboardAvoidingView, Platform, Dimensions, Modal, StyleSheet } from 'react-native';
+import { Lock, File, FileText, Image as ImageIcon, Video as VideoIcon, DownloadCloud, CheckCircle2, X } from 'lucide-react-native';
 import * as FileSystem from 'expo-file-system/legacy';
+import { useVideoPlayer, VideoView } from 'expo-video';
+import { Image } from 'expo-image';
 import { decryptFile } from '../../lib/encryption';
-import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
-import { Lock } from 'lucide-react-native';
+import { supabase } from '../../lib/supabase';
+import { Ionicons } from '@expo/vector-icons';
 
 interface EncryptedMediaProps {
     type: 'image' | 'video';
@@ -59,16 +61,39 @@ export default function EncryptedMedia({ type, uri, encryptionKey, viewOnce, sty
             setLoading(true);
             try {
                 // Check if we already have a cached decrypted file
-                // Simple hash of uri for filename
-                const filename = uri.split('/').pop()?.split('?')[0] || 'temp_media';
+                // Generate a safe hash string out of the URL to prevent filename length or invalid char issues from R2 presigned URLs
+                let filenameHash = 0;
+                for (let i = 0; i < uri.length; i++) {
+                    filenameHash = (Math.imul(31, filenameHash) + uri.charCodeAt(i)) | 0;
+                }
+                const safeFilename = `enc_media_${Math.abs(filenameHash)}.bin`;
                 const cacheDir = FileSystem.cacheDirectory + 'media_cache/';
                 await FileSystem.makeDirectoryAsync(cacheDir, { intermediates: true }).catch(() => { });
 
-                const localEncryptedPath = cacheDir + 'enc_' + filename;
+                const localEncryptedPath = cacheDir + safeFilename;
+
+                // Handle old Supabase Public Storage URLs that require signing to prevent 400 errors
+                let downloadUri = uri;
+                if (uri.includes('.supabase.co/storage/v1/object/public/')) {
+                    try {
+                        const parts = uri.split('/storage/v1/object/public/')[1].split('/');
+                        const bucket = parts[0];
+                        const path = parts.slice(1).join('/');
+                        const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 3600);
+                        if (!error && data?.signedUrl) {
+                            downloadUri = data.signedUrl;
+                        }
+                    } catch (urlErr) {
+                        console.warn('[EncryptedMedia] Failed to sign legacy Supabase URL:', urlErr);
+                    }
+                }
 
                 // Download encrypted file
-                const downloadRes = await FileSystem.downloadAsync(uri, localEncryptedPath);
-                if (downloadRes.status !== 200) throw new Error('Download failed');
+                const downloadRes = await FileSystem.downloadAsync(downloadUri, localEncryptedPath);
+                if (downloadRes.status !== 200) {
+                    console.error('[EncryptedMedia] Download failed with status', downloadRes.status, 'for URI:', uri.substring(0, 100) + '...');
+                    throw new Error(`Download failed with status ${downloadRes.status}`);
+                }
 
                 // Decrypt
                 let keyStr = '';

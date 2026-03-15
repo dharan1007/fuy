@@ -1,9 +1,10 @@
 /**
  * Audio Detail API - Get single audio asset
- * GET: Fetch audio asset details with metadata
+ * GET: Fetch audio asset details with metadata and save status
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession, authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
 export async function GET(
@@ -11,6 +12,9 @@ export async function GET(
     { params }: { params: { id: string } }
 ) {
     try {
+        const session = await getServerSession(authOptions);
+        const userId = session?.user?.id;
+
         const audioAsset = await prisma.audioAsset.findUnique({
             where: { id: params.id },
             include: {
@@ -28,36 +32,47 @@ export async function GET(
                 },
                 fingerprints: {
                     select: {
-                        id: true,
                         tempoSignature: true,
                         keySignature: true,
-                        version: true,
                     },
+                    take: 1,
                 },
                 _count: {
                     select: {
                         usages: true,
-                        reports: true,
+                        savedBy: true,
                     },
                 },
             },
         });
 
         if (!audioAsset) {
-            return NextResponse.json(
-                { error: 'Audio asset not found' },
-                { status: 404 }
-            );
+            return NextResponse.json({ error: 'Audio asset not found' }, { status: 404 });
         }
 
         if (audioAsset.status !== 'ACTIVE') {
-            return NextResponse.json(
-                { error: 'Audio asset is not available' },
-                { status: 403 }
-            );
+            return NextResponse.json({ error: 'Audio asset is not available' }, { status: 403 });
         }
 
-        // Get first fingerprint's musical info
+        // Check if current user has saved this audio
+        let isSaved = false;
+        if (userId) {
+            const saved = await prisma.savedAudio.findUnique({
+                where: {
+                    userId_audioAssetId: {
+                        userId,
+                        audioAssetId: params.id,
+                    },
+                },
+            });
+            isSaved = !!saved;
+        }
+
+        const creatorName =
+            audioAsset.originalCreator?.profile?.displayName ||
+            audioAsset.originalCreator?.name ||
+            'Unknown';
+
         const musicalInfo = audioAsset.fingerprints.length > 0
             ? {
                 tempo: audioAsset.fingerprints[0].tempoSignature,
@@ -68,8 +83,8 @@ export async function GET(
         return NextResponse.json({
             audioAsset: {
                 id: audioAsset.id,
-                title: audioAsset.title,
-                attributionText: audioAsset.attributionText,
+                title: audioAsset.title || 'Original audio',
+                attributionText: audioAsset.attributionText || `Original audio by @${creatorName}`,
                 duration: audioAsset.duration,
                 genre: audioAsset.genre,
                 audioUrl: audioAsset.url,
@@ -77,20 +92,22 @@ export async function GET(
                     ? JSON.parse(audioAsset.waveformData)
                     : null,
                 coverImageUrl: audioAsset.coverImageUrl,
-                usageCount: audioAsset.usageCount,
+                usageCount: audioAsset._count.usages,
+                savedCount: audioAsset._count.savedBy,
                 isReusable: audioAsset.isReusable,
                 isOriginal: audioAsset.isOriginal,
                 createdAt: audioAsset.createdAt,
-                originalCreator: audioAsset.originalCreator,
                 musicalInfo,
-                _count: audioAsset._count,
             },
+            creator: {
+                id: audioAsset.originalCreator.id,
+                name: creatorName,
+                avatarUrl: audioAsset.originalCreator?.profile?.avatarUrl,
+            },
+            isSaved,
         });
     } catch (error) {
         console.error('Error fetching audio asset:', error);
-        return NextResponse.json(
-            { error: 'Failed to fetch audio asset' },
-            { status: 500 }
-        );
+        return NextResponse.json({ error: 'Failed to fetch audio asset' }, { status: 500 });
     }
 }

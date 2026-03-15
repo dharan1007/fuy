@@ -12,6 +12,8 @@ import SuccessOverlay from '../SuccessOverlay';
 import { PostService, PostVisibility } from '../../services/PostService';
 import FeedVideoPlayer from '../FeedVideoPlayer';
 import { Image } from 'react-native';
+import { SlashService, Slash } from '../../services/SlashService';
+import SlashCreationSheet from '../SlashCreationSheet';
 
 const { width: SW } = Dimensions.get('window');
 const PREVIEW_WIDTH = SW * 0.6; // Slightly smaller to ensure fit
@@ -37,6 +39,16 @@ export default function LillForm({ onBack }: { onBack: () => void }) {
     const [audioUri, setAudioUri] = useState<string | null>(null);
     const [audioName, setAudioName] = useState<string | null>(null);
     const [showAudioPicker, setShowAudioPicker] = useState(false);
+
+    // Slash fields
+    const [mainSlash, setMainSlash] = useState<Slash | null>(null);
+    const [bloomSlashes, setBloomSlashes] = useState<Slash[]>([]);
+    const [bloomScript, setBloomScript] = useState('');
+    const [difficulty, setDifficulty] = useState<'intro' | 'overview' | 'deep' | 'expert'>('overview');
+    const [slashSearchQuery, setSlashSearchQuery] = useState('');
+    const [slashSearchResults, setSlashSearchResults] = useState<Slash[]>([]);
+    const [selectingSlashFor, setSelectingSlashFor] = useState<'main' | 'bloom' | null>(null);
+    const [showSlashCreate, setShowSlashCreate] = useState(false);
 
     const FILTERS = [
         { id: 'none', label: 'None', color: 'transparent', overlay: 'transparent' },
@@ -145,7 +157,7 @@ export default function LillForm({ onBack }: { onBack: () => void }) {
         setPosting(true);
         setProgress(0);
         try {
-            const { data: u } = await supabase.from('User').select('id').eq('email', session.user.email).single();
+            const { data: u } = await supabase.from('User').select('id, name, profile:Profile(displayName)').eq('email', session.user.email).single();
             if (!u?.id) throw new Error('User not found');
             setProgress(20);
 
@@ -165,19 +177,97 @@ export default function LillForm({ onBack }: { onBack: () => void }) {
             }
             setProgress(80);
 
-            await PostService.createPost({
+            const createdPost = await PostService.createPost({
                 userId: u.id,
                 postType: 'LILL',
                 content: caption || 'New Lill',
                 visibility: visibility as PostVisibility,
-                media: [{ uri: upload.url, type: 'VIDEO', duration: duration || 60, thumbnailUrl: uploadedThumbnailUrl || undefined }], // Add to media
+                media: [{ uri: upload.url, type: 'VIDEO', duration: duration || 60, thumbnailUrl: uploadedThumbnailUrl || undefined }],
                 lillData: {
                     duration: duration || 60,
                     aspectRatio: '9:16',
-                    thumbnailUrl: uploadedThumbnailUrl || undefined // Add to lillData
+                    thumbnailUrl: uploadedThumbnailUrl || undefined,
+                    mainSlashId: mainSlash?.id,
+                    bloomSlashIds: bloomSlashes.map(s => s.id),
+                    bloomScript: bloomScript || undefined,
+                    difficulty,
                 },
                 slashes: slashes,
             });
+            setProgress(90);
+
+            // Create AudioAsset + AudioUsage for audio tracking
+            if (createdPost?.id) {
+                try {
+                    const profileData = u.profile as any;
+                    const displayName = Array.isArray(profileData) ? profileData[0]?.displayName : profileData?.displayName;
+                    const creatorName = displayName || u.name || 'Unknown';
+
+                    if (audioUri === 'original' || !audioUri) {
+                        // Create "Original Audio" asset linked to this post
+                        const { data: audioAsset } = await supabase
+                            .from('AudioAsset')
+                            .insert({
+                                originalCreatorId: u.id,
+                                originalPostId: createdPost.id,
+                                title: caption ? caption.substring(0, 50) : 'Original audio',
+                                attributionText: `Original audio - @${creatorName}`,
+                                duration: duration || 60,
+                                audioUrl: upload.url,
+                                isReusable: true,
+                                isOriginal: true,
+                                status: 'ACTIVE',
+                                usageCount: 1,
+                            })
+                            .select()
+                            .single();
+
+                        if (audioAsset?.id) {
+                            // Link it via AudioUsage
+                            await supabase.from('AudioUsage').insert({
+                                audioAssetId: audioAsset.id,
+                                postId: createdPost.id,
+                                startTime: 0,
+                                volume: 1.0,
+                                speed: 1.0,
+                                trackOrder: 0,
+                                videoVolume: 1.0,
+                                isMuted: false,
+                            });
+                        }
+                    } else if (audioUri && audioUri.startsWith('audioasset:')) {
+                        // User selected an existing audio from the library
+                        const existingAudioId = audioUri.replace('audioasset:', '');
+                        await supabase.from('AudioUsage').insert({
+                            audioAssetId: existingAudioId,
+                            postId: createdPost.id,
+                            startTime: 0,
+                            volume: 1.0,
+                            speed: 1.0,
+                            trackOrder: 0,
+                            videoVolume: 0.0,
+                            isMuted: true,
+                        });
+                        // Increment usage count (manual since RPC may not exist)
+                        try {
+                            const { data: currentAsset } = await supabase
+                                .from('AudioAsset')
+                                .select('usageCount')
+                                .eq('id', existingAudioId)
+                                .single();
+                            if (currentAsset) {
+                                await supabase.from('AudioAsset').update({ usageCount: (currentAsset.usageCount || 0) + 1 }).eq('id', existingAudioId);
+                            }
+                        } catch (_incErr) {
+                            // Non-fatal
+                        }
+                    }
+                } catch (audioErr) {
+                    console.log('Audio asset creation skipped:', audioErr);
+                    // Non-fatal: post is already created, audio tracking is optional
+                }
+            }
+
             setProgress(100);
             setSuccess(true);
         } catch (e: any) {
@@ -333,6 +423,132 @@ export default function LillForm({ onBack }: { onBack: () => void }) {
                     </View>
                 )}
 
+                {/* MAIN SLASH */}
+                <Text style={s.lbl}>MAIN SLASH</Text>
+                {mainSlash ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                        <View style={{ backgroundColor: '#1a1a1a', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <Text style={{ color: '#c8383a', fontSize: 12, fontWeight: '700' }}>/{mainSlash.name}</Text>
+                            <TouchableOpacity onPress={() => setMainSlash(null)}>
+                                <X size={12} color="#666" />
+                            </TouchableOpacity>
+                        </View>
+                        {mainSlash.accessMode === 'locked' && (
+                            <Text style={{ color: '#c8383a', fontSize: 8 }}>locked</Text>
+                        )}
+                    </View>
+                ) : (
+                    <View style={{ marginBottom: 8 }}>
+                        <View style={s.slashInputRow}>
+                            <TextInput
+                                value={slashSearchQuery}
+                                onChangeText={async (q) => {
+                                    setSlashSearchQuery(q);
+                                    setSelectingSlashFor('main');
+                                    if (q.length > 1) {
+                                        const r = await SlashService.searchSlashes(q, 5);
+                                        if (r.success && r.data) setSlashSearchResults(r.data);
+                                    } else {
+                                        setSlashSearchResults([]);
+                                    }
+                                }}
+                                placeholder="search or create a slash"
+                                placeholderTextColor="#666"
+                                style={s.slashInput}
+                                autoCapitalize="none"
+                            />
+                            <TouchableOpacity onPress={() => setShowSlashCreate(true)} style={s.addSlashBtn}>
+                                <Plus size={18} color="#fff" />
+                            </TouchableOpacity>
+                        </View>
+                        {selectingSlashFor === 'main' && slashSearchResults.length > 0 && (
+                            <View style={{ backgroundColor: '#1a1a1a', borderRadius: 8, marginTop: 4, maxHeight: 120 }}>
+                                {slashSearchResults.map(sl => (
+                                    <TouchableOpacity key={sl.id} onPress={() => { setMainSlash(sl); setSlashSearchQuery(''); setSlashSearchResults([]); setSelectingSlashFor(null); }} style={{ paddingHorizontal: 10, paddingVertical: 8, borderBottomWidth: 0.5, borderColor: '#252525' }}>
+                                        <Text style={{ color: '#eee', fontSize: 11 }}>/{sl.name} <Text style={{ color: '#333', fontSize: 9 }}>{sl.lillCount} lills</Text></Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        )}
+                    </View>
+                )}
+
+                {/* BLOOM SLASHES */}
+                <Text style={s.lbl}>BLOOM SLASHES (up to 5)</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                    {bloomSlashes.map(sl => (
+                        <View key={sl.id} style={{ backgroundColor: '#1a1a1a', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                            <Text style={{ color: '#aaa', fontSize: 10 }}>/{sl.name}</Text>
+                            <TouchableOpacity onPress={() => setBloomSlashes(prev => prev.filter(s => s.id !== sl.id))}>
+                                <X size={10} color="#666" />
+                            </TouchableOpacity>
+                        </View>
+                    ))}
+                    {bloomSlashes.length < 5 && (
+                        <TouchableOpacity
+                            onPress={() => setSelectingSlashFor('bloom')}
+                            style={{ borderWidth: 1, borderColor: '#333', borderStyle: 'dashed', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4 }}
+                        >
+                            <Text style={{ color: '#666', fontSize: 10 }}>+ add bloom slash</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
+                {selectingSlashFor === 'bloom' && (
+                    <View style={{ marginBottom: 8 }}>
+                        <TextInput
+                            value={slashSearchQuery}
+                            onChangeText={async (q) => {
+                                setSlashSearchQuery(q);
+                                if (q.length > 1) {
+                                    const r = await SlashService.searchSlashes(q, 5);
+                                    if (r.success && r.data) setSlashSearchResults(r.data.filter(s => !bloomSlashes.find(b => b.id === s.id) && s.id !== mainSlash?.id));
+                                } else {
+                                    setSlashSearchResults([]);
+                                }
+                            }}
+                            placeholder="search slash"
+                            placeholderTextColor="#666"
+                            style={[s.slashInput, { width: '100%' }]}
+                            autoCapitalize="none"
+                        />
+                        {slashSearchResults.length > 0 && (
+                            <View style={{ backgroundColor: '#1a1a1a', borderRadius: 8, marginTop: 4, maxHeight: 100 }}>
+                                {slashSearchResults.map(sl => (
+                                    <TouchableOpacity key={sl.id} onPress={() => { setBloomSlashes(prev => [...prev, sl]); setSlashSearchQuery(''); setSlashSearchResults([]); if (bloomSlashes.length >= 4) setSelectingSlashFor(null); }} style={{ paddingHorizontal: 10, paddingVertical: 8, borderBottomWidth: 0.5, borderColor: '#252525' }}>
+                                        <Text style={{ color: '#eee', fontSize: 11 }}>/{sl.name}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        )}
+                    </View>
+                )}
+
+                {/* BLOOMSCRIPT */}
+                <Text style={s.lbl}>BLOOMSCRIPT</Text>
+                <TextInput
+                    value={bloomScript}
+                    onChangeText={setBloomScript}
+                    placeholder="Key points -- one per line"
+                    placeholderTextColor="#666"
+                    style={[s.input, { minHeight: 60 }]}
+                    multiline
+                    maxLength={500}
+                />
+                <Text style={{ color: '#333', fontSize: 8, textAlign: 'right', marginBottom: 4 }}>{bloomScript.length}/500</Text>
+
+                {/* DIFFICULTY */}
+                <Text style={s.lbl}>DIFFICULTY</Text>
+                <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12 }}>
+                    {(['intro', 'overview', 'deep', 'expert'] as const).map(d => (
+                        <TouchableOpacity
+                            key={d}
+                            onPress={() => setDifficulty(d)}
+                            style={[s.visBtn, difficulty === d && s.visBtnActive]}
+                        >
+                            <Text style={[s.visTxt, difficulty === d && s.visTxtActive]}>{d}</Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
                 {/* VISIBILITY */}
                 <Text style={s.lbl}>VISIBILITY</Text>
                 <View style={s.visRow}>

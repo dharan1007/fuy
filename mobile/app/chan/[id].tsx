@@ -357,7 +357,7 @@ export default function ChannelPage() {
                                 <View style={{ flex: 1, flexDirection: 'row', gap: 12 }}>
                                     <TouchableOpacity
                                         style={{ flex: 1, backgroundColor: '#333', padding: 14, borderRadius: 12, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }}
-                                        onPress={() => Alert.alert('Edit', 'Edit functionality coming soon!')}
+                                        onPress={() => Alert.alert('Edit', 'Edit functionality is currently unavailable.')}
                                     >
                                         <Edit2 size={16} color="white" />
                                         <Text style={{ color: 'white', fontWeight: 'bold' }}>Edit</Text>

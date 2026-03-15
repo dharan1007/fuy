@@ -116,6 +116,64 @@ export async function GET(req: NextRequest) {
 
             return NextResponse.json({ posts });
 
+        } else if (type === "flagged") {
+            // Show only posts that were flagged or removed by automated moderation
+            const flaggedPosts = await prisma.post.findMany({
+                where: {
+                    moderationStatus: { in: ['FLAGGED', 'REMOVED'] },
+                },
+                select: {
+                    id: true,
+                    content: true,
+                    postType: true,
+                    visibility: true,
+                    createdAt: true,
+                    moderationStatus: true,
+                    moderationReason: true,
+                    status: true,
+                    user: {
+                        select: {
+                            id: true,
+                            name: true,
+                            email: true,
+                            profile: { select: { avatarUrl: true, displayName: true } }
+                        }
+                    },
+                    postMedia: { include: { media: true } },
+                    _count: {
+                        select: { likes: true, comments: true, reports: true }
+                    }
+                },
+                orderBy: { createdAt: "desc" },
+                take: 100
+            });
+
+            const formatted = flaggedPosts.map((p: any) => ({
+                ...p,
+                media: p.postMedia?.map((pm: any) => pm.media) || []
+            }));
+
+            return NextResponse.json({ posts: formatted });
+
+        } else if (type === "moderation_logs") {
+            // Show automated moderation log entries
+            const logs = await prisma.moderationLog.findMany({
+                orderBy: { createdAt: "desc" },
+                take: 100,
+                include: {
+                    user: {
+                        select: {
+                            id: true,
+                            name: true,
+                            email: true,
+                            profile: { select: { avatarUrl: true, displayName: true } }
+                        }
+                    }
+                }
+            });
+
+            return NextResponse.json({ logs });
+
         } else {
             // Default: Reports
             const reports = await prisma.report.findMany({

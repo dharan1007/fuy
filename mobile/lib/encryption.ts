@@ -45,126 +45,62 @@ export const generateKeyPair = (): KeyPair => {
     };
 };
 
-// --- 2. PIN Protection (Key Wrapping) ---
+// Obsolete wrapPrivateKey/unwrapPrivateKey removed (now in KeyVault.ts)
 
-/**
- * Encrypts the Private Key with the User's PIN.
- * This allows safe storage on the server for sync.
- */
-export const wrapPrivateKey = (privateKey: string, pin: string): EncryptedPrivateKey => {
-    // 1. Generate random salt using Expo Crypto (Native Secure Random)
-    const saltBytes = Random.getRandomBytes(16);
-    const salt = Buffer.from(saltBytes).toString('hex');
-
-    // 2. Derive wrapping key from PIN (PBKDF2)
-    // 10,000 iterations is a reasonable balance for mobile JS performance vs security
-    const wrappingKeyHex = CryptoJS.PBKDF2(pin, salt, { keySize: 256 / 32, iterations: 10000 }).toString();
-    const wrappingKey = new Uint8Array(Buffer.from(wrappingKeyHex, 'hex')); // Need raw bytes for NaCl? Actually NaCl takes Uint8Array key.
-
-    // Wait, simpler to use Crypto-JS for the symmetric wrap of the key itself, 
-    // OR use NaCl's secretbox with path-derived key. 
-    // Let's use NaCl secretbox (XSalsa20) for consistency.
-    // We need 32-byte key for secretbox.
-    // PBKDF2 in CryptoJS returns WordArray. Convert to Uint8Array:
-
-    const keyBytes = new Uint8Array(32);
-    const derived = CryptoJS.PBKDF2(pin, salt, { keySize: 8, iterations: 10000 }); // keySize is in words (32 bits). 8 words = 32 bytes = 256 bits.
-
-    // Convert WordArray to Uint8Array manually to be safe
-    const hex = derived.toString(CryptoJS.enc.Hex);
-    for (let i = 0; i < 32; i++) {
-        keyBytes[i] = parseInt(hex.substr(i * 2, 2), 16);
-    }
-
-    const nonce = nacl.randomBytes(nacl.secretbox.nonceLength);
-    const message = decodeBase64(privateKey);
-    const box = nacl.secretbox(message, nonce, keyBytes);
-
-    return {
-        ciphertext: encodeBase64(box),
-        salt: salt,
-        nonce: encodeBase64(nonce)
-    };
-};
-
-/**
- * Decrypts the Private Key using the User's PIN.
- */
-export const unwrapPrivateKey = (encrypted: EncryptedPrivateKey, pin: string): string | null => {
-    try {
-        // 1. Derive same wrapping key
-        const keyBytes = new Uint8Array(32);
-        const derived = CryptoJS.PBKDF2(pin, encrypted.salt, { keySize: 8, iterations: 10000 });
-        const hex = derived.toString(CryptoJS.enc.Hex);
-        for (let i = 0; i < 32; i++) {
-            keyBytes[i] = parseInt(hex.substr(i * 2, 2), 16);
-        }
-
-        // 2. Decrypt
-        const box = decodeBase64(encrypted.ciphertext);
-        const nonce = decodeBase64(encrypted.nonce);
-
-        const opened = nacl.secretbox.open(box, nonce, keyBytes);
-
-        if (!opened) return null;
-
-        return encodeBase64(opened);
-    } catch (e) {
-        console.error("Failed to unwrap private key", e);
-        return null;
-    }
-};
+import {
+    RatchetState,
+    RatchetMessage,
+    initRatchet,
+    ratchetEncrypt,
+    ratchetDecrypt,
+    loadRatchetState,
+    saveRatchetState
+} from './Ratchet';
 
 // --- 3. Messaging (E2EE) ---
 
 /**
- * Encrypts a message for a specific recipient.
- * Uses Sender's Private Key + Recipient's Public Key.
+ * Encrypts a message for a specific recipient using the Double Ratchet.
  */
-export const encryptMessage = (
+export const encryptMessage = async (
     text: string,
     myPrivateKey: string,
-    theirPublicKey: string
-): EncryptedMessage => {
-    const nonce = nacl.randomBytes(nacl.box.nonceLength);
-    const msgBytes = util.decodeUTF8(text);
-
-    // Check keys
-    const myPrivBytes = decodeBase64(myPrivateKey);
-    const theirPubBytes = decodeBase64(theirPublicKey); // This might fail if public key format is bad
-
-    const box = nacl.box(msgBytes, nonce, theirPubBytes, myPrivBytes);
-
-    return {
-        ciphertext: encodeBase64(box),
-        nonce: encodeBase64(nonce)
-    };
+    theirPublicKey: string,
+    conversationId: string,
+    isInitiator: boolean = true
+): Promise<RatchetMessage> => {
+    let state = await loadRatchetState(conversationId);
+    if (!state) {
+        state = await initRatchet(myPrivateKey, theirPublicKey, isInitiator);
+    }
+    const [newState, encrypted] = await ratchetEncrypt(state, text);
+    await saveRatchetState(conversationId, newState);
+    return encrypted;
 };
 
 /**
- * Decrypts a received message.
- * Uses Recipient's (My) Private Key + Sender's Public Key.
+ * Decrypts a received message using the Double Ratchet.
  */
-export const decryptMessage = (
-    encrypted: EncryptedMessage,
+export const decryptMessage = async (
+    encrypted: RatchetMessage,
     myPrivateKey: string,
-    theirPublicKey: string
-): string | null => {
+    theirPublicKey: string,
+    conversationId: string,
+    isInitiator: boolean = false
+): Promise<string | null> => {
     try {
-        const box = decodeBase64(encrypted.ciphertext);
-        const nonce = decodeBase64(encrypted.nonce);
-        const myPrivBytes = decodeBase64(myPrivateKey);
-        const theirPubBytes = decodeBase64(theirPublicKey);
-
-        const opened = nacl.box.open(box, nonce, theirPubBytes, myPrivBytes);
-
-        if (!opened) return null;
-
-        return util.encodeUTF8(opened);
+        let state = await loadRatchetState(conversationId);
+        if (!state) {
+            state = await initRatchet(myPrivateKey, theirPublicKey, isInitiator);
+        }
+        const result = await ratchetDecrypt(state, encrypted);
+        if (!result) return null;
+        
+        const [newState, plaintext] = result;
+        await saveRatchetState(conversationId, newState);
+        return plaintext;
     } catch (e) {
-        // Console error might be too noisy for thousands of messages
-        // console.warn("Failed to decrypt message", e); 
-        return null; // Return null to indicate unable to decrypt (might show "Encrypted Message")
+        return null; // Return null to indicate unable to decrypt
     }
 };
 // --- 3. File Encryption (Symmetric AES) ---

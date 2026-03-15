@@ -1,3 +1,58 @@
+/**
+ * -- MIGRATION SQL -- Run in Supabase SQL Editor --
+ *
+ * -- 1A: Remove emotion tag types
+ * DELETE FROM "MessageTag" WHERE "tagType" IN ('HAPPY', 'SAD', 'ANGRY', 'EXCITED', 'LOVE');
+ *
+ * -- 1B: Add columns to Message table (if not already present)
+ * ALTER TABLE "Message" ADD COLUMN IF NOT EXISTS silent_send BOOLEAN DEFAULT FALSE;
+ * ALTER TABLE "Message" ADD COLUMN IF NOT EXISTS tone TEXT DEFAULT 'default';
+ * ALTER TABLE "Message" ADD COLUMN IF NOT EXISTS stack_id UUID DEFAULT NULL;
+ * CREATE INDEX IF NOT EXISTS idx_message_tone ON "Message"(tone) WHERE tone != 'default';
+ * CREATE INDEX IF NOT EXISTS idx_message_silent ON "Message"(silent_send) WHERE silent_send = TRUE;
+ * CREATE INDEX IF NOT EXISTS idx_message_stack ON "Message"(stack_id) WHERE stack_id IS NOT NULL;
+ *
+ * -- 1C: Profile additions
+ * ALTER TABLE "Profile" ADD COLUMN IF NOT EXISTS "greenFlags" TEXT[] DEFAULT '{}';
+ * ALTER TABLE "Profile" ADD COLUMN IF NOT EXISTS "communicationPassport" JSONB;
+ *
+ * -- 1D: BondMoment table
+ * CREATE TABLE IF NOT EXISTS "BondMoment" (
+ *   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+ *   conversation_id UUID NOT NULL REFERENCES "Conversation"(id) ON DELETE CASCADE,
+ *   message_id UUID REFERENCES "Message"(id) ON DELETE SET NULL,
+ *   pinned_by_user_id UUID NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+ *   preview_text TEXT NOT NULL,
+ *   slash_context_id UUID DEFAULT NULL,
+ *   pinned_at TIMESTAMPTZ DEFAULT NOW(),
+ *   UNIQUE(conversation_id, message_id, pinned_by_user_id)
+ * );
+ * CREATE INDEX idx_bond_moment_conversation ON "BondMoment"(conversation_id, pinned_by_user_id);
+ * ALTER TABLE "BondMoment" ENABLE ROW LEVEL SECURITY;
+ * CREATE POLICY bond_moment_owner ON "BondMoment"
+ *   USING (pinned_by_user_id = auth.uid()::text)
+ *   WITH CHECK (pinned_by_user_id = auth.uid()::text);
+ *
+ * -- 1E: CanvasSession table
+ * CREATE TABLE IF NOT EXISTS "CanvasSession" (
+ *   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+ *   conversation_id UUID NOT NULL REFERENCES "Conversation"(id) ON DELETE CASCADE,
+ *   started_at TIMESTAMPTZ DEFAULT NOW(),
+ *   initiated_by UUID NOT NULL REFERENCES "User"(id) ON DELETE CASCADE
+ * );
+ * CREATE INDEX idx_canvas_session_conv ON "CanvasSession"(conversation_id, started_at DESC);
+ * ALTER TABLE "CanvasSession" ENABLE ROW LEVEL SECURITY;
+ * CREATE POLICY canvas_session_participant ON "CanvasSession"
+ *   USING (
+ *     initiated_by = auth.uid()::text OR
+ *     EXISTS (
+ *       SELECT 1 FROM "Conversation" c
+ *       WHERE c.id = conversation_id
+ *       AND (c."participantA" = auth.uid()::text OR c."participantB" = auth.uid()::text)
+ *     )
+ *   );
+ */
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
     View,
@@ -10,82 +65,45 @@ import {
     TextInput,
     Alert,
     ActivityIndicator,
-    Dimensions,
-    Animated,
-    PanResponder,
     StyleSheet,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTheme } from '../context/ThemeContext';
-import { useAuth } from '../context/AuthContext';
-import { LinearGradient } from 'expo-linear-gradient';
+import { ChevronLeft, ChevronDown, BookOpen, Plus, X, Edit3, ChevronRight } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
-import {
-    ChevronLeft,
-    ChevronDown,
-    Frown,
-    Smile,
-    BookOpen,
-    Plus,
-    Trash2,
-    AlertTriangle,
-    X,
-    Edit3,
-    Clock,
-    MessageSquare,
-    TrendingUp,
-    Slash,
-    Target,
-    Bell,
-    Lock,
-    Unlock,
-} from 'lucide-react-native';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
-import Svg, { Circle, Path, Rect, Line, Text as SvgText } from 'react-native-svg';
+import { useAuth } from '../context/AuthContext';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CARD_WIDTH = SCREEN_WIDTH - 48;
+import {
+    BondingService,
+    ChatStats,
+    ChatBehaviourStats,
+    HardNoViolation,
+    GreenFlagMatch,
+    SlashPulseItem,
+    BondMomentData,
+    SnoozedItem,
+    PartnerPassport,
+    StickyNoteData,
+} from '../services/BondingService';
 
-// Premium Color Palette
-const COLORS = {
-    background: '#0A0A0F',
-    cardBg: '#12121A',
-    cardBgAlt: '#1A1A24',
-    accentRed: '#FF3B5C',
-    accentGreen: '#00D68F',
-    accentBlue: '#3B82F6',
-    accentOrange: '#FF8B3D',
-    accentCyan: '#00C9FF',
-    textPrimary: '#FFFFFF',
-    textSecondary: 'rgba(255,255,255,0.6)',
-    textMuted: 'rgba(255,255,255,0.35)',
-    border: 'rgba(255,255,255,0.08)',
-    borderActive: 'rgba(255,255,255,0.15)',
-};
+import BondScoreSection from '../components/bonding/BondScoreSection';
+import ChatBehaviourSection from '../components/bonding/ChatBehaviourSection';
+import SharedSlashPulse from '../components/bonding/SharedSlashPulse';
+import BondMomentsSection from '../components/bonding/BondMomentsSection';
+import ToneUsageChart from '../components/bonding/ToneUsageChart';
+import CommunicationPassportSheet from '../components/bonding/CommunicationPassportSheet';
 
-// Types
+// ─── Types ───────────────────────────────────────────────────────────────────
+
 interface Profile {
     id: string;
     name: string;
     avatar: string;
-    lastMessageAt?: string;
-}
-
-interface MessageTag {
-    id: string;
-    messageId: string;
-    tagType: string;
-    createdAt: string;
-    message: {
-        id: string;
-        content: string;
-        createdAt: string;
-        sender: {
-            name: string;
-            profile?: { displayName?: string; avatarUrl?: string };
-        };
-    };
+    conversationId?: string;
 }
 
 interface FactWarning {
@@ -94,541 +112,247 @@ interface FactWarning {
     warningText: string;
     isActive: boolean;
     triggeredCount?: number;
+    createdAt: string;
 }
 
-interface ChatInsights {
-    totalMessages: number;
-    myMessages: number;
-    partnerMessages: number;
-    avgResponseTimeMinutes: number;
-    messagesThisWeek: number;
-}
-
-type LockerType = 'red' | 'green' | 'custom' | 'triggers';
-
-// Swipable Card Component
-const SwipableCard = ({
-    item,
-    color,
-    onEdit,
-    onDelete,
-    type
-}: {
-    item: any;
-    color: string;
-    onEdit: () => void;
-    onDelete: () => void;
-    type: 'tag' | 'trigger' | 'fact';
-}) => {
-    const pan = useRef(new Animated.ValueXY()).current;
-    const [showActions, setShowActions] = useState(false);
-
-    const panResponder = useRef(
-        PanResponder.create({
-            onMoveShouldSetPanResponder: (_, gestureState) =>
-                Math.abs(gestureState.dx) > 10 && Math.abs(gestureState.dy) < 10,
-            onPanResponderMove: (_, gestureState) => {
-                if (gestureState.dx < 0 && gestureState.dx > -120) {
-                    pan.setValue({ x: gestureState.dx, y: 0 });
-                }
-            },
-            onPanResponderRelease: (_, gestureState) => {
-                if (gestureState.dx < -50) {
-                    Animated.spring(pan, { toValue: { x: -100, y: 0 }, useNativeDriver: true }).start();
-                    setShowActions(true);
-                } else {
-                    Animated.spring(pan, { toValue: { x: 0, y: 0 }, useNativeDriver: true }).start();
-                    setShowActions(false);
-                }
-            },
-        })
-    ).current;
-
-    const resetPosition = () => {
-        Animated.spring(pan, { toValue: { x: 0, y: 0 }, useNativeDriver: true }).start();
-        setShowActions(false);
-    };
-
-    return (
-        <View style={[styles.cardWrapper, { marginBottom: 12 }]}>
-            {/* Action buttons behind */}
-            <View style={styles.cardActions}>
-                <TouchableOpacity
-                    style={[styles.actionBtn, { backgroundColor: COLORS.accentBlue }]}
-                    onPress={() => { resetPosition(); onEdit(); }}
-                >
-                    <Edit3 size={18} color="#fff" />
-                </TouchableOpacity>
-                <TouchableOpacity
-                    style={[styles.actionBtn, { backgroundColor: COLORS.accentRed }]}
-                    onPress={() => { resetPosition(); onDelete(); }}
-                >
-                    <Trash2 size={18} color="#fff" />
-                </TouchableOpacity>
-            </View>
-
-            {/* Main Card */}
-            <Animated.View
-                {...panResponder.panHandlers}
-                style={[
-                    styles.swipableCard,
-                    { transform: [{ translateX: pan.x }] }
-                ]}
-            >
-                <View style={[styles.cardColorBar, { backgroundColor: color }]} />
-                <View style={styles.cardContent}>
-                    <View style={styles.cardHeader}>
-                        <View style={[styles.tagBadge, { backgroundColor: color + '20' }]}>
-                            <Text style={[styles.tagBadgeText, { color }]}>
-                                {type === 'tag' ? item.tagType : type === 'trigger' ? 'TRIGGER' : 'FACT'}
-                            </Text>
-                        </View>
-                        {item.triggeredCount > 0 && type !== 'tag' && (
-                            <View style={styles.countBadge}>
-                                <Bell size={10} color={COLORS.textSecondary} />
-                                <Text style={styles.countText}>{item.triggeredCount}x</Text>
-                            </View>
-                        )}
-                    </View>
-                    <Text style={styles.cardMainText} numberOfLines={2}>
-                        {type === 'fact' ? item.warningText : item.selectedText || item.message?.content}
-                    </Text>
-                    {type === 'fact' && (
-                        <Text style={styles.keywordText}>Keyword: "{item.keyword}"</Text>
-                    )}
-                    <Text style={styles.dateText}>
-                        {new Date(item.createdAt).toLocaleDateString()}
-                    </Text>
-                </View>
-            </Animated.View>
-        </View>
-    );
-};
-
-// Match Score Circle
-const MatchScoreCircle = ({ score, size = 120 }: { score: number; size?: number }) => {
-    const radius = (size - 16) / 2;
-    const circumference = 2 * Math.PI * radius;
-    const progress = (score / 100) * circumference;
-
-    const getScoreColor = () => {
-        if (score >= 70) return COLORS.accentGreen;
-        if (score >= 40) return COLORS.accentOrange;
-        return COLORS.accentRed;
-    };
-
-    return (
-        <View style={{ alignItems: 'center', justifyContent: 'center' }}>
-            <Svg width={size} height={size}>
-                <Circle
-                    cx={size / 2}
-                    cy={size / 2}
-                    r={radius}
-                    stroke={COLORS.border}
-                    strokeWidth={8}
-                    fill="transparent"
-                />
-                <Circle
-                    cx={size / 2}
-                    cy={size / 2}
-                    r={radius}
-                    stroke={getScoreColor()}
-                    strokeWidth={8}
-                    fill="transparent"
-                    strokeDasharray={`${progress} ${circumference}`}
-                    strokeLinecap="round"
-                    transform={`rotate(-90 ${size / 2} ${size / 2})`}
-                />
-            </Svg>
-            <View style={{ position: 'absolute', alignItems: 'center' }}>
-                <Text style={styles.matchScoreValue}>{score}%</Text>
-                <Text style={styles.matchScoreLabel}>Match</Text>
-            </View>
-        </View>
-    );
-};
-
-// Warning Analytics Bar Chart
-const WarningChart = ({
-    data
-}: {
-    data: { label: string; myCount: number; partnerCount: number; color: string }[]
-}) => {
-    const maxValue = Math.max(...data.flatMap(d => [d.myCount, d.partnerCount]), 1);
-
-    return (
-        <View style={styles.chartContainer}>
-            <Text style={styles.chartTitle}>Warning Analytics</Text>
-            <View style={styles.chartLegend}>
-                <View style={styles.legendItem}>
-                    <View style={[styles.legendDot, { backgroundColor: COLORS.accentCyan }]} />
-                    <Text style={styles.legendText}>You</Text>
-                </View>
-                <View style={styles.legendItem}>
-                    <View style={[styles.legendDot, { backgroundColor: COLORS.accentOrange }]} />
-                    <Text style={styles.legendText}>Partner</Text>
-                </View>
-            </View>
-            <View style={styles.barsContainer}>
-                {data.map((item, index) => (
-                    <View key={index} style={styles.barGroup}>
-                        <View style={styles.barPair}>
-                            <View
-                                style={[
-                                    styles.bar,
-                                    {
-                                        height: (item.myCount / maxValue) * 60 || 4,
-                                        backgroundColor: COLORS.accentCyan
-                                    }
-                                ]}
-                            />
-                            <View
-                                style={[
-                                    styles.bar,
-                                    {
-                                        height: (item.partnerCount / maxValue) * 60 || 4,
-                                        backgroundColor: COLORS.accentOrange
-                                    }
-                                ]}
-                            />
-                        </View>
-                        <Text style={styles.barLabel}>{item.label}</Text>
-                    </View>
-                ))}
-            </View>
-        </View>
-    );
-};
-
-// Chat Insights Card
-const ChatInsightsCard = ({ insights }: { insights: ChatInsights }) => {
-    const totalRatio = insights.totalMessages > 0
-        ? Math.round((insights.myMessages / insights.totalMessages) * 100)
-        : 50;
-
-    return (
-        <View style={styles.insightsCard}>
-            <Text style={styles.sectionTitle}>Chat Insights</Text>
-
-            <View style={styles.insightsGrid}>
-                <View style={styles.insightItem}>
-                    <MessageSquare size={20} color={COLORS.accentBlue} />
-                    <Text style={styles.insightValue}>{insights.totalMessages}</Text>
-                    <Text style={styles.insightLabel}>Total Messages</Text>
-                </View>
-                <View style={styles.insightItem}>
-                    <Clock size={20} color={COLORS.accentGreen} />
-                    <Text style={styles.insightValue}>{insights.avgResponseTimeMinutes}m</Text>
-                    <Text style={styles.insightLabel}>Avg Response</Text>
-                </View>
-                <View style={styles.insightItem}>
-                    <TrendingUp size={20} color={COLORS.accentOrange} />
-                    <Text style={styles.insightValue}>{insights.messagesThisWeek}</Text>
-                    <Text style={styles.insightLabel}>This Week</Text>
-                </View>
-            </View>
-
-            {/* Message Ratio Bar */}
-            <View style={styles.ratioContainer}>
-                <Text style={styles.ratioLabel}>Message Ratio</Text>
-                <View style={styles.ratioBar}>
-                    <View style={[styles.ratioFill, { width: `${totalRatio}%`, backgroundColor: COLORS.accentCyan }]} />
-                    <View style={[styles.ratioFill, { width: `${100 - totalRatio}%`, backgroundColor: COLORS.accentOrange }]} />
-                </View>
-                <View style={styles.ratioLabels}>
-                    <Text style={styles.ratioText}>You: {totalRatio}%</Text>
-                    <Text style={styles.ratioText}>Partner: {100 - totalRatio}%</Text>
-                </View>
-            </View>
-        </View>
-    );
-};
+// ─── Main Component ──────────────────────────────────────────────────────────
 
 export default function BondingScreen() {
     const router = useRouter();
-    const params = useLocalSearchParams<{ userId?: string; userName?: string; userAvatar?: string }>();
-    const { colors, mode } = useTheme();
+    const params = useLocalSearchParams<{
+        conversationId?: string;
+        partnerUserId?: string;
+        partnerUsername?: string;
+        userId?: string;
+        userName?: string;
+        userAvatar?: string;
+    }>();
     const { session } = useAuth();
 
-    // State
+    // ── Core state ───────────────────────────────────────────────────────────
+    const [dbUserId, setDbUserId] = useState<string | null>(null);
     const [profiles, setProfiles] = useState<Profile[]>([]);
     const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
+    const [conversationId, setConversationId] = useState<string | null>(params.conversationId ?? null);
     const [showProfileDropdown, setShowProfileDropdown] = useState(false);
-    const [activeLocker, setActiveLocker] = useState<LockerType>('red');
-    const [tags, setTags] = useState<MessageTag[]>([]);
-    const [tagCounts, setTagCounts] = useState<{ id: string; tagType: string; senderId?: string }[]>([]);
-    const [facts, setFacts] = useState<FactWarning[]>([]);
-    const [triggers, setTriggers] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
-    const [matchScore, setMatchScore] = useState(0);
-    const [chatInsights, setChatInsights] = useState<ChatInsights>({
-        totalMessages: 0,
-        myMessages: 0,
-        partnerMessages: 0,
-        avgResponseTimeMinutes: 0,
-        messagesThisWeek: 0,
-    });
 
-    // Modals
+    // ── Bonding data state ───────────────────────────────────────────────────
+    const [bondScore, setBondScore] = useState<number>(0);
+    const [chatStats, setChatStats] = useState<ChatStats | null>(null);
+    const [behaviourStats, setBehaviourStats] = useState<ChatBehaviourStats | null>(null);
+    const [hardNoViolations, setHardNoViolations] = useState<HardNoViolation[]>([]);
+    const [greenFlagsMatched, setGreenFlagsMatched] = useState<GreenFlagMatch[]>([]);
+    const [sharedSlashPulse, setSharedSlashPulse] = useState<SlashPulseItem[]>([]);
+    const [bondMoments, setBondMoments] = useState<BondMomentData | null>(null);
+    const [snoozedPending, setSnoozedPending] = useState<SnoozedItem[]>([]);
+    const [partnerPassport, setPartnerPassport] = useState<PartnerPassport | null>(null);
+    const [activeStickyNote, setActiveStickyNote] = useState<StickyNoteData | null>(null);
+
+    // ── Locker state ─────────────────────────────────────────────────────────
+    const [activeLocker, setActiveLocker] = useState<'custom' | 'triggers'>('custom');
+    const [facts, setFacts] = useState<FactWarning[]>([]);
+    const [triggers, setTriggers] = useState<any[]>([]);
+    const [tags, setTags] = useState<any[]>([]);
+
+    // ── Modals ───────────────────────────────────────────────────────────────
     const [showAddFact, setShowAddFact] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
+    const [showPassportSheet, setShowPassportSheet] = useState(false);
     const [editItem, setEditItem] = useState<any>(null);
     const [editType, setEditType] = useState<'tag' | 'trigger' | 'fact'>('tag');
     const [newKeyword, setNewKeyword] = useState('');
     const [newWarningText, setNewWarningText] = useState('');
-    const [dbUserId, setDbUserId] = useState<string | null>(null);
 
-    // Access Request State
-    const [accessRequestStatus, setAccessRequestStatus] = useState<'none' | 'pending' | 'approved' | 'denied'>('none');
-    const [isRequestingAccess, setIsRequestingAccess] = useState(false);
+    // ── Canvas state ─────────────────────────────────────────────────────────
+    const [myCanvasOn, setMyCanvasOn] = useState(false);
+    const [partnerCanvasOn, setPartnerCanvasOn] = useState(false);
 
-    // Resolve DB User ID
+    // ── Resolve DB user ──────────────────────────────────────────────────────
     useEffect(() => {
-        const resolveUser = async () => {
+        const resolve = async () => {
             if (session?.user?.email) {
                 const { data } = await supabase
-                    .from('User')
-                    .select('id')
-                    .eq('email', session.user.email)
-                    .single();
+                    .from('User').select('id').eq('email', session.user.email).single();
                 if (data) setDbUserId(data.id);
             }
         };
-        resolveUser();
+        resolve();
     }, [session?.user?.email]);
 
-    // Fetch profiles
+    // ── Fetch profiles ───────────────────────────────────────────────────────
     const fetchProfiles = useCallback(async () => {
         if (!dbUserId) return;
-        try {
-            const { data: conversations } = await supabase
-                .from('Conversation')
-                .select(`
-                    id, lastMessageAt, participantA, participantB,
-                    userA:participantA(id, name, profile:Profile(displayName, avatarUrl)),
-                    userB:participantB(id, name, profile:Profile(displayName, avatarUrl))
-                `)
-                .or(`participantA.eq.${dbUserId},participantB.eq.${dbUserId}`)
-                .order('lastMessageAt', { ascending: false });
+        const { data: conversations } = await supabase
+            .from('Conversation')
+            .select(`
+                id, lastMessageAt, participantA, participantB,
+                userA:participantA(id, name, profile:Profile(displayName, avatarUrl)),
+                userB:participantB(id, name, profile:Profile(displayName, avatarUrl))
+            `)
+            .or(`participantA.eq.${dbUserId},participantB.eq.${dbUserId}`)
+            .order('lastMessageAt', { ascending: false });
 
-            if (conversations) {
-                const profileList: Profile[] = conversations.map((conv: any) => {
-                    const isA = conv.participantA === dbUserId;
-                    const partner = isA ? conv.userB : conv.userA;
-                    const profileData = Array.isArray(partner.profile) ? partner.profile[0] : partner.profile;
-                    return {
-                        id: partner.id,
-                        name: profileData?.displayName || partner.name || 'Unknown',
-                        avatar: profileData?.avatarUrl || '',
-                        lastMessageAt: conv.lastMessageAt,
-                    };
-                });
-                setProfiles(profileList);
-                if (!selectedProfile && profileList.length > 0) {
-                    setSelectedProfile(profileList[0]);
-                }
-            }
-        } catch (error) {
-            console.error('Error fetching profiles:', error);
-        }
-    }, [dbUserId, selectedProfile]);
-
-    // Fetch tags based on locker type
-    const fetchTags = useCallback(async () => {
-        if (!selectedProfile || !dbUserId) return;
-
-        let tagTypes: string[] = [];
-        if (activeLocker === 'red') {
-            tagTypes = ['BLACKLIST', 'ANGRY', 'SAD', 'RED'];
-        } else if (activeLocker === 'green') {
-            tagTypes = ['HAPPY', 'JOY', 'FUNNY', 'GREEN'];
-        } else if (activeLocker === 'custom') {
-            // Custom tags - everything that's not red/green
-            tagTypes = [];
-        }
-
-        try {
-            let query = supabase
-                .from('MessageTag')
-                .select(`
-                    id, messageId, tagType, createdAt,
-                    message:Message(id, content, createdAt, sender:User!senderId(name, profile:Profile(displayName, avatarUrl)))
-                `)
-                .eq('userId', dbUserId)
-                .eq('profileId', selectedProfile.id)
-                .order('createdAt', { ascending: false });
-
-            if (tagTypes.length > 0) {
-                query = query.in('tagType', tagTypes);
-            } else if (activeLocker === 'custom') {
-                query = query.not('tagType', 'in', '(BLACKLIST,ANGRY,SAD,RED,HAPPY,JOY,FUNNY,GREEN)');
-            }
-
-            const { data, error } = await query;
-            if (error) throw error;
-
-            const formattedTags = (data || []).map((tag: any) => ({
-                ...tag,
-                message: Array.isArray(tag.message) ? tag.message[0] : tag.message,
-            })).filter((tag: any) => tag.message);
-
-            setTags(formattedTags);
-        } catch (error) {
-            console.log('Error fetching tags:', error);
-            setTags([]);
-        }
-    }, [selectedProfile, activeLocker, dbUserId]);
-
-    // Fetch all tag counts for analytics
-    const fetchAllTagCounts = useCallback(async () => {
-        if (!selectedProfile || !dbUserId) return;
-
-        try {
-            const { data } = await supabase
-                .from('MessageTag')
-                .select('id, tagType, message:Message(senderId)')
-                .eq('userId', dbUserId)
-                .eq('profileId', selectedProfile.id);
-
-            setTagCounts((data || []).map((t: any) => ({
-                id: t.id,
-                tagType: t.tagType,
-                senderId: Array.isArray(t.message) ? t.message[0]?.senderId : t.message?.senderId
-            })));
-        } catch (error) {
-            console.log('Error fetching tag counts:', error);
-            setTagCounts([]);
-        }
-    }, [selectedProfile, dbUserId]);
-
-    // Fetch facts
-    const fetchFacts = useCallback(async () => {
-        if (!selectedProfile || !dbUserId) return;
-
-        try {
-            const { data } = await supabase
-                .from('FactWarning')
-                .select('*')
-                .eq('userId', dbUserId)
-                .eq('profileId', selectedProfile.id)
-                .order('createdAt', { ascending: false });
-
-            setFacts(data || []);
-        } catch (error) {
-            console.log('Error fetching facts:', error);
-            setFacts([]);
-        }
-    }, [selectedProfile, dbUserId]);
-
-    // Fetch triggers
-    const fetchTriggers = useCallback(async () => {
-        if (!dbUserId) return;
-
-        try {
-            const { data } = await supabase
-                .from('Trigger')
-                .select(`
-                    id, selectedText, targetUser, conditionType, warningMessage, isActive, createdAt, triggeredCount,
-                    collection:TriggerCollection(id, name, keyword),
-                    message:Message(id, content, createdAt, senderId)
-                `)
-                .order('createdAt', { ascending: false });
-
-            setTriggers(data || []);
-        } catch (error) {
-            console.log('Error fetching triggers:', error);
-            setTriggers([]);
-        }
-    }, [dbUserId]);
-
-    // Fetch chat insights
-    const fetchChatInsights = useCallback(async () => {
-        if (!selectedProfile || !dbUserId) return;
-
-        try {
-            // Get conversation ID
-            const { data: conv } = await supabase
-                .from('Conversation')
-                .select('id')
-                .or(`and(participantA.eq.${dbUserId},participantB.eq.${selectedProfile.id}),and(participantA.eq.${selectedProfile.id},participantB.eq.${dbUserId})`)
-                .single();
-
-            if (!conv) return;
-
-            // Get message counts
-            const { data: messages } = await supabase
-                .from('Message')
-                .select('id, senderId, createdAt')
-                .eq('conversationId', conv.id);
-
-            if (messages) {
-                const myMessages = messages.filter(m => m.senderId === dbUserId).length;
-                const partnerMessages = messages.filter(m => m.senderId === selectedProfile.id).length;
-
-                // Messages this week
-                const weekAgo = new Date();
-                weekAgo.setDate(weekAgo.getDate() - 7);
-                const thisWeek = messages.filter(m => new Date(m.createdAt) > weekAgo).length;
-
-                setChatInsights({
-                    totalMessages: messages.length,
-                    myMessages,
-                    partnerMessages,
-                    avgResponseTimeMinutes: 5, // Placeholder - would need complex calculation
-                    messagesThisWeek: thisWeek,
-                });
-            }
-        } catch (error) {
-            console.log('Error fetching insights:', error);
-        }
-    }, [selectedProfile, dbUserId]);
-
-    // Calculate match score (placeholder - would compare profile cards)
-    const calculateMatchScore = useCallback(async () => {
-        // This would compare public profile card data
-        // For now, using a placeholder based on interaction
-        const baseScore = 50;
-        const interactionBonus = Math.min(chatInsights.totalMessages / 10, 30);
-        const tagPenalty = tagCounts.filter(t => ['BLACKLIST', 'ANGRY', 'SAD', 'RED'].includes(t.tagType)).length * 2;
-        const tagBonus = tagCounts.filter(t => ['HAPPY', 'JOY', 'FUNNY', 'GREEN'].includes(t.tagType)).length * 2;
-
-        setMatchScore(Math.max(0, Math.min(100, Math.round(baseScore + interactionBonus + tagBonus - tagPenalty))));
-    }, [chatInsights, tagCounts]);
-
-    // Load data
-    useEffect(() => {
-        if (dbUserId) {
-            setIsLoading(true);
-            fetchProfiles().finally(() => setIsLoading(false));
-        }
-    }, [dbUserId]);
-
-    useEffect(() => {
-        if (params.userId && params.userName) {
-            setSelectedProfile({
-                id: params.userId,
-                name: params.userName,
-                avatar: params.userAvatar || '',
+        if (conversations) {
+            const list: Profile[] = conversations.map((conv: any) => {
+                const isA = conv.participantA === dbUserId;
+                const partner = isA ? conv.userB : conv.userA;
+                const p = Array.isArray(partner.profile) ? partner.profile[0] : partner.profile;
+                return {
+                    id: partner.id,
+                    name: p?.displayName || partner.name || 'Unknown',
+                    avatar: p?.avatarUrl || '',
+                    conversationId: conv.id,
+                };
             });
+            setProfiles(list);
+
+            // Auto-select from params or first
+            if (params.partnerUserId) {
+                const match = list.find(p => p.id === params.partnerUserId);
+                if (match) {
+                    setSelectedProfile(match);
+                    setConversationId(match.conversationId ?? params.conversationId ?? null);
+                }
+            } else if (params.userId) {
+                const match = list.find(p => p.id === params.userId);
+                if (match) {
+                    setSelectedProfile(match);
+                    setConversationId(match.conversationId ?? null);
+                }
+            } else if (!selectedProfile && list.length > 0) {
+                setSelectedProfile(list[0]);
+                setConversationId(list[0].conversationId ?? null);
+            }
         }
-    }, [params.userId, params.userName, params.userAvatar]);
+    }, [dbUserId]);
+
+    // ── Load bonding data ────────────────────────────────────────────────────
+    const loadBondingData = useCallback(async () => {
+        if (!conversationId || !selectedProfile || !dbUserId) return;
+
+        setIsLoading(true);
+        try {
+            const hasAccess = await BondingService.verifyConversationAccess(conversationId);
+            if (!hasAccess) { router.back(); return; }
+
+            const [
+                score, stats, behaviour, hardNos, greenFlags,
+                slashPulse, moments, snoozed, passport, sticky,
+            ] = await Promise.all([
+                BondingService.getBondScore(conversationId),
+                BondingService.getChatStats(conversationId),
+                BondingService.getChatBehaviourStats(conversationId),
+                BondingService.getHardNoViolations(conversationId, selectedProfile.id, dbUserId),
+                BondingService.getGreenFlagsMatched(conversationId, selectedProfile.id, dbUserId),
+                BondingService.getSharedSlashPulse(conversationId, dbUserId, selectedProfile.id),
+                BondingService.getBondMoments(conversationId, dbUserId),
+                BondingService.getSnoozedPendingReplies(conversationId, dbUserId),
+                BondingService.getPartnerCommunicationPassport(selectedProfile.id),
+                BondingService.getActiveStickyNote(conversationId),
+            ]);
+
+            setBondScore(score);
+            setChatStats(stats);
+            setBehaviourStats(behaviour);
+            setHardNoViolations(hardNos);
+            setGreenFlagsMatched(greenFlags.filter(g => g.matched));
+            setSharedSlashPulse(slashPulse);
+            setBondMoments(moments);
+            setSnoozedPending(snoozed);
+            setPartnerPassport(passport);
+            setActiveStickyNote(sticky);
+        } catch (e) {
+            console.error('[BondingPage] Load error:', e);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [conversationId, selectedProfile?.id, dbUserId]);
+
+    // ── Fetch locker data (tags, facts, triggers) ────────────────────────────
+    const fetchLockerData = useCallback(async () => {
+        if (!selectedProfile || !dbUserId || !conversationId) return;
+
+        try {
+            const [tagRes, factRes, trigRes] = await Promise.all([
+                supabase.from('MessageTag')
+                    .select('id, messageId, tagType, createdAt, message:Message(id, content, createdAt)')
+                    .eq('userId', dbUserId)
+                    .not('tagType', 'in', '(HAPPY,SAD,ANGRY,EXCITED,LOVE,BLACKLIST,RED,JOY,FUNNY,GREEN)')
+                    .order('createdAt', { ascending: false }),
+                supabase.from('FactWarning')
+                    .select('*')
+                    .eq('userId', dbUserId)
+                    .eq('profileId', selectedProfile.id)
+                    .order('createdAt', { ascending: false }),
+                supabase.from('Trigger')
+                    .select('id, selectedText, targetUser, conditionType, warningMessage, isActive, createdAt, triggeredCount')
+                    .order('createdAt', { ascending: false }),
+            ]);
+
+            setTags((tagRes.data ?? []).map((t: any) => ({
+                ...t,
+                message: Array.isArray(t.message) ? t.message[0] : t.message,
+            })).filter((t: any) => t.message));
+            setFacts(factRes.data ?? []);
+            setTriggers(trigRes.data ?? []);
+        } catch (e) {
+            console.log('[BondingPage] Locker fetch error:', e);
+        }
+    }, [selectedProfile?.id, dbUserId, conversationId]);
+
+    // ── Read canvas state ────────────────────────────────────────────────────
+    useEffect(() => {
+        if (!conversationId) return;
+        AsyncStorage.getItem(`app:live_canvas:enabled_${conversationId}`).then(val => {
+            setMyCanvasOn(val === 'true');
+        });
+    }, [conversationId]);
+
+    // ── Effects ──────────────────────────────────────────────────────────────
+    useEffect(() => {
+        if (dbUserId) fetchProfiles().finally(() => setIsLoading(false));
+    }, [dbUserId]);
 
     useEffect(() => {
-        if (selectedProfile && dbUserId) {
-            fetchAllTagCounts();
-            fetchFacts();
-            fetchTags();
-            fetchTriggers();
-            fetchChatInsights();
+        if (conversationId && selectedProfile && dbUserId) {
+            loadBondingData();
+            fetchLockerData();
         }
-    }, [selectedProfile?.id, activeLocker, dbUserId]);
+    }, [conversationId, selectedProfile?.id, dbUserId, activeLocker]);
 
-    useEffect(() => {
-        calculateMatchScore();
-    }, [chatInsights, tagCounts]);
+    // ── Handlers ─────────────────────────────────────────────────────────────
+    const handleRefresh = async () => {
+        setIsRefreshing(true);
+        await Promise.all([loadBondingData(), fetchLockerData()]);
+        setIsRefreshing(false);
+    };
 
-    // Edit handler
+    const handleProfileSwitch = (profile: Profile) => {
+        setSelectedProfile(profile);
+        setConversationId(profile.conversationId ?? null);
+        setShowProfileDropdown(false);
+    };
+
+    const handleDeleteMoment = async (momentId: string) => {
+        setBondMoments(prev => prev ? {
+            ...prev,
+            pinned: prev.pinned.filter(m => m.id !== momentId),
+        } : null);
+        try {
+            await BondingService.deleteBondMoment(momentId);
+        } catch { /* rollback not needed for optimistic */ }
+    };
+
+    const handlePinMoment = () => {
+        if (!conversationId) return;
+        router.push({
+            pathname: '/(tabs)/chat',
+            params: { roomId: conversationId, mode: 'pin_moment' },
+        });
+    };
+
     const handleEdit = (item: any, type: 'tag' | 'trigger' | 'fact') => {
         setEditItem(item);
         setEditType(type);
@@ -639,445 +363,373 @@ export default function BondingScreen() {
         setShowEditModal(true);
     };
 
-    // Delete handler
     const handleDelete = async (id: string, type: 'tag' | 'trigger' | 'fact') => {
-        Alert.alert('Delete', 'Are you sure? This will be removed for both users.', [
+        Alert.alert('Delete', 'Remove this item?', [
             { text: 'Cancel', style: 'cancel' },
             {
-                text: 'Delete',
-                style: 'destructive',
+                text: 'Delete', style: 'destructive',
                 onPress: async () => {
-                    try {
-                        const table = type === 'tag' ? 'MessageTag' : type === 'trigger' ? 'Trigger' : 'FactWarning';
-                        await supabase.from(table).delete().eq('id', id);
-
-                        // Send notification to chat (placeholder)
-                        // TODO: Create a system message or notification
-
-                        // Update local state
-                        if (type === 'tag') setTags(prev => prev.filter(t => t.id !== id));
-                        else if (type === 'trigger') setTriggers(prev => prev.filter(t => t.id !== id));
-                        else setFacts(prev => prev.filter(f => f.id !== id));
-                    } catch (error) {
-                        Alert.alert('Error', 'Failed to delete');
-                    }
-                }
-            }
+                    const table = type === 'tag' ? 'MessageTag' : type === 'trigger' ? 'Trigger' : 'FactWarning';
+                    await supabase.from(table).delete().eq('id', id);
+                    if (type === 'tag') setTags(p => p.filter(t => t.id !== id));
+                    else if (type === 'trigger') setTriggers(p => p.filter(t => t.id !== id));
+                    else setFacts(p => p.filter(f => f.id !== id));
+                },
+            },
         ]);
     };
 
-    // Save edit
     const saveEdit = async () => {
         if (!editItem) return;
-
-        try {
-            if (editType === 'fact') {
-                await supabase
-                    .from('FactWarning')
-                    .update({ keyword: newKeyword, warningText: newWarningText })
-                    .eq('id', editItem.id);
-
-                setFacts(prev => prev.map(f =>
-                    f.id === editItem.id ? { ...f, keyword: newKeyword, warningText: newWarningText } : f
-                ));
-            }
-            // TODO: Add notification to chat
-
-            setShowEditModal(false);
-            setEditItem(null);
-        } catch (error) {
-            Alert.alert('Error', 'Failed to save changes');
+        if (editType === 'fact') {
+            await supabase.from('FactWarning')
+                .update({ keyword: newKeyword, warningText: newWarningText })
+                .eq('id', editItem.id);
+            setFacts(p => p.map(f =>
+                f.id === editItem.id ? { ...f, keyword: newKeyword, warningText: newWarningText } : f
+            ));
         }
+        setShowEditModal(false);
+        setEditItem(null);
     };
 
-    // Add fact
     const addFactWarning = async () => {
         if (!newKeyword.trim() || !newWarningText.trim() || !selectedProfile || !dbUserId) return;
-
-        try {
-            const id = `cm${Date.now().toString(36)}${Math.random().toString(36).substr(2, 9)}`;
-            const { data } = await supabase
-                .from('FactWarning')
-                .insert({
-                    id,
-                    userId: dbUserId,
-                    profileId: selectedProfile.id,
-                    keyword: newKeyword.toLowerCase().trim(),
-                    warningText: newWarningText.trim(),
-                })
-                .select()
-                .single();
-
-            if (data) setFacts(prev => [data, ...prev]);
-            setNewKeyword('');
-            setNewWarningText('');
-            setShowAddFact(false);
-        } catch (error) {
-            Alert.alert('Error', 'Failed to add warning');
-        }
+        const id = `cm${Date.now().toString(36)}${Math.random().toString(36).substr(2, 9)}`;
+        const { data } = await supabase.from('FactWarning').insert({
+            id, userId: dbUserId, profileId: selectedProfile.id,
+            keyword: newKeyword.toLowerCase().trim(),
+            warningText: newWarningText.trim(),
+        }).select().single();
+        if (data) setFacts(p => [data, ...p]);
+        setNewKeyword(''); setNewWarningText(''); setShowAddFact(false);
     };
 
-    // Refresh
-    const handleRefresh = async () => {
-        setIsRefreshing(true);
-        await Promise.all([fetchProfiles(), fetchAllTagCounts(), fetchTags(), fetchFacts(), fetchTriggers(), fetchChatInsights()]);
-        setIsRefreshing(false);
-    };
+    // ─── Derived values ──────────────────────────────────────────────────────
+    const hardNoCount = hardNoViolations.filter(v => v.violationCount > 0).length;
+    const partnerName = selectedProfile?.name ?? params.partnerUsername ?? 'Partner';
+    const partnerId = selectedProfile?.id ?? params.partnerUserId ?? '';
 
-    // Check access request status
-    const checkAccessRequestStatus = useCallback(async () => {
-        if (!selectedProfile || !dbUserId) return;
+    // ─── RENDER ──────────────────────────────────────────────────────────────
 
-        try {
-            const { data } = await supabase
-                .from('ProfileAccessRequest')
-                .select('status')
-                .eq('requesterId', dbUserId)
-                .eq('targetUserId', selectedProfile.id)
-                .order('createdAt', { ascending: false })
-                .limit(1)
-                .maybeSingle();
-
-            if (data) {
-                setAccessRequestStatus(data.status.toLowerCase() as any);
-            } else {
-                setAccessRequestStatus('none');
-            }
-        } catch (error) {
-            console.log('Error checking access status:', error);
-        }
-    }, [selectedProfile, dbUserId]);
-
-    // Request access to private profile
-    const requestAccess = async () => {
-        if (!selectedProfile || !dbUserId || isRequestingAccess) return;
-
-        setIsRequestingAccess(true);
-        try {
-            const id = `par_${Date.now().toString(36)}${Math.random().toString(36).substring(2, 8)}`;
-
-            await supabase.from('ProfileAccessRequest').insert({
-                id,
-                requesterId: dbUserId,
-                targetUserId: selectedProfile.id,
-                fields: JSON.stringify(['all']),
-                status: 'PENDING'
-            });
-
-            setAccessRequestStatus('pending');
-            Alert.alert('Request Sent', `Your request to view ${selectedProfile.name}'s private profile has been sent.`);
-        } catch (error: any) {
-            if (error.code === '23505') {
-                Alert.alert('Already Requested', 'You have already requested access.');
-                setAccessRequestStatus('pending');
-            } else {
-                Alert.alert('Error', 'Failed to send request');
-            }
-        } finally {
-            setIsRequestingAccess(false);
-        }
-    };
-
-    // Check access status when profile changes
-    useEffect(() => {
-        if (selectedProfile && dbUserId) {
-            checkAccessRequestStatus();
-        }
-    }, [selectedProfile?.id, dbUserId]);
-
-    // Get locker color
-    const getLockerColor = (locker: LockerType) => {
-        switch (locker) {
-            case 'red': return COLORS.accentRed;
-            case 'green': return COLORS.accentGreen;
-            case 'custom': return COLORS.accentBlue;
-            case 'triggers': return COLORS.accentOrange;
-        }
-    };
-
-    // Get locker count
-    const getLockerCount = (locker: LockerType) => {
-        if (locker === 'triggers') return triggers.length;
-        if (locker === 'red') return tagCounts.filter(t => ['BLACKLIST', 'ANGRY', 'SAD', 'RED'].includes(t.tagType)).length;
-        if (locker === 'green') return tagCounts.filter(t => ['HAPPY', 'JOY', 'FUNNY', 'GREEN'].includes(t.tagType)).length;
-        return tagCounts.filter(t => !['BLACKLIST', 'ANGRY', 'SAD', 'RED', 'HAPPY', 'JOY', 'FUNNY', 'GREEN'].includes(t.tagType)).length + facts.length;
-    };
-
-    // Warning analytics data
-    const getWarningAnalytics = () => {
-        const redMy = tagCounts.filter(t => ['BLACKLIST', 'ANGRY', 'SAD', 'RED'].includes(t.tagType) && t.senderId === dbUserId).length;
-        const redPartner = tagCounts.filter(t => ['BLACKLIST', 'ANGRY', 'SAD', 'RED'].includes(t.tagType) && t.senderId !== dbUserId).length;
-        const greenMy = tagCounts.filter(t => ['HAPPY', 'JOY', 'FUNNY', 'GREEN'].includes(t.tagType) && t.senderId === dbUserId).length;
-        const greenPartner = tagCounts.filter(t => ['HAPPY', 'JOY', 'FUNNY', 'GREEN'].includes(t.tagType) && t.senderId !== dbUserId).length;
-
-        return [
-            { label: 'Red', myCount: redMy, partnerCount: redPartner, color: COLORS.accentRed },
-            { label: 'Green', myCount: greenMy, partnerCount: greenPartner, color: COLORS.accentGreen },
-        ];
-    };
-
-    // Tag ratio
-    const getTagRatio = () => {
-        const redCount = tagCounts.filter(t => ['BLACKLIST', 'ANGRY', 'SAD', 'RED'].includes(t.tagType)).length;
-        const greenCount = tagCounts.filter(t => ['HAPPY', 'JOY', 'FUNNY', 'GREEN'].includes(t.tagType)).length;
-        const customCount = tagCounts.filter(t => !['BLACKLIST', 'ANGRY', 'SAD', 'RED', 'HAPPY', 'JOY', 'FUNNY', 'GREEN'].includes(t.tagType)).length;
-        const total = redCount + greenCount + customCount || 1;
-        return {
-            red: Math.round((redCount / total) * 100),
-            green: Math.round((greenCount / total) * 100),
-            custom: Math.round((customCount / total) * 100),
-        };
-    };
-
-    if (isLoading) {
+    if (isLoading && !selectedProfile) {
         return (
-            <View style={[styles.container, { alignItems: 'center', justifyContent: 'center' }]}>
-                <ActivityIndicator size="large" color={COLORS.accentBlue} />
+            <View style={[st.container, { alignItems: 'center', justifyContent: 'center' }]}>
+                <ActivityIndicator size="large" color="#eee" />
             </View>
         );
     }
 
-    const tagRatio = getTagRatio();
-
     return (
-        <View style={styles.container}>
+        <GestureHandlerRootView style={st.container}>
             <SafeAreaView style={{ flex: 1 }}>
                 {/* Header */}
-                <View style={styles.header}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-                        <ChevronLeft color={COLORS.textPrimary} size={24} />
+                <View style={st.header}>
+                    <TouchableOpacity onPress={() => router.back()} style={st.backBtn}>
+                        <ChevronLeft color="#eee" size={22} />
                     </TouchableOpacity>
-                    <Text style={styles.headerTitle}>Bonding</Text>
+                    <Text style={st.headerTitle}>Bonding</Text>
                     <View style={{ width: 40 }} />
                 </View>
 
                 <ScrollView
                     style={{ flex: 1 }}
-                    contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
-                    refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor={COLORS.accentBlue} />}
+                    contentContainerStyle={{ paddingVertical: 12, paddingBottom: 100 }}
+                    refreshControl={
+                        <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor="#eee" />
+                    }
                     showsVerticalScrollIndicator={false}
                 >
                     {/* Profile Selector */}
                     <TouchableOpacity
                         onPress={() => setShowProfileDropdown(true)}
-                        style={styles.profileSelector}
+                        style={st.profileSelector}
                     >
                         {selectedProfile ? (
-                            <View style={styles.profileSelectorContent}>
-                                <Image source={{ uri: selectedProfile.avatar }} style={styles.profileAvatar} />
-                                <Text style={styles.profileName}>{selectedProfile.name}</Text>
+                            <View style={st.profileSelectorRow}>
+                                <Image source={{ uri: selectedProfile.avatar }} style={st.profileAvatar} />
+                                <Text style={st.profileName}>{selectedProfile.name}</Text>
                             </View>
                         ) : (
-                            <Text style={{ color: COLORS.textSecondary }}>Select a profile</Text>
+                            <Text style={{ color: '#555', fontSize: 10 }}>select a profile</Text>
                         )}
-                        <ChevronDown color={COLORS.textPrimary} size={20} />
+                        <ChevronDown color="#555" size={16} />
                     </TouchableOpacity>
 
-                    {selectedProfile && (
+                    {selectedProfile && conversationId && (
                         <>
-                            {/* Match Score & Chat Insights Row */}
-                            <View style={styles.topRow}>
-                                <View style={styles.matchScoreContainer}>
-                                    <MatchScoreCircle score={matchScore} />
-                                </View>
-                                <View style={styles.tagRatioContainer}>
-                                    <Text style={styles.miniTitle}>Tag Ratio</Text>
-                                    <View style={styles.tagRatioBar}>
-                                        <View style={[styles.ratioSegment, { flex: tagRatio.red, backgroundColor: COLORS.accentRed }]} />
-                                        <View style={[styles.ratioSegment, { flex: tagRatio.green, backgroundColor: COLORS.accentGreen }]} />
-                                        <View style={[styles.ratioSegment, { flex: tagRatio.custom, backgroundColor: COLORS.accentBlue }]} />
-                                    </View>
-                                    <View style={styles.tagRatioLabels}>
-                                        <Text style={[styles.ratioLabelText, { color: COLORS.accentRed }]}>Red {tagRatio.red}%</Text>
-                                        <Text style={[styles.ratioLabelText, { color: COLORS.accentGreen }]}>Green {tagRatio.green}%</Text>
-                                        <Text style={[styles.ratioLabelText, { color: COLORS.accentBlue }]}>Custom {tagRatio.custom}%</Text>
-                                    </View>
-                                </View>
-                            </View>
+                            {/* 1. Bond Score */}
+                            <BondScoreSection
+                                score={bondScore}
+                                partnerName={partnerName}
+                                passport={partnerPassport}
+                                hardNoCount={hardNoCount}
+                                isLoading={isLoading}
+                            />
 
-                            {/* Chat Insights */}
-                            <ChatInsightsCard insights={chatInsights} />
+                            {/* 2. Stats Grid */}
+                            <StatsGrid stats={chatStats} myId={dbUserId ?? ''} />
 
-                            {/* Warning Analytics */}
-                            <WarningChart data={getWarningAnalytics()} />
+                            {/* 3. Hard No Banner */}
+                            <HardNoBanner
+                                violations={hardNoViolations}
+                                partnerName={partnerName}
+                            />
 
-                            {/* Private Access Request Card - HIDDEN FOR V2 */}
-                            {/* 
-                            <View style={styles.accessCard}>
-                                <View style={styles.accessCardHeader}>
-                                    {accessRequestStatus === 'approved' ? (
-                                        <Unlock size={24} color={COLORS.accentGreen} />
-                                    ) : (
-                                        <Lock size={24} color={COLORS.textSecondary} />
-                                    )}
-                                    <View style={styles.accessCardContent}>
-                                        <Text style={styles.accessCardTitle}>Private Profile Access</Text>
-                                        <Text style={styles.accessCardDesc}>
-                                            {accessRequestStatus === 'approved'
-                                                ? 'Access granted to private information'
-                                                : accessRequestStatus === 'pending'
-                                                    ? 'Request pending approval'
-                                                    : accessRequestStatus === 'denied'
-                                                        ? 'Access request was denied'
-                                                        : 'Request access to see private details'}
-                                        </Text>
-                                    </View>
+                            {/* 4. Shared Slash Pulse */}
+                            <SharedSlashPulse items={sharedSlashPulse} />
+
+                            {/* 5. Bond Moments */}
+                            <BondMomentsSection
+                                data={bondMoments}
+                                onPinMoment={handlePinMoment}
+                                onDeleteMoment={handleDeleteMoment}
+                            />
+
+                            {/* 6. Chat Behaviour */}
+                            <ChatBehaviourSection
+                                stats={behaviourStats}
+                                snoozedPending={snoozedPending}
+                                partnerName={partnerName}
+                                onSnoozedTap={() => setActiveLocker('triggers')}
+                            />
+
+                            {/* 7. Tone Usage */}
+                            <ToneUsageChart toneCounts={behaviourStats?.toneCounts ?? {}} />
+
+                            {/* 8. Tag Activity (inline) */}
+                            <TagActivitySection tags={tags} myId={dbUserId ?? ''} />
+
+                            {/* 9. Live Canvas Status */}
+                            <LiveCanvasStatus
+                                myOn={myCanvasOn}
+                                partnerOn={partnerCanvasOn}
+                                partnerName={partnerName}
+                                sessionCount={behaviourStats?.canvasSessionCount ?? 0}
+                            />
+
+                            {/* 10. Profile Card Links */}
+                            <ProfileCardLinks
+                                partnerId={partnerId}
+                                partnerName={partnerName}
+                                onPassportTap={() => setShowPassportSheet(true)}
+                            />
+
+                            {/* 11. Locker */}
+                            <View style={st.lockerSection}>
+                                {/* Tabs */}
+                                <View style={st.lockerTabs}>
+                                    {(['custom', 'triggers'] as const).map(tab => (
+                                        <TouchableOpacity
+                                            key={tab}
+                                            onPress={() => setActiveLocker(tab)}
+                                            style={[
+                                                st.lockerTab,
+                                                activeLocker === tab && st.lockerTabActive,
+                                            ]}
+                                        >
+                                            <Text style={[
+                                                st.lockerTabText,
+                                                activeLocker === tab && st.lockerTabTextActive,
+                                            ]}>
+                                                {tab === 'custom' ? 'Custom Tags & Facts' : 'Triggers'}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    ))}
                                 </View>
-                                {accessRequestStatus === 'none' && (
-                                    <TouchableOpacity
-                                        style={styles.accessBtn}
-                                        onPress={requestAccess}
-                                        disabled={isRequestingAccess}
-                                    >
-                                        {isRequestingAccess ? (
-                                            <ActivityIndicator size="small" color="#fff" />
-                                        ) : (
-                                            <Text style={styles.accessBtnText}>Request Access</Text>
+
+                                <Text style={st.swipeHint}>swipe left to edit or delete</Text>
+
+                                {activeLocker === 'custom' ? (
+                                    <>
+                                        {/* Facts */}
+                                        {facts.map(fact => (
+                                            <SwipableLockerCard
+                                                key={fact.id}
+                                                label={fact.warningText}
+                                                subLabel={`keyword: "${fact.keyword}"`}
+                                                date={fact.createdAt}
+                                                badge="FACT"
+                                                onEdit={() => handleEdit(fact, 'fact')}
+                                                onDelete={() => handleDelete(fact.id, 'fact')}
+                                            />
+                                        ))}
+                                        {/* Tags */}
+                                        {tags.map((tag: any) => (
+                                            <SwipableLockerCard
+                                                key={tag.id}
+                                                label={tag.message?.content ?? 'Tagged message'}
+                                                subLabel={tag.tagType}
+                                                date={tag.createdAt}
+                                                badge={tag.tagType}
+                                                onEdit={() => handleEdit(tag, 'tag')}
+                                                onDelete={() => handleDelete(tag.id, 'tag')}
+                                            />
+                                        ))}
+
+                                        {/* Read-only: Hard Nos from their card */}
+                                        {hardNoViolations.length > 0 && (
+                                            <>
+                                                <Text style={st.subSectionTitle}>from their profile card</Text>
+                                                {hardNoViolations.map((v, i) => (
+                                                    <View key={i} style={[st.readOnlyCard, v.violationCount > 0 && st.readOnlyCardRed]}>
+                                                        <View style={[st.readOnlyIcon, v.violationCount > 0 && st.readOnlyIconRed]}>
+                                                            <Text style={[st.readOnlyIconText, v.violationCount > 0 && { color: '#c8383a' }]}>!</Text>
+                                                        </View>
+                                                        <View style={{ flex: 1 }}>
+                                                            <Text style={[st.readOnlyLabel, v.violationCount > 0 && { color: '#c8383a' }]}>
+                                                                {v.keyword}
+                                                            </Text>
+                                                            <Text style={[st.readOnlySub, v.violationCount > 0 && { color: '#4a2020' }]}>
+                                                                {v.violationCount > 0
+                                                                    ? `${v.violationCount} violations this week`
+                                                                    : '0 violations'}
+                                                            </Text>
+                                                        </View>
+                                                        {v.violationCount > 0 && (
+                                                            <View style={st.readOnlyBadge}>
+                                                                <Text style={st.readOnlyBadgeText}>{v.violationCount}</Text>
+                                                            </View>
+                                                        )}
+                                                    </View>
+                                                ))}
+                                            </>
                                         )}
-                                    </TouchableOpacity>
-                                )}
-                                {accessRequestStatus === 'pending' && (
-                                    <View style={[styles.accessBtn, { backgroundColor: COLORS.accentOrange }]}>
-                                        <Text style={styles.accessBtnText}>Pending</Text>
-                                    </View>
-                                )}
-                                {accessRequestStatus === 'approved' && (
-                                    <View style={[styles.accessBtn, { backgroundColor: COLORS.accentGreen }]}>
-                                        <Text style={styles.accessBtnText}>Approved</Text>
-                                    </View>
-                                )}
-                            </View> 
-                            */}
 
-                            {/* Category Tabs */}
-                            <View style={styles.tabs}>
-                                {(['red', 'green', 'custom', 'triggers'] as LockerType[]).map((locker) => (
-                                    <TouchableOpacity
-                                        key={locker}
-                                        onPress={() => setActiveLocker(locker)}
-                                        style={[
-                                            styles.tab,
-                                            activeLocker === locker && { backgroundColor: getLockerColor(locker), borderColor: getLockerColor(locker) }
-                                        ]}
-                                    >
-                                        {locker === 'red' && <Frown size={16} color={activeLocker === locker ? '#fff' : COLORS.accentRed} />}
-                                        {locker === 'green' && <Smile size={16} color={activeLocker === locker ? '#fff' : COLORS.accentGreen} />}
-                                        {locker === 'custom' && <Slash size={16} color={activeLocker === locker ? '#fff' : COLORS.accentBlue} />}
-                                        {locker === 'triggers' && <Target size={16} color={activeLocker === locker ? '#fff' : COLORS.accentOrange} />}
-                                        <Text style={[styles.tabText, { color: activeLocker === locker ? '#fff' : COLORS.textSecondary }]}>
-                                            {locker.charAt(0).toUpperCase() + locker.slice(1)} ({getLockerCount(locker)})
-                                        </Text>
-                                    </TouchableOpacity>
-                                ))}
+                                        {/* Read-only: Green Flags matched */}
+                                        {greenFlagsMatched.length > 0 && (
+                                            <>
+                                                <Text style={st.subSectionTitle}>green flags you match</Text>
+                                                {greenFlagsMatched.map((g, i) => (
+                                                    <View key={i} style={st.readOnlyCard}>
+                                                        <View style={st.readOnlyIcon}>
+                                                            <Text style={st.readOnlyIconText}>G</Text>
+                                                        </View>
+                                                        <View style={{ flex: 1 }}>
+                                                            <Text style={st.readOnlyLabel}>{g.flag}</Text>
+                                                            <Text style={st.readOnlySub}>they listed this — you match</Text>
+                                                        </View>
+                                                    </View>
+                                                ))}
+                                            </>
+                                        )}
+
+                                        {facts.length === 0 && tags.length === 0 && hardNoViolations.length === 0 && (
+                                            <View style={st.emptyState}>
+                                                <BookOpen size={28} color="#2e2e2e" />
+                                                <Text style={st.emptyText}>no custom tags or facts</Text>
+                                            </View>
+                                        )}
+                                    </>
+                                ) : (
+                                    <>
+                                        {/* Triggers */}
+                                        {triggers.map((trigger: any) => (
+                                            <SwipableLockerCard
+                                                key={trigger.id}
+                                                label={trigger.selectedText || trigger.warningMessage || 'Trigger'}
+                                                subLabel={`triggered ${trigger.triggeredCount ?? 0}x`}
+                                                date={trigger.createdAt}
+                                                badge="TRIGGER"
+                                                onEdit={() => handleEdit(trigger, 'trigger')}
+                                                onDelete={() => handleDelete(trigger.id, 'trigger')}
+                                            />
+                                        ))}
+
+                                        {/* Snoozed messages sub-section */}
+                                        {snoozedPending.length > 0 && (
+                                            <>
+                                                <Text style={st.subSectionTitle}>snoozed — waiting for your reply</Text>
+                                                {snoozedPending.map((item, i) => {
+                                                    const daysSince = Math.floor(
+                                                        (Date.now() - new Date(item.snoozedAt).getTime()) / 86400000
+                                                    );
+                                                    return (
+                                                        <View key={item.id} style={[
+                                                            st.readOnlyCard,
+                                                            item.isPending && st.readOnlyCardRed,
+                                                        ]}>
+                                                            <View style={[
+                                                                st.readOnlyIcon,
+                                                                item.isPending && st.readOnlyIconRed,
+                                                            ]}>
+                                                                <Text style={[
+                                                                    st.readOnlyIconText,
+                                                                    item.isPending && { color: '#c8383a' },
+                                                                ]}>z</Text>
+                                                            </View>
+                                                            <View style={{ flex: 1 }}>
+                                                                <Text
+                                                                    style={[st.readOnlyLabel, item.isPending && { color: '#c8383a' }]}
+                                                                    numberOfLines={1}
+                                                                >
+                                                                    {item.text.slice(0, 50)}
+                                                                </Text>
+                                                                <Text style={st.readOnlySub}>
+                                                                    snoozed {daysSince}d ago  {item.isPending ? 'no reply yet' : 'replied'}
+                                                                </Text>
+                                                            </View>
+                                                            {item.isPending && daysSince > 3 && (
+                                                                <View style={st.readOnlyBadge}>
+                                                                    <Text style={st.readOnlyBadgeText}>{daysSince}d</Text>
+                                                                </View>
+                                                            )}
+                                                        </View>
+                                                    );
+                                                })}
+                                            </>
+                                        )}
+
+                                        {/* Pattern insight */}
+                                        {(() => {
+                                            const topTrigger = triggers.find((t: any) => (t.triggeredCount ?? 0) >= 5);
+                                            if (!topTrigger) return null;
+                                            return (
+                                                <Text style={st.patternInsight}>
+                                                    "{topTrigger.selectedText || topTrigger.warningMessage}" appears {topTrigger.triggeredCount}x
+                                                </Text>
+                                            );
+                                        })()}
+
+                                        {triggers.length === 0 && snoozedPending.length === 0 && (
+                                            <View style={st.emptyState}>
+                                                <Text style={st.emptyText}>no triggers yet</Text>
+                                            </View>
+                                        )}
+                                    </>
+                                )}
                             </View>
-
-                            {/* Cards */}
-                            <Text style={styles.sectionTitle}>
-                                {activeLocker === 'red' ? 'Red Tags' : activeLocker === 'green' ? 'Green Tags' : activeLocker === 'custom' ? 'Custom Tags & Facts' : 'Triggers'}
-                            </Text>
-                            <Text style={styles.swipeHint}>Swipe left to edit or delete</Text>
-
-                            {activeLocker === 'triggers' ? (
-                                triggers.length === 0 ? (
-                                    <View style={styles.emptyState}>
-                                        <Target size={40} color={COLORS.textMuted} />
-                                        <Text style={styles.emptyText}>No triggers yet</Text>
-                                    </View>
-                                ) : (
-                                    triggers.map((trigger) => (
-                                        <SwipableCard
-                                            key={trigger.id}
-                                            item={trigger}
-                                            color={COLORS.accentOrange}
-                                            type="trigger"
-                                            onEdit={() => handleEdit(trigger, 'trigger')}
-                                            onDelete={() => handleDelete(trigger.id, 'trigger')}
-                                        />
-                                    ))
-                                )
-                            ) : activeLocker === 'custom' ? (
-                                <>
-                                    {facts.map((fact) => (
-                                        <SwipableCard
-                                            key={fact.id}
-                                            item={fact}
-                                            color={COLORS.accentBlue}
-                                            type="fact"
-                                            onEdit={() => handleEdit(fact, 'fact')}
-                                            onDelete={() => handleDelete(fact.id, 'fact')}
-                                        />
-                                    ))}
-                                    {tags.map((tag) => (
-                                        <SwipableCard
-                                            key={tag.id}
-                                            item={tag}
-                                            color={COLORS.accentBlue}
-                                            type="tag"
-                                            onEdit={() => handleEdit(tag, 'tag')}
-                                            onDelete={() => handleDelete(tag.id, 'tag')}
-                                        />
-                                    ))}
-                                    {facts.length === 0 && tags.length === 0 && (
-                                        <View style={styles.emptyState}>
-                                            <BookOpen size={40} color={COLORS.textMuted} />
-                                            <Text style={styles.emptyText}>No custom tags or facts</Text>
-                                        </View>
-                                    )}
-                                </>
-                            ) : (
-                                tags.length === 0 ? (
-                                    <View style={styles.emptyState}>
-                                        {activeLocker === 'red' ? <Frown size={40} color={COLORS.textMuted} /> : <Smile size={40} color={COLORS.textMuted} />}
-                                        <Text style={styles.emptyText}>No {activeLocker} tags yet</Text>
-                                    </View>
-                                ) : (
-                                    tags.map((tag) => (
-                                        <SwipableCard
-                                            key={tag.id}
-                                            item={tag}
-                                            color={getLockerColor(activeLocker)}
-                                            type="tag"
-                                            onEdit={() => handleEdit(tag, 'tag')}
-                                            onDelete={() => handleDelete(tag.id, 'tag')}
-                                        />
-                                    ))
-                                )
-                            )}
                         </>
                     )}
                 </ScrollView>
 
                 {/* FAB for adding facts */}
                 {activeLocker === 'custom' && selectedProfile && (
-                    <TouchableOpacity
-                        onPress={() => setShowAddFact(true)}
-                        style={styles.fab}
-                    >
-                        <Plus size={24} color="#fff" />
+                    <TouchableOpacity onPress={() => setShowAddFact(true)} style={st.fab}>
+                        <Plus size={20} color="#fff" />
                     </TouchableOpacity>
                 )}
 
-                {/* Profile Dropdown Modal */}
+                {/* ── Modals ────────────────────────────────────────────── */}
+
+                {/* Profile Dropdown */}
                 <Modal visible={showProfileDropdown} transparent animationType="fade">
                     <TouchableOpacity
-                        style={styles.modalOverlay}
-                        activeOpacity={1}
+                        style={st.modalOverlay} activeOpacity={1}
                         onPress={() => setShowProfileDropdown(false)}
                     >
-                        <View style={styles.dropdownContainer}>
-                            <BlurView intensity={80} tint="dark" style={styles.dropdownBlur}>
+                        <View style={st.dropdownContainer}>
+                            <BlurView intensity={80} tint="dark" style={st.dropdownBlur}>
                                 <ScrollView style={{ maxHeight: 400 }}>
-                                    {profiles.map((profile) => (
+                                    {profiles.map(profile => (
                                         <TouchableOpacity
                                             key={profile.id}
-                                            onPress={() => { setSelectedProfile(profile); setShowProfileDropdown(false); }}
-                                            style={styles.dropdownItem}
+                                            onPress={() => handleProfileSwitch(profile)}
+                                            style={st.dropdownItem}
                                         >
-                                            <Image source={{ uri: profile.avatar }} style={styles.dropdownAvatar} />
-                                            <Text style={styles.dropdownName}>{profile.name}</Text>
-                                            {selectedProfile?.id === profile.id && (
-                                                <View style={styles.selectedDot} />
-                                            )}
+                                            <Image source={{ uri: profile.avatar }} style={st.dropdownAvatar} />
+                                            <Text style={st.dropdownName}>{profile.name}</Text>
+                                            {selectedProfile?.id === profile.id && <View style={st.selectedDot} />}
                                         </TouchableOpacity>
                                     ))}
                                 </ScrollView>
@@ -1088,549 +740,465 @@ export default function BondingScreen() {
 
                 {/* Add Fact Modal */}
                 <Modal visible={showAddFact} transparent animationType="slide">
-                    <View style={styles.bottomModalOverlay}>
-                        <BlurView intensity={80} tint="dark" style={styles.bottomModal}>
-                            <View style={styles.modalHeader}>
-                                <Text style={styles.modalTitle}>Add Fact Warning</Text>
+                    <View style={st.bottomModalOverlay}>
+                        <View style={st.bottomModal}>
+                            <View style={st.modalHeader}>
+                                <Text style={st.modalTitle}>add fact warning</Text>
                                 <TouchableOpacity onPress={() => setShowAddFact(false)}>
-                                    <X size={24} color={COLORS.textPrimary} />
+                                    <X size={20} color="#555" />
                                 </TouchableOpacity>
                             </View>
-                            <Text style={styles.inputLabel}>Keyword</Text>
-                            <TextInput
-                                value={newKeyword}
-                                onChangeText={setNewKeyword}
-                                placeholder="e.g., birthday"
-                                placeholderTextColor={COLORS.textMuted}
-                                style={styles.input}
-                            />
-                            <Text style={styles.inputLabel}>Warning Message</Text>
-                            <TextInput
-                                value={newWarningText}
-                                onChangeText={setNewWarningText}
-                                placeholder="e.g., Remember their birthday!"
-                                placeholderTextColor={COLORS.textMuted}
-                                style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
-                                multiline
-                            />
-                            <TouchableOpacity style={styles.saveBtn} onPress={addFactWarning}>
-                                <Text style={styles.saveBtnText}>Add Warning</Text>
+                            <Text style={st.inputLabel}>keyword</Text>
+                            <TextInput value={newKeyword} onChangeText={setNewKeyword}
+                                placeholder="e.g., birthday" placeholderTextColor="#2e2e2e" style={st.input} />
+                            <Text style={st.inputLabel}>warning message</Text>
+                            <TextInput value={newWarningText} onChangeText={setNewWarningText}
+                                placeholder="e.g., Remember!" placeholderTextColor="#2e2e2e"
+                                style={[st.input, { height: 70, textAlignVertical: 'top' }]} multiline />
+                            <TouchableOpacity style={st.saveBtn} onPress={addFactWarning}>
+                                <Text style={st.saveBtnText}>add warning</Text>
                             </TouchableOpacity>
-                        </BlurView>
+                        </View>
                     </View>
                 </Modal>
 
                 {/* Edit Modal */}
                 <Modal visible={showEditModal} transparent animationType="slide">
-                    <View style={styles.bottomModalOverlay}>
-                        <BlurView intensity={80} tint="dark" style={styles.bottomModal}>
-                            <View style={styles.modalHeader}>
-                                <Text style={styles.modalTitle}>Edit {editType}</Text>
+                    <View style={st.bottomModalOverlay}>
+                        <View style={st.bottomModal}>
+                            <View style={st.modalHeader}>
+                                <Text style={st.modalTitle}>edit {editType}</Text>
                                 <TouchableOpacity onPress={() => { setShowEditModal(false); setEditItem(null); }}>
-                                    <X size={24} color={COLORS.textPrimary} />
+                                    <X size={20} color="#555" />
                                 </TouchableOpacity>
                             </View>
                             {editType === 'fact' && (
                                 <>
-                                    <Text style={styles.inputLabel}>Keyword</Text>
-                                    <TextInput
-                                        value={newKeyword}
-                                        onChangeText={setNewKeyword}
-                                        style={styles.input}
-                                    />
-                                    <Text style={styles.inputLabel}>Warning Message</Text>
-                                    <TextInput
-                                        value={newWarningText}
-                                        onChangeText={setNewWarningText}
-                                        style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
-                                        multiline
-                                    />
+                                    <Text style={st.inputLabel}>keyword</Text>
+                                    <TextInput value={newKeyword} onChangeText={setNewKeyword} style={st.input} />
+                                    <Text style={st.inputLabel}>warning message</Text>
+                                    <TextInput value={newWarningText} onChangeText={setNewWarningText}
+                                        style={[st.input, { height: 70, textAlignVertical: 'top' }]} multiline />
                                 </>
                             )}
-                            <TouchableOpacity style={styles.saveBtn} onPress={saveEdit}>
-                                <Text style={styles.saveBtnText}>Save Changes</Text>
+                            <TouchableOpacity style={st.saveBtn} onPress={saveEdit}>
+                                <Text style={st.saveBtnText}>save changes</Text>
                             </TouchableOpacity>
-                        </BlurView>
+                        </View>
                     </View>
                 </Modal>
+
+                {/* Communication Passport Sheet */}
+                <CommunicationPassportSheet
+                    visible={showPassportSheet}
+                    onClose={() => setShowPassportSheet(false)}
+                    passport={partnerPassport?.communicationPassport ?? null}
+                    partnerName={partnerName}
+                />
             </SafeAreaView>
-        </View>
+        </GestureHandlerRootView>
     );
 }
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: COLORS.background,
-    },
+// ─── Inline Section Components ───────────────────────────────────────────────
+
+const StatsGrid = React.memo(({ stats, myId }: { stats: ChatStats | null; myId: string }) => {
+    if (!stats) return null;
+    const total = stats.myCount + stats.theirCount || 1;
+    const myPct = Math.round((stats.myCount / total) * 100);
+    const theirPct = 100 - myPct;
+
+    return (
+        <View style={st.statsGrid}>
+            <View style={st.statTile}>
+                <Text style={st.statValue}>{stats.totalMessages}</Text>
+                <Text style={st.statLabel}>TOTAL MESSAGES</Text>
+            </View>
+            <View style={st.statTile}>
+                <Text style={st.statValue}>{stats.thisWeek}</Text>
+                <Text style={st.statLabel}>THIS WEEK</Text>
+            </View>
+            <View style={st.statTile}>
+                <Text style={[st.statValue, { fontSize: 10 }]}>{myPct} / {theirPct}</Text>
+                <View style={st.ratioBar}>
+                    <View style={[st.ratioFill, { width: `${myPct}%` }]} />
+                </View>
+                <Text style={st.statLabel}>RATIO</Text>
+            </View>
+            <View style={st.statTile}>
+                <Text style={st.statValue}>{stats.replyStreak}d</Text>
+                <Text style={st.statLabel}>REPLY STREAK</Text>
+            </View>
+        </View>
+    );
+});
+
+const HardNoBanner = React.memo(({ violations, partnerName }: { violations: HardNoViolation[]; partnerName: string }) => {
+    const violated = violations.filter(v => v.violationCount > 0);
+    if (violated.length === 0) return null;
+    const top = violated.sort((a, b) => b.violationCount - a.violationCount)[0];
+    const moreCount = violated.length - 1;
+
+    return (
+        <View style={st.hardNoBanner}>
+            <Text style={st.hardNoTitle}>hard no conflict</Text>
+            <Text style={st.hardNoBody}>
+                @{partnerName} listed '{top.keyword}' — you did this {top.violationCount} times this week
+            </Text>
+            {moreCount > 0 && (
+                <Text style={st.hardNoMore}>and {moreCount} more</Text>
+            )}
+        </View>
+    );
+});
+
+const TagActivitySection = React.memo(({ tags, myId }: { tags: any[]; myId: string }) => {
+    if (tags.length === 0) return null;
+    return (
+        <View style={st.tagActivityContainer}>
+            <Text style={st.sectionTitleSmall}>tag activity</Text>
+            <View style={st.tagActivityRow}>
+                <View style={st.tagActivityLegend}>
+                    <View style={st.legendItem}>
+                        <View style={[st.legendDot, { backgroundColor: '#eee' }]} />
+                        <Text style={st.legendText}>you</Text>
+                    </View>
+                    <View style={st.legendItem}>
+                        <View style={[st.legendDot, { backgroundColor: '#2a2a2a' }]} />
+                        <Text style={st.legendText}>them</Text>
+                    </View>
+                </View>
+                <Text style={st.tagActivityCount}>{tags.length} tags</Text>
+            </View>
+        </View>
+    );
+});
+
+const LiveCanvasStatus = React.memo(({
+    myOn, partnerOn, partnerName, sessionCount,
+}: {
+    myOn: boolean; partnerOn: boolean; partnerName: string; sessionCount: number;
+}) => {
+    const statusText = myOn && partnerOn
+        ? 'both on -- active'
+        : myOn ? 'only you'
+        : partnerOn ? 'only them'
+        : 'both off';
+    const statusColor = myOn && partnerOn ? '#c8383a' : '#2e2e2e';
+
+    return (
+        <View style={st.canvasContainer}>
+            <Text style={st.sectionTitleSmall}>live canvas</Text>
+            <View style={st.canvasRow}>
+                <Text style={st.canvasLabel}>status with @{partnerName}</Text>
+                <Text style={[st.canvasValue, { color: statusColor }]}>{statusText}</Text>
+            </View>
+            <View style={st.canvasRow}>
+                <Text style={st.canvasLabel}>sessions this month</Text>
+                <Text style={st.canvasValue}>{sessionCount}</Text>
+            </View>
+        </View>
+    );
+});
+
+const ProfileCardLinks = React.memo(({
+    partnerId, partnerName, onPassportTap,
+}: {
+    partnerId: string; partnerName: string; onPassportTap: () => void;
+}) => {
+    const router = useRouter();
+    return (
+        <View style={{ marginHorizontal: 10, marginBottom: 6 }}>
+            <TouchableOpacity
+                style={st.linkRow}
+                onPress={() => router.push({ pathname: '/profile/[id]', params: { id: partnerId } })}
+            >
+                <Text style={st.linkText}>view their profile card</Text>
+                <ChevronRight size={12} color="#2e2e2e" />
+            </TouchableOpacity>
+            <TouchableOpacity style={st.linkRow} onPress={onPassportTap}>
+                <Text style={st.linkText}>communication passport</Text>
+                <ChevronRight size={12} color="#2e2e2e" />
+            </TouchableOpacity>
+        </View>
+    );
+});
+
+// ─── Swipable Locker Card (Reanimated + GestureHandler) ──────────────────────
+
+const SwipableLockerCard = ({
+    label, subLabel, date, badge, onEdit, onDelete,
+}: {
+    label: string; subLabel: string; date: string; badge: string;
+    onEdit: () => void; onDelete: () => void;
+}) => {
+    const translateX = useSharedValue(0);
+
+    const pan = Gesture.Pan()
+        .onUpdate(e => {
+            if (e.translationX < 0) {
+                translateX.value = Math.max(e.translationX, -80);
+            } else if (translateX.value < 0) {
+                translateX.value = Math.min(e.translationX, 0);
+            }
+        })
+        .onEnd(e => {
+            if (e.translationX < -40) {
+                translateX.value = withSpring(-80, { damping: 15, stiffness: 200 });
+            } else {
+                translateX.value = withSpring(0, { damping: 15, stiffness: 200 });
+            }
+        });
+
+    const animStyle = useAnimatedStyle(() => ({
+        transform: [{ translateX: translateX.value }],
+    }));
+
+    return (
+        <View style={st.swipeWrapper}>
+            <View style={st.swipeActions}>
+                <TouchableOpacity style={st.swipeEditBtn} onPress={onEdit}>
+                    <Text style={st.swipeEditText}>edit</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={st.swipeDeleteBtn} onPress={onDelete}>
+                    <Text style={st.swipeDeleteText}>delete</Text>
+                </TouchableOpacity>
+            </View>
+            <GestureDetector gesture={pan}>
+                <Animated.View style={[st.swipeCard, animStyle]}>
+                    <View style={st.swipeCardInner}>
+                        <View style={st.swipeBadgeRow}>
+                            <View style={st.swipeBadge}>
+                                <Text style={st.swipeBadgeText}>{badge}</Text>
+                            </View>
+                        </View>
+                        <Text style={st.swipeLabel} numberOfLines={2}>{label}</Text>
+                        <Text style={st.swipeSub}>{subLabel}</Text>
+                        <Text style={st.swipeDate}>
+                            {new Date(date).toLocaleDateString()}
+                        </Text>
+                    </View>
+                </Animated.View>
+            </GestureDetector>
+        </View>
+    );
+};
+
+// ─── Styles ──────────────────────────────────────────────────────────────────
+
+const st = StyleSheet.create({
+    container: { flex: 1, backgroundColor: '#080808' },
     header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: COLORS.border,
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+        paddingHorizontal: 16, paddingVertical: 10,
+        borderBottomWidth: 0.5, borderBottomColor: '#141414',
     },
     backBtn: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: COLORS.cardBg,
-        alignItems: 'center',
-        justifyContent: 'center',
+        width: 36, height: 36, borderRadius: 18,
+        backgroundColor: '#0e0e0e', alignItems: 'center', justifyContent: 'center',
     },
-    headerTitle: {
-        fontSize: 20,
-        fontWeight: '700',
-        color: COLORS.textPrimary,
-    },
+    headerTitle: { fontSize: 16, fontWeight: '700', color: '#eee' },
     profileSelector: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        backgroundColor: COLORS.cardBg,
-        borderRadius: 16,
-        padding: 16,
-        marginBottom: 16,
-        borderWidth: 1,
-        borderColor: COLORS.border,
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+        backgroundColor: '#0e0e0e', borderRadius: 7, padding: 10,
+        marginHorizontal: 10, marginBottom: 10,
+        borderWidth: 0.5, borderColor: '#141414',
     },
-    profileSelectorContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
+    profileSelectorRow: { flexDirection: 'row', alignItems: 'center' },
+    profileAvatar: { width: 28, height: 28, borderRadius: 14, marginRight: 8 },
+    profileName: { fontSize: 12, fontWeight: '600', color: '#eee' },
+
+    // Stats Grid
+    statsGrid: {
+        flexDirection: 'row', flexWrap: 'wrap', gap: 4,
+        marginHorizontal: 10, marginBottom: 6,
     },
-    profileAvatar: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        marginRight: 12,
+    statTile: {
+        width: '48%', backgroundColor: '#0e0e0e', borderRadius: 7,
+        borderWidth: 0.5, borderColor: '#141414',
+        padding: 8, alignItems: 'center',
     },
-    profileName: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: COLORS.textPrimary,
-    },
-    topRow: {
-        flexDirection: 'row',
-        gap: 12,
-        marginBottom: 16,
-    },
-    matchScoreContainer: {
-        backgroundColor: COLORS.cardBg,
-        borderRadius: 20,
-        padding: 16,
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 1,
-        borderColor: COLORS.border,
-    },
-    matchScoreValue: {
-        fontSize: 28,
-        fontWeight: '700',
-        color: COLORS.textPrimary,
-    },
-    matchScoreLabel: {
-        fontSize: 12,
-        color: COLORS.textSecondary,
-    },
-    tagRatioContainer: {
-        flex: 1,
-        backgroundColor: COLORS.cardBg,
-        borderRadius: 20,
-        padding: 16,
-        borderWidth: 1,
-        borderColor: COLORS.border,
-    },
-    miniTitle: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: COLORS.textPrimary,
-        marginBottom: 12,
-    },
-    tagRatioBar: {
-        flexDirection: 'row',
-        height: 8,
-        borderRadius: 4,
-        overflow: 'hidden',
-        marginBottom: 8,
-    },
-    ratioSegment: {
-        height: '100%',
-    },
-    tagRatioLabels: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-    },
-    ratioLabelText: {
-        fontSize: 10,
-        fontWeight: '600',
-    },
-    insightsCard: {
-        backgroundColor: COLORS.cardBg,
-        borderRadius: 20,
-        padding: 20,
-        marginBottom: 16,
-        borderWidth: 1,
-        borderColor: COLORS.border,
-    },
-    sectionTitle: {
-        fontSize: 16,
-        fontWeight: '700',
-        color: COLORS.textPrimary,
-        marginBottom: 12,
-    },
-    insightsGrid: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        marginBottom: 16,
-    },
-    insightItem: {
-        alignItems: 'center',
-    },
-    insightValue: {
-        fontSize: 20,
-        fontWeight: '700',
-        color: COLORS.textPrimary,
-        marginTop: 8,
-    },
-    insightLabel: {
-        fontSize: 11,
-        color: COLORS.textSecondary,
-        marginTop: 4,
-    },
-    ratioContainer: {
-        marginTop: 8,
-    },
-    ratioLabel: {
-        fontSize: 12,
-        color: COLORS.textSecondary,
-        marginBottom: 8,
-    },
+    statValue: { fontSize: 13, fontWeight: '700', color: '#eee' },
+    statLabel: { fontSize: 7, color: '#2e2e2e', textTransform: 'uppercase', marginTop: 2 },
     ratioBar: {
-        flexDirection: 'row',
-        height: 8,
-        borderRadius: 4,
-        overflow: 'hidden',
+        width: '100%', height: 3, backgroundColor: '#141414',
+        borderRadius: 2, overflow: 'hidden', marginVertical: 3,
     },
-    ratioFill: {
-        height: '100%',
+    ratioFill: { height: '100%', backgroundColor: '#eee', borderRadius: 2 },
+
+    // Hard No Banner
+    hardNoBanner: {
+        backgroundColor: '#120808', borderRadius: 7,
+        borderWidth: 0.5, borderColor: '#2e1a1a',
+        marginHorizontal: 10, marginBottom: 6, padding: 8,
     },
-    ratioLabels: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginTop: 8,
+    hardNoTitle: { fontSize: 9, fontWeight: '700', color: '#c8383a', marginBottom: 2 },
+    hardNoBody: { fontSize: 8, color: '#4a2020', lineHeight: 11 },
+    hardNoMore: { fontSize: 8, color: '#c8383a', marginTop: 3 },
+
+    // Section titles
+    sectionTitleSmall: {
+        fontSize: 8, color: '#2e2e2e', textTransform: 'uppercase',
+        fontWeight: '700', letterSpacing: 0.5, marginBottom: 6,
     },
-    ratioText: {
-        fontSize: 11,
-        color: COLORS.textSecondary,
+
+    // Tag Activity
+    tagActivityContainer: {
+        marginHorizontal: 10, marginBottom: 6,
+        backgroundColor: '#0e0e0e', borderRadius: 7,
+        borderWidth: 0.5, borderColor: '#141414', padding: 10,
     },
-    chartContainer: {
-        backgroundColor: COLORS.cardBg,
-        borderRadius: 20,
-        padding: 20,
-        marginBottom: 16,
-        borderWidth: 1,
-        borderColor: COLORS.border,
+    tagActivityRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    tagActivityLegend: { flexDirection: 'row', gap: 10 },
+    legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    legendDot: { width: 6, height: 6, borderRadius: 3 },
+    legendText: { fontSize: 8, color: '#555' },
+    tagActivityCount: { fontSize: 9, color: '#555' },
+
+    // Canvas Status
+    canvasContainer: {
+        marginHorizontal: 10, marginBottom: 6,
+        backgroundColor: '#0e0e0e', borderRadius: 7,
+        borderWidth: 0.5, borderColor: '#141414', padding: 10,
     },
-    chartTitle: {
-        fontSize: 16,
-        fontWeight: '700',
-        color: COLORS.textPrimary,
-        marginBottom: 12,
-    },
-    chartLegend: {
-        flexDirection: 'row',
-        gap: 16,
-        marginBottom: 12,
-    },
-    legendItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    legendDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        marginRight: 6,
-    },
-    legendText: {
-        fontSize: 12,
-        color: COLORS.textSecondary,
-    },
-    barsContainer: {
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        alignItems: 'flex-end',
-        height: 80,
-    },
-    barGroup: {
-        alignItems: 'center',
-    },
-    barPair: {
-        flexDirection: 'row',
-        alignItems: 'flex-end',
-        gap: 4,
-    },
-    bar: {
-        width: 24,
-        borderRadius: 4,
-    },
-    barLabel: {
-        fontSize: 11,
-        color: COLORS.textSecondary,
-        marginTop: 8,
-    },
-    tabs: {
-        flexDirection: 'row',
-        gap: 8,
-        marginBottom: 16,
-        flexWrap: 'wrap',
-    },
-    tab: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        paddingVertical: 10,
-        paddingHorizontal: 14,
-        borderRadius: 12,
-        backgroundColor: COLORS.cardBg,
-        borderWidth: 1,
-        borderColor: COLORS.border,
-    },
-    tabText: {
-        fontSize: 12,
-        fontWeight: '600',
-    },
-    swipeHint: {
-        fontSize: 11,
-        color: COLORS.textMuted,
-        marginBottom: 12,
-    },
-    cardWrapper: {
-        position: 'relative',
-    },
-    cardActions: {
-        position: 'absolute',
-        right: 0,
-        top: 0,
-        bottom: 0,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        paddingRight: 8,
-    },
-    actionBtn: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    swipableCard: {
-        flexDirection: 'row',
-        backgroundColor: COLORS.cardBg,
-        borderRadius: 16,
-        overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: COLORS.border,
-    },
-    cardColorBar: {
-        width: 4,
-    },
-    cardContent: {
-        flex: 1,
-        padding: 16,
-    },
-    cardHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        marginBottom: 8,
-    },
-    tagBadge: {
-        paddingHorizontal: 8,
+    canvasRow: {
+        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
         paddingVertical: 4,
-        borderRadius: 6,
     },
-    tagBadgeText: {
-        fontSize: 10,
-        fontWeight: '700',
+    canvasLabel: { fontSize: 9, color: '#555' },
+    canvasValue: { fontSize: 9, color: '#eee', fontWeight: '600' },
+
+    // Profile Card Links
+    linkRow: {
+        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+        backgroundColor: '#0e0e0e', borderRadius: 7,
+        borderWidth: 0.5, borderColor: '#141414',
+        paddingHorizontal: 9, paddingVertical: 7, marginBottom: 4,
     },
-    countBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
+    linkText: { fontSize: 9, color: '#555' },
+
+    // Locker
+    lockerSection: { marginHorizontal: 10, marginTop: 6 },
+    lockerTabs: { flexDirection: 'row', gap: 6, marginBottom: 8 },
+    lockerTab: {
+        paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6,
+        backgroundColor: '#0e0e0e', borderWidth: 0.5, borderColor: '#141414',
     },
-    countText: {
-        fontSize: 10,
-        color: COLORS.textSecondary,
+    lockerTabActive: { backgroundColor: '#eee', borderColor: '#eee' },
+    lockerTabText: { fontSize: 10, color: '#555', fontWeight: '600' },
+    lockerTabTextActive: { color: '#080808' },
+    swipeHint: { fontSize: 7, color: '#2e2e2e', marginBottom: 8 },
+
+    subSectionTitle: {
+        fontSize: 8, color: '#2e2e2e', textTransform: 'uppercase',
+        fontWeight: '700', letterSpacing: 0.5, marginTop: 12, marginBottom: 6,
     },
-    cardMainText: {
-        fontSize: 14,
-        color: COLORS.textPrimary,
-        marginBottom: 4,
+
+    // Read-only cards
+    readOnlyCard: {
+        flexDirection: 'row', alignItems: 'center',
+        backgroundColor: '#0e0e0e', borderRadius: 6,
+        borderWidth: 0.5, borderColor: '#141414',
+        padding: 7, marginBottom: 4,
     },
-    keywordText: {
-        fontSize: 12,
-        color: COLORS.textSecondary,
-        fontStyle: 'italic',
-        marginBottom: 4,
+    readOnlyCardRed: { backgroundColor: '#120808', borderColor: '#2e1a1a' },
+    readOnlyIcon: {
+        width: 20, height: 20, borderRadius: 4,
+        backgroundColor: '#141414', alignItems: 'center', justifyContent: 'center',
+        marginRight: 7,
     },
-    dateText: {
-        fontSize: 11,
-        color: COLORS.textMuted,
+    readOnlyIconRed: { backgroundColor: '#1a0e0e' },
+    readOnlyIconText: { fontSize: 9, fontWeight: '700', color: '#555' },
+    readOnlyLabel: { fontSize: 9, fontWeight: '600', color: '#eee' },
+    readOnlySub: { fontSize: 7, color: '#2e2e2e', marginTop: 1 },
+    readOnlyBadge: {
+        backgroundColor: '#1a0e0e', borderRadius: 4,
+        paddingHorizontal: 5, paddingVertical: 2, marginLeft: 6,
     },
-    emptyState: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 40,
+    readOnlyBadgeText: { fontSize: 8, fontWeight: '700', color: '#c8383a' },
+
+    // Pattern insight
+    patternInsight: { fontSize: 8, color: '#333', marginTop: 8 },
+
+    // Swipable card
+    swipeWrapper: { position: 'relative', marginBottom: 4 },
+    swipeActions: {
+        position: 'absolute', right: 0, top: 0, bottom: 0,
+        flexDirection: 'row', alignItems: 'center', gap: 2, paddingRight: 2,
     },
-    emptyText: {
-        fontSize: 14,
-        color: COLORS.textMuted,
-        marginTop: 12,
+    swipeEditBtn: {
+        width: 36, height: '100%', backgroundColor: '#141414',
+        borderRadius: 4, borderWidth: 0.5, borderColor: '#1c1c1c',
+        alignItems: 'center', justifyContent: 'center',
     },
+    swipeEditText: { fontSize: 9, color: '#555' },
+    swipeDeleteBtn: {
+        width: 36, height: '100%', backgroundColor: '#1a0e0e',
+        borderRadius: 4, borderWidth: 0.5, borderColor: '#2e1a1a',
+        alignItems: 'center', justifyContent: 'center',
+    },
+    swipeDeleteText: { fontSize: 9, color: '#c8383a' },
+    swipeCard: {
+        backgroundColor: '#0e0e0e', borderRadius: 6,
+        borderWidth: 0.5, borderColor: '#141414', overflow: 'hidden',
+    },
+    swipeCardInner: { padding: 8 },
+    swipeBadgeRow: { flexDirection: 'row', marginBottom: 4 },
+    swipeBadge: {
+        backgroundColor: '#141414', borderRadius: 3,
+        paddingHorizontal: 5, paddingVertical: 1,
+    },
+    swipeBadgeText: { fontSize: 7, fontWeight: '700', color: '#555' },
+    swipeLabel: { fontSize: 10, color: '#eee', marginBottom: 2 },
+    swipeSub: { fontSize: 8, color: '#2e2e2e', marginBottom: 2 },
+    swipeDate: { fontSize: 7, color: '#2e2e2e' },
+
+    // Empty state
+    emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 30 },
+    emptyText: { fontSize: 9, color: '#2e2e2e', marginTop: 6 },
+
+    // FAB
     fab: {
-        position: 'absolute',
-        bottom: 24,
-        right: 24,
-        width: 56,
-        height: 56,
-        borderRadius: 28,
-        backgroundColor: COLORS.accentBlue,
-        alignItems: 'center',
-        justifyContent: 'center',
-        shadowColor: COLORS.accentBlue,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 8,
+        position: 'absolute', bottom: 24, right: 24,
+        width: 44, height: 44, borderRadius: 22,
+        backgroundColor: '#c8383a', alignItems: 'center', justifyContent: 'center',
     },
+
+    // Modals
     modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.6)',
-        justifyContent: 'flex-start',
-        paddingTop: 120,
+        flex: 1, backgroundColor: 'rgba(0,0,0,0.6)',
+        justifyContent: 'flex-start', paddingTop: 120,
     },
-    dropdownContainer: {
-        marginHorizontal: 24,
-    },
-    dropdownBlur: {
-        borderRadius: 20,
-        overflow: 'hidden',
-    },
+    dropdownContainer: { marginHorizontal: 24 },
+    dropdownBlur: { borderRadius: 16, overflow: 'hidden' },
     dropdownItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: COLORS.border,
+        flexDirection: 'row', alignItems: 'center', padding: 12,
+        borderBottomWidth: 0.5, borderBottomColor: '#141414',
     },
-    dropdownAvatar: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        marginRight: 12,
-    },
-    dropdownName: {
-        flex: 1,
-        fontSize: 16,
-        fontWeight: '600',
-        color: COLORS.textPrimary,
-    },
-    selectedDot: {
-        width: 10,
-        height: 10,
-        borderRadius: 5,
-        backgroundColor: COLORS.accentBlue,
-    },
+    dropdownAvatar: { width: 36, height: 36, borderRadius: 18, marginRight: 10 },
+    dropdownName: { flex: 1, fontSize: 13, fontWeight: '600', color: '#eee' },
+    selectedDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#c8383a' },
+
     bottomModalOverlay: {
-        flex: 1,
-        justifyContent: 'flex-end',
-        backgroundColor: 'rgba(0,0,0,0.5)',
+        flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)',
     },
     bottomModal: {
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
-        padding: 24,
-        overflow: 'hidden',
+        backgroundColor: '#0e0e0e',
+        borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 20,
     },
     modalHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 20,
+        flexDirection: 'row', justifyContent: 'space-between',
+        alignItems: 'center', marginBottom: 16,
     },
-    modalTitle: {
-        fontSize: 20,
-        fontWeight: '700',
-        color: COLORS.textPrimary,
-    },
-    inputLabel: {
-        fontSize: 13,
-        color: COLORS.textSecondary,
-        marginBottom: 8,
-    },
+    modalTitle: { fontSize: 14, fontWeight: '700', color: '#eee' },
+    inputLabel: { fontSize: 9, color: '#555', marginBottom: 4 },
     input: {
-        backgroundColor: COLORS.cardBg,
-        borderRadius: 12,
-        padding: 16,
-        fontSize: 15,
-        color: COLORS.textPrimary,
-        borderWidth: 1,
-        borderColor: COLORS.border,
-        marginBottom: 16,
+        backgroundColor: '#141414', borderRadius: 7, padding: 10,
+        fontSize: 11, color: '#eee', borderWidth: 0.5, borderColor: '#1c1c1c',
+        marginBottom: 10,
     },
     saveBtn: {
-        backgroundColor: COLORS.accentBlue,
-        borderRadius: 12,
-        padding: 16,
-        alignItems: 'center',
+        backgroundColor: '#c8383a', borderRadius: 7, padding: 10, alignItems: 'center',
     },
-    saveBtnText: {
-        fontSize: 16,
-        fontWeight: '700',
-        color: '#fff',
-    },
-    accessCard: {
-        backgroundColor: COLORS.cardBg,
-        borderRadius: 20,
-        padding: 20,
-        marginBottom: 16,
-        borderWidth: 1,
-        borderColor: COLORS.border,
-    },
-    accessCardHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 16,
-    },
-    accessCardContent: {
-        flex: 1,
-        marginLeft: 16,
-    },
-    accessCardTitle: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: COLORS.textPrimary,
-        marginBottom: 4,
-    },
-    accessCardDesc: {
-        fontSize: 13,
-        color: COLORS.textSecondary,
-    },
-    accessBtn: {
-        backgroundColor: COLORS.accentBlue,
-        borderRadius: 12,
-        paddingVertical: 12,
-        paddingHorizontal: 20,
-        alignItems: 'center',
-        alignSelf: 'flex-start',
-    },
-    accessBtnText: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#fff',
-    },
+    saveBtnText: { fontSize: 11, fontWeight: '700', color: '#fff' },
 });

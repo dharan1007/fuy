@@ -43,6 +43,32 @@ async function createPostHandler(request: NextRequest) {
             return NextResponse.json({ error: 'User ID required' }, { status: 400 });
         }
 
+        // ===== TEXT CONTENT MODERATION =====
+        // Check post content (caption/description) for prohibited material
+        const textToModerate = [
+            content || '',
+            ...(slashes || []),
+        ].join(' ');
+
+        const moderationResult = moderateContent(textToModerate);
+        if (!moderationResult.isClean) {
+            // Log the moderation event
+            await prisma.moderationLog.create({
+                data: {
+                    userId,
+                    content: textToModerate.slice(0, 500),
+                    reason: 'BLOCK',
+                    violations: JSON.stringify(moderationResult.flaggedTerms.slice(0, 10)),
+                    severity: moderationResult.categories.includes('terrorism') || moderationResult.categories.includes('violence') ? 'high' : 'medium',
+                }
+            });
+
+            return NextResponse.json(
+                { error: getModerationErrorMessage(moderationResult) },
+                { status: 400 }
+            );
+        }
+
         // Logic for unique product code
         let taggedProductId = null;
         if (body.taggedProductCode) {

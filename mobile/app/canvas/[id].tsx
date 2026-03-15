@@ -443,14 +443,14 @@ export default function CanvasEditorScreen() {
                     {block.type === 'AUDIO' && (
                         <View style={{ height: 80, borderRadius: 12, backgroundColor: mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', alignItems: 'center', justifyContent: 'center' }}>
                             <Mic size={24} color={mode === 'dark' ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)'} />
-                            <Text style={{ marginTop: 8, fontSize: 13, color: mode === 'dark' ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)' }}>Audio recording coming soon</Text>
+                            <Text style={{ marginTop: 8, fontSize: 13, color: mode === 'dark' ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)' }}>Audio recording unavailable</Text>
                         </View>
                     )}
 
                     {block.type === 'DRAW' && (
                         <View style={{ height: 150, borderRadius: 12, backgroundColor: mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', alignItems: 'center', justifyContent: 'center' }}>
                             <PenTool size={24} color={mode === 'dark' ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)'} />
-                            <Text style={{ marginTop: 8, fontSize: 13, color: mode === 'dark' ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)' }}>Drawing canvas coming soon</Text>
+                            <Text style={{ marginTop: 8, fontSize: 13, color: mode === 'dark' ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)' }}>Drawing canvas unavailable</Text>
                         </View>
                     )}
                 </View>

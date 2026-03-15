@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Dimensions, FlatList, TouchableOpacity, Image, Modal, Alert, ScrollView, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, FlatList, TouchableOpacity, Modal, Alert, ScrollView, RefreshControl, TextInput } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,10 +17,15 @@ import { VerifiedBadge } from '../../components/VerifiedBadge';
 import { useToast } from '../../context/ToastContext';
 import ShareCardModal from '../../components/ShareCardModal';
 import PostAnalyticsModal from '../../components/PostAnalyticsModal';
-import InviteFriendsCard from '../../components/InviteFriendsCard';
+import { SlashService, Slash, SlashContribution } from '../../services/SlashService';
+import SlashCreationSheet from '../../components/SlashCreationSheet';
+import SlashManagementSheet from '../../components/SlashManagementSheet';
+import Svg, { Circle } from 'react-native-svg';
+import { getProfileCompletionScore } from '../../utils/profileCompletion';
 
 const { width } = Dimensions.get('window');
 const COLUMN_WIDTH = width / 3 - 2;
+const POST_GAP = 2;
 
 interface Post {
     id: string;
@@ -74,12 +80,25 @@ export default function ProfileScreen() {
     const [myCardCode, setMyCardCode] = useState<string | null>(null);
     const [postFilter, setPostFilter] = useState<'ALL' | 'FILLS' | 'LILLS' | 'SIMPLE' | 'AUDIO' | 'CHANNELS' | 'XRAYS'>('ALL');
     const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
+    const [mySlashes, setMySlashes] = useState<Slash[]>([]);
+    const [myContributions, setMyContributions] = useState<SlashContribution[]>([]);
+    const [showSlashCreate, setShowSlashCreate] = useState(false);
+    const [managingSlash, setManagingSlash] = useState<Slash | null>(null);
 
+    // Phase 2: New UI state
+    const [currentVibe, setCurrentVibe] = useState<string | null>(null);
+    const [showVibePicker, setShowVibePicker] = useState(false);
+    const [vibeInput, setVibeInput] = useState('');
+    const [mutualCount, setMutualCount] = useState(0);
+    const [completionScore, setCompletionScore] = useState(0);
+    const [completionTasks, setCompletionTasks] = useState<any[]>([]);
+    const [showCompletionSheet, setShowCompletionSheet] = useState(false);
+    const [rawProfile, setRawProfile] = useState<Record<string, any> | null>(null);
 
     // Batch Selection State
     const [isSelectionMode, setIsSelectionMode] = useState(false);
     const [selectedPostIds, setSelectedPostIds] = useState<Set<string>>(new Set());
-    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false); // New State
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
 
     // Batch Selection Handlers
@@ -170,7 +189,7 @@ export default function ProfileScreen() {
             // 1. Fetch User & Profile with all fields
             const { data: userData, error: userError } = await supabase
                 .from('User')
-                .select(`id, name, isHumanVerified, profileCode, profile:Profile(displayName, avatarUrl, bio, coverImageUrl, coverVideoUrl, location, tags, stalkMe)`)
+                .select(`id, name, isHumanVerified, profileCode, profile:Profile(displayName, avatarUrl, bio, coverImageUrl, coverVideoUrl, location, tags, stalkMe, current_vibe, conversationStarter, city, workHistory, education)`)
                 .eq('id', userId)
                 .single();
 
@@ -250,6 +269,33 @@ export default function ProfileScreen() {
                 stats: { posts: allPosts.length, friends: 0 },
                 posts: allPosts
             });
+
+            // Phase 2: current vibe, mutuals, completion
+            setCurrentVibe(profileObj?.current_vibe || null);
+            setRawProfile(profileObj);
+            const comp = getProfileCompletionScore(profileObj || {});
+            setCompletionScore(comp.score);
+            setCompletionTasks(comp.tasks);
+
+            // Fetch mutual count via RPC
+            try {
+                const { data: mutData } = await supabase.rpc('get_mutual_count', { user_a: userId });
+                if (typeof mutData === 'number') setMutualCount(mutData);
+            } catch (mutErr) {
+                console.log('Mutuals fetch non-fatal:', mutErr);
+            }
+
+            // Fetch slash data in parallel
+            try {
+                const [slashesResult, contribResult] = await Promise.all([
+                    SlashService.getUserSlashes(userId),
+                    SlashService.getUserContributions(userId),
+                ]);
+                if (slashesResult.success && slashesResult.data) setMySlashes(slashesResult.data);
+                if (contribResult.success && contribResult.data) setMyContributions(contribResult.data);
+            } catch (slashErr) {
+                console.log('Slash fetch non-fatal:', slashErr);
+            }
 
         } catch (e) {
             console.error('Fetch profile error:', e);
@@ -449,7 +495,7 @@ export default function ProfileScreen() {
                 <Image
                     source={{ uri: profile?.coverImageUrl || 'https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=1000&auto=format&fit=crop&q=60' }}
                     style={{ width: '100%', height: '100%' }}
-                    resizeMode="cover"
+                    contentFit="cover"
                 />
             )}
             <LinearGradient
@@ -482,14 +528,25 @@ export default function ProfileScreen() {
             {/* Profile Avatar & Quick Actions */}
             <View className="absolute -bottom-14 left-6 flex-row items-end">
                 <View className="relative">
+                    {/* Completion Ring (SVG) around Avatar */}
+                    {completionScore < 100 && (
+                        <Svg width={128} height={128} style={{ position: 'absolute', top: -2, left: -2, zIndex: 10 }}>
+                            <Circle cx={64} cy={64} r={60} stroke="rgba(255,255,255,0.1)" strokeWidth={3} fill="none" />
+                            <Circle cx={64} cy={64} r={60} stroke={colors.primary || '#c8383a'} strokeWidth={3} fill="none"
+                                strokeDasharray={`${(completionScore / 100) * 2 * Math.PI * 60} ${2 * Math.PI * 60}`}
+                                strokeLinecap="round" rotation={-90} origin="64,64" />
+                        </Svg>
+                    )}
                     {/* Liquid Glass Avatar Border */}
-                    <BlurView intensity={20} tint={mode === 'light' ? 'light' : 'dark'} className="p-1 rounded-[36px] overflow-hidden">
-                        <Image
-                            source={{ uri: profile?.avatarUrl }}
-                            className="w-28 h-28 rounded-[32px]"
-                            style={{ backgroundColor: colors.secondary }}
-                        />
-                    </BlurView>
+                    <TouchableOpacity onPress={() => completionScore < 100 && setShowCompletionSheet(true)} activeOpacity={0.9}>
+                        <BlurView intensity={20} tint={mode === 'light' ? 'light' : 'dark'} className="p-1 rounded-[36px] overflow-hidden">
+                            <Image
+                                source={{ uri: profile?.avatarUrl }}
+                                className="w-28 h-28 rounded-[32px]"
+                                style={{ backgroundColor: colors.secondary }}
+                            />
+                        </BlurView>
+                    </TouchableOpacity>
 
                     <TouchableOpacity style={{ backgroundColor: colors.card }} className="absolute bottom-0 right-0 rounded-full p-2">
                         <Camera color={colors.text} size={16} />
@@ -524,9 +581,20 @@ export default function ProfileScreen() {
                             <Text style={{ color: colors.secondary }} className="text-sm italic">Add a bio...</Text>
                         </TouchableOpacity>
                     )}
+
+                    {/* Current Vibe Pill */}
+                    <TouchableOpacity onPress={() => { setVibeInput(currentVibe || ''); setShowVibePicker(true); }}
+                        style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: currentVibe ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.08)', backgroundColor: 'rgba(255,255,255,0.05)', alignSelf: 'flex-start' }}>
+                        {currentVibe ? (
+                            <Text style={{ color: colors.text, fontSize: 12 }}>{String.fromCodePoint(0x25CF)} {currentVibe}</Text>
+                        ) : (
+                            <Text style={{ color: colors.secondary, fontSize: 12, fontStyle: 'italic' }}>+ Add a vibe...</Text>
+                        )}
+                    </TouchableOpacity>
+
                     {profile?.tags && (
                         <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 8, gap: 6 }}>
-                            {profile.tags.split(',').map((tag, i) => (
+                            {profile.tags.split(',').map((tag: string, i: number) => (
                                 <View key={i} style={{ backgroundColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
                                     <Text style={{ color: colors.secondary, fontSize: 11 }}>{tag.trim()}</Text>
                                 </View>
@@ -536,23 +604,97 @@ export default function ProfileScreen() {
                 </View>
             </View>
 
-            {/* Glass Stats Card */}
-            <BlurView intensity={30} tint={mode === 'light' ? 'light' : 'dark'} className="flex-row justify-between w-full px-6 py-4 mb-8 rounded-3xl overflow-hidden">
-                <TouchableOpacity onPress={() => router.push({ pathname: '/following', params: { initialTab: 'following' } })} className="items-center flex-1">
-                    <Text style={{ color: colors.text }} className="text-lg font-bold">{profileData?.followingCount || 0}</Text>
-                    <Text style={{ color: colors.secondary }} className="text-xs uppercase tracking-wider">Following</Text>
-                </TouchableOpacity>
-                <View className="w-[1px] h-full" style={{ backgroundColor: 'rgba(255,255,255,0.2)' }} />
-                <TouchableOpacity onPress={() => router.push({ pathname: '/following', params: { initialTab: 'followers' } })} className="items-center flex-1">
-                    <Text style={{ color: colors.text }} className="text-lg font-bold">{profileData?.followersCount || 0}</Text>
-                    <Text style={{ color: colors.secondary }} className="text-xs uppercase tracking-wider">Followers</Text>
-                </TouchableOpacity>
-                <View className="w-[1px] h-full" style={{ backgroundColor: 'rgba(255,255,255,0.2)' }} />
-                <View className="items-center flex-1">
-                    <Text style={{ color: colors.text }} className="text-lg font-bold">{stats?.posts || 0}</Text>
-                    <Text style={{ color: colors.secondary }} className="text-xs uppercase tracking-wider">Posts</Text>
+            {/* Glass Stats Card -- Phase 4: increased blur + dark overlay */}
+            <View style={{ borderRadius: 24, overflow: 'hidden', marginBottom: 32 }}>
+                <BlurView intensity={50} tint={mode === 'light' ? 'light' : 'dark'} style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', paddingHorizontal: 24, paddingVertical: 16 }}>
+                    <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.3)' }} />
+                    <TouchableOpacity onPress={() => router.push({ pathname: '/following', params: { initialTab: 'following' } })} style={{ alignItems: 'center', flex: 1 }}>
+                        <Text style={{ color: colors.text, fontSize: 18, fontWeight: 'bold' }}>{profileData?.followingCount || 0}</Text>
+                        <Text style={{ color: colors.secondary, fontSize: 10, textTransform: 'uppercase', letterSpacing: 1 }}>Following</Text>
+                    </TouchableOpacity>
+                    <View style={{ width: 1, backgroundColor: 'rgba(255,255,255,0.15)' }} />
+                    <TouchableOpacity onPress={() => router.push({ pathname: '/following', params: { initialTab: 'followers' } })} style={{ alignItems: 'center', flex: 1 }}>
+                        <Text style={{ color: colors.text, fontSize: 18, fontWeight: 'bold' }}>{profileData?.followersCount || 0}</Text>
+                        <Text style={{ color: colors.secondary, fontSize: 10, textTransform: 'uppercase', letterSpacing: 1 }}>Followers</Text>
+                    </TouchableOpacity>
+                    <View style={{ width: 1, backgroundColor: 'rgba(255,255,255,0.15)' }} />
+                    <View style={{ alignItems: 'center', flex: 1 }}>
+                        <Text style={{ color: colors.text, fontSize: 18, fontWeight: 'bold' }}>{stats?.posts || 0}</Text>
+                        <Text style={{ color: colors.secondary, fontSize: 10, textTransform: 'uppercase', letterSpacing: 1 }}>Posts</Text>
+                    </View>
+                    <View style={{ width: 1, backgroundColor: 'rgba(255,255,255,0.15)' }} />
+                    <TouchableOpacity onPress={() => router.push({ pathname: '/following', params: { initialTab: 'following' } })} style={{ alignItems: 'center', flex: 1 }}>
+                        <Text style={{ color: colors.text, fontSize: 18, fontWeight: 'bold' }}>{mutualCount}</Text>
+                        <Text style={{ color: colors.secondary, fontSize: 10, textTransform: 'uppercase', letterSpacing: 1 }}>Mutuals</Text>
+                    </TouchableOpacity>
+                </BlurView>
+            </View>
+
+            {/* My Slashes Section */}
+            <View style={{ marginBottom: 12 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <Text style={{ color: '#555', fontSize: 9, fontWeight: '600', letterSpacing: 1, textTransform: 'uppercase' }}>my slashes</Text>
+                    <TouchableOpacity onPress={() => setShowSlashCreate(true)}>
+                        <Text style={{ color: '#c8383a', fontSize: 9, fontWeight: '600' }}>+ create</Text>
+                    </TouchableOpacity>
                 </View>
-            </BlurView>
+                <FlatList
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    data={[...mySlashes, { id: '__new__' } as any]}
+                    keyExtractor={item => item.id}
+                    renderItem={({ item }) => {
+                        if (item.id === '__new__') {
+                            return (
+                                <TouchableOpacity onPress={() => setShowSlashCreate(true)} style={{ width: 100, borderRadius: 8, borderWidth: 1, borderStyle: 'dashed', borderColor: '#1c1c1c', padding: 8, alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
+                                    <Text style={{ color: '#1e1e1e', fontSize: 10 }}>+ new slash</Text>
+                                </TouchableOpacity>
+                            );
+                        }
+                        return (
+                            <TouchableOpacity onPress={() => setManagingSlash(item)} style={{ width: 100, borderRadius: 8, backgroundColor: '#0e0e0e', borderWidth: 0.5, borderColor: '#1c1c1c', padding: 8, marginRight: 8 }}>
+                                <Text style={{ color: '#eee', fontSize: 10, fontWeight: '700' }} numberOfLines={1}>/{item.name}</Text>
+                                <Text style={{ color: '#2e2e2e', fontSize: 8, marginTop: 2 }}>{item.lillCount} lills  {item.contributorCount} contribs</Text>
+                                <Text style={{ color: '#1e1e1e', fontSize: 7, fontFamily: 'monospace', marginTop: 2 }}>{item.slashCode}</Text>
+                                <View style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginTop: 4, backgroundColor: item.accessMode === 'locked' ? '#1a0e0e' : '#0e1a0e', alignSelf: 'flex-start' }}>
+                                    <Text style={{ fontSize: 8, fontWeight: '700', color: item.accessMode === 'locked' ? '#c8383a' : '#4a8a4a' }}>{item.accessMode}</Text>
+                                </View>
+                                {(item as any).pendingCount > 0 && (
+                                    <View style={{ position: 'absolute', top: 4, right: 4, width: 14, height: 14, borderRadius: 7, backgroundColor: '#c8383a', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Text style={{ color: '#fff', fontSize: 7, fontWeight: '700' }}>{(item as any).pendingCount}</Text>
+                                    </View>
+                                )}
+                            </TouchableOpacity>
+                        );
+                    }}
+                />
+            </View>
+
+            {/* Contributing To Section */}
+            {myContributions.length > 0 && (
+                <View style={{ marginBottom: 12 }}>
+                    <Text style={{ color: '#555', fontSize: 9, fontWeight: '600', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 }}>contributing to</Text>
+                    <FlatList
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        data={myContributions}
+                        keyExtractor={item => item.id}
+                        renderItem={({ item }) => {
+                            const slash = item.slash as any;
+                            if (!slash) return null;
+                            return (
+                                <View style={{ width: 100, borderRadius: 8, backgroundColor: '#0e0e0e', borderWidth: 0.5, borderColor: '#1c1c1c', padding: 8, marginRight: 8 }}>
+                                    <Text style={{ color: '#eee', fontSize: 10, fontWeight: '700' }} numberOfLines={1}>/{slash.name}</Text>
+                                    <Text style={{ color: '#2e2e2e', fontSize: 8, marginTop: 2 }}>{slash.lillCount} lills</Text>
+                                    <View style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginTop: 4, backgroundColor: '#141414', alignSelf: 'flex-start' }}>
+                                        <Text style={{ fontSize: 8, fontWeight: '700', color: '#555' }}>approved</Text>
+                                    </View>
+                                </View>
+                            );
+                        }}
+                    />
+                </View>
+            )}
 
             {/* Profile Actions */}
             <View className="flex-row gap-2 mb-6">
@@ -741,11 +883,11 @@ export default function ProfileScreen() {
             // For videos, prioritize thumbnailUrl 
             if (firstMedia.thumbnailUrl) {
                 mediaUrl = firstMedia.thumbnailUrl;
-            } else if (firstMedia.type === 'IMAGE' || firstMedia.url?.match(/\.(jpg|jpeg|png|webp|gif)$/i)) {
-                // It's an image, use directly
+            } else if (firstMedia.url) {
+                // Safely grab the first media URL available
                 mediaUrl = firstMedia.url;
             } else {
-                // It's a video without thumbnailUrl - try to find another image in the array
+                // Secondary check: look for any image in the array
                 const imageMedia = post.media.find((m: any) =>
                     m.type === 'IMAGE' ||
                     m.url?.match(/\.(jpg|jpeg|png|webp|gif)$/i)
@@ -901,7 +1043,7 @@ export default function ProfileScreen() {
                             <Image
                                 source={{ uri: mediaUrl }}
                                 style={{ width: '100%', height: '100%' }}
-                                resizeMode="cover"
+                                contentFit="cover"
                             />
                             <View style={{ position: 'absolute', inset: 0, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)' }}>
                                 <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.9)', justifyContent: 'center', alignItems: 'center' }}>
@@ -913,7 +1055,7 @@ export default function ProfileScreen() {
                         <Image
                             source={{ uri: mediaUrl }}
                             style={{ width: '100%', height: '100%' }}
-                            resizeMode="cover"
+                            contentFit="cover"
                         />
                     )
                 ) : (
@@ -928,20 +1070,34 @@ export default function ProfileScreen() {
                     </View>
                 )}
 
-                {/* Post Type Badge */}
-                <View style={{
-                    position: 'absolute',
-                    top: 8,
-                    left: 8,
-                    backgroundColor: 'rgba(0,0,0,0.7)',
-                    paddingHorizontal: 8,
-                    paddingVertical: 3,
-                    borderRadius: 8
-                }}>
-                    <Text style={{ color: '#fff', fontSize: 9, fontWeight: '700', textTransform: 'uppercase' }}>
-                        {post.postType || 'POST'}
-                    </Text>
-                </View>
+                {/* Post Type Badge -- Phase 4: colored badges */}
+                {(() => {
+                    const type = (post.postType || 'POST').toUpperCase();
+                    const badgeColors: Record<string, { bg: string; text: string }> = {
+                        'XRAY': { bg: 'rgba(245,158,11,0.3)', text: '#f59e0b' },
+                        'LILL': { bg: 'rgba(20,184,166,0.3)', text: '#14b8a6' },
+                        'SIMPLE': { bg: 'rgba(6,182,212,0.3)', text: '#06b6d4' },
+                        'FILL': { bg: 'rgba(6,182,212,0.3)', text: '#06b6d4' },
+                        'AUD': { bg: 'rgba(251,146,60,0.3)', text: '#fb923c' },
+                        'CHAN': { bg: 'rgba(255,255,255,0.15)', text: '#fff' },
+                    };
+                    const c = badgeColors[type] || { bg: 'rgba(0,0,0,0.7)', text: '#fff' };
+                    return (
+                        <View style={{
+                            position: 'absolute',
+                            top: 8,
+                            left: 8,
+                            backgroundColor: c.bg,
+                            paddingHorizontal: 8,
+                            paddingVertical: 3,
+                            borderRadius: 8
+                        }}>
+                            <Text style={{ color: c.text, fontSize: 9, fontWeight: '700', textTransform: 'uppercase' }}>
+                                {type}
+                            </Text>
+                        </View>
+                    );
+                })()}
 
                 {/* Video indicator */}
                 {isVideo && (
@@ -1060,10 +1216,98 @@ export default function ProfileScreen() {
                 {renderHeader()}
                 {renderStats()}
                 {renderContent()}
-                <InviteFriendsCard />
             </ScrollView>
             {renderSocialModal()}
             {renderStalkMeModal()}
+
+            {/* Vibe Picker Modal */}
+            <Modal visible={showVibePicker} animationType="slide" transparent onRequestClose={() => setShowVibePicker(false)}>
+                <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                    <View style={{ backgroundColor: colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, borderTopWidth: 1, borderColor: colors.border }}>
+                        <Text style={{ color: colors.text, fontSize: 18, fontWeight: '800', marginBottom: 4 }}>Set Your Vibe</Text>
+                        <Text style={{ color: colors.secondary, fontSize: 12, marginBottom: 16 }}>What is your energy right now? (max 60 chars)</Text>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+                            {['Locked in', 'Chilling', 'Exploring', 'Creating', 'Grinding', 'Vibing'].map((v) => (
+                                <TouchableOpacity key={v} onPress={() => setVibeInput(v)}
+                                    style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: vibeInput === v ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: vibeInput === v ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.08)' }}>
+                                    <Text style={{ color: colors.text, fontSize: 12 }}>{v}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, borderWidth: 1, borderColor: colors.border, marginBottom: 16 }}>
+                            <Text style={{ color: colors.secondary, marginRight: 8 }}>{'\u25CF'}</Text>
+                            <View style={{ flex: 1 }}>
+                                <TextInput
+                                    placeholder="Type your vibe..."
+                                    placeholderTextColor={colors.secondary}
+                                    value={vibeInput}
+                                    onChangeText={(t: string) => setVibeInput(t.slice(0, 60))}
+                                    style={{ color: colors.text, fontSize: 14 }}
+                                    maxLength={60}
+                                />
+                            </View>
+                            <Text style={{ color: colors.secondary, fontSize: 10 }}>{vibeInput.length}/60</Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', gap: 12 }}>
+                            {currentVibe && (
+                                <TouchableOpacity onPress={async () => {
+                                    if (!dbUserId) return;
+                                    await supabase.from('Profile').update({ current_vibe: null }).eq('userId', dbUserId);
+                                    setCurrentVibe(null); setVibeInput(''); setShowVibePicker(false);
+                                }} style={{ flex: 1, paddingVertical: 14, borderRadius: 14, borderWidth: 1, borderColor: colors.border, alignItems: 'center' }}>
+                                    <Text style={{ color: colors.secondary, fontWeight: '700' }}>Clear</Text>
+                                </TouchableOpacity>
+                            )}
+                            <TouchableOpacity onPress={async () => {
+                                if (!dbUserId || !vibeInput.trim()) return;
+                                await supabase.from('Profile').update({ current_vibe: vibeInput.trim() }).eq('userId', dbUserId);
+                                setCurrentVibe(vibeInput.trim()); setShowVibePicker(false);
+                            }} style={{ flex: 2, paddingVertical: 14, borderRadius: 14, backgroundColor: '#fff', alignItems: 'center' }}>
+                                <Text style={{ color: '#000', fontWeight: '800' }}>Save Vibe</Text>
+                            </TouchableOpacity>
+                        </View>
+                        <TouchableOpacity onPress={() => setShowVibePicker(false)} style={{ alignSelf: 'center', marginTop: 12 }}>
+                            <Text style={{ color: colors.secondary, fontSize: 12 }}>Cancel</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Completion Sheet Modal */}
+            <Modal visible={showCompletionSheet} animationType="slide" transparent onRequestClose={() => setShowCompletionSheet(false)}>
+                <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                    <View style={{ backgroundColor: colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, borderTopWidth: 1, borderColor: colors.border, maxHeight: '70%' }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                            <View>
+                                <Text style={{ color: colors.text, fontSize: 18, fontWeight: '800' }}>Profile Completion</Text>
+                                <Text style={{ color: colors.secondary, fontSize: 12 }}>{completionScore}% complete</Text>
+                            </View>
+                            <TouchableOpacity onPress={() => setShowCompletionSheet(false)} style={{ padding: 8, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 20 }}>
+                                <X color={colors.text} size={18} />
+                            </TouchableOpacity>
+                        </View>
+                        {/* Progress bar */}
+                        <View style={{ height: 4, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 2, marginBottom: 20 }}>
+                            <View style={{ width: `${completionScore}%`, height: '100%', backgroundColor: colors.primary || '#c8383a', borderRadius: 2 }} />
+                        </View>
+                        <ScrollView showsVerticalScrollIndicator={false}>
+                            {completionTasks.map((task: any, i: number) => (
+                                <View key={i} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
+                                    <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: task.done ? 'rgba(34,197,94,0.2)' : 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                                        {task.done ? <Check size={14} color="#22c55e" /> : <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.2)' }} />}
+                                    </View>
+                                    <Text style={{ color: task.done ? colors.secondary : colors.text, fontSize: 13, textDecorationLine: task.done ? 'line-through' : 'none', flex: 1 }}>{task.label}</Text>
+                                    <Text style={{ color: colors.secondary, fontSize: 10 }}>+{task.points}</Text>
+                                </View>
+                            ))}
+                        </ScrollView>
+                        <TouchableOpacity onPress={() => { setShowCompletionSheet(false); router.push('/edit-profile'); }}
+                            style={{ marginTop: 16, paddingVertical: 14, borderRadius: 14, backgroundColor: '#fff', alignItems: 'center' }}>
+                            <Text style={{ color: '#000', fontWeight: '800' }}>Complete My Profile</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
 
             {/* Share Modal */}
             {myCardCode && (

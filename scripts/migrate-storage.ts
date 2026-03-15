@@ -102,16 +102,27 @@ async function migrate() {
                 continue;
             }
 
-            // 3. Upload to R2
-            const buffer = Buffer.from(await fileData.arrayBuffer());
-            const contentType = media.mimeType || fileData.type || 'application/octet-stream';
+            // 3. Upload to R2 (Only if it doesn't already exist)
+            try {
+                await r2.send(new HeadObjectCommand({ Bucket: R2_BUCKET, Key: filePath }));
+                // If this succeeds, the file already exists in R2. Skip upload.
+                // console.log(`⏩ Already in R2: ${filePath}`);
+            } catch (headError: any) {
+                // File does not exist in R2 (or error checking), safe to upload
+                if (headError.name === 'NotFound' || headError.$metadata?.httpStatusCode === 404) {
+                    const buffer = Buffer.from(await fileData.arrayBuffer());
+                    const contentType = media.mimeType || fileData.type || 'application/octet-stream';
 
-            await r2.send(new PutObjectCommand({
-                Bucket: R2_BUCKET,
-                Key: filePath,
-                Body: buffer,
-                ContentType: contentType,
-            }));
+                    await r2.send(new PutObjectCommand({
+                        Bucket: R2_BUCKET,
+                        Key: filePath,
+                        Body: buffer,
+                        ContentType: contentType,
+                    }));
+                } else {
+                    throw headError; // Rethrow unexpected errors (like auth issues)
+                }
+            }
 
             // 4. Update Database Record
             const newUrl = `${R2_PUBLIC_DOMAIN}/${filePath}`;

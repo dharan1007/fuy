@@ -17,6 +17,7 @@ import { useEncryption } from '../../context/EncryptionContext';
 import { encryptMessage, decryptMessage, decryptFile } from '../../lib/encryption';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
+import * as Haptics from 'expo-haptics';
 
 import { MediaUploadService } from '../../services/MediaUploadService';
 
@@ -26,12 +27,30 @@ import { Paperclip } from 'lucide-react-native';
 import CustomToast, { ToastType } from '../../components/CustomToast';
 import ChatPostCard from '../../components/ChatPostCard';
 import CollaborativeModal from '../../components/CollaborativeModal';
-import LocationPicker from '../../components/chat/LocationPicker';
+
 import MediaPreview from '../../components/chat/MediaPreview';
 import EncryptedMedia from '../../components/chat/EncryptedMedia';
 import DocumentBubble from '../../components/chat/DocumentBubble';
 import LocationBubble from '../../components/chat/LocationBubble';
 import * as DocumentPicker from 'expo-document-picker';
+
+// === NEW FEATURE IMPORTS ===
+import { ChannelPool } from '../../lib/ChannelPool';
+import { EncryptionKeyCache } from '../../lib/EncryptionKeyCache';
+import { SecureMessageQueue } from '../../lib/SecureMessageQueue';
+import { sealSender, serializeSealedSender } from '../../lib/SealedSender';
+import { verifyKey } from '../../lib/KeyVerification';
+import LiveCanvas from '../../components/chat/LiveCanvas';
+import SendButtonMenu, { SendMode, ToneType, getToneStyle } from '../../components/chat/SendButtonMenu';
+import ChatStack from '../../components/chat/ChatStack';
+import { SnoozePickerModal, useSnooze } from '../../components/chat/SwipeToSnooze';
+import { SlashCommandsPanel, SlashCommand } from '../../components/chat/SlashCommands';
+import { PollCard, PollData } from '../../components/chat/PollCard';
+import { SpinCard, SpinData } from '../../components/chat/SpinCard';
+import { LocCard, LocationData } from '../../components/chat/LocCard';
+import StickyNote from '../../components/chat/StickyNote';
+import MessageStatusIndicator from '../../components/chat/MessageStatusIndicator';
+import { BondingService } from '../../services/BondingService';
 
 
 const { width } = Dimensions.get('window');
@@ -86,8 +105,9 @@ interface ChatUser {
 }
 
 // Swipeable Message Component
-const SwipeableMessage = ({ children, onReply, isMe }: { children: React.ReactNode, onReply: () => void, isMe: boolean }) => {
+const SwipeableMessage = ({ children, onReply, onSnooze, isMe }: { children: React.ReactNode, onReply: () => void, onSnooze?: () => void, isMe: boolean }) => {
     const pan = React.useRef(new RNAnimated.ValueXY()).current;
+    const hasTriggeredHaptic = React.useRef(false);
 
     const panResponder = React.useRef(
         PanResponder.create({
@@ -99,11 +119,20 @@ const SwipeableMessage = ({ children, onReply, isMe }: { children: React.ReactNo
                 // Limit swipe distance
                 if (gestureState.dx > 0 && gestureState.dx < 100) {
                     pan.setValue({ x: gestureState.dx, y: 0 });
+                    // Haptic feedback at snooze threshold for received messages
+                    if (!isMe && onSnooze && gestureState.dx > 72 && !hasTriggeredHaptic.current) {
+                        hasTriggeredHaptic.current = true;
+                        try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); } catch {}
+                    }
                 }
             },
             onPanResponderRelease: (_, gestureState) => {
-                if (gestureState.dx > 50) {
-                    // Trigger reply
+                hasTriggeredHaptic.current = false;
+                if (!isMe && onSnooze && gestureState.dx > 72) {
+                    // Snooze threshold for received messages
+                    onSnooze();
+                } else if (gestureState.dx > 50) {
+                    // Reply threshold
                     onReply();
                 }
                 RNAnimated.spring(pan, {
@@ -257,7 +286,12 @@ export default function ChatScreen() {
     // --- Media & Location State ---
     const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
     const [previewMedia, setPreviewMedia] = useState<{ uri: string; type: 'image' | 'video' | 'document'; fileSize?: number; mimeType?: string; fileName?: string | null }[]>([]);
-    const [showLocationPicker, setShowLocationPicker] = useState(false);
+
+    // === NEW FEATURE STATE ===
+    const [liveCanvasEnabled, setLiveCanvasEnabled] = useState(false);
+    const [liveCanvasPartnerText, setLiveCanvasPartnerText] = useState('');
+    const { showSnoozePicker, initiateSnooze, handleSnoozeSelect, closeSnoozePicker } = useSnooze();
+
     const [viewingMediaMsg, setViewingMediaMsg] = useState<Message | null>(null);
 
     // --- Message Scroll & Highlight State ---
@@ -396,7 +430,7 @@ export default function ChatScreen() {
             const type = item.type;
 
             // Give the caption to the first item, others get empty string (unless it is a document, then name)
-            const itemContent = i === 0 && data.caption ? data.caption : (type === 'document' ? `📄 ${item.fileName || 'Document'}` : '');
+            const itemContent = i === 0 && data.caption ? data.caption : (type === 'document' ? `ðŸ“„ ${item.fileName || 'Document'}` : '');
 
             // Optimistic Media "Sending" Bubble to UI instantly!
             const optimisticMsg: Message = {
@@ -460,18 +494,6 @@ export default function ChatScreen() {
             }
         }
         setIsUploading(false);
-    };
-
-    const handleSendLocation = async (loc: { latitude: number; longitude: number; address?: string }) => {
-        console.log(`[ChatAction] handleSendLocation: loc=${loc.latitude},${loc.longitude}`);
-        setShowLocationPicker(false);
-
-        await sendMessage(
-            'location',
-            loc.address || '📍 Location',
-            `${loc.latitude},${loc.longitude}`,
-            {}
-        );
     };
 
     const [replyTo, setReplyTo] = useState<{ id: string; content: string; sender: string } | null>(null);
@@ -779,7 +801,7 @@ export default function ChatScreen() {
                     }, 3000);
                 }
             })
-            .on('broadcast', { event: 'new_message' }, (payload) => {
+            .on('broadcast', { event: 'new_message' }, async (payload) => {
                 const newMsg = payload.payload;
                 console.log(`[Realtime] chat:${activeConversationIdRef.current} broadcast new_message received: id=${newMsg.id}`);
                 // Skip if it's our own message (already added via optimistic update)
@@ -794,11 +816,14 @@ export default function ChatScreen() {
                 if (text && text.startsWith('{') && text.includes('"c":') && privateKey && selectedUser?.publicKey) {
                     try {
                         const parsed = JSON.parse(text);
-                        if (parsed.c && parsed.n) {
-                            const decrypted = decryptMessage(
-                                { ciphertext: parsed.c, nonce: parsed.n },
+                        if (parsed.c && parsed.n && parsed.h) {
+                            const isInitiator = dbUserId! < selectedUser.id;
+                            const decrypted = await decryptMessage(
+                                { ciphertext: parsed.c, nonce: parsed.n, header: parsed.h },
                                 privateKey,
-                                selectedUser.publicKey
+                                selectedUser.publicKey,
+                                activeConversationIdRef.current!,
+                                isInitiator
                             );
                             if (decrypted) text = decrypted;
                         }
@@ -823,34 +848,36 @@ export default function ChatScreen() {
             // FALLBACK PATH: Listen for postgres_changes (for offline users, ensures persistence)
             .on('postgres_changes',
                 { event: '*', schema: 'public', table: 'Message', filter: `conversationId=eq.${activeConversationIdRef.current}` },
-                (payload) => {
+                async (payload) => {
                     console.log(`[Realtime] chat:${activeConversationIdRef.current} Message postgres_changes received: eventType=${payload.eventType}`);
                     if (payload.eventType === 'INSERT') {
                         const newMsg = payload.new;
+                        let text = newMsg.content;
+
+                        // Decrypt if needed OUTSIDE setMessages
+                        if (newMsg.senderId !== dbUserId) {
+                            markAsRead(newMsg.id);
+                            if (text && text.startsWith('{') && text.includes('"c":') && privateKey && selectedUser?.publicKey) {
+                                try {
+                                    const parsed = JSON.parse(text);
+                                    if (parsed.c && parsed.n && parsed.h) {
+                                        const isInitiator = dbUserId! < selectedUser.id;
+                                        const decrypted = await decryptMessage(
+                                            { ciphertext: parsed.c, nonce: parsed.n, header: parsed.h },
+                                            privateKey,
+                                            selectedUser.publicKey,
+                                            activeConversationIdRef.current!,
+                                            isInitiator
+                                        );
+                                        if (decrypted) text = decrypted;
+                                    }
+                                } catch (e) { }
+                            }
+                        }
+
                         setMessages(prev => {
                             // DEDUPLICATION: Skip if already received via broadcast
                             if (prev.find(m => m.id === newMsg.id)) return prev;
-
-                            let text = newMsg.content;
-                            // Decrypt if needed (Only for incoming messages, our own are already plaintext/optimistic)
-                            // But if we receive our own INSERT from another device, we might need to decrypt it too?
-                            // For now focusing on incoming (partner) messages
-                            if (newMsg.senderId !== dbUserId) {
-                                markAsRead(newMsg.id);
-                                if (text && text.startsWith('{') && text.includes('"c":') && privateKey && selectedUser?.publicKey) {
-                                    try {
-                                        const parsed = JSON.parse(text);
-                                        if (parsed.c && parsed.n) {
-                                            const decrypted = decryptMessage(
-                                                { ciphertext: parsed.c, nonce: parsed.n },
-                                                privateKey,
-                                                selectedUser.publicKey
-                                            );
-                                            if (decrypted) text = decrypted;
-                                        }
-                                    } catch (e) { }
-                                }
-                            }
 
                             return [...prev, {
                                 id: newMsg.id,
@@ -946,16 +973,7 @@ export default function ChatScreen() {
                                 if (parsed.text && parsed.replyTo) return parsed.text;
 
                                 // Decrypt preview if keys are available
-                                if (parsed.c && parsed.n && privateKey) {
-                                    const otherKey = partner.profile?.publicKey;
-                                    if (otherKey) {
-                                        try {
-                                            const decrypted = decryptMessage({ ciphertext: parsed.c, nonce: parsed.n }, privateKey, otherKey);
-                                            if (decrypted) return decrypted;
-                                        } catch (e) { }
-                                    }
-                                }
-
+                                // NOTE: Removed preview decryption because Ratchet state cannot be advanced for previews without dropping actual messages
                                 // Handle encrypted messages - show placeholder
                                 if (parsed.c && parsed.n) return 'Encrypted message';
                             }
@@ -1399,61 +1417,60 @@ export default function ChatScreen() {
 
             const myDeletedIds = new Set((myDeletedData || []).map(d => d.messageId));
 
-            const fetchedMessages: Message[] = (messagesData || [])
-                .filter((m: any) => !myDeletedIds.has(m.id))
-                .map((m: any) => {
-                    let text = m.content;
-                    // Attempt Decryption
-                    if (text && text.startsWith('{') && text.includes('"c":') && privateKey) {
-                        try {
-                            const isMe = m.senderId === currentUser.id;
+            const fetchedMessages: Message[] = [];
+            for (const m of (messagesData || [])) {
+                if (myDeletedIds.has(m.id)) continue;
+                let text = m.content;
+                const isMe = m.senderId === currentUser.id;
 
-                            // Handle Profile potentially being an array or object
-                            const senderProfile = Array.isArray(m.sender?.profile) ? m.sender.profile[0] : m.sender?.profile;
+                // Attempt Decryption sequentially
+                if (!isMe && text && text.startsWith('{') && text.includes('"c":') && privateKey) {
+                    try {
+                        const parsed = JSON.parse(text);
+                        if (parsed.c && parsed.n && parsed.h) {
+                            const mAny = m as any;
+                            const senderProfile = Array.isArray(mAny.sender?.profile) ? mAny.sender.profile[0] : mAny.sender?.profile;
                             const senderPubKey = senderProfile?.publicKey;
-
-                            // Determine the OTHER person's public key
-                            // If I am the sender (isMe), I need the Recipient's Key (currentSelectedUser)
-                            // If I am the receiver (!isMe), I need the Sender's Key (m.sender)
-                            const otherKey = isMe ? currentSelectedUser?.publicKey : (senderPubKey || currentSelectedUser?.publicKey);
-
-                            if (otherKey && privateKey) {
-                                const parsed = JSON.parse(text);
-                                if (parsed.c && parsed.n) {
-                                    const decrypted = decryptMessage(
-                                        { ciphertext: parsed.c, nonce: parsed.n },
-                                        privateKey,
-                                        otherKey
-                                    );
-                                    if (decrypted) text = decrypted;
-                                }
+                            
+                            if (senderPubKey) {
+                                const isInitiator = currentUser.id < m.senderId;
+                                const decrypted = await decryptMessage(
+                                    { ciphertext: parsed.c, nonce: parsed.n, header: parsed.h },
+                                    privateKey,
+                                    senderPubKey,
+                                    activeConversationIdRef.current!,
+                                    isInitiator
+                                );
+                                if (decrypted) text = decrypted;
                             }
-                        } catch (e) { /* ignore JSON parse error */ }
-                    }
+                        }
+                    } catch (e) { /* ignore JSON parse error */ }
+                } else if (isMe && text && text.startsWith('{') && text.includes('"c":')) {
+                    // Ratchet: We can't decrypt our own sent messages directly from the ratchet
+                    text = "Encrypted Message (Sent)";
+                }
 
-                    const safeCreatedAt = m.createdAt.endsWith('Z') ? m.createdAt : `${m.createdAt}Z`;
-                    return {
-                        id: m.id,
-                        conversationId: m.conversationId,
-                        senderId: m.senderId,
-                        content: text,
-                        type: m.type,
-                        mediaUrl: m.mediaUrl,
-                        timestamp: new Date(safeCreatedAt).getTime(),
-                        createdAt: safeCreatedAt,
-                        sender: m.senderId === currentUser?.id ? 'me' : 'them',
-                        role: (m.senderId === currentUser?.id ? 'user' : 'assistant') as 'user' | 'assistant' | 'system',
-                        isSaved: m.isSaved,
-                        readAt: m.readAt,
-                        tags: m.messageTags?.map((t: any) => t.tagType) || [],
-                        mediaEncryptionKey: m.mediaEncryptionKey,
-                        viewOnce: m.viewOnce,
-                        fileName: m.fileName,
-                        fileSize: m.fileSize,
-                        mimeType: m.mimeType,
-                        duration: m.duration
-                    };
+                const safeCreatedAt = m.createdAt.endsWith('Z') ? m.createdAt : `${m.createdAt}Z`;
+                fetchedMessages.push({
+                    id: m.id,
+                    senderId: m.senderId,
+                    content: text,
+                    type: m.type,
+                    mediaUrl: m.mediaUrl,
+                    timestamp: new Date(safeCreatedAt).getTime(),
+                    createdAt: safeCreatedAt,
+                    role: (isMe ? 'user' : 'assistant') as 'user' | 'assistant' | 'system',
+                    isSaved: m.isSaved,
+                    readAt: m.readAt,
+                    tags: m.messageTags?.map((t: any) => t.tagType) || [],
+                    mediaEncryptionKey: m.mediaEncryptionKey,
+                    viewOnce: m.viewOnce,
+                    fileName: m.fileName,
+                    fileSize: m.fileSize,
+                    mimeType: m.mimeType,
+                    duration: m.duration
                 });
+            }
 
             setMessages(fetchedMessages);
 
@@ -1628,23 +1645,15 @@ export default function ChatScreen() {
         return ids;
     };
 
-    // Helper: delete media files from Supabase storage for given message URLs
+    // Helper: delete media files from storage for given message URLs
+    // Note: Migration to Cloudflare R2 means we no longer delete directly via Supabase SDK.
+    // In the future, a backend worker should clean up R2 objects if needed.
     const deleteMediaFromStorage = async (mediaUrls: string[]) => {
         const validUrls = mediaUrls.filter(Boolean);
         if (validUrls.length === 0) return;
-        for (const url of validUrls) {
-            try {
-                // Extract path from URL: .../storage/v1/object/public/bucket/path
-                const match = url.match(/\/storage\/v1\/object\/(?:public|sign)\/([^/]+)\/(.+)/);
-                if (match) {
-                    const bucket = match[1];
-                    const filePath = match[2].split('?')[0]; // strip query params
-                    await supabase.storage.from(bucket).remove([filePath]);
-                }
-            } catch (e) {
-                console.warn('[Retention] Failed to delete media file:', url, e);
-            }
-        }
+        
+        console.log(`[Retention] Skipping storage deletion for ${validUrls.length} media items (handled by R2 lifecycle rules)`);
+        // We no longer call supabase.storage.remove() here.
     };
 
     // Core retention cleanup: hard-deletes messages from DB + storage
@@ -1837,11 +1846,26 @@ export default function ChatScreen() {
 
         // E2EE Encryption
         let messageContent = currentText;
+        let sealedSenderData: string | null = null;
         if (privateKey && selectedUser?.publicKey && (type === 'text' || type === 'trigger')) {
             try {
-                const encrypted = encryptMessage(currentText, privateKey, selectedUser.publicKey);
+                // MITM Key Verification Check
+                const keyStatus = await verifyKey(selectedUser.id, selectedUser.publicKey);
+                if (keyStatus === 'changed') {
+                    Alert.alert("Security Warning", "The recipient's encryption key has changed. Interception warning. Verify safety number.", [{ text: 'Cancel', style: 'cancel' }]);
+                    isSendingRef.current = false;
+                    return;
+                }
+
+                // Ratchet Encryption
+                const isInitiator = dbUserId! < selectedUser.id;
+                const encrypted = await encryptMessage(currentText, privateKey, selectedUser.publicKey, activeConversationIdRef.current!, isInitiator);
                 // Pack as JSON
-                messageContent = JSON.stringify({ c: encrypted.ciphertext, n: encrypted.nonce });
+                messageContent = JSON.stringify({ c: encrypted.ciphertext, n: encrypted.nonce, h: encrypted.header });
+
+                // Sealed Sender Encryption
+                const sealed = sealSender(senderId, selectedUser.publicKey);
+                sealedSenderData = serializeSealedSender(sealed);
             } catch (e) {
                 console.error("Encryption failed:", e);
                 Alert.alert("Security Error", "Could not encrypt message.");
@@ -1945,6 +1969,7 @@ export default function ChatScreen() {
                     fileSize: options.fileSize,
                     mimeType: options.mimeType,
                     duration: options.duration,
+                    sealedSender: sealedSenderData, // Add sealed sender blob
                 });
 
             if (error) {
@@ -1956,7 +1981,7 @@ export default function ChatScreen() {
             await supabase
                 .from('Conversation')
                 .update({
-                    lastMessage: type === 'text' ? currentText : (type === 'image' ? (options.viewOnce ? '📷 View Once Photo' : '📷 Photo') : (type === 'video' ? '🎥 Video' : (type === 'document' ? `📄 Document` : '📍 Location'))),
+                    lastMessage: type === 'text' ? 'Encrypted message' : (type === 'image' ? (options.viewOnce ? 'ðŸ“· View Once Photo' : 'ðŸ“· Photo') : (type === 'video' ? 'ðŸŽ¥ Video' : (type === 'document' ? `ðŸ“„ Document` : 'ðŸ“ Location'))),
                     lastMessageAt: new Date().toISOString()
                 })
                 .eq('id', activeConversationIdRef.current);
@@ -3117,11 +3142,19 @@ export default function ChatScreen() {
                         </View>
                     </BlurView>
 
+                    {/* Sticky Note (pinned below header) */}
+                    <StickyNote
+                        roomId={activeConversationIdRef.current || ''}
+                        conversationId={activeConversationIdRef.current || ''}
+                        myPrivateKey={privateKey}
+                        theirPublicKey={selectedUser?.publicKey || null}
+                    />
+
                     {/* Messages and Input - Inside KeyboardAvoidingView */}
                     <KeyboardAvoidingView
-                        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                         className="flex-1"
-                        keyboardVerticalOffset={0}
+                        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
                     >
                         <View style={{ flex: 1 }}>
                             {/* Messages */}
@@ -3193,20 +3226,8 @@ export default function ChatScreen() {
 
                                         // First, check if the message is still encrypted (looks like {"c":"...","n":"..."})
                                         // This can happen for messages from other sources that weren't decrypted
-                                        if (displayContent && displayContent.startsWith('{') && displayContent.includes('"c":') && displayContent.includes('"n":')) {
-                                            try {
-                                                const parsed = JSON.parse(displayContent);
-                                                if (parsed.c && parsed.n && privateKey && selectedUser?.publicKey) {
-                                                    const decrypted = decryptMessage(
-                                                        { ciphertext: parsed.c, nonce: parsed.n },
-                                                        privateKey,
-                                                        selectedUser.publicKey
-                                                    );
-                                                    if (decrypted) displayContent = decrypted;
-                                                }
-                                            } catch (e) {
-                                                // Not encrypted or parse error - use as is
-                                            }
+                                        if (displayContent && displayContent.startsWith('{') && displayContent.includes('"c":')) {
+                                            displayContent = "Encrypted message";
                                         }
 
                                         if (msg.type === 'reply') {
@@ -3231,9 +3252,7 @@ export default function ChatScreen() {
                                         }
 
                                         const getTagColor = (tag: string) => {
-                                            if (tag === 'RED') return 'bg-red-500';
-                                            if (tag === 'GREEN') return 'bg-green-500';
-                                            // Custom tags are white (on bubble, white dot handled by border styling? No, usually bg-white)
+                                            // Custom tags are white (on bubble)
                                             // User said "white with black text" for the CHIP. "same white ot should xome on the message bubble".
                                             // White dot on bubble.
                                             return 'bg-white';
@@ -3261,6 +3280,12 @@ export default function ChatScreen() {
                                                 <SwipeableMessage
                                                     isMe={isMe}
                                                     onReply={() => setReplyTo({ id: msg.id, content: displayContent, sender: isMe ? 'You' : (nicknames[selectedUser.id] || selectedUser.name) })}
+                                                    onSnooze={!isMe ? () => initiateSnooze(
+                                                        msg.id,
+                                                        displayContent,
+                                                        nicknames[selectedUser.id] || selectedUser.name,
+                                                        activeConversationIdRef.current || ''
+                                                    ) : undefined}
                                                 >
                                                     <View className={`max-w-[85%] ${isMe ? 'self-end' : 'self-start'}`}>
                                                         <View className="flex-row items-end gap-2">
@@ -3405,16 +3430,12 @@ export default function ChatScreen() {
                                                                             }
                                                                         </Text>
                                                                         {isMe && (
-                                                                            <View>
-                                                                                {msg.isSending ? (
-                                                                                    // Pending Upload Status
-                                                                                    <ActivityIndicator size={10} color="rgba(255,255,255,0.45)" />
-                                                                                ) : msg.readAt ? (
-                                                                                    <CheckCheck size={12} color="rgba(255,255,255,0.45)" />
-                                                                                ) : (
-                                                                                    <Check size={12} color="rgba(255,255,255,0.45)" />
-                                                                                )}
-                                                                            </View>
+                                                                            <MessageStatusIndicator
+                                                                                messageId={msg.id}
+                                                                                initialStatus={msg.isSending ? 'sending' : msg.readAt ? 'confirmed' : 'sent'}
+                                                                                isMe={isMe}
+                                                                                readAt={msg.readAt}
+                                                                            />
                                                                         )}
                                                                     </View>
                                                                 </View>
@@ -3474,16 +3495,10 @@ export default function ChatScreen() {
                                                                             <Text className="text-xs font-bold text-white">Reply</Text>
                                                                         </TouchableOpacity>
 
-                                                                        {/* RED */}
-                                                                        <TouchableOpacity onPress={() => tagMessage('RED')} className="w-8 h-8 rounded-full bg-red-500/30 border-2 border-red-500" />
-
-                                                                        {/* YELLOW + (Add) */}
+                                                                        {/* YELLOW + (Add) - Keep as Custom Tagging entry point */}
                                                                         <TouchableOpacity onPress={() => { setIsAddingTag(true); setNewTagText(''); }} className="w-8 h-8 rounded-full bg-yellow-500/30 border-2 border-yellow-500 items-center justify-center">
                                                                             <Plus size={16} color="#FFFFFF" />
                                                                         </TouchableOpacity>
-
-                                                                        {/* GREEN */}
-                                                                        <TouchableOpacity onPress={() => tagMessage('GREEN')} className="w-8 h-8 rounded-full bg-green-500/30 border-2 border-green-500" />
 
                                                                         {/* Custom Tags */}
                                                                         {uniqueTags.map(t => (
@@ -3499,6 +3514,29 @@ export default function ChatScreen() {
                                                                             <AlertTriangle size={12} color="#FFFFFF" />
                                                                             <Text className="text-xs font-bold text-white">Trigger</Text>
                                                                         </TouchableOpacity>
+
+                                                        {/* Pin to Bonding */}
+                                                        <TouchableOpacity
+                                                            onPress={async () => {
+                                                                const preview = displayContent.slice(0, 80);
+                                                                try {
+                                                                    await BondingService.addBondMoment(
+                                                                        activeConversationIdRef.current || "",
+                                                                        msg.id,
+                                                                        preview,
+                                                                        null,
+                                                                    );
+                                                                    setTaggingMessageId(null);
+                                                                    showToast("Message pinned to bonding page", "success");
+                                                                } catch (e) {
+                                                                    console.error("[PinToBonding] error:", e);
+                                                                }
+                                                            }}
+                                                            className="px-3 py-1.5 bg-zinc-700 rounded-full flex-row items-center gap-1 border border-zinc-600"
+                                                        >
+                                                            <Anchor size={12} color="#FFFFFF" />
+                                                            <Text className="text-xs font-bold text-white">Pin</Text>
+                                                        </TouchableOpacity>
 
                                                                         {/* Edit Button */}
                                                                         <TouchableOpacity
@@ -3564,7 +3602,7 @@ export default function ChatScreen() {
                                         <View className="flex-row items-center gap-2 mb-1">
                                             <AlertTriangle size={14} color="#ef4444" />
                                             <Text className="text-xs text-red-500 flex-1">
-                                                ⚠️ Blacklisted content detected
+                                                âš ï¸ Blacklisted content detected
                                             </Text>
                                         </View>
                                     )}
@@ -3572,7 +3610,7 @@ export default function ChatScreen() {
                                         <View className="flex-row items-center gap-2">
                                             <AlertTriangle size={14} color="#f59e0b" />
                                             <Text className="text-xs text-amber-600 flex-1">
-                                                💡 {bondingWarnings.facts.map(f => `"${f.keyword}": ${f.warningText}`).join(', ')}
+                                                ðŸ’¡ {bondingWarnings.facts.map(f => `"${f.keyword}": ${f.warningText}`).join(', ')}
                                             </Text>
                                         </View>
                                     )}
@@ -3603,6 +3641,7 @@ export default function ChatScreen() {
                                     <Text style={{ color: colors.secondary, fontStyle: 'italic' }}>Accept the request to reply.</Text>
                                 </View>
                             ) : (
+                                <>
                                 <BlurView intensity={90} tint={mode === 'light' ? 'light' : 'dark'} className="px-4 py-3 border-t" style={{ borderColor: colors.border }}>
                                     {/* MENTION SUGGESTIONS */}
                                     {showMentionList && mentionResults.length > 0 && (
@@ -3627,7 +3666,7 @@ export default function ChatScreen() {
                                                 {selectedSlashCollectionId ? (
                                                     <View className="flex-row items-center gap-2">
                                                         <TouchableOpacity onPress={() => setSelectedSlashCollectionId(null)}>
-                                                            <Text style={{ color: colors.primary, fontSize: 14 }}>← Back</Text>
+                                                            <Text style={{ color: colors.primary, fontSize: 14 }}>â† Back</Text>
                                                         </TouchableOpacity>
                                                         <Text className="font-bold text-sm" style={{ color: colors.text }}>
                                                             {triggerCollections.find(c => c.id === selectedSlashCollectionId)?.name}
@@ -3690,7 +3729,7 @@ export default function ChatScreen() {
                                                                         </Text>
                                                                         <Text className="text-[10px]" style={{ color: colors.secondary }}>
                                                                             {trigger.message ? (
-                                                                                `${new Date(trigger.message.createdAt).toLocaleDateString()} at ${new Date(trigger.message.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} • by ${trigger.message.senderId === dbUserId ? 'You' : (nicknames[trigger.message.senderId] || selectedUser?.name || 'Partner')}`
+                                                                                `${new Date(trigger.message.createdAt).toLocaleDateString()} at ${new Date(trigger.message.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} â€¢ by ${trigger.message.senderId === dbUserId ? 'You' : (nicknames[trigger.message.senderId] || selectedUser?.name || 'Partner')}`
                                                                             ) : (
                                                                                 `Saved on ${new Date(trigger.createdAt).toLocaleDateString()}`
                                                                             )}
@@ -3706,7 +3745,88 @@ export default function ChatScreen() {
                                             </ScrollView>
                                         </View>
                                     )}
+
+                                    {/* Slash Commands Panel */}
+                                    <SlashCommandsPanel
+                                        inputText={inputText}
+                                        onSelectCommand={(cmd) => {
+                                            setInputText('');
+                                            // Handle each command
+                                            if (cmd.id === 'loc') {
+                                                (async () => {
+                                                    try {
+                                                        const Location = require('expo-location');
+                                                        const { status } = await Location.requestForegroundPermissionsAsync();
+                                                        if (status !== 'granted') {
+                                                            Alert.alert('Permission Denied', 'Location access is needed for /loc');
+                                                            return;
+                                                        }
+                                                        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+                                                        const [geo] = await Location.reverseGeocodeAsync({
+                                                            latitude: loc.coords.latitude,
+                                                            longitude: loc.coords.longitude,
+                                                        });
+                                                        const address = geo ? `${geo.street || ''} ${geo.city || ''} ${geo.region || ''}`.trim() : 'Current Location';
+                                                        const locationPayload = JSON.stringify({
+                                                            type: 'location',
+                                                            latitude: loc.coords.latitude,
+                                                            longitude: loc.coords.longitude,
+                                                            address,
+                                                        });
+                                                        setInputText(locationPayload);
+                                                    } catch (e) {
+                                                        Alert.alert('Error', 'Could not get your location.');
+                                                    }
+                                                })();
+                                            } else if (cmd.id === 'poll') {
+                                                Alert.alert('Poll', 'Enter your poll question in the text box');
+                                                setInputText('/poll ');
+                                            } else if (cmd.id === 'spin') {
+                                                Alert.alert('Spin', 'Enter options separated by commas');
+                                                setInputText('/spin ');
+                                            } else if (cmd.id === 'sticky') {
+                                                setInputText('');
+                                                // StickyNote has its own create modal
+                                            } else if (cmd.id === 'eta') {
+                                                (async () => {
+                                                    try {
+                                                        const Location = require('expo-location');
+                                                        const { status } = await Location.requestForegroundPermissionsAsync();
+                                                        if (status !== 'granted') {
+                                                            Alert.alert('Permission Denied', 'Location access is needed for /eta');
+                                                            return;
+                                                        }
+                                                        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+                                                        const [geo] = await Location.reverseGeocodeAsync({
+                                                            latitude: loc.coords.latitude,
+                                                            longitude: loc.coords.longitude,
+                                                        });
+                                                        const address = geo ? `${geo.city || geo.region || 'here'}` : 'here';
+                                                        const etaText = `I am currently near ${address}. Sharing my ETA soon.`;
+                                                        setInputText(etaText);
+                                                    } catch (e) {
+                                                        Alert.alert('Error', 'Could not get your location for ETA.');
+                                                    }
+                                                })();
+                                            }
+                                        }}
+                                        colors={colors}
+                                    />
                                     <View className="flex-row items-center gap-2">
+                                        <ChatStack
+                                            onSendBatch={(texts) => {
+                                                // Send each message in the batch
+                                                texts.forEach((text, i) => {
+                                                    setTimeout(() => {
+                                                        setInputText(text);
+                                                        // Trigger send
+                                                        sendMessage();
+                                                    }, i * 100);
+                                                });
+                                            }}
+                                            colors={colors}
+                                            mode={(mode as 'light' | 'dark')}
+                                        />
                                         <TouchableOpacity className="p-2" onPress={() => setShowAttachmentMenu(true)}>
                                             <Paperclip size={22} color={colors.secondary} />
                                         </TouchableOpacity>
@@ -3731,22 +3851,14 @@ export default function ChatScreen() {
                                             onSubmitEditing={() => editingMessageId ? saveEditedMessage() : sendMessage()}
                                             returnKeyType="send"
                                         />
-                                        <TouchableOpacity
-                                            onPress={() => editingMessageId ? saveEditedMessage() : sendMessage()}
-                                            className="items-center justify-center shadow-sm"
-                                            style={{
-                                                width: 42,
-                                                height: 42,
-                                                borderRadius: 21,
-                                                backgroundColor: '#FFFFFF',
+                                        <SendButtonMenu
+                                            onSend={(sendMode, sendTone) => {
+                                                sendMessage();
                                             }}
-                                        >
-                                            {editingMessageId ? (
-                                                <CheckCheck color="#000000" size={20} />
-                                            ) : (
-                                                <Send color="#000000" size={18} style={{ marginLeft: -2, marginTop: 2 }} />
-                                            )}
-                                        </TouchableOpacity>
+                                            isEditing={!!editingMessageId}
+                                            onEditSave={saveEditedMessage}
+                                            roomId={activeConversationIdRef.current || ''}
+                                        />
 
                                         {/* Cancel Edit Button */}
                                         {editingMessageId && (
@@ -3759,6 +3871,17 @@ export default function ChatScreen() {
                                         )}
                                     </View>
                                 </BlurView>
+
+                                {/* Live Canvas Preview (between messages and input) */}
+                                <LiveCanvas
+                                    roomId={activeConversationIdRef.current || ''}
+                                    enabled={liveCanvasEnabled}
+                                    myPrivateKey={privateKey}
+                                    theirPublicKey={selectedUser?.publicKey || null}
+                                    onTextReceived={setLiveCanvasPartnerText}
+                                    onTogglePartner={() => undefined}
+                                />
+                                </>
                             )}
                         </View>
                     </KeyboardAvoidingView>
@@ -4678,7 +4801,7 @@ export default function ChatScreen() {
 
                             <View className="bg-zinc-800 p-4 rounded-xl mb-6">
                                 {triggerWarningData?.warnings.map((w, i) => (
-                                    <Text key={i} className="text-white font-medium mb-1">• {w}</Text>
+                                    <Text key={i} className="text-white font-medium mb-1">â€¢ {w}</Text>
                                 ))}
                             </View>
 
@@ -4764,13 +4887,6 @@ export default function ChatScreen() {
                                     </View>
                                     <Text style={{ color: colors.text }}>Document</Text>
                                 </TouchableOpacity>
-
-                                <TouchableOpacity style={{ alignItems: 'center' }} onPress={() => { setShowAttachmentMenu(false); setShowLocationPicker(true); }}>
-                                    <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: '#EF4444', alignItems: 'center', justifyContent: 'center', marginBottom: 5 }}>
-                                        <MapIcon size={24} color="#fff" />
-                                    </View>
-                                    <Text style={{ color: colors.text }}>Location</Text>
-                                </TouchableOpacity>
                             </View>
 
                             <TouchableOpacity
@@ -4792,13 +4908,6 @@ export default function ChatScreen() {
                     />
                 )}
 
-                {/* Location Picker Modal */}
-                <Modal visible={showLocationPicker} animationType="slide">
-                    <LocationPicker
-                        onSend={handleSendLocation}
-                        onClose={() => setShowLocationPicker(false)}
-                    />
-                </Modal>
 
                 {/* Media Viewer Modal (Full Screen) */}
                 <Modal visible={!!viewingMediaMsg} transparent animationType="fade" onRequestClose={() => setViewingMediaMsg(null)}>
@@ -4855,10 +4964,21 @@ export default function ChatScreen() {
                     </View>
                 </Modal>
 
+                {/* Snooze Picker Modal */}
+                <SnoozePickerModal
+                    visible={showSnoozePicker}
+                    onClose={closeSnoozePicker}
+                    onSelect={handleSnoozeSelect}
+                    colors={colors}
+                />
+
             </SafeAreaView>
         </View >
     );
 };
+
+// Snooze Picker Modal rendered at root level for proper z-index
+// Note: The useSnooze hook is in the component above; the modal is rendered here.
 
 
 

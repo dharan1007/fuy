@@ -16,11 +16,35 @@ export async function GET(req: Request) {
 
     const { id: userId } = session.user;
 
+    // Fetch safety exclusions (Blocked Users)
+    const [blockedByMe, blockedMe] = await Promise.all([
+      prisma.blockedUser.findMany({ where: { blockerId: userId }, select: { blockedId: true } }),
+      prisma.blockedUser.findMany({ where: { blockedId: userId }, select: { blockerId: true } })
+    ]);
+
+    const blockedUserIds = [
+      ...blockedByMe.map(b => b.blockedId),
+      ...blockedMe.map(b => b.blockerId)
+    ];
+
     const conversations = await prisma.conversation.findMany({
       where: {
-        OR: [
-          { participantA: userId },
-          { participantB: userId },
+        AND: [
+          {
+            OR: [
+              { participantA: userId },
+              { participantB: userId },
+            ]
+          },
+          // Exclude conversations with any blocked user
+          ...(blockedUserIds.length > 0 ? [{
+            NOT: {
+              OR: [
+                { participantA: { in: blockedUserIds } },
+                { participantB: { in: blockedUserIds } }
+              ]
+            }
+          }] : [])
         ],
         // Exclude conversations deleted by this user
         NOT: {

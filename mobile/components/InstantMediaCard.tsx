@@ -1,5 +1,6 @@
 import React, { memo, useState } from 'react';
-import { Image, View, StyleSheet, Text } from 'react-native';
+import { View, StyleSheet, Text } from 'react-native';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Play, Film, Music, Tv, Image as ImageIcon } from 'lucide-react-native';
 
@@ -94,9 +95,9 @@ const InstantMediaCard: React.FC<InstantMediaCardProps> = memo(({
             {/* Layer 2: Actual image - loads async, replaces placeholder */}
             {showImage && (
                 <Image
-                    source={{ uri: imageUrl }}
+                    source={imageUrl}
                     style={[StyleSheet.absoluteFill, { opacity: imageLoaded ? 1 : 0 }]}
-                    resizeMode="cover"
+                    contentFit="cover"
                     onLoad={() => setImageLoaded(true)}
                     onError={() => setImageError(true)}
                 />

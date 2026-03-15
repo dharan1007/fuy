@@ -216,7 +216,11 @@ model User {
 
   // --- Audio System ---
   audioAssets     AudioAsset[]     @relation("AudioCreator")
+  savedAudios    SavedAudio[]
   deletedMessages DeletedMessage[]
+
+  // --- Per-Device Key Pairs (Fix 6) ---
+  devices UserDevice[]
 }
 
 model FeedItem {
@@ -448,11 +452,16 @@ model Profile {
   // -- Deep Dive --
   values          String[] // e.g., Growth, Money, Spiritual
   hardNos         String[] // e.g., Smoking, Political talks
+  greenFlags      String[] // e.g., Active listener, Empathetic
+  communicationPassport String? // JSONB: { responseTime, formatPreference, depth, availability }
   emotionalFit    String? // "Only people who can emotionally fit..."
   pleaseDont      String? // "Please don't with me..."
   careAbout       String? // "What I care about..."
   protectiveAbout String? // "One thing I'm protective about..."
   distanceMakers  String? // "The distance makers..."
+
+  // -- Current Status --
+  currentVibe     String?   @map("current_vibe") @db.VarChar(60)
 
   // -- Favorites & Interests --
   topMovies         String[]
@@ -1492,7 +1501,7 @@ model BlockedUser {
 model Message {
   id              String           @id @default(cuid())
   conversationId  String
-  senderId        String
+  senderId        String           // Kept for RLS routing; client should trust sealedSender
   content         String
   type            String           @default("text") // text, image, video, audio
   mediaUrl        String?
@@ -1508,15 +1517,22 @@ model Message {
   readAt          DateTime?
   isSaved         Boolean          @default(false) // Protected from retention-based deletion
   isEdited        Boolean          @default(false)
-  isPasswordProtected Boolean      @default(false) // New field
+  isPasswordProtected Boolean      @default(false)
   isDeleted       Boolean          @default(false)
   deletedMessages DeletedMessage[]
   createdAt       DateTime         @default(now())
+
+  // --- Sealed Sender (Fix 5) ---
+  sealedSender      String?        // nacl.box encrypted sender_id JSON blob (Base64)
+  sealedSenderNonce String?        // nonce for sealed sender decryption (Base64)
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender       User         @relation("MessagesSent", fields: [senderId], references: [id], onDelete: Cascade)
   tags         String[]     @default([])
   messageTags  MessageTag[]
+
+  // Per-device ciphertexts (Fix 6)
+  deviceMessages MessageByDevice[]
 
   // Shared Post
   sharedPostId String?
@@ -2712,6 +2728,7 @@ model AudioAsset {
   usages          AudioUsage[]
   reports         AudioReport[]
   fingerprints    AudioFingerprint[]
+  savedBy         SavedAudio[]
 
   @@index([originalCreatorId])
   @@index([usageCount])
@@ -2795,4 +2812,48 @@ model AudioReport {
   @@index([reporterId])
   @@index([status])
   @@index([createdAt])
+}
+
+model SavedAudio {
+  id           String   @id @default(cuid())
+  userId       String
+  audioAssetId String
+  createdAt    DateTime @default(now())
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  audioAsset AudioAsset @relation(fields: [audioAssetId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, audioAssetId])
+  @@index([userId])
+  @@index([audioAssetId])
+}
+
+// --- Per-Device Key Pairs (Fix 6) ---
+
+model UserDevice {
+  id         String   @id @default(cuid())
+  userId     String
+  deviceId   String   @unique    // Unique device identifier
+  publicKey  String              // Base64 Curve25519 public key for this device
+  deviceName String?             // Human-readable device name
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model MessageByDevice {
+  id         String   @id @default(cuid())
+  messageId  String
+  deviceId   String              // Target device ID
+  ciphertext String              // nacl.box ciphertext for this device (Base64)
+  nonce      String              // nacl.box nonce (Base64)
+  createdAt  DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@index([deviceId])
 }

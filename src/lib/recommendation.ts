@@ -157,17 +157,11 @@ export async function logRecoFeedback(
  * Calculate content trust score based on user historical metrics
  */
 export function calculateUserTrustScore(cappedCount: number, totalImpressions: number): number {
-    // If a user has barely any impressions, default trust
     if (totalImpressions < 100) return 0.5;
-
     const cappedRatio = cappedCount / totalImpressions;
-
-    // Thresholds: if capped ratio exceeds 5%, trust drops significantly
     if (cappedRatio > 0.05) {
         return Math.max(0.1, 1.0 - (cappedRatio * 10));
     }
-
-    // Otherwise, high trust
     return Math.min(1.0, 0.5 + (0.05 - cappedRatio) * 10);
 }
 
@@ -185,7 +179,6 @@ export function calculateTagOverlap(tags1: string[], tags2: string[]): number {
         if (set2.has(tag)) overlap++;
     }
 
-    // Jaccard similarity
     const union = new Set([...set1, ...set2]).size;
     return union > 0 ? overlap / union : 0;
 }
@@ -195,7 +188,6 @@ export function calculateTagOverlap(tags1: string[], tags2: string[]): number {
  */
 export function hasHardNoConflict(contentTags: string[], hardNos: string[]): boolean {
     if (hardNos.length === 0) return false;
-
     const contentSet = new Set(contentTags.map(t => t.toLowerCase()));
     for (const no of hardNos) {
         if (contentSet.has(no.toLowerCase())) return true;
@@ -207,24 +199,21 @@ export function hasHardNoConflict(contentTags: string[], hardNos: string[]): boo
  * Calculate post specific engagement rate
  */
 export function calculatePostEngagementScore(likes: number, comments: number, views: number): number {
-    if (views === 0) return 0.5; // New posts get a baseline
-
+    if (views === 0) return 0.5;
     const engagementRatio = (likes * 1.5 + comments * 2.0) / views;
-    return Math.min(1.0, engagementRatio * 5); // Scale up small ratios
+    return Math.min(1.0, engagementRatio * 5);
 }
 
 /**
- * Deterministic PRNG for generating user-session specific randomness
- * ensuring no two users have the exact same feed even with identical interests.
+ * Deterministic PRNG for user-session specific randomness
  */
 export function getDeterministicRandom(userId: string, postId: string, timeHash: string): number {
     const hash = crypto.createHash('sha256').update(`${userId}-${postId}-${timeHash}`).digest('hex');
-    // Convert first 8 chars of hex to a number between 0 and 1
     return parseInt(hash.substring(0, 8), 16) / 0xffffffff;
 }
 
 /**
- * Core Mathematical Distribution Engine
+ * Core Mathematical Distribution Engine (V1 - Legacy)
  */
 export async function calculateDistributionScore(
     userId: string,
@@ -232,42 +221,29 @@ export async function calculateDistributionScore(
     contentSlashes: string[],
     slashPrefs: Record<string, number>,
     userTagsForOverlap: string[],
-    timeHash: string, // Used to rotate the random injections per session/hour
+    timeHash: string,
     explorationMultiplier: number = 1.0
 ): Promise<number> {
 
-    // 1. Base Interest Alignment (Ledger)
     let interestScore = 0;
     for (const slash of contentSlashes) {
         interestScore += (slashPrefs[slash] || 0);
     }
 
-    // Tag overlap bonus
     const overlapScore = calculateTagOverlap(userTagsForOverlap, contentSlashes);
     interestScore += overlapScore * 5;
 
-    // 2. Creator Trust Score (from historical capped ratio)
-    const trustMultiplier = post.creatorTrustScore; // 0.1 to 1.0
-
-    // 3. Post Engagement Context
+    const trustMultiplier = post.creatorTrustScore;
     const engagementScore = calculatePostEngagementScore(post.likes, post.comments, post.viewCount);
 
-    // 4. Freshness (Time Decay)
     const ageInHours = (Date.now() - post.createdAt.getTime()) / (1000 * 60 * 60);
-    const timeDecay = Math.max(0.1, 1.0 / (1.0 + ageInHours * 0.1)); // Slow decay
+    const timeDecay = Math.max(0.1, 1.0 / (1.0 + ageInHours * 0.1));
 
-    // 5. Uniqueness & Exploration Factor
-    // Ensure uniqueness by adding a user-post-time specific deterministic random value
     const uniqueNoise = getDeterministicRandom(userId, post.id, timeHash) * 2.0;
-
-    const explorationBoost = uniqueNoise * explorationMultiplier * (1.0 - trustMultiplier * 0.5); // Boost new/untrusted slightly to test them
-
-    // Final Distribution Calculation
-    // (Interest + Engagement) * Trust * Freshness + Exploration
+    const explorationBoost = uniqueNoise * explorationMultiplier * (1.0 - trustMultiplier * 0.5);
 
     const finalScore = ((interestScore * 0.6) + (engagementScore * 10 * 0.4)) * trustMultiplier * timeDecay + explorationBoost;
 
-    // Social boost: check if friends liked this (simplified)
     if (post.userId && post.userId !== userId) {
         const friendship = await prisma.friendship.findFirst({
             where: {
@@ -278,7 +254,7 @@ export async function calculateDistributionScore(
             }
         });
         if (friendship) {
-            return finalScore + 5; // Friend content strong boost
+            return finalScore + 5;
         }
     }
 
@@ -286,14 +262,13 @@ export async function calculateDistributionScore(
 }
 
 /**
- * Get recommended content for user's feed
+ * Get recommended content for user's feed (V1 - Legacy)
  */
 export async function getRecommendedPosts(
     userId: string,
     limit: number = 20,
     offset: number = 0
 ): Promise<string[]> {
-    // Get user's top slashes
     const topSlashes = await prisma.slashInteraction.findMany({
         where: { userId, score: { gt: 0 } },
         orderBy: { score: 'desc' },
@@ -303,7 +278,6 @@ export async function getRecommendedPosts(
 
     const slashTags = topSlashes.map((s: { slashTag: string }) => s.slashTag);
 
-    // Get candidate posts
     const candidates = await prisma.post.findMany({
         where: {
             OR: [
@@ -323,8 +297,6 @@ export async function getRecommendedPosts(
     });
 
     const profileTags = await extractProfileTags(userId);
-
-    // Build user tags for overlap
     const userTags = [
         ...profileTags.values,
         ...profileTags.skills,
@@ -333,16 +305,12 @@ export async function getRecommendedPosts(
         ...profileTags.currentlyInto,
     ];
 
-    const timeHash = Math.floor(Date.now() / (1000 * 60 * 60)).toString(); // Rotate uniqueness every hour
-
+    const timeHash = Math.floor(Date.now() / (1000 * 60 * 60)).toString();
     const slashPrefs = await getUserSlashPreferences(userId);
 
-    // Score each candidate
     const scored: { id: string; score: number }[] = [];
     for (const post of candidates as any[]) {
         const postSlashes = post.slashes.map((s: { tag: string }) => s.tag);
-
-        // Ensure properties exist for distribution score model
         const distributionInput = {
             id: post.id,
             userId: post.userId,
@@ -354,18 +322,11 @@ export async function getRecommendedPosts(
         };
 
         const score = await calculateDistributionScore(
-            userId,
-            distributionInput,
-            postSlashes,
-            slashPrefs,
-            userTags,
-            timeHash,
-            1.0 // Default exploration for standard reco
+            userId, distributionInput, postSlashes, slashPrefs, userTags, timeHash, 1.0
         );
         scored.push({ id: post.id, score });
     }
 
-    // Sort by score and return IDs
     scored.sort((a, b) => b.score - a.score);
     return scored.slice(offset, offset + limit).map(s => s.id);
 }
@@ -377,7 +338,6 @@ export async function getRecommendedUsers(
     userId: string,
     limit: number = 10
 ): Promise<string[]> {
-    // Get current user's profile tags
     const profileTags = await extractProfileTags(userId);
     const allTags = [
         ...profileTags.values,
@@ -386,7 +346,6 @@ export async function getRecommendedUsers(
         ...profileTags.currentlyInto,
     ];
 
-    // Get user's friends to exclude
     const friendships = await prisma.friendship.findMany({
         where: {
             OR: [{ userId }, { friendId: userId }],
@@ -397,7 +356,6 @@ export async function getRecommendedUsers(
     const friendIds = new Set(friendships.flatMap((f: { userId: string; friendId: string }) => [f.userId, f.friendId]));
     friendIds.add(userId);
 
-    // Find users with matching tags
     const candidates = await prisma.profile.findMany({
         where: {
             userId: { notIn: Array.from(friendIds) },
@@ -419,7 +377,6 @@ export async function getRecommendedUsers(
         }
     });
 
-    // Score each candidate
     const scored: { userId: string; score: number }[] = [];
     for (const candidate of candidates) {
         const candidateTags = [
@@ -432,7 +389,6 @@ export async function getRecommendedUsers(
         scored.push({ userId: candidate.userId, score: overlap });
     }
 
-    // Sort and return
     scored.sort((a, b) => b.score - a.score);
     return scored.slice(0, limit).map(s => s.userId);
 }
@@ -444,7 +400,6 @@ export async function getRecommendedProducts(
     userId: string,
     limit: number = 10
 ): Promise<string[]> {
-    // Get user's shopping interests and current interests
     const profile = await prisma.profile.findUnique({
         where: { userId },
         select: { shoppingInterests: true, currentlyInto: true }
@@ -455,7 +410,6 @@ export async function getRecommendedProducts(
         ...(profile?.currentlyInto || []),
     ];
 
-    // Get products - simplified query to avoid type issues
     const products = await prisma.product.findMany({
         where: { status: 'ACTIVE' },
         take: limit * 3,
@@ -463,11 +417,9 @@ export async function getRecommendedProducts(
     });
 
     if (interests.length === 0) {
-        // No interests = return first N products
         return products.slice(0, limit).map((p) => p.id);
     }
 
-    // Score by tag overlap
     type ScoredProduct = { id: string; score: number };
     const scored: ScoredProduct[] = products.map((p) => {
         const productTags: string[] = Array.isArray(p.tags) ? p.tags : [];
@@ -481,3 +433,273 @@ export async function getRecommendedProducts(
     return scored.slice(0, limit).map((s) => s.id);
 }
 
+
+// ============================================================
+// V2 DETERMINISTIC RECOMMENDATION ENGINE
+// Collaborative Filtering + Anti-Fatigue + Discovery Injection
+// ============================================================
+
+import { supabaseAdmin } from '@/lib/supabase-admin';
+import type {
+    CollaborativeCandidate,
+    ScoredCandidate,
+    FeedAction,
+} from '@/lib/feed-types';
+
+/** Log a FeedInteraction row for the new engine */
+export async function logFeedInteraction(
+    userId: string,
+    postId: string,
+    authorId: string,
+    action: FeedAction,
+    weightScore: number,
+    watchDurationMs?: number
+): Promise<void> {
+    const { error } = await supabaseAdmin
+        .from('FeedInteraction')
+        .upsert(
+            {
+                userId,
+                postId,
+                authorId,
+                action,
+                weightScore,
+                watchDurationMs: watchDurationMs ?? null,
+                createdAt: new Date().toISOString(),
+            },
+            { onConflict: 'userId,postId,action' }
+        );
+
+    if (error) {
+        console.error('[RecoV2] Failed to log FeedInteraction:', error);
+    }
+}
+
+/**
+ * Call the Supabase RPC for collaborative candidates.
+ * Two-hop behavioral match: user's positives -> lookalike users -> their unseen favorites
+ */
+export async function getCollaborativeCandidates(
+    userId: string
+): Promise<ScoredCandidate[]> {
+    const { data, error } = await supabaseAdmin.rpc(
+        'get_collaborative_candidates',
+        { target_user_id: userId }
+    );
+
+    if (error) {
+        console.error('[RecoV2] Collaborative RPC error:', error);
+        return [];
+    }
+
+    if (!data || !Array.isArray(data)) return [];
+
+    return (data as CollaborativeCandidate[]).map((row) => ({
+        postId: row.post_id,
+        authorId: row.post_author_id,
+        postType: row.post_type,
+        content: row.post_content,
+        createdAt: new Date(row.post_created_at),
+        viewCount: row.post_view_count,
+        authorName: row.author_name,
+        authorAvatar: row.author_avatar,
+        authorTrust: row.author_trust,
+        slashTags: row.slash_tags || [],
+        totalEngagement: row.total_engagement,
+        source: 'collaborative' as const,
+        gravityScore: 0,
+        finalScore: 0,
+    }));
+}
+
+/**
+ * Fetch "Global High-Velocity" posts -- gaining the fastest
+ * engagement globally in the last 3 hours, unrelated to user history.
+ */
+export async function getGlobalHighVelocityPosts(
+    userId: string,
+    limit: number = 20
+): Promise<ScoredCandidate[]> {
+    const { data, error } = await supabaseAdmin
+        .from('FeedInteraction')
+        .select('postId')
+        .gt('weightScore', 0)
+        .gte('createdAt', new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString());
+
+    if (error || !data) {
+        console.error('[RecoV2] High-velocity query error:', error);
+        return [];
+    }
+
+    // Count engagement per postId
+    const engagementMap = new Map<string, number>();
+    for (const row of data) {
+        engagementMap.set(row.postId, (engagementMap.get(row.postId) || 0) + 1);
+    }
+
+    // Sort by engagement count descending and take top N
+    const topPostIds = [...engagementMap.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, limit)
+        .map(([postId]) => postId);
+
+    if (topPostIds.length === 0) return [];
+
+    // Fetch post details via Prisma
+    const posts = await prisma.post.findMany({
+        where: {
+            id: { in: topPostIds },
+            status: 'PUBLISHED',
+            visibility: 'PUBLIC',
+            moderationStatus: 'CLEAN',
+            userId: { not: userId },
+        },
+        include: {
+            user: {
+                select: {
+                    id: true,
+                    name: true,
+                    trustScore: true,
+                    profile: { select: { displayName: true, avatarUrl: true } },
+                },
+            },
+            slashes: { select: { tag: true } },
+        },
+    });
+
+    return posts.map((p) => ({
+        postId: p.id,
+        authorId: p.userId,
+        postType: p.postType,
+        content: p.content,
+        createdAt: p.createdAt,
+        viewCount: p.viewCount,
+        authorName: p.user?.profile?.displayName || p.user?.name || '',
+        authorAvatar: p.user?.profile?.avatarUrl || '',
+        authorTrust: p.user?.trustScore ?? 0.5,
+        slashTags: p.slashes.map((s) => s.tag),
+        totalEngagement: engagementMap.get(p.id) || 0,
+        source: 'global_velocity' as const,
+        gravityScore: 0,
+        finalScore: 0,
+    }));
+}
+
+/**
+ * Gravity Math: Score = TotalEngagement / (AgeInHours + 2)^1.5
+ */
+function applyGravityScore(candidate: ScoredCandidate): number {
+    const ageMs = Date.now() - candidate.createdAt.getTime();
+    const ageInHours = Math.max(0, ageMs / (1000 * 60 * 60));
+    const gravity = Math.pow(ageInHours + 2, 1.5);
+    return candidate.totalEngagement / gravity;
+}
+
+/**
+ * Build the final Home Feed with:
+ *  1. Collaborative Candidates (Supabase RPC)
+ *  2. Global High-Velocity posts
+ *  3. Gravity scoring + 1.5x collaborative boost
+ *  4. Author fatigue (max 2 per author, then 0.2x)
+ *  5. Slash fatigue (3 in last 10 slots = 0.5x)
+ *  6. Discovery injection (1 global post every 6th slot)
+ */
+export async function buildHomeFeed(
+    userId: string,
+    limit: number = 20
+): Promise<{ posts: ScoredCandidate[]; meta: { collaborativeCount: number; globalVelocityCount: number; totalCandidatesScored: number } }> {
+
+    // 1. Fetch both pools in parallel
+    const [collaborativeCandidates, globalVelocityCandidates] = await Promise.all([
+        getCollaborativeCandidates(userId),
+        getGlobalHighVelocityPosts(userId, 20),
+    ]);
+
+    // 2. Merge and deduplicate by postId
+    const seenIds = new Set<string>();
+    const merged: ScoredCandidate[] = [];
+
+    for (const c of collaborativeCandidates) {
+        if (!seenIds.has(c.postId)) { seenIds.add(c.postId); merged.push(c); }
+    }
+    for (const g of globalVelocityCandidates) {
+        if (!seenIds.has(g.postId)) { seenIds.add(g.postId); merged.push(g); }
+    }
+
+    // 3. Apply Gravity Scoring + Personalization Boost
+    for (const candidate of merged) {
+        candidate.gravityScore = applyGravityScore(candidate);
+        let boosted = candidate.gravityScore;
+        if (candidate.source === 'collaborative') {
+            boosted *= 1.5;
+        }
+        candidate.finalScore = boosted;
+    }
+
+    // 4. Sort all candidates descending by finalScore
+    merged.sort((a, b) => b.finalScore - a.finalScore);
+
+    // 5. Separate pools for injection
+    const globalPool = merged.filter((c) => c.source === 'global_velocity');
+    const scoredPool = merged.filter((c) => c.source === 'collaborative');
+
+    // 6. Anti-Fatigue Assembly
+    const finalFeed: ScoredCandidate[] = [];
+    const authorCounts = new Map<string, number>();
+    let globalInjectIdx = 0;
+
+    const getRecentSlashFreq = (tag: string, lastN: number): number => {
+        const window = finalFeed.slice(-lastN);
+        let count = 0;
+        for (const item of window) {
+            if (item.slashTags.includes(tag)) count++;
+        }
+        return count;
+    };
+
+    for (const candidate of scoredPool) {
+        if (finalFeed.length >= limit) break;
+
+        // Author Fatigue: max 2 posts per author
+        const authorCount = authorCounts.get(candidate.authorId) || 0;
+        if (authorCount >= 2) {
+            candidate.finalScore *= 0.2;
+        }
+
+        // Slash Fatigue
+        let slashPenalty = 1.0;
+        for (const tag of candidate.slashTags) {
+            if (getRecentSlashFreq(tag, 10) >= 3) {
+                slashPenalty = Math.min(slashPenalty, 0.5);
+            }
+        }
+        candidate.finalScore *= slashPenalty;
+
+        // Discovery Injector: every 6th slot
+        if ((finalFeed.length + 1) % 6 === 0 && globalInjectIdx < globalPool.length) {
+            const injected = globalPool[globalInjectIdx];
+            finalFeed.push(injected);
+            authorCounts.set(injected.authorId, (authorCounts.get(injected.authorId) || 0) + 1);
+            globalInjectIdx++;
+            if (finalFeed.length >= limit) break;
+        }
+
+        finalFeed.push(candidate);
+        authorCounts.set(candidate.authorId, authorCount + 1);
+    }
+
+    // Fill remaining slots with global velocity
+    while (finalFeed.length < limit && globalInjectIdx < globalPool.length) {
+        finalFeed.push(globalPool[globalInjectIdx]);
+        globalInjectIdx++;
+    }
+
+    return {
+        posts: finalFeed,
+        meta: {
+            collaborativeCount: collaborativeCandidates.length,
+            globalVelocityCount: globalVelocityCandidates.length,
+            totalCandidatesScored: merged.length,
+        },
+    };
+}

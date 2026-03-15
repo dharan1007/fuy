@@ -1,11 +1,8 @@
-// upload-helper.ts - Upload via Supabase Storage (primary) with R2 presigned URL fallback
+// upload-helper.ts - Upload via Cloudflare R2 (Primary Storage)
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as FileSystem from 'expo-file-system/legacy';
-import { decode } from 'base64-arraybuffer';
 import { supabase } from './supabase';
 import { getApiUrl } from './api';
-
-const SUPABASE_BUCKET = 'media'; // Change to your actual bucket name if different
 
 // Compress image to reduce upload size
 async function compressImage(uri: string): Promise<string> {
@@ -23,49 +20,7 @@ async function compressImage(uri: string): Promise<string> {
 }
 
 /**
- * Upload a file directly to Supabase Storage.
- * This is the primary upload path — no Vercel, no rate limits.
- */
-async function uploadToSupabase(
-    uri: string,
-    filename: string,
-    contentType: string
-): Promise<{ url: string; path: string }> {
-    // Read the file as a base64 string
-    const base64 = await FileSystem.readAsStringAsync(uri, {
-        encoding: FileSystem.EncodingType.Base64,
-    });
-
-    // Directly use ArrayBuffer via base64-arraybuffer decode (Avoids Blob entirely)
-    const arrayBuffer = decode(base64);
-
-    const storagePath = `uploads/${filename}`;
-
-    const { data, error } = await supabase.storage
-        .from(SUPABASE_BUCKET)
-        .upload(storagePath, arrayBuffer, {
-            contentType,
-            upsert: false,
-        });
-
-    if (error) {
-        throw new Error(`Supabase upload failed: ${error.message}`);
-    }
-
-    // Get public URL
-    const { data: urlData } = supabase.storage
-        .from(SUPABASE_BUCKET)
-        .getPublicUrl(storagePath);
-
-    return {
-        url: urlData.publicUrl,
-        path: storagePath,
-    };
-}
-
-/**
- * Fallback: upload via Vercel presigned URL to Cloudflare R2.
- * Used only if Supabase upload fails.
+ * Upload via Vercel presigned URL to Cloudflare R2.
  */
 async function uploadViaPresigned(
     uri: string,
@@ -130,9 +85,7 @@ async function uploadViaPresigned(
 }
 
 /**
- * Main export: Upload a file to storage.
- * Primary path: Supabase Storage (no rate limits, no external API).
- * Fallback path: Vercel presigned URL -> Cloudflare R2.
+ * Main export: Upload a file to Cloudflare R2 Storage.
  */
 export async function uploadMedia(
     fileUri: string,
@@ -160,30 +113,14 @@ export async function uploadMedia(
         mp4: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm',
         mp3: 'audio/mpeg', wav: 'audio/wav', m4a: 'audio/mp4',
         pdf: 'application/pdf', txt: 'text/plain', zip: 'application/zip',
-        enc: 'image/jpeg', // Fake the mime type as JPEG so Supabase accepts it (it's encrypted binary anyway)
+        enc: 'image/jpeg', 
     };
     const contentType = contentTypeMap[ext] || 'image/jpeg';
 
-    // --- Primary: Supabase Storage ---
-    try {
-        console.log('[upload-helper] Attempting Supabase Storage upload...');
-        const result = await uploadToSupabase(processedUri, filename, contentType);
-        console.log('[upload-helper] Supabase upload success:', result.url);
-        return result;
-    } catch (supabaseError: any) {
-        console.warn('[upload-helper] Supabase upload failed, trying R2 fallback:', supabaseError.message);
-    }
-
-    // --- Fallback: Vercel presigned -> R2 ---
-    try {
-        console.log('[upload-helper] Attempting R2 presigned upload fallback...');
-        const result = await uploadViaPresigned(processedUri, filename, contentType, type);
-        console.log('[upload-helper] R2 upload success:', result.url);
-        return result;
-    } catch (r2Error: any) {
-        console.error('[upload-helper] Both upload paths failed. R2 error:', r2Error.message);
-        throw r2Error;
-    }
+    console.log('[upload-helper] Attempting R2 presigned upload...');
+    const result = await uploadViaPresigned(processedUri, filename, contentType, type);
+    console.log('[upload-helper] R2 upload success:', result.url);
+    return result;
 }
 
 // Export alias for backwards compatibility

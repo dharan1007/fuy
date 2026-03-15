@@ -46,11 +46,11 @@ export default function PrivacyScreen() {
 
                     <Text style={{ color: colors.text, fontSize: 18, fontWeight: 'bold', marginTop: 16, marginBottom: 12 }}>4. Data Security & Your Rights</Text>
                     <Text style={{ color: colors.text, lineHeight: 24, fontSize: 14, marginBottom: 12 }}>
-                        We implement TLS/SSL encryption and secure password hashing to protect your information. You can access, review, and update your personal information anytime. You may also request deletion of your account and personal data by contacting us at fuymedia@gmail.com.
+                        We implement TLS/SSL encryption and secure password hashing to protect your information. You can access, review, and update your personal information anytime. You may also request deletion of your account and personal data by contacting us at fuy.aphelion@gmail.com.
                     </Text>
 
                     <Text style={{ color: colors.text, lineHeight: 24, fontSize: 14, marginTop: 20, marginBottom: 100, textAlign: 'center', opacity: 0.5 }}>
-                        Last Updated: November 15, 2025
+                        Last Updated: March 10, 2026
                     </Text>
                 </ScrollView>
             </SafeAreaView>

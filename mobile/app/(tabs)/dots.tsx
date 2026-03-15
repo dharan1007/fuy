@@ -24,6 +24,8 @@ import FillsTab from '../../components/FillsTab';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS } from 'react-native-reanimated';
 import { FeedCacheService } from '../../services/FeedCacheService';
+import AudioIndicator, { AudioInfo } from '../../components/AudioIndicator';
+import SmallAudioCard from '../../components/SmallAudioCard';
 
 // Session-level flag for invite toast on dots page
 let inviteToastShownThisSessionDots = false;
@@ -66,6 +68,7 @@ interface DotData {
     userReaction: string | null;
     topBubbles: any[];
     postMedia?: { url: string; type: string; variant?: string }[];
+    audioInfo?: AudioInfo | null;
 }
 
 const formatNumber = (num: number) => {
@@ -106,6 +109,7 @@ const getImageResizeMode = (item: DotData): 'contain' | 'cover' => {
 const DotItem = ({ item, isActive, autoScroll, onVideoEnd, onToggleAutoScroll, onSubscribe, onMenuPress, onCommentPress, onSharePress, isScreenFocused }: DotItemProps) => {
     const { colors } = useTheme();
     const { session } = useAuth();
+    const router = useRouter();
     const [reactionCounts, setReactionCounts] = useState(item.reactionCounts);
     const [userReaction, setUserReaction] = useState(item.userReaction);
     const [isSubscribed, setIsSubscribed] = useState(item.isSubscribed);
@@ -425,19 +429,29 @@ const DotItem = ({ item, isActive, autoScroll, onVideoEnd, onToggleAutoScroll, o
                             )}
                             <Text style={{ color: 'white', fontWeight: '700', fontSize: 9, marginTop: 2 }}>{formatNumber(reactionCounts.CAP)}</Text>
                         </TouchableOpacity>
+
+                        {/* Audio Card below CAP button */}
+                        {item.audioInfo && (
+                            <SmallAudioCard 
+                                audioInfo={item.audioInfo} 
+                                containerStyle={{ width: 44, height: 44, padding: 4, marginTop: 4 }} 
+                            />
+                        )}
                     </View>
 
                     {/* Bottom Content: User Info & Captions & Reactions */}
                     <View style={{ paddingHorizontal: 12, marginBottom: 8, paddingRight: 60 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                            {item.avatar ? (
-                                <Image source={{ uri: item.avatar }} style={{ width: 32, height: 32, borderRadius: 16, borderWidth: 1, borderColor: '#fff' }} />
-                            ) : (
-                                <View style={{ width: 32, height: 32, borderRadius: 16, borderWidth: 1, borderColor: '#fff', backgroundColor: '#333', alignItems: 'center', justifyContent: 'center' }}>
-                                    <Text style={{ color: '#fff', fontSize: 14, fontWeight: 'bold' }}>{item.username?.charAt(0)?.toUpperCase() || '?'}</Text>
-                                </View>
-                            )}
-                            <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 14, marginLeft: 8, textShadowColor: 'black', textShadowRadius: 2 }}>{item.username}</Text>
+                            <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => router.push(`/profile/${item.userId}`)}>
+                                {item.avatar ? (
+                                    <Image source={{ uri: item.avatar }} style={{ width: 32, height: 32, borderRadius: 16, borderWidth: 1, borderColor: '#fff' }} />
+                                ) : (
+                                    <View style={{ width: 32, height: 32, borderRadius: 16, borderWidth: 1, borderColor: '#fff', backgroundColor: '#333', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Text style={{ color: '#fff', fontSize: 14, fontWeight: 'bold' }}>{item.username?.charAt(0)?.toUpperCase() || '?'}</Text>
+                                    </View>
+                                )}
+                                <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 14, marginLeft: 8, textShadowColor: 'black', textShadowRadius: 2 }}>{item.username}</Text>
+                            </TouchableOpacity>
 
                             {!isSubscribed && (
                                 <TouchableOpacity
@@ -452,6 +466,11 @@ const DotItem = ({ item, isActive, autoScroll, onVideoEnd, onToggleAutoScroll, o
                         <Text style={{ color: '#fff', fontSize: 12, marginBottom: 8, lineHeight: 16, textShadowColor: 'black', textShadowRadius: 1 }} numberOfLines={3}>
                             {item.description}
                         </Text>
+
+                        {/* Audio Indicator */}
+                        {item.audioInfo && (
+                            <AudioIndicator audioInfo={item.audioInfo} />
+                        )}
 
                         {/* Horizontal Reaction Row (W, L, CAP, Bubbles) - Scale 70% */}
                         {/* NOW BOTTOM ACTIONS: Message, Save, Share, More - Scale 70% */}
@@ -496,6 +515,7 @@ interface FillsPlayerProps {
 const FillsPlayer = ({ dots, activeIndex, setActiveIndex, isScreenFocused, onBack }: FillsPlayerProps) => {
     const { colors, mode } = useTheme();
     const { session } = useAuth();
+    const router = useRouter();
     const flatListRef = useRef<FlatList>(null);
     const [isPlaying, setIsPlaying] = useState(true);
     const [isFullscreen, setIsFullscreen] = useState(false);
@@ -883,14 +903,16 @@ const FillsPlayer = ({ dots, activeIndex, setActiveIndex, isScreenFocused, onBac
                             {/* Title & User */}
                             <Text style={{ color: colors.text, fontSize: 14, fontWeight: 'bold', marginBottom: 6 }}>{currentItem.description || 'Untitled Fill'}</Text>
                             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-                                {currentItem.avatar ? (
-                                    <Image source={{ uri: currentItem.avatar }} style={{ width: 28, height: 28, borderRadius: 14 }} />
-                                ) : (
-                                    <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#333', alignItems: 'center', justifyContent: 'center' }}>
-                                        <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 12 }}>{currentItem.username?.charAt(0)?.toUpperCase() || '?'}</Text>
-                                    </View>
-                                )}
-                                <Text style={{ color: colors.text, fontWeight: '600', marginLeft: 8, fontSize: 13 }}>@{currentItem.username}</Text>
+                                <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => router.push(`/profile/${currentItem.userId}`)}>
+                                    {currentItem.avatar ? (
+                                        <Image source={{ uri: currentItem.avatar }} style={{ width: 28, height: 28, borderRadius: 14 }} />
+                                    ) : (
+                                        <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#333', alignItems: 'center', justifyContent: 'center' }}>
+                                            <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 12 }}>{currentItem.username?.charAt(0)?.toUpperCase() || '?'}</Text>
+                                        </View>
+                                    )}
+                                    <Text style={{ color: colors.text, fontWeight: '600', marginLeft: 8, fontSize: 13 }}>@{currentItem.username}</Text>
+                                </TouchableOpacity>
                             </View>
 
                             {/* Reaction Buttons */}
@@ -1109,7 +1131,9 @@ const FillsPlayer = ({ dots, activeIndex, setActiveIndex, isScreenFocused, onBac
                                                 <Text style={{ color: colors.text, fontSize: 10, fontWeight: '600' }} numberOfLines={1}>{item.description || 'Untitled'}</Text>
                                             </TouchableOpacity>
                                             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <Text style={{ color: colors.secondary, fontSize: 9 }}>@{item.username}</Text>
+                                                <TouchableOpacity onPress={() => router.push(`/profile/${item.userId}`)}>
+                                                    <Text style={{ color: colors.secondary, fontSize: 9 }}>@{item.username}</Text>
+                                                </TouchableOpacity>
                                                 <TouchableOpacity onPress={() => removeFromUpNext(item.id)} style={{ padding: 4 }} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                                                     <X size={12} color={colors.secondary} />
                                                 </TouchableOpacity>
@@ -1142,12 +1166,12 @@ export default function DotsScreen() {
     const [activeCategory, setActiveCategory] = useState('lills');
     // Bloom State
     const [bloomMode, setBloomMode] = useState<'selection' | 'feed'>('selection');
-    const [availableSlashes, setAvailableSlashes] = useState<{ tag: string, count: number }[]>([]);
+    const [availableSlashes, setAvailableSlashes] = useState<{ tag: string, count?: number }[]>([]);
     const [selectedSlashes, setSelectedSlashes] = useState<string[]>([]);
     const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
     const [selectedPosts, setSelectedPosts] = useState<any[]>([]);
     const [bloomSearchQuery, setBloomSearchQuery] = useState('');
-    const [bloomSearchResults, setBloomSearchResults] = useState<{ users: any[], posts: any[] }>({ users: [], posts: [] });
+    const [bloomSearchResults, setBloomSearchResults] = useState<{ users: any[], posts: any[], slashes: any[] }>({ users: [], posts: [], slashes: [] });
 
     // Feed/Grid State
     const [viewMode, setViewMode] = useState<'feed' | 'grid'>('feed');
@@ -1269,7 +1293,7 @@ export default function DotsScreen() {
 
     const fetchAvailableSlashes = async () => {
         try {
-            const { data } = await supabase.from('Slash').select('tag, count').order('count', { ascending: false }).limit(20);
+            const { data } = await supabase.from('Slash').select('tag').order('createdAt', { ascending: false }).limit(20);
             if (data) setAvailableSlashes(data);
         } catch (e) { console.error("Failed to load slashes", e); }
     };
@@ -1278,17 +1302,20 @@ export default function DotsScreen() {
     useEffect(() => {
         const timer = setTimeout(async () => {
             if (!bloomSearchQuery.trim()) {
-                setBloomSearchResults({ users: [], posts: [] });
+                setBloomSearchResults({ users: [], posts: [], slashes: [] });
                 return;
             }
             // Search Users
             const { data: users } = await supabase.from('Profile').select('userId, displayName, avatarUrl').ilike('displayName', `%${bloomSearchQuery}%`).limit(5);
             // Search Posts
             const { data: posts } = await supabase.from('Post').select('id, content, user:User(name, profile:Profile(displayName))').ilike('content', `%${bloomSearchQuery}%`).limit(5);
+            // Search Slashes/Topics
+            const { data: slashes } = await supabase.from('Slash').select('tag').ilike('tag', `%${bloomSearchQuery}%`).limit(5);
 
             setBloomSearchResults({
                 users: users?.map(u => ({ id: u.userId, name: u.displayName, avatar: u.avatarUrl, handle: '@' + u.displayName })) || [],
-                posts: posts?.map((p: any) => ({ id: p.id, content: p.content, author: Array.isArray(p.user) ? (p.user[0]?.profile?.displayName || p.user[0]?.name) : (p.user?.profile?.displayName || p.user?.name) })) || []
+                posts: posts?.map((p: any) => ({ id: p.id, content: p.content, author: Array.isArray(p.user) ? (p.user[0]?.profile?.displayName || p.user[0]?.name) : (p.user?.profile?.displayName || p.user?.name) })) || [],
+                slashes: slashes?.map(s => ({ id: s.tag, tag: s.tag })) || []
             });
 
         }, 500);
@@ -1338,7 +1365,13 @@ export default function DotsScreen() {
                 reactionCounts: { W: 0, L: 0, CAP: 0 },
                 userReaction: null,
                 topBubbles: [],
-                postMedia: media
+                postMedia: media,
+                audioInfo: apiPost.audioUsages?.[0]?.audioAsset ? {
+                    audioAssetId: apiPost.audioUsages[0].audioAsset.id,
+                    audioTitle: apiPost.audioUsages[0].audioAsset.title || 'Original audio',
+                    audioCreatorName: apiPost.audioUsages[0].audioAsset.originalCreator?.profile?.displayName || apiPost.audioUsages[0].audioAsset.originalCreator?.name || 'Unknown',
+                    isOriginalAudio: apiPost.audioUsages[0].audioAsset.isOriginal || false,
+                } : undefined
             };
         });
     };
@@ -1440,7 +1473,7 @@ export default function DotsScreen() {
                                 borderColor: selectedSlashes.includes(slash.tag) ? 'white' : '#333'
                             }}
                         >
-                            <Text style={{ color: selectedSlashes.includes(slash.tag) ? 'black' : '#ccc', fontWeight: '600' }}>#{slash.tag} <Text style={{ fontSize: 10 }}>({slash.count})</Text></Text>
+                            <Text style={{ color: selectedSlashes.includes(slash.tag) ? 'black' : '#ccc', fontWeight: '600' }}>#{slash.tag}</Text>
                         </TouchableOpacity>
                     ))}
                 </View>
@@ -1451,7 +1484,7 @@ export default function DotsScreen() {
                 <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#111', borderRadius: 12, paddingHorizontal: 12, borderWidth: 1, borderColor: '#333', marginBottom: 12 }}>
                     <Search size={18} color="#666" />
                     <TextInput
-                        placeholder="Search users..."
+                        placeholder="Search topics or users..."
                         placeholderTextColor="#666"
                         value={bloomSearchQuery}
                         onChangeText={setBloomSearchQuery}
@@ -1460,10 +1493,17 @@ export default function DotsScreen() {
                 </View>
 
                 {/* Results */}
-                {bloomSearchResults.users.length > 0 && (
+                {(bloomSearchResults.users.length > 0 || bloomSearchResults.slashes.length > 0) && (
                     <View style={{ gap: 8 }}>
+                        {bloomSearchResults.slashes.map(slash => (
+                            <TouchableOpacity key={`s-${slash.id}`} onPress={() => { toggleSlashSelection(slash.tag); setBloomSearchQuery(''); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1a1a1a', padding: 12, borderRadius: 8 }}>
+                                <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16, width: 32, textAlign: 'center' }}>#</Text>
+                                <Text style={{ color: 'white', marginLeft: 12, flex: 1 }}>{slash.tag}</Text>
+                                {selectedSlashes.includes(slash.tag) && <Check size={16} color="#0f0" />}
+                            </TouchableOpacity>
+                        ))}
                         {bloomSearchResults.users.map(user => (
-                            <TouchableOpacity key={user.id} onPress={() => { setSelectedUsers(prev => [...prev, user.id]); setBloomSearchQuery(''); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1a1a1a', padding: 8, borderRadius: 8 }}>
+                            <TouchableOpacity key={`u-${user.id}`} onPress={() => { setSelectedUsers(prev => [...prev, user.id]); setBloomSearchQuery(''); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1a1a1a', padding: 8, borderRadius: 8 }}>
                                 <Image source={{ uri: user.avatar }} style={{ width: 32, height: 32, borderRadius: 16 }} />
                                 <Text style={{ color: 'white', marginLeft: 12, flex: 1 }}>{user.name}</Text>
                                 {selectedUsers.includes(user.id) && <Check size={16} color="#0f0" />}
@@ -1541,7 +1581,13 @@ export default function DotsScreen() {
                     {CATEGORIES.map(cat => (
                         <TouchableOpacity
                             key={cat.id}
-                            onPress={() => setActiveCategory(cat.id)}
+                            onPress={() => {
+                                if (cat.id === 'bloom') {
+                                    router.push('/dots/bloom');
+                                } else {
+                                    setActiveCategory(cat.id);
+                                }
+                            }}
                             style={[styles.categoryTab, activeCategory === cat.id && styles.categoryTabActive]}
                         >
                             <Text style={[styles.categoryText, activeCategory === cat.id && styles.categoryTextActive]}>{cat.label}</Text>

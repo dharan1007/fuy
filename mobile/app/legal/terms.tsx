@@ -55,8 +55,13 @@ export default function TermsScreen() {
                         {"\n"}• Engaging in fraud, scams, or deceptive practices.
                     </Text>
 
+                    <Text style={{ color: colors.text, fontSize: 18, fontWeight: 'bold', marginTop: 16, marginBottom: 12 }}>SECTION 5 - CONTACT INFORMATION</Text>
+                    <Text style={{ color: colors.text, lineHeight: 24, fontSize: 14, marginBottom: 12 }}>
+                        Questions about the Terms of Service should be sent to us at fuy.aphelion@gmail.com.
+                    </Text>
+
                     <Text style={{ color: colors.text, lineHeight: 24, fontSize: 14, marginTop: 20, marginBottom: 100, textAlign: 'center', opacity: 0.5 }}>
-                        Last Updated: November 14, 2024
+                        Last Updated: March 10, 2026
                     </Text>
                 </ScrollView>
             </SafeAreaView>

@@ -436,6 +436,7 @@ export default function SimilarPostsScreen() {
 
             {toast && (
                 <CustomToast
+                    visible={true}
                     message={toast.message}
                     type={toast.type}
                     onHide={() => setToast(null)}

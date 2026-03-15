@@ -19,6 +19,7 @@ export interface ActivityRecord {
     duration: number;
     calories: number;
     avgPace: number;
+    avgSpeed?: number;
     elevationGain: number;
     startTime: string;
     endTime: string | null;

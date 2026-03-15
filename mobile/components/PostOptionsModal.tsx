@@ -61,7 +61,10 @@ export default function PostOptionsModal({ visible, onClose, post, onReport, onD
 
     if (!post) return null;
 
-    const isOwner = session?.user?.id === post.user.id;
+    const targetUserId = post.user?.id || (post as any).userId;
+    const targetUserName = post.user?.name || (post as any).username || 'User';
+
+    const isOwner = session?.user?.id === targetUserId;
 
     const handleCopyLink = async () => {
         const link = `https://fuymedia.org/post/${post.id}`;
@@ -73,7 +76,7 @@ export default function PostOptionsModal({ visible, onClose, post, onReport, onD
     const handleShare = async () => {
         try {
             await Share.share({
-                message: `Check out this post by ${post.user.name}: https://fuymedia.org/post/${post.id}`,
+                message: `Check out this post by ${targetUserName}: https://fuymedia.org/post/${post.id}`,
                 url: `https://fuymedia.org/post/${post.id}`, // iOS only
             });
         } catch (error) {
@@ -112,24 +115,24 @@ export default function PostOptionsModal({ visible, onClose, post, onReport, onD
     };
 
     const handleMute = async () => {
-        if (!session?.user?.id) return;
+        if (!session?.user?.id || !targetUserId) return;
         try {
             const { error } = await supabase
                 .from('MutedUser')
                 .insert({
                     id: Crypto.randomUUID(),
                     muterId: session.user.id,
-                    mutedUserId: post.user.id,
+                    mutedUserId: targetUserId,
                     mutedTypes: JSON.stringify(["ALL"]),
                     updatedAt: new Date().toISOString()
                 });
             if (error) throw error;
-            showToast(`Paused ${post.user.name}`, "success");
+            showToast(`Paused ${targetUserName}`, "success");
             if (onMute) onMute();
             onClose();
         } catch (e: any) {
             if (e.code === '23505') {
-                showToast(`Already paused ${post.user.name}`, "info");
+                showToast(`Already paused ${targetUserName}`, "info");
                 if (onMute) onMute();
                 onClose();
             } else {
@@ -140,25 +143,25 @@ export default function PostOptionsModal({ visible, onClose, post, onReport, onD
     };
 
     const handleRestrict = async () => {
-        if (!session?.user?.id) return;
+        if (!session?.user?.id || !targetUserId) return;
         try {
             const { error } = await supabase
                 .from('MutedUser')
                 .insert({
                     id: Crypto.randomUUID(),
                     muterId: session.user.id,
-                    mutedUserId: post.user.id,
+                    mutedUserId: targetUserId,
                     mutedTypes: JSON.stringify(["ALL"]),
                     updatedAt: new Date().toISOString()
                 });
             if (error && (error as any).code !== '23505') throw error;
-            showToast(`${post.user.name} is now ghosted`, "success");
+            showToast(`${targetUserName} is now ghosted`, "success");
             if (onMute) onMute();
             onClose();
         } catch (e: any) {
             if (e.code === '23505') {
                 // Even if already restricted (muted), show success message
-                showToast(`${post.user.name} is now ghosted`, "success");
+                showToast(`${targetUserName} is now ghosted`, "success");
                 if (onMute) onMute();
                 onClose();
             } else {
@@ -169,9 +172,9 @@ export default function PostOptionsModal({ visible, onClose, post, onReport, onD
     };
 
     const handleBlock = () => {
-        if (!session?.user?.id) return;
+        if (!session?.user?.id || !targetUserId) return;
         setConfirmTitle("Block User");
-        setConfirmMessage(`Are you sure you want to block ${post.user.name}? You won't see their posts anymore.`);
+        setConfirmMessage(`Are you sure you want to block ${targetUserName}? You won't see their posts anymore.`);
         setConfirmDestructive(true);
         setConfirmButtonText("Block");
         setConfirmAction(() => async () => {
@@ -181,16 +184,15 @@ export default function PostOptionsModal({ visible, onClose, post, onReport, onD
                     .insert({
                         id: Crypto.randomUUID(),
                         blockerId: session.user.id,
-                        blockedId: post.user.id,
-                        updatedAt: new Date().toISOString()
+                        blockedId: targetUserId
                     });
                 if (error) throw error;
-                showToast(`Blocked ${post.user.name}`, "success");
+                showToast(`Blocked ${targetUserName}`, "success");
                 if (onBlock) onBlock();
                 onClose();
             } catch (e: any) {
                 if (e.code === '23505') {
-                    showToast(`Already blocked ${post.user.name}`, "info");
+                    showToast(`Already blocked ${targetUserName}`, "info");
                     if (onBlock) onBlock();
                     onClose();
                 } else {
@@ -243,6 +245,7 @@ export default function PostOptionsModal({ visible, onClose, post, onReport, onD
                     postId: post.id,
                     reason: reportReason,
                     details: reportDetails,
+                    target: 'POST',
                     status: 'PENDING',
                     updatedAt: new Date().toISOString()
                 });

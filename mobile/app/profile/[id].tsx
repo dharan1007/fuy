@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, Dimensions, FlatList, TouchableOpacity, Image, ScrollView, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, FlatList, TouchableOpacity, ScrollView, RefreshControl } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import FeedVideoPlayer from '../../components/FeedVideoPlayer';
@@ -14,6 +15,9 @@ import { useToast } from '../../context/ToastContext';
 import ShareCardModal from '../../components/ShareCardModal';
 import InstantMediaCard from '../../components/InstantMediaCard';
 import * as Crypto from 'expo-crypto';
+
+import UserOptionsModal from '../../components/UserOptionsModal';
+import { SlashService, Slash, SlashContribution } from '../../services/SlashService';
 
 const { width } = Dimensions.get('window');
 
@@ -64,6 +68,15 @@ export default function PublicProfileScreen() {
     const [followLoading, setFollowLoading] = useState(false);
     const [showStalkMeModal, setShowStalkMeModal] = useState(false);
     const [stalkMeImages, setStalkMeImages] = useState<string[]>([]);
+    const [userOptionsVisible, setUserOptionsVisible] = useState(false);
+    const [userSlashes, setUserSlashes] = useState<Slash[]>([]);
+    const [userContributions, setUserContributions] = useState<SlashContribution[]>([]);
+
+    // Phase 2/3: New state
+    const [viewerVibe, setViewerVibe] = useState<string | null>(null);
+    const [targetVibe, setTargetVibe] = useState<string | null>(null);
+    const [vibeMatchScore, setVibeMatchScore] = useState<number | null>(null);
+    const [mutualCount, setMutualCount] = useState(0);
 
     // Viewing User ID
     const userId = Array.isArray(id) ? id[0] : id;
@@ -145,7 +158,7 @@ export default function PublicProfileScreen() {
         // Navigate to chat with this user
         // Assuming we pass user data or just ID. For now just push to chat root or specific room
         // Ideally we check for existing room or create one
-        showToast("Messaging coming soon!", "info");
+        showToast("Messaging is currently unavailable", "info");
         // router.push(`/chat/${userId}`); 
     };
 
@@ -154,7 +167,7 @@ export default function PublicProfileScreen() {
             // 1. Fetch User & Profile
             const { data: userData, error: userError } = await supabase
                 .from('User')
-                .select(`id, name, isHumanVerified, profileCode, profile:Profile(displayName, avatarUrl, bio, coverImageUrl, coverVideoUrl, location, tags, stalkMe)`)
+                .select(`id, name, isHumanVerified, profileCode, profile:Profile(displayName, avatarUrl, bio, coverImageUrl, coverVideoUrl, location, tags, stalkMe, current_vibe)`)
                 .eq('id', userId)
                 .single();
 
@@ -229,6 +242,29 @@ export default function PublicProfileScreen() {
                 posts: allPosts
             });
 
+            // Fetch slash data
+            try {
+                const [slR, coR] = await Promise.all([
+                    SlashService.getUserSlashes(userId!),
+                    SlashService.getUserContributions(userId!),
+                ]);
+                if (slR.success && slR.data) setUserSlashes(slR.data);
+                if (coR.success && coR.data) setUserContributions(coR.data);
+            } catch (se) { /* non-fatal */ }
+
+            // Phase 2/3: Fetch vibe and match score
+            setTargetVibe(profileObj?.current_vibe || null);
+            if (session?.user?.id && session.user.id !== userId) {
+                try {
+                    const [matchRes, mutualRes] = await Promise.all([
+                        supabase.rpc('get_vibe_match', { user_a_id: session.user.id, user_b_id: userId }),
+                        supabase.rpc('get_mutual_count', { user_a: session.user.id, user_b: userId }),
+                    ]);
+                    if (typeof matchRes.data === 'number' && matchRes.data > 0) setVibeMatchScore(matchRes.data);
+                    if (typeof mutualRes.data === 'number') setMutualCount(mutualRes.data);
+                } catch (ve) { console.log('Vibe match non-fatal:', ve); }
+            }
+
         } catch (e) {
             console.error('Fetch profile error:', e);
             showToast("Failed to load profile", "error");
@@ -266,7 +302,7 @@ export default function PublicProfileScreen() {
                     <Image
                         source={{ uri: profile?.coverImageUrl || 'https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=1000&auto=format&fit=crop&q=60' }}
                         style={{ width: '100%', height: '100%' }}
-                        resizeMode="cover"
+                        contentFit="cover"
                     />
                 )}
                 <LinearGradient
@@ -282,7 +318,11 @@ export default function PublicProfileScreen() {
                     </TouchableOpacity>
 
                     <View className="flex-row gap-3">
-                        <TouchableOpacity style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} className="w-10 h-10 rounded-full items-center justify-center">
+                        <TouchableOpacity
+                            onPress={() => setUserOptionsVisible(true)}
+                            style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+                            className="w-10 h-10 rounded-full items-center justify-center"
+                        >
                             <MoreHorizontal color="#fff" size={20} />
                         </TouchableOpacity>
                     </View>
@@ -337,6 +377,13 @@ export default function PublicProfileScreen() {
                                 ))}
                             </View>
                         )}
+
+                        {/* Read-only Current Vibe */}
+                        {targetVibe && (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.05)', alignSelf: 'flex-start' }}>
+                                <Text style={{ color: colors.text, fontSize: 12 }}>{String.fromCodePoint(0x25CF)} {targetVibe}</Text>
+                            </View>
+                        )}
                     </View>
                 </View>
 
@@ -363,6 +410,54 @@ export default function PublicProfileScreen() {
                         <Text style={{ color: colors.secondary }} className="text-xs uppercase tracking-wider">Posts</Text>
                     </View>
                 </BlurView>
+
+                {/* Vibe Match Score + Mutuals */}
+                {(vibeMatchScore !== null || mutualCount > 0) && (
+                    <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                        {vibeMatchScore !== null && vibeMatchScore > 0 && (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: vibeMatchScore >= 60 ? 'rgba(34,197,94,0.15)' : 'rgba(245,158,11,0.15)', borderWidth: 1, borderColor: vibeMatchScore >= 60 ? 'rgba(34,197,94,0.3)' : 'rgba(245,158,11,0.3)' }}>
+                                <Text style={{ color: vibeMatchScore >= 60 ? '#22c55e' : '#f59e0b', fontSize: 12, fontWeight: '700' }}>{vibeMatchScore}% vibe match</Text>
+                            </View>
+                        )}
+                        {mutualCount > 0 && (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+                                <Text style={{ color: colors.text, fontSize: 12, fontWeight: '700' }}>{mutualCount} mutuals</Text>
+                            </View>
+                        )}
+                    </View>
+                )}
+
+                {/* Slashes (read-only) */}
+                {userSlashes.length > 0 && (
+                    <View style={{ marginBottom: 10 }}>
+                        <Text style={{ color: '#555', fontSize: 9, fontWeight: '600', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 }}>slashes</Text>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                            {userSlashes.map(sl => (
+                                <View key={sl.id} style={{ width: 90, borderRadius: 8, backgroundColor: '#0e0e0e', borderWidth: 0.5, borderColor: '#1c1c1c', padding: 8, marginRight: 8 }}>
+                                    <Text style={{ color: '#eee', fontSize: 10, fontWeight: '700' }} numberOfLines={1}>/{sl.name}</Text>
+                                    <Text style={{ color: '#2e2e2e', fontSize: 8, marginTop: 2 }}>{sl.lillCount} lills</Text>
+                                </View>
+                            ))}
+                        </ScrollView>
+                    </View>
+                )}
+                {userContributions.length > 0 && (
+                    <View style={{ marginBottom: 10 }}>
+                        <Text style={{ color: '#555', fontSize: 9, fontWeight: '600', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6 }}>contributing to</Text>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                            {userContributions.map(c => {
+                                const slash = c.slash as any;
+                                if (!slash) return null;
+                                return (
+                                    <View key={c.id} style={{ width: 90, borderRadius: 8, backgroundColor: '#0e0e0e', borderWidth: 0.5, borderColor: '#1c1c1c', padding: 8, marginRight: 8 }}>
+                                        <Text style={{ color: '#eee', fontSize: 10, fontWeight: '700' }} numberOfLines={1}>/{slash.name}</Text>
+                                        <Text style={{ color: '#2e2e2e', fontSize: 8, marginTop: 2 }}>{slash.lillCount} lills</Text>
+                                    </View>
+                                );
+                            })}
+                        </ScrollView>
+                    </View>
+                )}
 
                 {/* Public Actions (Follow / Message) */}
                 <View className="flex-row gap-2 mb-6">
@@ -511,6 +606,20 @@ export default function PublicProfileScreen() {
                 {renderStats()}
                 {renderContent()}
             </ScrollView>
+
+            <UserOptionsModal
+                visible={userOptionsVisible}
+                onClose={() => setUserOptionsVisible(false)}
+                user={profileData ? {
+                    id: userId as string,
+                    name: profileData.name,
+                    displayName: profileData.profile.displayName
+                } : null}
+                onBlock={() => {
+                    router.back();
+                    showToast(`Blocked ${profileData?.profile.displayName || 'user'}`, "success");
+                }}
+            />
         </View>
     );
 }
@@ -552,6 +661,9 @@ const PostCard = ({ post, colors, router, width: screenWidth }: { post: any; col
             // For videos, prioritize thumbnailUrl 
             if (firstMedia.thumbnailUrl) {
                 mediaUrl = firstMedia.thumbnailUrl;
+            } else if (firstMedia.url) {
+                // Safely grab the first media URL available
+                mediaUrl = firstMedia.url;
             } else {
                 // Try to find another image in the array
                 const imageMedia = post.media.find((m: any) =>

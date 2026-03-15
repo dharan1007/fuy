@@ -23,7 +23,7 @@ type PostType = 'SIMPLE' | 'CHAPTER' | 'XRAY' | 'LILL' | 'FILL' | 'AUD' | 'CLOCK
 
 const POST_TYPES = [
     { type: 'SIMPLE', name: 'Simple', description: 'Photos, Videos or Text', Icon: ImageIcon },
-    { type: 'CHAPTER', name: 'Chapters', description: 'Multi-media collections', Icon: BookOpen },
+    // { type: 'CHAPTER', name: 'Chapters', description: 'Multi-media collections', Icon: BookOpen },
     { type: 'XRAY', name: 'Xrays', description: 'Scratch to reveal', Icon: Search },
     { type: 'LILL', name: 'Lills', description: 'Short vertical videos', Icon: Smartphone },
     // { type: 'FILL', name: 'Fills', description: 'Long horizontal videos', Icon: Video }, // V2 - hidden for now

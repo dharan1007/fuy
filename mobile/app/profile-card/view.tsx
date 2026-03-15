@@ -211,12 +211,28 @@ export default function ProfileCardView() {
         return (
             <View style={{ width: CARD_WIDTH, height: CARD_HEIGHT, marginHorizontal: 8 }}>
                 <View className="flex-1 rounded-3xl bg-black overflow-hidden border border-white/10">
-                    {/* Background Image */}
-                    {bgUrl && (
+                    {/* Background Image or Gradient Fallback */}
+                    {bgUrl ? (
                         <View className="absolute inset-0">
                             <Image source={{ uri: bgUrl }} className="w-full h-full" style={{ opacity: 0.5 }} resizeMode="cover" />
                             <LinearGradient colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.7)', 'rgba(0,0,0,0.95)']} className="absolute inset-0" locations={[0, 0.5, 1]} />
                         </View>
+                    ) : (
+                        <LinearGradient
+                            colors={(() => {
+                                const presets: [string, string][] = [
+                                    ['#1a1a2e', '#16213e'],
+                                    ['#0f0f0f', '#1a0a0a'],
+                                    ['#0a0a1a', '#0f1a0a'],
+                                    ['#1a0a1a', '#0a1a1a'],
+                                    ['#0d1117', '#161b22'],
+                                    ['#1a1a0a', '#0a1a1a'],
+                                ];
+                                const code = (profile?.displayName || 'A').charCodeAt(0) % presets.length;
+                                return presets[code];
+                            })()}
+                            className="absolute inset-0"
+                        />
                     )}
 
                     {/* Title */}
@@ -513,15 +529,32 @@ function GlassStatBadge({ label, value }: { label: string; value: string }) {
     );
 }
 
-function GlassSectionBox({ title, content, icon }: { title: string; content?: string; icon?: React.ReactNode }) {
-    if (!content) return null;
+function GlassSectionBox({ title, content, icon, placeholder }: { title: string; content?: string; icon?: React.ReactNode; placeholder?: string }) {
+    const placeholderMap: Record<string, string> = {
+        'WORK HISTORY': 'Share your career journey...',
+        'EDUCATION': 'Where did you study?',
+        'ACHIEVEMENTS': 'What are you proud of?',
+        'LIFE IS LIKE...': 'Complete this sentence...',
+        'IDEAL VIBE': 'Describe your ideal vibe...',
+        'CARE ABOUT': 'What truly matters to you?',
+        'PROTECTIVE ABOUT': 'What do you guard closely?',
+        'DISTANCE MAKERS': 'What creates distance?',
+        'EMOTIONAL FIT': 'Who fits you emotionally?',
+        'GOALS': 'What are you working towards?',
+        'LIFESTYLE': 'Describe your daily life...',
+    };
+    const hint = placeholder || placeholderMap[title] || 'Not yet shared...';
     return (
         <View className="bg-black/40 rounded-2xl p-4 border border-white/10 mb-3">
             <View className="flex-row items-center gap-2 mb-2">
                 {icon}
                 <Text className="text-white/50 text-[10px] font-black tracking-widest">{title}</Text>
             </View>
-            <Text className="text-white text-sm font-bold leading-relaxed">"{content}"</Text>
+            {content ? (
+                <Text className="text-white text-sm font-bold leading-relaxed">"{content}"</Text>
+            ) : (
+                <Text style={{ color: 'rgba(255,255,255,0.2)', fontSize: 13, fontStyle: 'italic' }}>{hint}</Text>
+            )}
         </View>
     );
 }

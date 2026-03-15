@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 
-interface FeedVideoPlayerProps {
+export interface FeedVideoPlayerProps {
     url: string;
     isActive: boolean;
     isPaused?: boolean;
@@ -12,6 +12,7 @@ interface FeedVideoPlayerProps {
     contentFit?: "contain" | "cover" | "fill";
     nativeControls?: boolean;
     isLooping?: boolean;
+    playbackRate?: number;
     onPlayToEnd?: () => void;
 }
 
@@ -25,11 +26,13 @@ export default function FeedVideoPlayer({
     contentFit = "cover",
     nativeControls = false,
     isLooping = true,
+    playbackRate = 1.0,
     onPlayToEnd
 }: FeedVideoPlayerProps) {
     const player = useVideoPlayer(url, player => {
         player.loop = isLooping;
         player.muted = isMuted;
+        player.playbackRate = playbackRate;
     });
 
     const shouldPlay = isActive && !isPaused && isScreenFocused;
@@ -49,6 +52,10 @@ export default function FeedVideoPlayer({
     useEffect(() => {
         player.loop = isLooping;
     }, [isLooping, player]);
+
+    useEffect(() => {
+        player.playbackRate = playbackRate;
+    }, [playbackRate, player]);
 
     useEffect(() => {
         if (onPlayToEnd) {

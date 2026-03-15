@@ -4,6 +4,7 @@ import { ChevronLeft, Check, X, UserPlus, Bell, Heart, MessageCircle, Users, Eye
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { supabase } from '../lib/supabase';
+import { SlashService } from '../services/SlashService';
 
 interface NotificationData {
     id: string;
@@ -22,6 +23,7 @@ interface NotificationData {
         displayName: string | null;
     };
     _actionTaken?: 'ACCEPT' | 'REJECT' | 'GHOST' | 'FOLLOWED_BACK';
+    metadata?: any;
 }
 
 export default function NotificationsScreen() {
@@ -259,6 +261,23 @@ export default function NotificationsScreen() {
         }
     };
 
+    const handleAcceptSlashRequest = async (notif: NotificationData) => {
+        // Optimistic update
+        setNotifications(prev => prev.filter(n => n.id !== notif.id));
+        const result = await SlashService.acceptRequest(notif.metadata?.requestId);
+        if (!result.success) {
+            // Revert
+            setNotifications(prev => [...prev, notif].sort((a, b) =>
+                new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            ));
+        }
+    };
+
+    const handleRejectSlashRequest = async (notif: NotificationData) => {
+        setNotifications(prev => prev.filter(n => n.id !== notif.id));
+        await SlashService.rejectRequest(notif.metadata?.requestId);
+    };
+
     const navigateToProfile = (userId: string | undefined) => {
         if (userId) {
             router.push(`/profile/${userId}` as any);
@@ -282,6 +301,13 @@ export default function NotificationsScreen() {
             case 'POST_COMMENT':
             case 'COMMENT_REPLY':
                 return <MessageCircle size={18} color="#fff" />;
+            case 'SLASH_ACCESS_REQUESTED':
+            case 'SLASH_ACCESS_APPROVED':
+            case 'SLASH_ACCESS_REJECTED':
+            case 'SLASH_LILL_REMOVED':
+            case 'SLASH_CONTRIBUTOR_REMOVED':
+            case 'SLASH_ACCESS_UNLOCKED':
+                return <Bell size={18} color="#c8383a" />;
             default:
                 return <Bell size={18} color="#fff" />;
         }
@@ -304,6 +330,13 @@ export default function NotificationsScreen() {
         // For FOLLOW type notifications
         const showFollowBack = item.type === 'FOLLOW' && !item.isFollowing && item._actionTaken !== 'FOLLOWED_BACK' && item.sender;
         const isFollowing = item.isFollowing || item._actionTaken === 'FOLLOWED_BACK';
+
+        // Slash notification types
+        const isSlashAccessRequest = item.type === 'SLASH_ACCESS_REQUESTED' && !item._actionTaken;
+        const isSlashNotification = [
+            'SLASH_ACCESS_APPROVED', 'SLASH_ACCESS_REJECTED', 'SLASH_LILL_REMOVED',
+            'SLASH_CONTRIBUTOR_REMOVED', 'SLASH_ACCESS_UNLOCKED'
+        ].includes(item.type);
 
         return (
             <View
@@ -460,6 +493,43 @@ export default function NotificationsScreen() {
                             >
                                 <Text style={{ color: '#000', fontWeight: '700', fontSize: 11 }}>FOLLOW BACK</Text>
                             </TouchableOpacity>
+                        )}
+
+                        {/* Slash Access Request: Accept/Reject */}
+                        {isSlashAccessRequest && (
+                            <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+                                <TouchableOpacity
+                                    onPress={() => handleAcceptSlashRequest(item)}
+                                    style={{
+                                        backgroundColor: '#eee',
+                                        paddingHorizontal: 14,
+                                        paddingVertical: 8,
+                                        borderRadius: 8,
+                                        flexDirection: 'row',
+                                        alignItems: 'center',
+                                        gap: 6
+                                    }}
+                                >
+                                    <Check size={14} color="#080808" />
+                                    <Text style={{ color: '#080808', fontWeight: '700', fontSize: 11 }}>ACCEPT</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    onPress={() => handleRejectSlashRequest(item)}
+                                    style={{
+                                        borderWidth: 1,
+                                        borderColor: '#c8383a',
+                                        paddingHorizontal: 14,
+                                        paddingVertical: 8,
+                                        borderRadius: 8,
+                                        flexDirection: 'row',
+                                        alignItems: 'center',
+                                        gap: 6
+                                    }}
+                                >
+                                    <X size={14} color="#c8383a" />
+                                    <Text style={{ color: '#c8383a', fontWeight: '700', fontSize: 11 }}>REJECT</Text>
+                                </TouchableOpacity>
+                            </View>
                         )}
 
                         {/* Following Badge */}

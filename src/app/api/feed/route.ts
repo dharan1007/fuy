@@ -31,6 +31,29 @@ async function feedHandler(req: NextRequest) {
             postType: { not: 'STANDARD' }
         };
 
+        if (userId) {
+            // Fetch safety exclusions (Blocked Users, Muted Users, Hidden Posts)
+            const [blockedByMe, blockedMe, mutedByMe, hiddenPosts] = await Promise.all([
+                prisma.blockedUser.findMany({ where: { blockerId: userId }, select: { blockedId: true } }),
+                prisma.blockedUser.findMany({ where: { blockedId: userId }, select: { blockerId: true } }),
+                prisma.mutedUser.findMany({ where: { muterId: userId }, select: { mutedUserId: true } }),
+                prisma.hiddenPost.findMany({ where: { userId }, select: { postId: true } })
+            ]);
+
+            const excludedUserIds = [
+                ...blockedByMe.map(b => b.blockedId),
+                ...blockedMe.map(b => b.blockerId),
+                ...mutedByMe.map(m => m.mutedUserId)
+            ];
+
+            const excludedPostIds = hiddenPosts.map(h => h.postId);
+
+            where.userId = { notIn: excludedUserIds };
+            if (excludedPostIds.length > 0) {
+                where.postId = { notIn: excludedPostIds };
+            }
+        }
+
         // --- Optimized Scope Filtering ---
         if (scope === "me" && userId) {
             where.userId = userId;
@@ -39,14 +62,28 @@ async function feedHandler(req: NextRequest) {
                 where: { subscriberId: userId },
                 select: { subscribedToId: true }
             });
-            where.userId = { in: following.map(f => f.subscribedToId) };
+            const followingIds = following.map(f => f.subscribedToId);
+            
+            // Apply existing exclusions to followingIds
+            const safeFollowingIds = where.userId?.notIn 
+                ? followingIds.filter(id => !where.userId.notIn.includes(id))
+                : followingIds;
+                
+            where.userId = { in: safeFollowingIds };
         } else if (scope === "friends" && userId) {
             const friends = await prisma.friendship.findMany({
                 where: { OR: [{ userId, status: "ACCEPTED" }, { friendId: userId, status: "ACCEPTED" }] },
                 select: { userId: true, friendId: true }
             });
             const friendIds = friends.map(f => f.userId === userId ? f.friendId : f.userId);
-            where.userId = { in: [...friendIds, userId] };
+            
+            // Apply existing exclusions to friendIds
+            const potentialIds = [...friendIds, userId];
+            const safePotentialIds = where.userId?.notIn
+                ? potentialIds.filter(id => !where.userId.notIn.includes(id))
+                : potentialIds;
+                
+            where.userId = { in: safePotentialIds };
         }
 
         // Fetch from FeedItem (Zero-Join Read)

@@ -513,8 +513,14 @@ export default function HomeClient({ isAdmin = false }: { isAdmin?: boolean }) {
                     </div>
                     {/* Divider */}
                     <div className="border-t border-white/10 mt-8 pt-8">
-                        <div className="flex flex-col md:flex-row justify-between items-center text-xs text-gray-400">
-                            <p>&copy; 2025 Dvange. All rights reserved.</p>
+                        <div className="flex flex-col md:flex-row justify-between items-center text-xs text-gray-400 gap-4">
+                            <div className="flex flex-col md:flex-row items-center gap-4 md:gap-8">
+                                <p>&copy; 2025 Dvange. All rights reserved.</p>
+                                <div className="flex gap-4">
+                                    <Link href="/privacy-policy" className="hover:text-white transition-colors">Privacy Policy</Link>
+                                    <Link href="/terms-and-conditions" className="hover:text-white transition-colors">Terms & Conditions</Link>
+                                </div>
+                            </div>
                             <p>Email: <a href="mailto:fuymedia@gmail.com" className="hover:text-white transition-colors">fuymedia@gmail.com</a></p>
                         </div>
                     </div>

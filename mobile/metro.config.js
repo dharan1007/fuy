@@ -29,6 +29,16 @@ try {
         // Continue with default config to allow build debugging
     }
 
+    // Ignore metro warnings for kotlin compilation folders
+    const extraBlockLists = [
+        /.*\/node_modules\/expo-modules-autolinking\/.*\/build\/classes\/.*/,
+        /.*\/node_modules\/expo-modules-core\/.*\/build\/classes\/.*/,
+    ];
+    config.resolver.blockList = [
+        ...(Array.isArray(config.resolver.blockList) ? config.resolver.blockList : (config.resolver.blockList ? [config.resolver.blockList] : [])),
+        ...extraBlockLists
+    ];
+
 } catch (e) {
     console.error("🔥 Critical Error loading Metro config:", e);
     // Fallback minimal config

@@ -2,7 +2,15 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
-import { generateKeyPair, wrapPrivateKey, unwrapPrivateKey, KeyPair, EncryptedPrivateKey } from '../lib/encryption';
+import { generateKeyPair } from '../lib/encryption';
+import {
+    generateMnemonic,
+    validateMnemonic,
+    wrapPrivateKey,
+    unwrapPrivateKey,
+    saveVaultToSupabase,
+    VaultBlob,
+} from '../lib/KeyVault';
 import { Alert } from 'react-native';
 
 interface EncryptionContextType {
@@ -10,8 +18,10 @@ interface EncryptionContextType {
     hasKeys: boolean;
     privateKey: string | null;
     publicKey: string | null;
-    unlockWallet: (pin: string) => Promise<boolean>;
-    setupWallet: (pin: string) => Promise<boolean>;
+    /** Setup wallet with a new BIP-39 mnemonic. Returns the mnemonic on success. */
+    setupWallet: () => Promise<string | null>;
+    /** Unlock wallet using existing mnemonic recovery phrase. */
+    unlockWallet: (mnemonic: string) => Promise<boolean>;
     lockWallet: () => void;
     isLoading: boolean;
 }
@@ -21,8 +31,8 @@ const EncryptionContext = createContext<EncryptionContextType>({
     hasKeys: false,
     privateKey: null,
     publicKey: null,
+    setupWallet: async () => null,
     unlockWallet: async () => false,
-    setupWallet: async () => false,
     lockWallet: () => { },
     isLoading: true,
 });
@@ -34,7 +44,7 @@ export const EncryptionProvider = ({ children }: { children: React.ReactNode }) 
     const [isLocked, setIsLocked] = useState(true);
     const [hasKeys, setHasKeys] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
-    const [serverEncryptedKey, setServerEncryptedKey] = useState<EncryptedPrivateKey | null>(null);
+    const [serverVault, setServerVault] = useState<VaultBlob | null>(null);
 
     // Load initial state on auth load
     useEffect(() => {
@@ -57,21 +67,21 @@ export const EncryptionProvider = ({ children }: { children: React.ReactNode }) 
             setIsLoading(true);
             // 1. Check if user has keys in Supabase Profile
             const { data, error } = await supabase
-                .from('Profile') // Assuming Profile table exists and is linked
+                .from('Profile')
                 .select('publicKey, encryptedPrivateKey')
-                .eq('userId', session?.user?.id) // or userId
+                .eq('userId', session?.user?.id)
                 .single();
 
             if (data?.publicKey && data?.encryptedPrivateKey) {
                 setHasKeys(true);
                 setPublicKey(data.publicKey);
-                // Parse the JSON field if it's stored as JSONB or text
-                const encKey = typeof data.encryptedPrivateKey === 'string'
+                // Parse the vault blob
+                const vault: VaultBlob = typeof data.encryptedPrivateKey === 'string'
                     ? JSON.parse(data.encryptedPrivateKey)
                     : data.encryptedPrivateKey;
-                setServerEncryptedKey(encKey);
+                setServerVault(vault);
 
-                // 2. Auto-unlock from SecureStore (Cached PIN/Key)
+                // 2. Auto-unlock from SecureStore (cached decrypted key)
                 const cachedKey = await SecureStore.getItemAsync('unlocked_private_key');
                 if (cachedKey) {
                     setPrivateKey(cachedKey);
@@ -87,61 +97,58 @@ export const EncryptionProvider = ({ children }: { children: React.ReactNode }) 
         }
     };
 
-    const setupWallet = async (pin: string): Promise<boolean> => {
+    /**
+     * Setup a new encryption wallet.
+     * Generates a BIP-39 mnemonic, creates a Curve25519 keypair,
+     * wraps the private key with Argon2id, and uploads to Supabase.
+     * Returns the mnemonic so the UI can display it to the user.
+     */
+    const setupWallet = async (): Promise<string | null> => {
         try {
-            if (!session?.user) return false;
+            if (!session?.user) return null;
 
-            // 1. Generate New Keys
+            // 1. Generate new mnemonic recovery phrase
+            const mnemonic = generateMnemonic();
+
+            // 2. Generate new Curve25519 key pair
             const pair = generateKeyPair();
 
-            // 2. Encrypt Private Key with PIN
-            const encrypted = wrapPrivateKey(pair.privateKey, pin);
+            // 3. Wrap private key with Argon2id-derived key
+            const vault = await wrapPrivateKey(pair.privateKey, mnemonic);
 
-            // 3. Upload to Supabase
-            // We need to store these in the Profile.
-            // Note: If columns don't exist, this will fail. User needs to run migration.
-            // We will attempt to update.
-            const { error } = await supabase
-                .from('Profile')
-                .update({
-                    publicKey: pair.publicKey,
-                    encryptedPrivateKey: encrypted // Supabase handles JSON automatically for JSONB columns, or we stringify for text
-                })
-                .eq('userId', session.user.id);
+            // 4. Upload to Supabase
+            await saveVaultToSupabase(session.user.id, vault, pair.publicKey);
 
-            if (error) {
-                console.error("Setup upload failed:", error);
-                throw error;
-            }
-
-            // 4. Save to State & SecureStore
+            // 5. Save decrypted key to SecureStore for session caching
             setPrivateKey(pair.privateKey);
             setPublicKey(pair.publicKey);
             setIsLocked(false);
             setHasKeys(true);
-
-            // Persist unlocked key session
             await SecureStore.setItemAsync('unlocked_private_key', pair.privateKey);
 
-            return true;
+            return mnemonic;
         } catch (e) {
             console.error("Setup Wallet Error", e);
-            Alert.alert("Setup Failed", "Could not save secure keys. Database might need updates.");
-            return false;
+            Alert.alert("Setup Failed", "Could not save secure keys. Please try again.");
+            return null;
         }
     };
 
-    const unlockWallet = async (pin: string): Promise<boolean> => {
-        if (!serverEncryptedKey) return false;
+    /**
+     * Unlock wallet using a BIP-39 recovery phrase.
+     */
+    const unlockWallet = async (mnemonic: string): Promise<boolean> => {
+        if (!serverVault) return false;
 
-        // Decrypt
-        const key = unwrapPrivateKey(serverEncryptedKey, pin);
+        if (!validateMnemonic(mnemonic.trim().toLowerCase())) {
+            return false;
+        }
+
+        const key = await unwrapPrivateKey(serverVault, mnemonic.trim().toLowerCase());
 
         if (key) {
             setPrivateKey(key);
             setIsLocked(false);
-
-            // Persist unlocked key session
             await SecureStore.setItemAsync('unlocked_private_key', key);
             return true;
         } else {

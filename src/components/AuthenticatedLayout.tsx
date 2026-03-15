@@ -3,6 +3,8 @@
 
 import AppHeader from "@/components/AppHeader";
 
+import Link from "next/link";
+
 export default function AuthenticatedLayout({
   children
 }: {
@@ -24,7 +26,10 @@ export default function AuthenticatedLayout({
       <footer className="mt-auto border-t bg-white dark:bg-black dark:border-white/10">
         <div className="mx-auto max-w-6xl px-4 py-6 text-sm text-neutral-600 dark:text-neutral-300 flex items-center justify-between">
           <span>© {new Date().getFullYear()} dvange</span>
-          <div className="flex gap-4" />
+          <div className="flex gap-4">
+            <Link href="/privacy-policy" className="hover:text-black dark:hover:text-white transition-colors">Privacy Policy</Link>
+            <Link href="/terms-and-conditions" className="hover:text-black dark:hover:text-white transition-colors">Terms & Conditions</Link>
+          </div>
         </div>
       </footer>
     </div>

@@ -20,6 +20,8 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { Heart, Sparkles } from 'lucide-react-native';
 import { PoopIcon, MagicCapIcon } from './ReactionIcons';
 import FeedVideoPlayer from './FeedVideoPlayer';
+import AudioIndicator from './AudioIndicator';
+import SmallAudioCard from './SmallAudioCard';
 
 // **NEW** Import the ExploreService for telemetry
 import { ExploreService } from '../services/ExploreService';
@@ -238,6 +240,13 @@ const FeedPostItem = React.memo(({
 
                 {/* Right Header Actions */}
                 <View className="flex-row items-center gap-3">
+                    {/* Audio Card centered between Name and Post Type */}
+                    {item.audioInfo && (
+                        <SmallAudioCard 
+                            audioInfo={item.audioInfo} 
+                            containerStyle={{ width: 100, paddingVertical: 4, paddingHorizontal: 8, backgroundColor: 'rgba(255,255,255,0.05)' }} 
+                        />
+                    )}
                     {item.postType && (
                         <View className="px-2 py-1 rounded-md border border-white/10 bg-white/5">
                             <Text className="text-[9px] font-bold tracking-widest uppercase" style={{ color: colors.text }}>
@@ -280,6 +289,7 @@ const FeedPostItem = React.memo(({
                         const media = item.postMedia[currentMediaIndex];
                         if (!media) return null;
 
+                        // 1. Existing Pan Gesture (Swipe left/right to change media)
                         const panGesture = Gesture.Pan()
                             .activeOffsetX([-20, 20])
                             .onEnd((e) => {
@@ -290,8 +300,28 @@ const FeedPostItem = React.memo(({
                                 }
                             });
 
+                        // 2. New Long Press Gesture (2x Speed)
+                        const [isFastForwarding, setIsFastForwarding] = useState(false);
+                        const longPressGesture = Gesture.LongPress()
+                            .minDuration(400) // 400ms hold to trigger
+                            .onStart(() => {
+                                // Only apply to video posts (Lills, Fills, or Video media)
+                                if (media.type === 'VIDEO' || item.postType === 'LILL' || item.postType === 'FILL') {
+                                    runOnJS(setIsFastForwarding)(true);
+                                }
+                            })
+                            .onEnd(() => {
+                                runOnJS(setIsFastForwarding)(false);
+                            })
+                            .onFinalize(() => {
+                                runOnJS(setIsFastForwarding)(false);
+                            });
+
+                        // Combine gestures so both can exist (simultaneous because long press shouldn't block swiping if finger moves)
+                        const combinedGestures = Gesture.Simultaneous(panGesture, longPressGesture);
+
                         return (
-                            <GestureDetector gesture={panGesture}>
+                            <GestureDetector gesture={combinedGestures}>
                                 <View style={{ width: '100%', height: '100%' }}>
                                     {/* 
                                      * OPTIMIZATION: Always render the video component so it shows the first frame.
@@ -308,7 +338,32 @@ const FeedPostItem = React.memo(({
                                                     isMuted={globalIsMuted}
                                                     isScreenFocused={isScreenFocused}
                                                     posterUrl={media.thumbnailUrl || media.url}
+                                                    playbackRate={isFastForwarding ? 2.0 : 1.0}
                                                 />
+                                                
+                                                {/* 2x Speed Indicator Overlay */}
+                                                {isFastForwarding && (
+                                                    <View style={{
+                                                        position: 'absolute',
+                                                        top: 20,
+                                                        alignSelf: 'center',
+                                                        backgroundColor: 'rgba(0,0,0,0.6)',
+                                                        paddingHorizontal: 16,
+                                                        paddingVertical: 8,
+                                                        borderRadius: 20,
+                                                        flexDirection: 'row',
+                                                        alignItems: 'center',
+                                                        zIndex: 20,
+                                                        borderWidth: 1,
+                                                        borderColor: 'rgba(255,255,255,0.2)'
+                                                    }}>
+                                                        <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 13, marginRight: 4 }}>
+                                                            2x Speed
+                                                        </Text>
+                                                        <Text style={{ color: 'white', fontSize: 13 }}>{`>>`}</Text>
+                                                    </View>
+                                                )}
+
                                                 {/* Audio Toggle Overlay */}
                                                 <TouchableOpacity
                                                     onPress={(e) => { e.stopPropagation(); setGlobalIsMuted(!globalIsMuted); }}
@@ -405,6 +460,11 @@ const FeedPostItem = React.memo(({
                         </Text>
                     </View>
                 </View>
+            )}
+
+            {/* Audio Indicator */}
+            {item.audioInfo && (
+                <AudioIndicator audioInfo={item.audioInfo} />
             )}
 
             {/* Product Pill */}

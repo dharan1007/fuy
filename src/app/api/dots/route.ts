@@ -35,8 +35,18 @@ export async function GET(request: Request) {
             ...profileTags.currentlyInto,
         ];
 
+        // Fetch safety exclusions (Blocked and Muted Users)
+        const [blockedByMe, blockedMe, mutedByMe] = await Promise.all([
+            prisma.blockedUser.findMany({ where: { blockerId: userId }, select: { blockedId: true } }),
+            prisma.blockedUser.findMany({ where: { blockedId: userId }, select: { blockerId: true } }),
+            prisma.mutedUser.findMany({ where: { muterId: userId }, select: { mutedUserId: true } })
+        ]);
+
         const excludedUserIds = [
-            userId
+            userId,
+            ...blockedByMe.map(b => b.blockedId),
+            ...blockedMe.map(b => b.blockerId),
+            ...mutedByMe.map(m => m.mutedUserId)
         ];
 
         // Define mapping for dot categories to database ENUM strings based on typical mappings
